@@ -1,28 +1,68 @@
 import type { CardRate } from '../domain/tariff/tariff';
 import { formatCentsToCurrency } from './currency';
-import { formatBasisPointsToPercent } from './percentage';
+import { formatTenthsOfBasisPointToPercent } from './percentage';
+import { formatTenthsOfCentToCurrency } from './tenthsOfCent';
 
 export function formatCardRate(rate: CardRate): string {
-  if (rate.percentageBasisPoints === 0 && rate.fixedFeeCents === 0) {
+  if (rate.percentageTenthsOfBasisPoint === 0 && rate.fixedFeeTenthsOfCent === 0) {
     return 'Kostenfrei';
   }
 
   const parts: string[] = [];
 
-  if (rate.percentageBasisPoints > 0) {
-    parts.push(formatBasisPointsToPercent(rate.percentageBasisPoints));
+  if (rate.percentageTenthsOfBasisPoint > 0) {
+    parts.push(formatTenthsOfBasisPointToPercent(rate.percentageTenthsOfBasisPoint));
   }
 
-  if (rate.fixedFeeCents > 0) {
-    parts.push(formatCentsToCurrency(rate.fixedFeeCents));
+  if (rate.fixedFeeTenthsOfCent > 0) {
+    parts.push(formatTenthsOfCentToCurrency(rate.fixedFeeTenthsOfCent));
   }
 
   return parts.length > 0 ? parts.join(' + ') : 'Kostenfrei';
 }
 
+export function formatGirocardClearing(
+  clearingIncluded: boolean,
+  clearingFeeTenthsOfCent: number,
+): string {
+  if (clearingIncluded) {
+    return 'inklusive';
+  }
+
+  if (clearingFeeTenthsOfCent === 0) {
+    return formatTenthsOfCentToCurrency(0);
+  }
+
+  return formatTenthsOfCentToCurrency(clearingFeeTenthsOfCent);
+}
+
+export function formatOptionalMonths(value: number | null): string {
+  if (value === null) {
+    return 'Keine Angabe';
+  }
+
+  return `${value} Monate`;
+}
+
+export function formatOptionalTransactions(value: number | null): string {
+  if (value === null) {
+    return 'Keine Angabe';
+  }
+
+  return String(value);
+}
+
+export function formatOptionalCents(value: number | null): string {
+  if (value === null) {
+    return 'Keine Angabe';
+  }
+
+  return formatCentsToCurrency(value);
+}
+
 export function formatValidityRange(validFrom: string | null, validUntil: string | null): string {
   if (!validFrom && !validUntil) {
-    return 'Unbegrenzt';
+    return 'Keine Angabe';
   }
 
   const formatDate = (value: string): string => {

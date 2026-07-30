@@ -8,7 +8,7 @@ export interface NavItem {
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Start', icon: 'home' },
   { to: '/leads', label: 'Leads', icon: 'leads' },
-  { to: '/leads/new', label: 'Neuer Lead', icon: 'add' },
+  { to: '/products', label: 'Produkte', icon: 'products' },
   { to: '/calculator', label: 'Rechner', icon: 'calculator' },
   { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
@@ -17,8 +17,10 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Start', icon: 'home' },
   { to: '/leads', label: 'Leads', icon: 'leads' },
   { to: '/leads/new', label: 'Neuer Lead', icon: 'add' },
+  { to: '/products', label: 'Produkte', icon: 'products' },
   { to: '/calculator', label: 'Rechner', icon: 'calculator' },
   { to: '/admin/tariffs', label: 'Tarife', icon: 'tariffs', roles: ['admin'] },
+  { to: '/admin/products', label: 'Produkte verwalten', icon: 'products', roles: ['admin'] },
   { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
 

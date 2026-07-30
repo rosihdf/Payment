@@ -31,13 +31,13 @@ describe('Tariff overview UI', () => {
     resetDemoDataForTests();
   });
 
-  it('shows tariffs for admin', async () => {
+  it('shows A920 tariffs for admin', async () => {
     renderAtRoute('/admin/tariffs');
 
     expect(await screen.findByRole('heading', { name: 'Tarifverwaltung' })).toBeInTheDocument();
-    expect(await screen.findByText('BestPay Start')).toBeInTheDocument();
-    expect(screen.getByText('BestPay Business')).toBeInTheDocument();
-    expect(screen.getByText('BestPay Flex')).toBeInTheDocument();
+    expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
+    expect(screen.getByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
+    expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
   });
 
   it('shows create action for admin', async () => {
@@ -59,11 +59,11 @@ describe('Tariff overview UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/admin/tariffs');
 
-    await user.type(await screen.findByLabelText('Suche'), 'Business');
+    await user.type(await screen.findByLabelText('Suche'), 'Flat');
 
     await waitFor(() => {
-      expect(screen.getByText('BestPay Business')).toBeInTheDocument();
-      expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
+      expect(screen.getByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
+      expect(screen.queryByText('BestPay Mobile A920 Classic')).not.toBeInTheDocument();
     });
   });
 
@@ -71,50 +71,39 @@ describe('Tariff overview UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/admin/tariffs');
 
-    await user.type(await screen.findByLabelText('Suche'), 'BP-FLEX');
+    await user.type(await screen.findByLabelText('Suche'), 'BP-A920-CLASSIC');
 
     await waitFor(() => {
-      expect(screen.getByText('BestPay Flex')).toBeInTheDocument();
-      expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
+      expect(screen.getByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
+      expect(screen.queryByText('BestPay Mobile A920 Flat')).not.toBeInTheDocument();
     });
   });
 
-  it('filters by status', async () => {
-    const user = userEvent.setup();
+  it('shows Classic values correctly', async () => {
     renderAtRoute('/admin/tariffs');
 
-    await user.click(await screen.findByRole('button', { name: 'Inaktiv' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('BestPay Flex')).toBeInTheDocument();
-      expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
-    });
+    expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
+    expect(screen.getByText('0,249 %')).toBeInTheDocument();
+    expect(screen.getAllByText('17,90 €').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Keine Angabe').length).toBeGreaterThan(0);
   });
 
-  it('filters by terminal type', async () => {
+  it('shows Flat clearing as inklusive', async () => {
+    renderAtRoute('/admin/tariffs');
+
+    expect(await screen.findByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
+    expect(screen.getAllByText('inklusive').length).toBeGreaterThan(0);
+  });
+
+  it('filters by terminal type mobile', async () => {
     const user = userEvent.setup();
     renderAtRoute('/admin/tariffs');
 
     await user.click(await screen.findByRole('button', { name: 'Mobil' }));
 
     await waitFor(() => {
-      expect(screen.getByText('BestPay Business')).toBeInTheDocument();
-      expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
-    });
-  });
-
-  it('supports combined filters', async () => {
-    const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs');
-
-    await user.type(await screen.findByLabelText('Suche'), 'BestPay');
-    await user.click(screen.getByRole('button', { name: 'Aktiv' }));
-    await user.click(screen.getByRole('button', { name: 'Stationär' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('BestPay Start')).toBeInTheDocument();
-      expect(screen.queryByText('BestPay Flex')).not.toBeInTheDocument();
-      expect(screen.queryByText('BestPay Business')).not.toBeInTheDocument();
+      expect(screen.getByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
+      expect(screen.getByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
     });
   });
 

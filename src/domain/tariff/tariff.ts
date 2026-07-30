@@ -4,9 +4,12 @@ export type TerminalType = 'stationary' | 'mobile' | 'softpos' | 'ecommerce';
 
 export type BillingInterval = 'monthly' | 'yearly' | 'one_time';
 
+/** 1 = 0,1 Basispunkt = 0,001 %; 249 = 0,249 % */
+export type TenthsOfBasisPoint = number;
+
 export interface CardRate {
-  percentageBasisPoints: number;
-  fixedFeeCents: number;
+  percentageTenthsOfBasisPoint: TenthsOfBasisPoint;
+  fixedFeeTenthsOfCent: number;
 }
 
 export interface TariffCardRates {
@@ -24,14 +27,17 @@ export interface Tariff {
   description: string;
   status: TariffStatus;
   supportedTerminalTypes: TerminalType[];
-  monthlyBaseFeeCents: number;
-  monthlyTerminalFeeCents: number;
+  monthlyAccountBaseFeeCents: number;
+  monthlyTerminalRentalCents: number;
+  monthlyServiceFeePerTerminalCents: number;
   setupFeeCents: number;
   minimumMonthlyFeeCents: number | null;
   minimumContractMonths: number | null;
   noticePeriodMonths: number | null;
   includedTransactions: number | null;
-  additionalTransactionFeeCents: number;
+  additionalTransactionFeeTenthsOfCent: number;
+  girocardClearingFeeTenthsOfCent: number;
+  girocardClearingIncluded: boolean;
   cardRates: TariffCardRates;
   billingInterval: BillingInterval;
   validFrom: string | null;
@@ -48,14 +54,17 @@ export interface CreateTariffInput {
   description: string;
   status: TariffStatus;
   supportedTerminalTypes: TerminalType[];
-  monthlyBaseFeeCents: number;
-  monthlyTerminalFeeCents: number;
+  monthlyAccountBaseFeeCents: number;
+  monthlyTerminalRentalCents: number;
+  monthlyServiceFeePerTerminalCents: number;
   setupFeeCents: number;
   minimumMonthlyFeeCents: number | null;
   minimumContractMonths: number | null;
   noticePeriodMonths: number | null;
   includedTransactions: number | null;
-  additionalTransactionFeeCents: number;
+  additionalTransactionFeeTenthsOfCent: number;
+  girocardClearingFeeTenthsOfCent: number;
+  girocardClearingIncluded: boolean;
   cardRates: TariffCardRates;
   billingInterval: BillingInterval;
   validFrom: string | null;
@@ -108,3 +117,14 @@ export const CARD_RATE_LABELS: Record<CardRateKey, string> = {
 export type TariffStatusFilter = 'all' | TariffStatus;
 
 export type TerminalTypeFilter = 'all' | TerminalType;
+
+export function monthlyFixedCostsForOneTerminalCents(tariff: Pick<
+  Tariff,
+  'monthlyAccountBaseFeeCents' | 'monthlyTerminalRentalCents' | 'monthlyServiceFeePerTerminalCents'
+>): number {
+  return (
+    tariff.monthlyAccountBaseFeeCents +
+    tariff.monthlyTerminalRentalCents +
+    tariff.monthlyServiceFeePerTerminalCents
+  );
+}

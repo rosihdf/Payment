@@ -1,0 +1,25 @@
+import type { CreateProductInput } from './product';
+
+export const DEFAULT_CREATE_PRODUCT_INPUT: CreateProductInput = {
+  name: '',
+  providerName: 'BestPay',
+  internalProductCode: '',
+  category: 'cash_register',
+  status: 'active',
+  description: '',
+  manufacturer: null,
+  modelName: null,
+  supportedTerminalTypes: [],
+  priceType: 'monthly',
+  priceCents: 0,
+  secondaryPriceType: null,
+  secondaryPriceCents: null,
+  secondaryPriceLabel: null,
+  unitLabel: null,
+  includedFeatures: [],
+  technicalFeatures: [],
+  sourceReference: '',
+  notes: '',
+  validFrom: null,
+  validUntil: null,
+};

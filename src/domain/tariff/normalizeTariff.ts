@@ -48,12 +48,42 @@ function asNullableNonNegativeInteger(value: unknown): number | null {
   return parsed;
 }
 
+function asBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value === 'true') {
+    return true;
+  }
+
+  if (value === 'false') {
+    return false;
+  }
+
+  return fallback;
+}
+
 function normalizeCardRate(value: unknown): CardRate {
   const data = asRecord(value);
 
+  const percentageTenthsOfBasisPoint =
+    data.percentageTenthsOfBasisPoint !== undefined &&
+    data.percentageTenthsOfBasisPoint !== null &&
+    data.percentageTenthsOfBasisPoint !== ''
+      ? asNonNegativeInteger(data.percentageTenthsOfBasisPoint)
+      : asNonNegativeInteger(data.percentageBasisPoints) * 10;
+
+  const fixedFeeTenthsOfCent =
+    data.fixedFeeTenthsOfCent !== undefined &&
+    data.fixedFeeTenthsOfCent !== null &&
+    data.fixedFeeTenthsOfCent !== ''
+      ? asNonNegativeInteger(data.fixedFeeTenthsOfCent)
+      : asNonNegativeInteger(data.fixedFeeCents) * 10;
+
   return {
-    percentageBasisPoints: asNonNegativeInteger(data.percentageBasisPoints),
-    fixedFeeCents: asNonNegativeInteger(data.fixedFeeCents),
+    percentageTenthsOfBasisPoint,
+    fixedFeeTenthsOfCent,
   };
 }
 
@@ -121,10 +151,71 @@ function normalizeDate(value: unknown): string | null {
   return raw || null;
 }
 
+function normalizeMonthlyAccountBaseFeeCents(data: Record<string, unknown>): number {
+  if (data.monthlyAccountBaseFeeCents !== undefined) {
+    return asNonNegativeInteger(data.monthlyAccountBaseFeeCents);
+  }
+
+  return asNonNegativeInteger(data.monthlyBaseFeeCents);
+}
+
+function normalizeMonthlyTerminalRentalCents(data: Record<string, unknown>): number {
+  if (data.monthlyTerminalRentalCents !== undefined) {
+    return asNonNegativeInteger(data.monthlyTerminalRentalCents);
+  }
+
+  return asNonNegativeInteger(data.monthlyTerminalFeeCents);
+}
+
+function normalizeMonthlyServiceFeePerTerminalCents(data: Record<string, unknown>): number {
+  return asNonNegativeInteger(data.monthlyServiceFeePerTerminalCents);
+}
+
+function normalizeAdditionalTransactionFeeTenthsOfCent(data: Record<string, unknown>): number {
+  if (
+    data.additionalTransactionFeeTenthsOfCent !== undefined &&
+    data.additionalTransactionFeeTenthsOfCent !== null &&
+    data.additionalTransactionFeeTenthsOfCent !== ''
+  ) {
+    return asNonNegativeInteger(data.additionalTransactionFeeTenthsOfCent);
+  }
+
+  return asNonNegativeInteger(data.additionalTransactionFeeCents) * 10;
+}
+
+function normalizeGirocardClearingIncluded(data: Record<string, unknown>): boolean {
+  return asBoolean(data.girocardClearingIncluded);
+}
+
+function normalizeGirocardClearingFeeTenthsOfCent(
+  data: Record<string, unknown>,
+  clearingIncluded: boolean,
+): number {
+  if (clearingIncluded) {
+    return 0;
+  }
+
+  if (
+    data.girocardClearingFeeTenthsOfCent !== undefined &&
+    data.girocardClearingFeeTenthsOfCent !== null &&
+    data.girocardClearingFeeTenthsOfCent !== ''
+  ) {
+    return asNonNegativeInteger(data.girocardClearingFeeTenthsOfCent);
+  }
+
+  if (data.girocardClearingFeeCents !== undefined) {
+    return asNonNegativeInteger(data.girocardClearingFeeCents) * 10;
+  }
+
+  return 0;
+}
+
 export function normalizeTariff(raw: unknown): Tariff {
   const data = asRecord(raw);
   const id = asString(data.id) || generateId('tariff');
   const timestamp = nowIso();
+  const cardRates = data.cardRates ? normalizeCardRates(data.cardRates) : { ...DEFAULT_CARD_RATES };
+  const girocardClearingIncluded = normalizeGirocardClearingIncluded(data);
 
   return {
     id,
@@ -134,15 +225,21 @@ export function normalizeTariff(raw: unknown): Tariff {
     description: asString(data.description),
     status: normalizeLegacyActiveField(data),
     supportedTerminalTypes: normalizeTerminalTypes(data.supportedTerminalTypes),
-    monthlyBaseFeeCents: asNonNegativeInteger(data.monthlyBaseFeeCents),
-    monthlyTerminalFeeCents: asNonNegativeInteger(data.monthlyTerminalFeeCents),
+    monthlyAccountBaseFeeCents: normalizeMonthlyAccountBaseFeeCents(data),
+    monthlyTerminalRentalCents: normalizeMonthlyTerminalRentalCents(data),
+    monthlyServiceFeePerTerminalCents: normalizeMonthlyServiceFeePerTerminalCents(data),
     setupFeeCents: asNonNegativeInteger(data.setupFeeCents),
     minimumMonthlyFeeCents: asNullableNonNegativeInteger(data.minimumMonthlyFeeCents),
     minimumContractMonths: asNullableNonNegativeInteger(data.minimumContractMonths),
     noticePeriodMonths: asNullableNonNegativeInteger(data.noticePeriodMonths),
     includedTransactions: asNullableNonNegativeInteger(data.includedTransactions),
-    additionalTransactionFeeCents: asNonNegativeInteger(data.additionalTransactionFeeCents),
-    cardRates: data.cardRates ? normalizeCardRates(data.cardRates) : { ...DEFAULT_CARD_RATES },
+    additionalTransactionFeeTenthsOfCent: normalizeAdditionalTransactionFeeTenthsOfCent(data),
+    girocardClearingFeeTenthsOfCent: normalizeGirocardClearingFeeTenthsOfCent(
+      data,
+      girocardClearingIncluded,
+    ),
+    girocardClearingIncluded,
+    cardRates,
     billingInterval: normalizeBillingInterval(data.billingInterval),
     validFrom: normalizeDate(data.validFrom),
     validUntil: normalizeDate(data.validUntil),

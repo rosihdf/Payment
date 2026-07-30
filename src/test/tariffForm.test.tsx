@@ -48,7 +48,7 @@ function renderAtRoute(initialRoute: string, resetData = true, currentUserId = '
 
 async function fillRequiredTariffFields(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Tarifname'), 'Neuer Demo Tarif');
-  await user.type(screen.getByLabelText('Produktcode'), 'BP-NEW-001');
+  await user.type(screen.getByLabelText('Produktcode (intern)'), 'BP-NEW-001');
   await user.click(screen.getByRole('button', { name: 'Stationär' }));
 }
 
@@ -73,11 +73,11 @@ describe('Tariff form UI', () => {
   });
 
   it('prefills existing tariff on edit', async () => {
-    renderAtRoute('/admin/tariffs/tariff_001/edit');
+    renderAtRoute('/admin/tariffs/tariff_bestpay_a920_classic/edit');
 
-    expect(await screen.findByLabelText('Tarifname')).toHaveValue('BestPay Start');
-    expect(screen.getByLabelText('Produktcode')).toHaveValue('BP-START');
-    expect(screen.getByRole('button', { name: 'Stationär' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByLabelText('Tarifname')).toHaveValue('BestPay Mobile A920 Classic');
+    expect(screen.getByLabelText('Produktcode (intern)')).toHaveValue('BP-A920-CLASSIC');
+    expect(screen.getByRole('button', { name: 'Mobil' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('creates tariff and navigates to overview', async () => {
@@ -100,8 +100,8 @@ describe('Tariff form UI', () => {
     renderAtRoute('/admin/tariffs/new');
 
     await user.type(await screen.findByLabelText('Tarifname'), 'Duplikat Tarif');
-    await user.type(screen.getByLabelText('Produktcode'), 'bp-start');
-    await user.click(screen.getByRole('button', { name: 'Stationär' }));
+    await user.type(screen.getByLabelText('Produktcode (intern)'), 'bp-a920-classic');
+    await user.click(screen.getByRole('button', { name: 'Mobil' }));
     await user.click(screen.getByRole('button', { name: 'Tarif speichern' }));
 
     expect(
@@ -111,21 +111,21 @@ describe('Tariff form UI', () => {
 
   it('updates tariff and navigates to overview', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs/tariff_001/edit');
+    renderAtRoute('/admin/tariffs/tariff_bestpay_a920_classic/edit');
 
     const nameField = await screen.findByLabelText('Tarifname');
     await user.clear(nameField);
-    await user.type(nameField, 'BestPay Start Plus');
+    await user.type(nameField, 'BestPay Mobile A920 Classic Plus');
     await user.click(screen.getByRole('button', { name: 'Änderungen speichern' }));
 
     await waitFor(() => {
       expect(
-        getStoredTariffs().some((tariff) => tariff.name === 'BestPay Start Plus'),
+        getStoredTariffs().some((tariff) => tariff.name === 'BestPay Mobile A920 Classic Plus'),
       ).toBe(true);
     });
 
     renderAtRoute('/admin/tariffs', false);
-    expect(await screen.findByText('BestPay Start Plus')).toBeInTheDocument();
+    expect(await screen.findByText('BestPay Mobile A920 Classic Plus')).toBeInTheDocument();
   });
 
   it('shows cancel dialog when form is dirty', async () => {
@@ -210,7 +210,7 @@ describe('Percent values in form', () => {
 
     await waitFor(() => {
       const created = getStoredTariffs().find((tariff) => tariff.name === 'Neuer Demo Tarif');
-      expect(created?.cardRates.girocard.percentageBasisPoints).toBe(25);
+      expect(created?.cardRates.girocard.percentageTenthsOfBasisPoint).toBe(250);
     });
   });
 });

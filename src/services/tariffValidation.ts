@@ -1,4 +1,4 @@
-import { isValidBasisPoints } from '../utils/percentage';
+import { isValidTenthsOfBasisPoint } from '../utils/percentage';
 import type { CardRate, CreateTariffInput, TariffCardRates } from '../domain/tariff/tariff';
 import { CARD_RATE_KEYS, CARD_RATE_LABELS } from '../domain/tariff/tariff';
 
@@ -8,6 +8,14 @@ export type CreateTariffErrors = Partial<Record<CreateTariffField, string>>;
 
 function validateNonNegativeCents(value: number, label: string): string | undefined {
   if (value < 0) {
+    return `${label} darf nicht negativ sein.`;
+  }
+
+  return undefined;
+}
+
+function validateNonNegativeTenths(value: number, label: string): string | undefined {
+  if (!Number.isInteger(value) || value < 0) {
     return `${label} darf nicht negativ sein.`;
   }
 
@@ -30,11 +38,11 @@ function validateOptionalNonNegativeInteger(
 }
 
 function validateCardRate(rate: CardRate, label: string): string | undefined {
-  if (!isValidBasisPoints(rate.percentageBasisPoints)) {
-    return `${label}: Der Prozentwert muss zwischen 0,00 % und 100,00 % liegen.`;
+  if (!isValidTenthsOfBasisPoint(rate.percentageTenthsOfBasisPoint)) {
+    return `${label}: Der Prozentwert muss zwischen 0,000 % und 100,000 % liegen.`;
   }
 
-  if (rate.fixedFeeCents < 0) {
+  if (!Number.isInteger(rate.fixedFeeTenthsOfCent) || rate.fixedFeeTenthsOfCent < 0) {
     return `${label}: Das Fixentgelt darf nicht negativ sein.`;
   }
 
@@ -74,10 +82,14 @@ export function validateCreateTariffInput(input: CreateTariffInput): CreateTarif
   }
 
   const centFields: Array<[number, string, keyof CreateTariffInput]> = [
-    [input.monthlyBaseFeeCents, 'Die monatliche Grundgebühr', 'monthlyBaseFeeCents'],
-    [input.monthlyTerminalFeeCents, 'Die monatliche Terminalgebühr', 'monthlyTerminalFeeCents'],
+    [input.monthlyAccountBaseFeeCents, 'Die Grundgebühr je Vertrag', 'monthlyAccountBaseFeeCents'],
+    [input.monthlyTerminalRentalCents, 'Die Terminalmiete je Terminal', 'monthlyTerminalRentalCents'],
+    [
+      input.monthlyServiceFeePerTerminalCents,
+      'Die Servicepauschale je Terminal',
+      'monthlyServiceFeePerTerminalCents',
+    ],
     [input.setupFeeCents, 'Die Einrichtungsgebühr', 'setupFeeCents'],
-    [input.additionalTransactionFeeCents, 'Der Preis je zusätzlicher Transaktion', 'additionalTransactionFeeCents'],
   ];
 
   for (const [value, label, field] of centFields) {
@@ -85,6 +97,31 @@ export function validateCreateTariffInput(input: CreateTariffInput): CreateTarif
     if (error) {
       errors[field] = error;
     }
+  }
+
+  const tenthsFields: Array<[number, string, keyof CreateTariffInput]> = [
+    [
+      input.additionalTransactionFeeTenthsOfCent,
+      'Der Transaktionspreis',
+      'additionalTransactionFeeTenthsOfCent',
+    ],
+    [
+      input.girocardClearingFeeTenthsOfCent,
+      'Das Girocard-Clearing',
+      'girocardClearingFeeTenthsOfCent',
+    ],
+  ];
+
+  for (const [value, label, field] of tenthsFields) {
+    const error = validateNonNegativeTenths(value, label);
+    if (error) {
+      errors[field] = error;
+    }
+  }
+
+  if (input.girocardClearingIncluded && input.girocardClearingFeeTenthsOfCent > 0) {
+    errors.girocardClearingFeeTenthsOfCent =
+      'Bei inklusive Clearing darf kein positiver Clearingpreis gespeichert werden.';
   }
 
   const integerFields: Array<[number | null, string, keyof CreateTariffInput]> = [

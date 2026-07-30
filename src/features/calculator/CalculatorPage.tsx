@@ -1,65 +1,163 @@
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { EmptyState } from '../../components/feedback/EmptyState';
+import { DEFAULT_CURRENT_PAYMENT_CONDITIONS } from '../../domain/calculator/comparisonDefaults';
+import { mapTariffToBestPayComparisonConditions } from '../../domain/calculator/comparisonMapping';
+import type { CurrentPaymentConditions } from '../../domain/calculator/comparison';
+import type { Tariff } from '../../domain/tariff/tariff';
+import { useServices } from '../../hooks/useServices';
+import { calculatePaymentComparison } from '../../services/paymentComparisonService';
+import {
+  hasValidationErrors,
+  validateCurrentPaymentConditions,
+  validateTariffSelection,
+  type PaymentComparisonValidationErrors,
+} from '../../services/paymentComparisonValidation';
+import { BestPayOfferPanel } from './BestPayOfferPanel';
+import { ComparisonCostBreakdownCard } from './ComparisonCostBreakdownCard';
+import { ComparisonResultsOverview } from './ComparisonResultsOverview';
+import { CurrentConditionsForm } from './CurrentConditionsForm';
 import styles from './CalculatorPage.module.css';
 
 export function CalculatorPage() {
+  const { tariffService } = useServices();
+  const [activeTariffs, setActiveTariffs] = useState<Tariff[]>([]);
+  const [isLoadingTariffs, setIsLoadingTariffs] = useState(true);
+  const [currentConditions, setCurrentConditions] = useState<CurrentPaymentConditions>(
+    DEFAULT_CURRENT_PAYMENT_CONDITIONS,
+  );
+  const [selectedTariffId, setSelectedTariffId] = useState<string | null>(null);
+  const [tariffUnavailableMessage, setTariffUnavailableMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoadingTariffs(true);
+    void tariffService.getActiveTariffs().then((tariffs) => {
+      const sorted = [...tariffs].sort((left, right) => left.name.localeCompare(right.name, 'de'));
+      setActiveTariffs(sorted);
+      setIsLoadingTariffs(false);
+    });
+  }, [tariffService]);
+
+  useEffect(() => {
+    if (activeTariffs.length === 0) {
+      setSelectedTariffId(null);
+      return;
+    }
+
+    if (selectedTariffId && activeTariffs.some((tariff) => tariff.id === selectedTariffId)) {
+      return;
+    }
+
+    if (selectedTariffId) {
+      setTariffUnavailableMessage(
+        'Der zuvor gewählte Tarif ist nicht mehr aktiv und wurde zurückgesetzt.',
+      );
+    }
+
+    setSelectedTariffId(activeTariffs[0]?.id ?? null);
+  }, [activeTariffs, selectedTariffId]);
+
+  const selectedTariff = activeTariffs.find((tariff) => tariff.id === selectedTariffId) ?? null;
+
+  const bestPayConditions = useMemo(
+    () => (selectedTariff ? mapTariffToBestPayComparisonConditions(selectedTariff) : null),
+    [selectedTariff],
+  );
+
+  const validationErrors: PaymentComparisonValidationErrors = useMemo(() => {
+    const inputErrors = validateCurrentPaymentConditions(currentConditions);
+    const tariffErrors = validateTariffSelection(
+      selectedTariffId,
+      activeTariffs.map((tariff) => tariff.id),
+    );
+
+    return { ...inputErrors, ...tariffErrors };
+  }, [activeTariffs, currentConditions, selectedTariffId]);
+
+  const comparisonResult = useMemo(() => {
+    if (hasValidationErrors(validationErrors) || !bestPayConditions) {
+      return null;
+    }
+
+    return calculatePaymentComparison(currentConditions, bestPayConditions);
+  }, [bestPayConditions, currentConditions, validationErrors]);
+
+  const handleReset = () => {
+    setCurrentConditions(DEFAULT_CURRENT_PAYMENT_CONDITIONS);
+    setSelectedTariffId(activeTariffs[0]?.id ?? null);
+    setTariffUnavailableMessage(null);
+  };
+
   return (
     <section>
       <PageHeader
         title="Vergleichsrechner"
-        subtitle="Gegenüberstellung zwischen aktuellem Payment-Anbieter und BestPay"
+        subtitle="Bisherige Payment-Kosten mit einem BestPay-Tarif vergleichen"
+        actions={
+          <button type="button" className={styles.resetButton} onClick={handleReset}>
+            Eingaben zurücksetzen
+          </button>
+        }
       />
+
+      {tariffUnavailableMessage ? (
+        <p className={styles.notice} role="status">
+          {tariffUnavailableMessage}
+        </p>
+      ) : null}
 
       <div className={styles.layout}>
         <div className={styles.columns}>
-          <article className={styles.panel}>
-            <h2 className={styles.panelTitle}>Aktueller Anbieter</h2>
-            <p className={styles.panelDescription}>
-              Konditionen und Gebühren des bestehenden Payment-Anbieters des Interessenten.
-            </p>
-            <div className={styles.fieldGroup}>
-              <div className={styles.field}>
-                <span className={styles.label}>Anbieter</span>
-                <div className={styles.placeholder}>Noch kein Anbieter erfasst</div>
-              </div>
-              <div className={styles.field}>
-                <span className={styles.label}>Transaktionsgebühr</span>
-                <div className={styles.placeholder}>Noch keine Gebühr erfasst</div>
-              </div>
-              <div className={styles.field}>
-                <span className={styles.label}>Monatliche Grundgebühr</span>
-                <div className={styles.placeholder}>Noch keine Grundgebühr erfasst</div>
-              </div>
-            </div>
-          </article>
+          <CurrentConditionsForm
+            values={currentConditions}
+            errors={validationErrors}
+            onChange={setCurrentConditions}
+          />
 
-          <article className={styles.panel}>
-            <h2 className={styles.panelTitle}>BestPay</h2>
-            <p className={styles.panelDescription}>
-              Angebot auf Basis der verfügbaren BestPay-Tarife für den Vergleich.
-            </p>
-            <div className={styles.fieldGroup}>
-              <div className={styles.field}>
-                <span className={styles.label}>Tarif</span>
-                <div className={styles.placeholder}>Noch kein Tarif ausgewählt</div>
-              </div>
-              <div className={styles.field}>
-                <span className={styles.label}>Transaktionsgebühr</span>
-                <div className={styles.placeholder}>Noch keine Gebühr hinterlegt</div>
-              </div>
-              <div className={styles.field}>
-                <span className={styles.label}>Monatliche Grundgebühr</span>
-                <div className={styles.placeholder}>Noch keine Grundgebühr hinterlegt</div>
-              </div>
-            </div>
-          </article>
+          {isLoadingTariffs ? (
+            <article className={styles.loadingPanel}>
+              <EmptyState
+                title="Tarife werden geladen"
+                description="Aktive BestPay-Tarife werden vorbereitet."
+              />
+            </article>
+          ) : (
+            <BestPayOfferPanel
+              tariffs={activeTariffs}
+              selectedTariffId={selectedTariffId}
+              bestPayConditions={bestPayConditions}
+              tariffError={validationErrors.tariffId}
+              onTariffChange={(tariffId) => {
+                setTariffUnavailableMessage(null);
+                setSelectedTariffId(tariffId);
+              }}
+            />
+          )}
         </div>
 
-        <section className={styles.result} aria-label="Vergleichsergebnis">
-          <h2 className={styles.resultTitle}>Ergebnis</h2>
-          <div className={styles.resultContent}>
-            Sobald beide Seiten ausgefüllt sind, erscheint hier die Vergleichsauswertung.
-          </div>
-        </section>
+        {comparisonResult ? (
+          <>
+            <ComparisonResultsOverview result={comparisonResult} />
+            <div className={styles.breakdownColumns}>
+              <ComparisonCostBreakdownCard
+                title="Bisherige Kosten"
+                breakdown={comparisonResult.current}
+              />
+              <ComparisonCostBreakdownCard
+                title="BestPay-Kosten"
+                breakdown={comparisonResult.bestPay}
+                showFixedCostDetails
+              />
+            </div>
+          </>
+        ) : (
+          <section className={styles.invalidResult} aria-label="Vergleichsergebnis">
+            <EmptyState
+              title="Vergleich noch nicht verfügbar"
+              description="Bitte prüfen Sie die Eingaben und wählen Sie einen aktiven BestPay-Tarif."
+            />
+          </section>
+        )}
       </div>
     </section>
   );

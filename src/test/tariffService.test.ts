@@ -155,9 +155,11 @@ describe('TariffService', () => {
 
   it('activates tariff via setTariffStatus', async () => {
     const tariffs = await tariffService.getAllTariffs();
-    const inactiveTariff = tariffs.find((tariff) => tariff.status === 'inactive')!;
+    const activeTariff = tariffs.find((tariff) => tariff.status === 'active')!;
 
-    const result = await tariffService.setTariffStatus(inactiveTariff.id, 'active', {
+    await tariffService.setTariffStatus(activeTariff.id, 'inactive', { role: 'admin' });
+
+    const result = await tariffService.setTariffStatus(activeTariff.id, 'active', {
       role: 'admin',
     });
 

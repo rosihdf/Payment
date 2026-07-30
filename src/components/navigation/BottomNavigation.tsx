@@ -9,6 +9,7 @@ function NavIcon({ icon }: { icon: string }) {
     leads: '☰',
     add: '+',
     calculator: '∑',
+    products: '▣',
     profile: '◉',
   };
 

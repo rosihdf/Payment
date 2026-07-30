@@ -1,11 +1,13 @@
 import type { Tariff } from '../../domain/tariff/tariff';
 import { normalizeTariff, normalizeTariffs } from '../../domain/tariff/normalizeTariff';
+import { migrateTariffCatalogIfNeeded } from '../../services/tariffCatalogMigration';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../../utils/storage';
 import { TariffNotFoundError } from '../errors/TariffNotFoundError';
 import type { TariffRepository } from '../interfaces/TariffRepository';
 
 export class LocalTariffRepository implements TariffRepository {
   async getAll(): Promise<Tariff[]> {
+    migrateTariffCatalogIfNeeded();
     const rawTariffs = readStorageItem<unknown[]>(STORAGE_KEYS.tariffs) ?? [];
     return normalizeTariffs(rawTariffs);
   }

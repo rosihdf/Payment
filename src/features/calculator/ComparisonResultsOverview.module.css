@@ -1,0 +1,98 @@
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.cards {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.cardValue {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.cardHint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.positive .cardValue {
+  color: var(--color-success);
+}
+
+.negative .cardValue {
+  color: var(--color-danger);
+}
+
+.neutral .cardValue {
+  color: var(--color-text);
+}
+
+.metrics {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.metrics dt {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.metrics dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+@media (min-width: 640px) {
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

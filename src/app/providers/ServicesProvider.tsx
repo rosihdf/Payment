@@ -2,6 +2,7 @@ import { type ReactNode, useMemo } from 'react';
 import { LocalLeadDraftRepository } from '../../repositories/local/LocalLeadDraftRepository';
 import { LocalLeadEditDraftRepository } from '../../repositories/local/LocalLeadEditDraftRepository';
 import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
+import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
 import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
 import { LocalUserRepository } from '../../repositories/local/LocalUserRepository';
 import { createServices } from '../../services';
@@ -22,6 +23,7 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       leadDraftRepository: new LocalLeadDraftRepository(),
       leadEditDraftRepository: new LocalLeadEditDraftRepository(),
       tariffRepository: new LocalTariffRepository(),
+      productRepository: new LocalProductRepository(),
     });
   }, []);
 

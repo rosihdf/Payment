@@ -1,8 +1,8 @@
 import type { CardRate, CreateTariffInput, TariffCardRates } from './tariff';
 
 export const DEFAULT_CARD_RATE: CardRate = {
-  percentageBasisPoints: 0,
-  fixedFeeCents: 0,
+  percentageTenthsOfBasisPoint: 0,
+  fixedFeeTenthsOfCent: 0,
 };
 
 export const DEFAULT_CARD_RATES: TariffCardRates = {
@@ -19,14 +19,17 @@ export const DEFAULT_CREATE_TARIFF_INPUT: CreateTariffInput = {
   description: '',
   status: 'active',
   supportedTerminalTypes: [],
-  monthlyBaseFeeCents: 0,
-  monthlyTerminalFeeCents: 0,
+  monthlyAccountBaseFeeCents: 0,
+  monthlyTerminalRentalCents: 0,
+  monthlyServiceFeePerTerminalCents: 0,
   setupFeeCents: 0,
   minimumMonthlyFeeCents: null,
   minimumContractMonths: null,
   noticePeriodMonths: null,
   includedTransactions: null,
-  additionalTransactionFeeCents: 0,
+  additionalTransactionFeeTenthsOfCent: 0,
+  girocardClearingFeeTenthsOfCent: 0,
+  girocardClearingIncluded: false,
   cardRates: {
     girocard: { ...DEFAULT_CARD_RATE },
     debit: { ...DEFAULT_CARD_RATE },

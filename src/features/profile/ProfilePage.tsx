@@ -74,6 +74,12 @@ export function ProfilePage() {
               →
             </span>
           </Link>
+          <Link className={styles.adminLink} to="/admin/products">
+            <span>Produktverwaltung</span>
+            <span className={styles.adminLinkHint} aria-hidden="true">
+              →
+            </span>
+          </Link>
         </section>
       ) : null}
     </section>

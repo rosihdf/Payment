@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
+import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
 import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
 import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
 import {
   clearDemoDataForTests,
   getDemoLeads,
+  getDemoProducts,
   getDemoTariffs,
   getDemoUsers,
   resetDemoDataForTests,
@@ -63,12 +65,21 @@ describe('Repositories', () => {
     const repository = new LocalTariffRepository();
     const tariffs = await repository.getAll();
 
-    expect(tariffs).toHaveLength(3);
+    expect(tariffs).toHaveLength(2);
     expect(tariffs.map((tariff) => tariff.name)).toEqual([
-      'BestPay Start',
-      'BestPay Business',
-      'BestPay Flex',
+      'BestPay Mobile A920 Classic',
+      'BestPay Mobile A920 Flat',
     ]);
+  });
+
+  it('loads demo products from LocalProductRepository', async () => {
+    const repository = new LocalProductRepository();
+    const products = await repository.getAll();
+
+    expect(products).toHaveLength(19);
+    expect(products.some((product) => product.id === 'product_bestpay_premium_line_register')).toBe(
+      true,
+    );
   });
 });
 
@@ -88,8 +99,18 @@ describe('Demo data', () => {
     expect(leads.length).toBeGreaterThanOrEqual(8);
   });
 
-  it('provides three demo tariffs', () => {
+  it('provides two A920 demo tariffs', () => {
     const tariffs = getDemoTariffs();
-    expect(tariffs).toHaveLength(3);
+    expect(tariffs).toHaveLength(2);
+    expect(tariffs.some((tariff) => tariff.id === 'tariff_bestpay_a920_classic')).toBe(true);
+    expect(tariffs.some((tariff) => tariff.id === 'tariff_bestpay_a920_flat')).toBe(true);
+  });
+
+  it('provides nineteen demo products', () => {
+    const products = getDemoProducts();
+    expect(products).toHaveLength(19);
+    expect(products.some((product) => product.id === 'product_bestpay_premium_line_register')).toBe(
+      true,
+    );
   });
 });

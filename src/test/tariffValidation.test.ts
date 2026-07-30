@@ -22,10 +22,29 @@ describe('Tariff validation', () => {
 
   it('rejects negative money values', () => {
     const errors = validateCreateTariffInput(
-      createValidTariffInput({ monthlyBaseFeeCents: -1 }),
+      createValidTariffInput({ monthlyTerminalRentalCents: -1 }),
     );
 
-    expect(errors.monthlyBaseFeeCents).toContain('negativ');
+    expect(errors.monthlyTerminalRentalCents).toContain('negativ');
+  });
+
+  it('rejects negative tenths values', () => {
+    const errors = validateCreateTariffInput(
+      createValidTariffInput({ additionalTransactionFeeTenthsOfCent: -1 }),
+    );
+
+    expect(errors.additionalTransactionFeeTenthsOfCent).toContain('negativ');
+  });
+
+  it('rejects contradictory clearing included with positive fee', () => {
+    const errors = validateCreateTariffInput(
+      createValidTariffInput({
+        girocardClearingIncluded: true,
+        girocardClearingFeeTenthsOfCent: 19,
+      }),
+    );
+
+    expect(errors.girocardClearingFeeTenthsOfCent).toContain('inklusive');
   });
 
   it('rejects negative integers', () => {
@@ -34,6 +53,20 @@ describe('Tariff validation', () => {
     );
 
     expect(errors.includedTransactions).toContain('nicht negative');
+  });
+
+  it('allows null contract fields', () => {
+    const errors = validateCreateTariffInput(
+      createValidTariffInput({
+        minimumContractMonths: null,
+        noticePeriodMonths: null,
+        includedTransactions: null,
+      }),
+    );
+
+    expect(errors.minimumContractMonths).toBeUndefined();
+    expect(errors.noticePeriodMonths).toBeUndefined();
+    expect(errors.includedTransactions).toBeUndefined();
   });
 
   it('rejects invalid date range', () => {
@@ -51,6 +84,21 @@ describe('Tariff validation', () => {
 
   it('accepts valid tariff input', () => {
     const errors = validateCreateTariffInput(createValidTariffInput());
+    expect(Object.keys(errors)).toHaveLength(0);
+  });
+
+  it('accepts 0,249 % card rate', () => {
+    const errors = validateCreateTariffInput(
+      createValidTariffInput({
+        cardRates: {
+          girocard: { percentageTenthsOfBasisPoint: 249, fixedFeeTenthsOfCent: 0 },
+          debit: { percentageTenthsOfBasisPoint: 890, fixedFeeTenthsOfCent: 0 },
+          credit: { percentageTenthsOfBasisPoint: 1190, fixedFeeTenthsOfCent: 0 },
+          other: { percentageTenthsOfBasisPoint: 0, fixedFeeTenthsOfCent: 0 },
+        },
+      }),
+    );
+
     expect(Object.keys(errors)).toHaveLength(0);
   });
 });

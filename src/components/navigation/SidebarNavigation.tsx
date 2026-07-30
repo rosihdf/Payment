@@ -10,6 +10,7 @@ function NavIcon({ icon }: { icon: string }) {
     add: '+',
     calculator: '∑',
     tariffs: '€',
+    products: '▣',
     profile: '◉',
   };
 

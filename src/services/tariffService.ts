@@ -6,6 +6,7 @@ import type {
   TerminalTypeFilter,
 } from '../domain/tariff/tariff';
 import type { UserRole } from '../domain/user/user';
+import { normalizeTariff } from '../domain/tariff/normalizeTariff';
 import { generateId, nowIso } from '../utils/id';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import { TariffNotFoundError } from '../repositories/errors/TariffNotFoundError';
@@ -46,6 +47,8 @@ export interface TariffFilterOptions {
 }
 
 function mapInputToFields(input: CreateTariffInput) {
+  const girocardClearingIncluded = input.girocardClearingIncluded;
+
   return {
     name: input.name.trim(),
     providerName: input.providerName.trim(),
@@ -53,14 +56,19 @@ function mapInputToFields(input: CreateTariffInput) {
     description: input.description.trim(),
     status: input.status,
     supportedTerminalTypes: [...input.supportedTerminalTypes],
-    monthlyBaseFeeCents: input.monthlyBaseFeeCents,
-    monthlyTerminalFeeCents: input.monthlyTerminalFeeCents,
+    monthlyAccountBaseFeeCents: input.monthlyAccountBaseFeeCents,
+    monthlyTerminalRentalCents: input.monthlyTerminalRentalCents,
+    monthlyServiceFeePerTerminalCents: input.monthlyServiceFeePerTerminalCents,
     setupFeeCents: input.setupFeeCents,
     minimumMonthlyFeeCents: input.minimumMonthlyFeeCents,
     minimumContractMonths: input.minimumContractMonths,
     noticePeriodMonths: input.noticePeriodMonths,
     includedTransactions: input.includedTransactions,
-    additionalTransactionFeeCents: input.additionalTransactionFeeCents,
+    additionalTransactionFeeTenthsOfCent: input.additionalTransactionFeeTenthsOfCent,
+    girocardClearingFeeTenthsOfCent: girocardClearingIncluded
+      ? 0
+      : input.girocardClearingFeeTenthsOfCent,
+    girocardClearingIncluded,
     cardRates: {
       girocard: { ...input.cardRates.girocard },
       debit: { ...input.cardRates.debit },
@@ -168,12 +176,12 @@ export class TariffService {
     }
 
     const timestamp = nowIso();
-    const tariff: Tariff = {
+    const tariff = normalizeTariff({
       id: generateId('tariff'),
       ...mapInputToFields(input),
       createdAt: timestamp,
       updatedAt: timestamp,
-    };
+    });
 
     try {
       const createdTariff = await this.tariffRepository.create(tariff);
@@ -208,12 +216,12 @@ export class TariffService {
       return { ok: false, errors };
     }
 
-    const updatedTariff: Tariff = {
+    const updatedTariff = normalizeTariff({
       ...mapInputToFields(input),
       id: existing.id,
       createdAt: existing.createdAt,
       updatedAt: nowIso(),
-    };
+    });
 
     try {
       const tariff = await this.tariffRepository.update(updatedTariff);
@@ -243,11 +251,13 @@ export class TariffService {
     }
 
     try {
-      const tariff = await this.tariffRepository.update({
-        ...existing,
-        status,
-        updatedAt: nowIso(),
-      });
+      const tariff = await this.tariffRepository.update(
+        normalizeTariff({
+          ...existing,
+          status,
+          updatedAt: nowIso(),
+        }),
+      );
       return { ok: true, tariff };
     } catch (error) {
       if (error instanceof TariffNotFoundError) {

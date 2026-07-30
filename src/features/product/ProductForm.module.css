@@ -1,0 +1,123 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.inputError {
+  border-color: var(--color-danger);
+}
+
+.stringList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.stringListRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.listAddButton,
+.listRemoveButton {
+  align-self: flex-start;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.primary {
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fullWidth {
+    grid-column: 1 / -1;
+  }
+
+  .stringListRow {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

@@ -1,8 +1,20 @@
 import { normalizeLeads } from '../domain/lead/normalizeLead';
+import { BESTPAY_A920_TARIFFS_RAW } from '../domain/tariff/bestPayTariffs';
 import { normalizeTariffs } from '../domain/tariff/normalizeTariff';
+import { BESTPAY_PRODUCTS_RAW } from '../domain/product/bestPayProducts';
+import { normalizeProducts } from '../domain/product/normalizeProduct';
 import type { Lead } from '../domain/lead/lead';
+import type { Product } from '../domain/product/product';
 import type { Tariff } from '../domain/tariff/tariff';
 import type { User } from '../domain/user/user';
+import {
+  CURRENT_PRODUCT_CATALOG_VERSION,
+  migrateProductCatalogIfNeeded,
+} from './productCatalogMigration';
+import {
+  CURRENT_TARIFF_CATALOG_VERSION,
+  migrateTariffCatalogIfNeeded,
+} from './tariffCatalogMigration';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
 const DEMO_USERS: User[] = [
@@ -10,89 +22,6 @@ const DEMO_USERS: User[] = [
   { id: 'user_002', name: 'Thomas Klein', role: 'field_service' },
   { id: 'user_003', name: 'Sarah Hoffmann', role: 'field_service' },
   { id: 'user_004', name: 'Michael Weber', role: 'admin' },
-];
-
-const DEMO_TARIFFS_RAW = [
-  {
-    id: 'tariff_001',
-    name: 'BestPay Start',
-    providerName: 'BestPay',
-    productCode: 'BP-START',
-    description: 'Demo-Tarif für stationäre Kartenterminals im Einzelhandel.',
-    status: 'active',
-    supportedTerminalTypes: ['stationary'],
-    monthlyBaseFeeCents: 990,
-    monthlyTerminalFeeCents: 490,
-    setupFeeCents: 0,
-    minimumMonthlyFeeCents: null,
-    minimumContractMonths: 12,
-    noticePeriodMonths: 3,
-    includedTransactions: 500,
-    additionalTransactionFeeCents: 5,
-    cardRates: {
-      girocard: { percentageBasisPoints: 25, fixedFeeCents: 9 },
-      debit: { percentageBasisPoints: 119, fixedFeeCents: 12 },
-      credit: { percentageBasisPoints: 189, fixedFeeCents: 12 },
-      other: { percentageBasisPoints: 0, fixedFeeCents: 0 },
-    },
-    billingInterval: 'monthly',
-    validFrom: '2026-01-01',
-    validUntil: null,
-    notes: 'Demo-Daten für stationären Basistarif.',
-    createdAt: '2026-06-01T08:00:00.000Z',
-    updatedAt: '2026-07-15T10:00:00.000Z',
-  },
-  {
-    id: 'tariff_002',
-    name: 'BestPay Business',
-    providerName: 'BestPay',
-    productCode: 'BP-BUSINESS',
-    description: 'Demo-Tarif für mobile Kartenterminals im Außendienst.',
-    status: 'active',
-    supportedTerminalTypes: ['mobile'],
-    monthlyBaseFeeCents: 1490,
-    monthlyTerminalFeeCents: 790,
-    setupFeeCents: 4900,
-    minimumMonthlyFeeCents: 1990,
-    minimumContractMonths: 24,
-    noticePeriodMonths: 3,
-    includedTransactions: 1000,
-    additionalTransactionFeeCents: 4,
-    cardRates: {
-      girocard: { percentageBasisPoints: 22, fixedFeeCents: 8 },
-      debit: { percentageBasisPoints: 109, fixedFeeCents: 10 },
-      credit: { percentageBasisPoints: 175, fixedFeeCents: 10 },
-      other: { percentageBasisPoints: 50, fixedFeeCents: 5 },
-    },
-    billingInterval: 'monthly',
-    validFrom: '2026-01-01',
-    validUntil: '2027-12-31',
-    notes: 'Demo-Daten für mobilen Tarif.',
-    createdAt: '2026-06-01T08:00:00.000Z',
-    updatedAt: '2026-07-20T11:30:00.000Z',
-  },
-  {
-    id: 'tariff_003',
-    name: 'BestPay Flex',
-    active: false,
-    productCode: 'BP-FLEX',
-    description: 'Demo-Tarif für SoftPOS und E-Commerce.',
-    supportedTerminalTypes: ['softpos', 'ecommerce'],
-    monthlyBaseFeeCents: 0,
-    monthlyTerminalFeeCents: 0,
-    setupFeeCents: 9900,
-    includedTransactions: null,
-    additionalTransactionFeeCents: 8,
-    cardRates: {
-      girocard: { percentageBasisPoints: 30, fixedFeeCents: 10 },
-      debit: { percentageBasisPoints: 125, fixedFeeCents: 15 },
-      credit: { percentageBasisPoints: 199, fixedFeeCents: 15 },
-      other: { percentageBasisPoints: 0, fixedFeeCents: 0 },
-    },
-    billingInterval: 'monthly',
-    createdAt: '2026-06-01T08:00:00.000Z',
-    updatedAt: '2026-07-10T09:00:00.000Z',
-  },
 ];
 
 const DEMO_LEADS = [
@@ -195,7 +124,11 @@ export function getDemoLeads(): Lead[] {
 }
 
 export function getDemoTariffs(): Tariff[] {
-  return normalizeTariffs(DEMO_TARIFFS_RAW);
+  return normalizeTariffs([...BESTPAY_A920_TARIFFS_RAW]);
+}
+
+export function getDemoProducts(): Product[] {
+  return normalizeProducts([...BESTPAY_PRODUCTS_RAW]);
 }
 
 export function isDemoDataSeeded(): boolean {
@@ -204,12 +137,17 @@ export function isDemoDataSeeded(): boolean {
 
 export function seedDemoData(): void {
   if (isDemoDataSeeded()) {
+    migrateTariffCatalogIfNeeded();
+    migrateProductCatalogIfNeeded();
     return;
   }
 
   writeStorageItem(STORAGE_KEYS.users, getDemoUsers());
   writeStorageItem(STORAGE_KEYS.leads, getDemoLeads());
   writeStorageItem(STORAGE_KEYS.tariffs, getDemoTariffs());
+  writeStorageItem(STORAGE_KEYS.tariffCatalogVersion, CURRENT_TARIFF_CATALOG_VERSION);
+  writeStorageItem(STORAGE_KEYS.products, getDemoProducts());
+  writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
@@ -218,6 +156,9 @@ export function resetDemoDataForTests(): void {
   writeStorageItem(STORAGE_KEYS.users, getDemoUsers());
   writeStorageItem(STORAGE_KEYS.leads, getDemoLeads());
   writeStorageItem(STORAGE_KEYS.tariffs, getDemoTariffs());
+  writeStorageItem(STORAGE_KEYS.tariffCatalogVersion, CURRENT_TARIFF_CATALOG_VERSION);
+  writeStorageItem(STORAGE_KEYS.products, getDemoProducts());
+  writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
@@ -226,6 +167,9 @@ export function clearDemoDataForTests(): void {
   localStorage.removeItem(STORAGE_KEYS.users);
   localStorage.removeItem(STORAGE_KEYS.leads);
   localStorage.removeItem(STORAGE_KEYS.tariffs);
+  localStorage.removeItem(STORAGE_KEYS.tariffCatalogVersion);
+  localStorage.removeItem(STORAGE_KEYS.products);
+  localStorage.removeItem(STORAGE_KEYS.productCatalogVersion);
   localStorage.removeItem(STORAGE_KEYS.currentUserId);
   localStorage.removeItem(STORAGE_KEYS.seeded);
   localStorage.removeItem(STORAGE_KEYS.leadDrafts);

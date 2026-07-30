@@ -2,7 +2,8 @@ import type { FormEvent } from 'react';
 import { CurrencyInput } from '../../components/common/CurrencyInput';
 import { FormField } from '../../components/common/FormField';
 import { NumberInput } from '../../components/common/NumberInput';
-import { PercentageRateInput } from '../../components/common/PercentageRateInput';
+import { PercentageTenthsRateInput } from '../../components/common/PercentageTenthsRateInput';
+import { TenthsCurrencyInput } from '../../components/common/TenthsCurrencyInput';
 import type { CardRateKey, CreateTariffInput, TariffFormMode } from '../../domain/tariff/tariff';
 import {
   BILLING_INTERVAL_LABELS,
@@ -42,7 +43,11 @@ export function TariffForm({
     onChange({ ...values, [field]: value });
   };
 
-  const updateCardRate = (key: CardRateKey, field: keyof CreateTariffInput['cardRates'][CardRateKey], value: number) => {
+  const updateCardRate = (
+    key: CardRateKey,
+    field: keyof CreateTariffInput['cardRates'][CardRateKey],
+    value: number,
+  ) => {
     onChange({
       ...values,
       cardRates: {
@@ -93,7 +98,7 @@ export function TariffForm({
               onChange={(event) => updateField('providerName', event.target.value)}
             />
           </FormField>
-          <FormField id="productCode" label="Produktcode" required error={errors.productCode}>
+          <FormField id="productCode" label="Produktcode (intern)" required error={errors.productCode}>
             <input
               id="productCode"
               className={`${styles.input} ${errors.productCode ? styles.inputError : ''}`}
@@ -145,23 +150,31 @@ export function TariffForm({
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Grundkosten</h2>
+        <h2 className={styles.sectionTitle}>Monatliche Grundkosten</h2>
         <div className={styles.grid}>
           <CurrencyInput
-            id="monthlyBaseFeeCents"
-            label="Monatliche Grundgebühr"
-            value={values.monthlyBaseFeeCents}
-            error={errors.monthlyBaseFeeCents}
+            id="monthlyAccountBaseFeeCents"
+            label="Grundgebühr je Vertrag"
+            value={values.monthlyAccountBaseFeeCents}
+            error={errors.monthlyAccountBaseFeeCents}
             disabled={isSubmitting}
-            onChange={(value) => updateField('monthlyBaseFeeCents', value ?? 0)}
+            onChange={(value) => updateField('monthlyAccountBaseFeeCents', value ?? 0)}
           />
           <CurrencyInput
-            id="monthlyTerminalFeeCents"
-            label="Monatliche Terminalgebühr"
-            value={values.monthlyTerminalFeeCents}
-            error={errors.monthlyTerminalFeeCents}
+            id="monthlyTerminalRentalCents"
+            label="Terminalmiete je Terminal"
+            value={values.monthlyTerminalRentalCents}
+            error={errors.monthlyTerminalRentalCents}
             disabled={isSubmitting}
-            onChange={(value) => updateField('monthlyTerminalFeeCents', value ?? 0)}
+            onChange={(value) => updateField('monthlyTerminalRentalCents', value ?? 0)}
+          />
+          <CurrencyInput
+            id="monthlyServiceFeePerTerminalCents"
+            label="Servicepauschale je Terminal"
+            value={values.monthlyServiceFeePerTerminalCents}
+            error={errors.monthlyServiceFeePerTerminalCents}
+            disabled={isSubmitting}
+            onChange={(value) => updateField('monthlyServiceFeePerTerminalCents', value ?? 0)}
           />
           <CurrencyInput
             id="setupFeeCents"
@@ -209,17 +222,46 @@ export function TariffForm({
             value={values.includedTransactions}
             error={errors.includedTransactions}
             disabled={isSubmitting}
-            placeholder="Optional"
+            placeholder="Keine Angabe"
             onChange={(value) => updateField('includedTransactions', value)}
           />
-          <CurrencyInput
-            id="additionalTransactionFeeCents"
-            label="Preis je zusätzlicher Transaktion"
-            value={values.additionalTransactionFeeCents}
-            error={errors.additionalTransactionFeeCents}
+          <TenthsCurrencyInput
+            id="additionalTransactionFeeTenthsOfCent"
+            label="Transaktionspreis"
+            value={values.additionalTransactionFeeTenthsOfCent}
+            error={errors.additionalTransactionFeeTenthsOfCent}
             disabled={isSubmitting}
-            onChange={(value) => updateField('additionalTransactionFeeCents', value ?? 0)}
+            onChange={(value) => updateField('additionalTransactionFeeTenthsOfCent', value)}
           />
+          <TenthsCurrencyInput
+            id="girocardClearingFeeTenthsOfCent"
+            label="Clearing je Girocard-Transaktion"
+            value={values.girocardClearingFeeTenthsOfCent}
+            error={errors.girocardClearingFeeTenthsOfCent}
+            disabled={isSubmitting || values.girocardClearingIncluded}
+            onChange={(value) => updateField('girocardClearingFeeTenthsOfCent', value)}
+          />
+          <FormField id="girocardClearingIncluded" label="Clearing inklusive">
+            <label className={styles.checkboxLabel}>
+              <input
+                id="girocardClearingIncluded"
+                type="checkbox"
+                checked={values.girocardClearingIncluded}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const included = event.target.checked;
+                  onChange({
+                    ...values,
+                    girocardClearingIncluded: included,
+                    girocardClearingFeeTenthsOfCent: included
+                      ? 0
+                      : values.girocardClearingFeeTenthsOfCent,
+                  });
+                }}
+              />
+              Clearing je Girocard-Transaktion ist im Tarif enthalten
+            </label>
+          </FormField>
         </div>
       </section>
 
@@ -230,22 +272,24 @@ export function TariffForm({
             <div key={key} className={`${styles.cardRateGroup} ${styles.fullWidth}`}>
               <h3 className={styles.cardRateTitle}>{CARD_RATE_LABELS[key]}</h3>
               <div className={styles.grid}>
-                <PercentageRateInput
+                <PercentageTenthsRateInput
                   id={`cardRates-${key}-percentage`}
-                  label="Prozentual"
-                  value={values.cardRates[key].percentageBasisPoints}
+                  label="Prozententgelt"
+                  value={values.cardRates[key].percentageTenthsOfBasisPoint}
                   error={errors[`cardRates.${key}`]}
                   disabled={isSubmitting}
-                  onChange={(percentageBasisPoints) =>
-                    updateCardRate(key, 'percentageBasisPoints', percentageBasisPoints)
+                  onChange={(percentageTenthsOfBasisPoint) =>
+                    updateCardRate(key, 'percentageTenthsOfBasisPoint', percentageTenthsOfBasisPoint)
                   }
                 />
-                <CurrencyInput
+                <TenthsCurrencyInput
                   id={`cardRates-${key}-fixed`}
-                  label="Fix je Transaktion"
-                  value={values.cardRates[key].fixedFeeCents}
+                  label="Fixes Entgelt je Transaktion"
+                  value={values.cardRates[key].fixedFeeTenthsOfCent}
                   disabled={isSubmitting}
-                  onChange={(fixedFeeCents) => updateCardRate(key, 'fixedFeeCents', fixedFeeCents ?? 0)}
+                  onChange={(fixedFeeTenthsOfCent) =>
+                    updateCardRate(key, 'fixedFeeTenthsOfCent', fixedFeeTenthsOfCent)
+                  }
                 />
               </div>
             </div>
@@ -262,7 +306,7 @@ export function TariffForm({
             value={values.minimumContractMonths}
             error={errors.minimumContractMonths}
             disabled={isSubmitting}
-            placeholder="Optional"
+            placeholder="Keine Angabe"
             onChange={(value) => updateField('minimumContractMonths', value)}
           />
           <NumberInput
@@ -271,7 +315,7 @@ export function TariffForm({
             value={values.noticePeriodMonths}
             error={errors.noticePeriodMonths}
             disabled={isSubmitting}
-            placeholder="Optional"
+            placeholder="Keine Angabe"
             onChange={(value) => updateField('noticePeriodMonths', value)}
           />
           <FormField id="validFrom" label="Gültig ab" error={errors.validFrom}>

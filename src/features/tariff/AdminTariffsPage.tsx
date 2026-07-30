@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/feedback/EmptyState';
 import { SearchField } from '../../components/common/SearchField';
 import type { Tariff, TariffStatusFilter, TerminalTypeFilter } from '../../domain/tariff/tariff';
 import {
+  monthlyFixedCostsForOneTerminalCents,
   TERMINAL_TYPE_LABELS,
   TARIFF_STATUS_LABELS,
 } from '../../domain/tariff/tariff';
@@ -12,7 +13,13 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import { formatCentsToCurrency } from '../../utils/currency';
-import { formatCardRate, formatValidityRange } from '../../utils/formatTariff';
+import {
+  formatCardRate,
+  formatGirocardClearing,
+  formatOptionalMonths,
+  formatValidityRange,
+} from '../../utils/formatTariff';
+import { formatTenthsOfCentToCurrency } from '../../utils/tenthsOfCent';
 import { AdminTariffLayout } from './AdminTariffLayout';
 import { formatTerminalTypes } from '../../utils/formatTerminalTypes';
 import { TariffStatusBadge } from './TariffStatusBadge';
@@ -206,7 +213,7 @@ export function AdminTariffsPage() {
               <div className={styles.cardHeader}>
                 <div>
                   <h2 className={styles.cardTitle}>{tariff.name}</h2>
-                  <p className={styles.productCode}>{tariff.productCode}</p>
+                  <p className={styles.productCode}>{tariff.productCode} (intern)</p>
                 </div>
                 <TariffStatusBadge status={tariff.status} />
               </div>
@@ -217,12 +224,33 @@ export function AdminTariffsPage() {
                   <dd>{formatTerminalTypes(tariff.supportedTerminalTypes)}</dd>
                 </div>
                 <div className={styles.detailRow}>
-                  <dt>Grundgebühr</dt>
-                  <dd>{formatCentsToCurrency(tariff.monthlyBaseFeeCents)}</dd>
+                  <dt>Grundgebühr je Vertrag</dt>
+                  <dd>{formatCentsToCurrency(tariff.monthlyAccountBaseFeeCents)}</dd>
                 </div>
                 <div className={styles.detailRow}>
-                  <dt>Terminalgebühr</dt>
-                  <dd>{formatCentsToCurrency(tariff.monthlyTerminalFeeCents)}</dd>
+                  <dt>Terminalmiete je Terminal</dt>
+                  <dd>{formatCentsToCurrency(tariff.monthlyTerminalRentalCents)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Servicepauschale je Terminal</dt>
+                  <dd>{formatCentsToCurrency(tariff.monthlyServiceFeePerTerminalCents)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Fixkosten bei 1 Terminal</dt>
+                  <dd>{formatCentsToCurrency(monthlyFixedCostsForOneTerminalCents(tariff))}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Transaktionspreis</dt>
+                  <dd>{formatTenthsOfCentToCurrency(tariff.additionalTransactionFeeTenthsOfCent)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Girocard-Clearing</dt>
+                  <dd>
+                    {formatGirocardClearing(
+                      tariff.girocardClearingIncluded,
+                      tariff.girocardClearingFeeTenthsOfCent,
+                    )}
+                  </dd>
                 </div>
                 <div className={styles.detailRow}>
                   <dt>Girocard</dt>
@@ -235,6 +263,18 @@ export function AdminTariffsPage() {
                 <div className={styles.detailRow}>
                   <dt>Kreditkarten</dt>
                   <dd>{formatCardRate(tariff.cardRates.credit)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Einrichtungsgebühr</dt>
+                  <dd>{formatCentsToCurrency(tariff.setupFeeCents)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Vertragslaufzeit</dt>
+                  <dd>{formatOptionalMonths(tariff.minimumContractMonths)}</dd>
+                </div>
+                <div className={styles.detailRow}>
+                  <dt>Kündigungsfrist</dt>
+                  <dd>{formatOptionalMonths(tariff.noticePeriodMonths)}</dd>
                 </div>
                 <div className={styles.detailRow}>
                   <dt>Gültigkeit</dt>

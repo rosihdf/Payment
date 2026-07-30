@@ -55,15 +55,15 @@ describe('Routing', () => {
   it('renders the calculator page with comparison layout on /calculator', async () => {
     renderApp('/calculator');
     expect(await screen.findByRole('heading', { name: 'Vergleichsrechner' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Aktueller Anbieter' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'BestPay' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Angebot von BestPay' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vergleichsergebnis' })).toBeInTheDocument();
   });
 
   it('renders admin tariffs for admin role on /admin/tariffs', async () => {
     renderApp('/admin/tariffs', 'user_004');
     expect(await screen.findByRole('heading', { name: 'Tarifverwaltung' })).toBeInTheDocument();
-    expect(await screen.findByText('BestPay Start')).toBeInTheDocument();
+    expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
   });
 
   it('shows access denied for non-admin on /admin/tariffs', async () => {
