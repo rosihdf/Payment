@@ -103,20 +103,23 @@ export function CalculatorPage() {
 
       <div className={styles.hubGrid}>
         <article className={styles.hubCard}>
-          <h2 className={styles.hubTitle}>BestPay-Vergleich</h2>
+          <h2 className={styles.hubTitle}>BestPay</h2>
           <p className={styles.hubText}>
-            Aktuelle Zahlungsverkehrskosten erfassen, BestPay-Varianten vergleichen und eine
-            Empfehlung berechnen.
+            Vergleichsrechner, gespeicherte Berechnungen und der vollständige Vertriebs-Wizard vom
+            Interessenten bis zum Angebotsentwurf.
           </p>
           <div className={styles.hubActions}>
-            <Link className={styles.hubPrimary} to="/calculator/bestpay?mode=billing&new=1">
-              Abrechnung einlesen
+            <Link className={styles.hubPrimary} to="/calculator/wizard?new=1">
+              Vertriebs-Wizard
             </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
-              Werte manuell eingeben
+            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=billing&new=1">
+              Neue Berechnung
             </Link>
             <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
-              Gespeicherte Berechnungen
+              Berechnungen
+            </Link>
+            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
+              Manuell eingeben
             </Link>
           </div>
         </article>

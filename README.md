@@ -87,7 +87,8 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/leads` | Lead-Übersicht |
 | `/leads/new` | Neuer Lead |
 | `/leads/:id` | Lead-Detail |
-| `/calculator` | Rechner-Hub (BestPay-Vergleich + Konditionsvergleich) |
+| `/calculator` | Rechner-Hub (BestPay, Neue Berechnung, Berechnungen, Vertriebs-Wizard) |
+| `/calculator/wizard` | BestPay Vertriebs-Wizard (B01) |
 | `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
 | `/calculator/bestpay/history` | Gespeicherte BestPay-Berechnungen (A11.5) |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
@@ -466,7 +467,34 @@ Unter **Rechner** gibt es die Übersicht **Gespeicherte Berechnungen** (`/calcul
 
 ### Abgrenzung A11.6
 
-Kein Szenariovergleich mehrerer Varianten nebeneinander, keine Cloud-Sync, keine Teamfreigaben.
+Kein separater A11.6-Block mehr: Varianten-/Szenariovergleich ist Teil des B01-Vertriebs-Wizards. Keine Cloud-Sync, keine Teamfreigaben.
+
+## BestPay Vertriebs-Wizard (B01)
+
+Unter **Rechner** → **Vertriebs-Wizard** (`/calculator/wizard`) orchestriert die App den vollständigen Vertriebsablauf.
+
+### Schritte
+
+1. Interessent (bestehender Lead / neuer Interessent / ohne Lead)
+2. Aktuelle Kosten (Billing-/OCR-Pipeline oder manuell)
+3. Bedarf
+4. Variantenvergleich (beliebige Szenarien)
+5. Angebot (vorhandene Angebotsengine)
+6. Freigabe (Pricing-Approval-Metadaten; Auto-Skip wenn nicht nötig)
+7. Abschluss
+
+### Architektur
+
+- Orchestrierung über `SalesWizardService` auf derselben `BestPayComparisonSession` (Schema v3)
+- Keine zweite Persistenz, keine zweite OCR-/Billing-/Pricing-/Recommendation-/Commission-Engine
+- Autosave bei jeder Service-Änderung; Resume über `?session=` oder aktiven Wizard-Entwurf
+- Desktop: linke Fortschrittsnavigation; mobil: horizontale Schrittleiste
+
+### Hub-Einstiege
+
+- BestPay / Vertriebs-Wizard
+- Neue Berechnung
+- Berechnungen (Historie A11.5)
 
 ## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
 

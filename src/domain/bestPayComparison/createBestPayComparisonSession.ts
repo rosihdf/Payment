@@ -5,6 +5,7 @@ import type {
 import {
   BESTPAY_COMPARISON_SCHEMA_VERSION,
   DEFAULT_BESTPAY_MANUAL_INPUT,
+  DEFAULT_SALES_WIZARD_STATE,
 } from './bestPayComparisonSession';
 import { generateId, nowIso } from '../../utils/id';
 
@@ -18,6 +19,7 @@ export function createBestPayComparisonSession(
     schemaVersion: BESTPAY_COMPARISON_SCHEMA_VERSION,
     status: 'draft',
     source: null,
+    entryMode: 'calculator',
     title: null,
     leadId: null,
     customerLabel: null,
@@ -33,6 +35,11 @@ export function createBestPayComparisonSession(
     offerTitle: null,
     offerCreationToken: null,
     duplicateOfSessionId: null,
+    wizard: {
+      ...DEFAULT_SALES_WIZARD_STATE,
+      prospectDraft: { ...DEFAULT_SALES_WIZARD_STATE.prospectDraft },
+      scenarios: [],
+    },
     createdByUserId: userId,
     createdAt: timestamp,
     updatedAt: timestamp,

@@ -2,11 +2,12 @@ import type { BestPayComparisonSession } from '../domain/bestPayComparison/bestP
 import {
   BESTPAY_COMPARISON_SCHEMA_VERSION,
   DEFAULT_BESTPAY_MANUAL_INPUT,
+  DEFAULT_SALES_WIZARD_STATE,
 } from '../domain/bestPayComparison/bestPayComparisonSession';
 import { resolveBestPayComparisonTitle } from '../domain/bestPayComparison/bestPayComparisonSummary';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
-export const CURRENT_BESTPAY_COMPARISON_STORAGE_VERSION = 2;
+export const CURRENT_BESTPAY_COMPARISON_STORAGE_VERSION = 3;
 
 export interface BestPayComparisonStore {
   activeSessionId: string | null;
@@ -49,11 +50,15 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
       }
     : { ...DEFAULT_BESTPAY_MANUAL_INPUT };
 
+  const wizardRaw = isRecord(raw.wizard) ? raw.wizard : null;
+  const prospectRaw = wizardRaw && isRecord(wizardRaw.prospectDraft) ? wizardRaw.prospectDraft : null;
+
   const session: BestPayComparisonSession = {
     id: raw.id,
     schemaVersion: BESTPAY_COMPARISON_SCHEMA_VERSION,
     status: (typeof raw.status === 'string' ? raw.status : 'draft') as BestPayComparisonSession['status'],
     source: (raw.source as BestPayComparisonSession['source']) ?? null,
+    entryMode: raw.entryMode === 'wizard' ? 'wizard' : 'calculator',
     title: asStringOrNull(raw.title),
     leadId: asStringOrNull(raw.leadId),
     customerLabel: asStringOrNull(raw.customerLabel),
@@ -69,6 +74,31 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
     offerTitle: asStringOrNull(raw.offerTitle),
     offerCreationToken: asStringOrNull(raw.offerCreationToken),
     duplicateOfSessionId: asStringOrNull(raw.duplicateOfSessionId),
+    wizard: {
+      enabled: Boolean(wizardRaw?.enabled),
+      currentStep:
+        typeof wizardRaw?.currentStep === 'string'
+          ? (wizardRaw.currentStep as BestPayComparisonSession['wizard']['currentStep'])
+          : DEFAULT_SALES_WIZARD_STATE.currentStep,
+      prospectDraft: {
+        companyName: typeof prospectRaw?.companyName === 'string' ? prospectRaw.companyName : '',
+        contactFirstName:
+          typeof prospectRaw?.contactFirstName === 'string' ? prospectRaw.contactFirstName : '',
+        contactLastName:
+          typeof prospectRaw?.contactLastName === 'string' ? prospectRaw.contactLastName : '',
+        phone: typeof prospectRaw?.phone === 'string' ? prospectRaw.phone : '',
+        email: typeof prospectRaw?.email === 'string' ? prospectRaw.email : '',
+        industry: typeof prospectRaw?.industry === 'string' ? prospectRaw.industry : '',
+        notes: typeof prospectRaw?.notes === 'string' ? prospectRaw.notes : '',
+      },
+      scenarios: Array.isArray(wizardRaw?.scenarios)
+        ? (wizardRaw.scenarios as BestPayComparisonSession['wizard']['scenarios'])
+        : [],
+      selectedScenarioId: asStringOrNull(wizardRaw?.selectedScenarioId),
+      approvalAcknowledgedAt: asStringOrNull(wizardRaw?.approvalAcknowledgedAt),
+      approvalNotes: typeof wizardRaw?.approvalNotes === 'string' ? wizardRaw.approvalNotes : '',
+      wizardCompletedAt: asStringOrNull(wizardRaw?.wizardCompletedAt),
+    },
     createdByUserId: raw.createdByUserId,
     createdAt,
     updatedAt,
@@ -117,17 +147,26 @@ export function migrateBestPayComparisonStorageIfNeeded(): void {
         activeSessionId: null,
         sessions: [],
       } satisfies BestPayComparisonStore);
+    } else {
+      // Normalize sessions in place for additive schema fields.
+      writeStorageItem(STORAGE_KEYS.bestPayComparisonSessions, {
+        activeSessionId: store.activeSessionId ?? null,
+        sessions: migrateSessions(store.sessions),
+      } satisfies BestPayComparisonStore);
     }
     return;
   }
 
-  // v1: Array von Sessions; unbekannt/null: ebenfalls aus Array lesen
+  // v1: Array; v2: Store ohne Wizard-Felder; unbekannt/null: aus Array/Store lesen
   const legacy = readLegacySessionArray();
   const sessions = migrateSessions(legacy);
+  const existingStore = readStorageItem<BestPayComparisonStore>(STORAGE_KEYS.bestPayComparisonSessions);
   const activeSessionId =
+    (isRecord(existingStore) ? asStringOrNull(existingStore.activeSessionId) : null) ??
     sessions
       .filter((session) => session.status !== 'discarded' && !session.archivedAt)
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.id ?? null;
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]?.id ??
+    null;
 
   writeStorageItem(STORAGE_KEYS.bestPayComparisonSessions, {
     activeSessionId,

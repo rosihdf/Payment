@@ -533,6 +533,17 @@ export class BestPayComparisonService {
     return data?.baseline?.status === 'confirmed' ? data.baseline : null;
   }
 
+  getConfirmedBaseline(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): CustomerCostBaseline | null {
+    const session = this.getSession(sessionId, context);
+    if (!session) {
+      return null;
+    }
+    return this.resolveBaseline(session, context);
+  }
+
   async calculate(
     sessionId: string,
     context: BestPayComparisonUserContext,

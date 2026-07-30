@@ -1,3 +1,6 @@
+import type { SalesWizardState } from './salesWizard';
+import { DEFAULT_SALES_WIZARD_STATE } from './salesWizard';
+
 export type BestPayComparisonStatus =
   | 'draft'
   | 'billing_import'
@@ -10,6 +13,8 @@ export type BestPayComparisonStatus =
   | 'discarded';
 
 export type BestPayComparisonSource = 'billing_import' | 'manual' | 'mixed';
+
+export type BestPayComparisonEntryMode = 'calculator' | 'wizard';
 
 export interface BestPayManualInput {
   monthlyCardVolumeCents: number | null;
@@ -74,6 +79,7 @@ export interface BestPayComparisonSession {
   schemaVersion: number;
   status: BestPayComparisonStatus;
   source: BestPayComparisonSource | null;
+  entryMode: BestPayComparisonEntryMode;
   title: string | null;
   leadId: string | null;
   customerLabel: string | null;
@@ -89,6 +95,7 @@ export interface BestPayComparisonSession {
   offerTitle: string | null;
   offerCreationToken: string | null;
   duplicateOfSessionId: string | null;
+  wizard: SalesWizardState;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
@@ -98,8 +105,10 @@ export interface BestPayComparisonSession {
   discardedAt: string | null;
 }
 
-/** A11.5 Session-Schema (A11.4 v1 wird migriert). */
-export const BESTPAY_COMPARISON_SCHEMA_VERSION = 2;
+/** B01 Session-Schema (A11.5 v2 wird migriert). */
+export const BESTPAY_COMPARISON_SCHEMA_VERSION = 3;
+
+export { DEFAULT_SALES_WIZARD_STATE };
 
 export const DEFAULT_BESTPAY_MANUAL_INPUT: BestPayManualInput = {
   monthlyCardVolumeCents: null,

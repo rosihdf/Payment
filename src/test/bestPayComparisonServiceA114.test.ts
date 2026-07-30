@@ -60,7 +60,7 @@ describe('A11.4 BestPayComparisonService', () => {
     const { service } = createService();
     const created = service.createSession(context);
     expect(created.status).toBe('draft');
-    expect(created.schemaVersion).toBe(2);
+    expect(created.schemaVersion).toBe(3);
 
     service.updateManualInput(
       created.id,

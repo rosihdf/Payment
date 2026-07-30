@@ -3,6 +3,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { CalculatorPage } from '../features/calculator/CalculatorPage';
 import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
 import { BestPayComparisonHistoryPage } from '../features/calculator/BestPayComparisonHistoryPage';
+import { SalesWizardPage } from '../features/calculator/SalesWizardPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
@@ -36,6 +37,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
       { path: 'leads/:id', element: <LeadDetailPage /> },
       { path: 'calculator', element: <CalculatorPage /> },
+      { path: 'calculator/wizard', element: <SalesWizardPage /> },
       { path: 'calculator/bestpay/history', element: <BestPayComparisonHistoryPage /> },
       { path: 'calculator/bestpay', element: <BestPayComparisonPage /> },
       { path: 'offers', element: <OffersPage /> },

@@ -22,6 +22,7 @@ import { createOfferDocumentService } from './offerDocumentService';
 import { OfferService } from './offerService';
 import { PricingEvaluationService } from './pricingEvaluationService';
 import { ProductService } from './productService';
+import { SalesWizardService } from './salesWizardService';
 import { TariffService } from './tariffService';
 import { UserService } from './userService';
 
@@ -39,6 +40,7 @@ export interface AppServices {
   recommendationService: RecommendationService;
   billingImportService: BillingImportService;
   bestPayComparisonService: BestPayComparisonService;
+  salesWizardService: SalesWizardService;
 }
 
 export interface AppRepositories {
@@ -82,10 +84,16 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.leadRepository,
     repositories.offerRepository,
   );
+  const leadService = new LeadService(repositories.leadRepository);
+  const salesWizardService = new SalesWizardService(
+    bestPayComparisonService,
+    recommendationService,
+    leadService,
+  );
 
   return {
     userService: new UserService(repositories.userRepository),
-    leadService: new LeadService(repositories.leadRepository),
+    leadService,
     leadDraftService: new LeadDraftService(repositories.leadDraftRepository),
     leadEditDraftService: new LeadEditDraftService(repositories.leadEditDraftRepository),
     tariffService: new TariffService(repositories.tariffRepository),
@@ -110,5 +118,6 @@ export function createServices(repositories: AppRepositories): AppServices {
     billingImportService,
     recommendationService,
     bestPayComparisonService,
+    salesWizardService,
   };
 }

@@ -18,7 +18,7 @@ describe('A11.4 BestPayComparison Domain', () => {
 
   it('erzeugt versionierte Sessions', () => {
     const session = createBestPayComparisonSession('user_1');
-    expect(session.schemaVersion).toBe(2);
+    expect(session.schemaVersion).toBe(3);
     expect(session.status).toBe('draft');
     expect(session.offerId).toBeNull();
   });
@@ -91,7 +91,7 @@ describe('A11.4 BestPayComparison Domain', () => {
       activeSessionId: null,
       sessions: [],
     });
-    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion)).toBe(2);
+    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion)).toBe(3);
     writeStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion, 1);
     writeStorageItem(STORAGE_KEYS.bestPayComparisonSessions, [
       createBestPayComparisonSession('user_1'),

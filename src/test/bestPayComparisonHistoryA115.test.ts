@@ -120,7 +120,7 @@ describe('A11.5 BestPayComparison History', () => {
     expect(store.sessions[0]?.offerId).toBe('offer_legacy');
     expect(store.sessions[0]?.leadId).toBe('lead_001');
     expect(store.sessions[0]?.result?.stale).toBe(true);
-    expect(store.sessions[0]?.schemaVersion).toBe(2);
+    expect(store.sessions[0]?.schemaVersion).toBe(3);
     expect(store.sessions[0]?.title).toContain('Café Test');
   });
 
