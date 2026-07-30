@@ -89,6 +89,7 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/leads/:id` | Lead-Detail |
 | `/calculator` | Rechner-Hub (BestPay-Vergleich + Konditionsvergleich) |
 | `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
+| `/calculator/bestpay/history` | Gespeicherte BestPay-Berechnungen (A11.5) |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
 | `/offers` | Angebotsübersicht (Admin und Außendienst) |
 | `/offers/new` | Neues Angebot anlegen |
@@ -431,7 +432,41 @@ Unter **Rechner** (`/calculator`) gibt es den Einstieg **BestPay-Vergleich**.
 
 ### Abgrenzung A11.5
 
-Keine vollständige Berechnungshistorie/Listenansicht in A11.4.
+A11.4 speichert Sessions, bietet aber keine vollständige Historienverwaltung. Das folgt in A11.5.
+
+## Gespeicherte BestPay-Berechnungen (A11.5)
+
+Unter **Rechner** gibt es die Übersicht **Gespeicherte Berechnungen** (`/calculator/bestpay/history`).
+
+### Funktionen
+
+- Mehrere Sessions im versionierten Store (`activeSessionId` + `sessions`)
+- Migration bestehender A11.4-Sessions ohne ID-/Snapshot-Verlust
+- Suche (Titel, Händler, Lead, Angebotsnummer/-titel, Variante)
+- Filter: Status, Aktualität, Zuordnung, Datenquelle, Zeitraum
+- Sortierung (Standard: zuletzt geändert)
+- Wiederaufnahme derselben Session-ID ohne stille Neuberechnung
+- Duplizieren (ohne Offer-/Idempotenzschlüssel; neu berechnen vor Angebot)
+- Archivieren / Wiederherstellen
+- Begrenztes Löschen rein lokaler Entwürfe
+- Stale-Hinweis über Snapshot-Metadaten (keine Engine-Neuberechnung in der Liste)
+- Lead-/Angebotslinks, fehlende Referenzen crashen nicht
+
+### Persistenz / Datenschutz
+
+- Keine Original-PDF/Fotos/Base64 in der Historie
+- Listenmodell nur mit Metadaten/Summaries
+- OCR/PDF.js werden durch die Historienseite nicht geladen
+
+### Rechte
+
+- Historie für Außendienst und Admin
+- Provision bleibt getrennt und nur bei Recht sichtbar (nicht in der Liste)
+- Archivieren/Löschen service-seitig abgesichert
+
+### Abgrenzung A11.6
+
+Kein Szenariovergleich mehrerer Varianten nebeneinander, keine Cloud-Sync, keine Teamfreigaben.
 
 ## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
 

@@ -63,23 +63,48 @@ export function BestPayComparisonPage() {
       return;
     }
     const mode = searchParams.get('mode');
-    let active = bestPayComparisonService.getActiveDraft(userContext);
-    if (!active || searchParams.get('new') === '1') {
+    const sessionId = searchParams.get('session');
+    let active: BestPayComparisonSession | null = null;
+    let nextStep: Step = 'source';
+
+    if (sessionId) {
+      const resumed = bestPayComparisonService.resumeComparison(sessionId, userContext);
+      if (!resumed.ok) {
+        showToast('Gespeicherte Berechnung nicht gefunden', 'error');
+        active = bestPayComparisonService.createSession(userContext);
+        nextStep = 'source';
+      } else {
+        active = resumed.session;
+        nextStep = resumed.step;
+      }
+    } else if (searchParams.get('new') === '1') {
       active = bestPayComparisonService.createSession(userContext);
+      nextStep = mode === 'manual' ? 'need' : 'source';
+    } else {
+      active = bestPayComparisonService.getActiveDraft(userContext);
+      if (!active) {
+        active = bestPayComparisonService.createSession(userContext);
+      }
+      if (active.result) {
+        nextStep = 'result';
+      } else if (active.billingImportSessionId) {
+        nextStep = 'review';
+      } else if (active.source === 'manual' || active.status === 'ready_for_calculation') {
+        nextStep = 'need';
+      }
     }
-    if (mode === 'billing' && !active.billingImportSessionId) {
+
+    if (mode === 'billing' && active && !active.billingImportSessionId) {
       const started = await bestPayComparisonService.startBillingImport(active.id, userContext);
       if (started.ok) {
         active = started.session;
-        setStep('review');
+        nextStep = 'review';
       }
-    } else if (mode === 'manual') {
-      setStep('need');
-    } else if (active.result) {
-      setStep('result');
-    } else if (active.billingImportSessionId) {
-      setStep('review');
+    } else if (mode === 'manual' && !sessionId) {
+      nextStep = 'need';
     }
+
+    setStep(nextStep);
     setSession(active);
     setSelectedLeadId(active.leadId ?? '');
     setMonthlyVolume(
@@ -98,7 +123,7 @@ export function BestPayComparisonPage() {
         : '',
     );
     setTerminalCount(String(active.manualInput.terminalCount));
-  }, [bestPayComparisonService, searchParams, userContext]);
+  }, [bestPayComparisonService, searchParams, showToast, userContext]);
 
   useEffect(() => {
     void bootstrap();
@@ -208,6 +233,9 @@ export function BestPayComparisonPage() {
         subtitle="Aktuelle Zahlungsverkehrskosten erfassen, BestPay-Varianten vergleichen und Empfehlung berechnen"
         actions={
           <div className={styles.headerActions}>
+            <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
+              Gespeicherte Berechnungen
+            </Link>
             <button
               type="button"
               className={styles.secondaryAction}

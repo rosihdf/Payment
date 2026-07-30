@@ -115,6 +115,9 @@ export function CalculatorPage() {
             <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
               Werte manuell eingeben
             </Link>
+            <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
+              Gespeicherte Berechnungen
+            </Link>
           </div>
         </article>
       </div>

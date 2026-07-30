@@ -9,6 +9,14 @@ import {
   summarizeComparisonVariant,
   summarizePrimaryCandidate,
 } from '../domain/bestPayComparison/comparisonSummary';
+import {
+  DEFAULT_BESTPAY_COMPARISON_LIST_FILTERS,
+  filterAndSortBestPayComparisons,
+  resolveBestPayComparisonTitle,
+  resolveResumeStep,
+  type BestPayComparisonListFilters,
+  type BestPayComparisonSummary,
+} from '../domain/bestPayComparison/bestPayComparisonSummary';
 import type { CustomerCostBaseline } from '../domain/billingImport/customerCostBaseline';
 import type { User } from '../domain/user/user';
 import { nowIso } from '../utils/id';
@@ -18,9 +26,12 @@ import type { BillingImportService } from './billingImportService';
 import type { RecommendationService } from './recommendationService';
 import type { OfferService, OfferUserContext } from './offerService';
 import {
-  readBestPayComparisonSessions,
-  saveBestPayComparisonSession,
+  getActiveBestPayComparisonSessionId,
   migrateBestPayComparisonStorageIfNeeded,
+  readBestPayComparisonSessions,
+  removeBestPayComparisonSession,
+  saveBestPayComparisonSession,
+  setActiveBestPayComparisonSessionId,
 } from './bestPayComparisonStorageMigration';
 import type { CreateOfferInput } from '../domain/offer/offer';
 import { generateId } from '../utils/id';
@@ -40,7 +51,11 @@ export type BestPayComparisonError =
   | 'lead_required'
   | 'stale'
   | 'offer_exists'
-  | 'validation';
+  | 'validation'
+  | 'not_deletable'
+  | 'already_archived'
+  | 'not_archived'
+  | 'in_flight';
 
 export class BestPayComparisonService {
   private readonly billingImportService: BillingImportService;
@@ -48,6 +63,7 @@ export class BestPayComparisonService {
   private readonly offerService: OfferService;
   private readonly leadRepository: LeadRepository;
   private readonly offerRepository: OfferRepository;
+  private readonly inFlightActions = new Set<string>();
 
   constructor(
     billingImportService: BillingImportService,
@@ -67,22 +83,66 @@ export class BestPayComparisonService {
     migrateBestPayComparisonStorageIfNeeded();
   }
 
+  private canAccessCalculator(context: BestPayComparisonUserContext): boolean {
+    return context.role === 'admin' || context.role === 'field_service';
+  }
+
   private canAccess(session: BestPayComparisonSession, context: BestPayComparisonUserContext): boolean {
+    if (!this.canAccessCalculator(context)) {
+      return false;
+    }
     if (context.role === 'admin') {
       return true;
     }
     return session.createdByUserId === context.userId;
   }
 
+  private withInFlight<T>(
+    key: string,
+    action: () => T,
+  ): T | { ok: false; error: 'in_flight' } {
+    if (this.inFlightActions.has(key)) {
+      return { ok: false, error: 'in_flight' };
+    }
+    this.inFlightActions.add(key);
+    try {
+      return action();
+    } finally {
+      this.inFlightActions.delete(key);
+    }
+  }
+
+  private touchTitle(session: BestPayComparisonSession): void {
+    session.title = resolveBestPayComparisonTitle(session);
+  }
+
   getActiveDraft(context: BestPayComparisonUserContext): BestPayComparisonSession | null {
     this.ensureMigrated();
+    if (!this.canAccessCalculator(context)) {
+      return null;
+    }
+
+    const activeId = getActiveBestPayComparisonSessionId();
+    if (activeId) {
+      const active = this.getSession(activeId, context);
+      if (
+        active &&
+        active.status !== 'discarded' &&
+        active.status !== 'offer_created' &&
+        !active.archivedAt
+      ) {
+        return active;
+      }
+    }
+
     return (
       readBestPayComparisonSessions()
         .filter(
           (session) =>
             this.canAccess(session, context) &&
             session.status !== 'discarded' &&
-            session.status !== 'offer_created',
+            session.status !== 'offer_created' &&
+            !session.archivedAt,
         )
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
     );
@@ -99,8 +159,13 @@ export class BestPayComparisonService {
 
   createSession(context: BestPayComparisonUserContext): BestPayComparisonSession {
     this.ensureMigrated();
+    if (!this.canAccessCalculator(context)) {
+      throw new Error('FORBIDDEN');
+    }
     const session = createBestPayComparisonSession(context.userId);
+    this.touchTitle(session);
     saveBestPayComparisonSession(session);
+    setActiveBestPayComparisonSessionId(session.id);
     return session;
   }
 
@@ -113,7 +178,261 @@ export class BestPayComparisonService {
     session.discardedAt = nowIso();
     session.updatedAt = nowIso();
     saveBestPayComparisonSession(session);
+    if (getActiveBestPayComparisonSessionId() === sessionId) {
+      setActiveBestPayComparisonSessionId(null);
+    }
     return true;
+  }
+
+  listComparisons(
+    context: BestPayComparisonUserContext,
+    filters: Partial<BestPayComparisonListFilters> = {},
+  ): BestPayComparisonSummary[] | null {
+    this.ensureMigrated();
+    if (!this.canAccessCalculator(context)) {
+      return null;
+    }
+    const merged: BestPayComparisonListFilters = {
+      ...DEFAULT_BESTPAY_COMPARISON_LIST_FILTERS,
+      ...filters,
+    };
+    const sessions = readBestPayComparisonSessions().filter((session) => this.canAccess(session, context));
+    return filterAndSortBestPayComparisons(sessions, merged);
+  }
+
+  getComparisonSummary(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): BestPayComparisonSummary | null {
+    const session = this.getSession(sessionId, context);
+    if (!session) {
+      return null;
+    }
+    return filterAndSortBestPayComparisons([session], {
+      ...DEFAULT_BESTPAY_COMPARISON_LIST_FILTERS,
+      includeArchived: true,
+      status: 'all',
+    })[0] ?? null;
+  }
+
+  resumeComparison(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): {
+    ok: true;
+    session: BestPayComparisonSession;
+    step: ReturnType<typeof resolveResumeStep>;
+  } | { ok: false; error: BestPayComparisonError } {
+    const session = this.getSession(sessionId, context);
+    if (!session || session.status === 'discarded') {
+      return { ok: false, error: 'not_found' };
+    }
+    if (session.archivedAt) {
+      return { ok: false, error: 'validation' };
+    }
+
+    const refreshed = this.refreshStaleStatus(sessionId, context);
+    const current = refreshed ?? session;
+    current.lastOpenedAt = nowIso();
+    // lastOpenedAt allein aktualisiert updatedAt nicht
+    saveBestPayComparisonSession(current);
+    setActiveBestPayComparisonSessionId(current.id);
+    return { ok: true, session: current, step: resolveResumeStep(current) };
+  }
+
+  refreshStaleStatus(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): BestPayComparisonSession | null {
+    const session = this.getSession(sessionId, context);
+    if (!session?.result) {
+      return session;
+    }
+
+    const reasons: string[] = [...(session.result.staleReasons ?? [])];
+    let stale = session.result.stale;
+
+    if (session.billingImportSessionId && session.costBaselineVersion !== null) {
+      const data = this.billingImportService.getSessionData(session.billingImportSessionId, context);
+      const baseline = data?.baseline;
+      if (baseline && baseline.version !== session.costBaselineVersion) {
+        stale = true;
+        if (!reasons.includes('Kostenbasis geändert')) {
+          reasons.push('Kostenbasis geändert');
+        }
+      }
+    }
+
+    if (stale !== session.result.stale || reasons.length !== session.result.staleReasons.length) {
+      session.result = {
+        ...session.result,
+        stale,
+        staleReasons: reasons,
+      };
+      // Metadaten-Refresh ohne fachliche Änderung: updatedAt unverändert
+      saveBestPayComparisonSession(session);
+    }
+    return session;
+  }
+
+  duplicateComparison(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ):
+    | { ok: true; session: BestPayComparisonSession }
+    | { ok: false; error: BestPayComparisonError; message?: string } {
+    const result = this.withInFlight(`duplicate:${sessionId}:${context.userId}`, () => {
+      const source = this.getSession(sessionId, context);
+      if (!source || source.status === 'discarded') {
+        return { ok: false as const, error: 'not_found' as const };
+      }
+
+      const timestamp = nowIso();
+      const titleBase = resolveBestPayComparisonTitle(source);
+      const copy = createBestPayComparisonSession(context.userId, {
+        title: `${titleBase} (Kopie)`,
+        source: source.source,
+        leadId: source.leadId,
+        customerLabel: source.customerLabel,
+        leadDisplayName: source.leadDisplayName,
+        billingImportSessionId: source.billingImportSessionId,
+        costBaselineId: source.costBaselineId,
+        costBaselineVersion: source.costBaselineVersion,
+        manualInput: {
+          ...source.manualInput,
+          paymentUsage: { ...source.manualInput.paymentUsage },
+        },
+        result: null,
+        selectedCandidateId: null,
+        offerId: null,
+        offerNumber: null,
+        offerTitle: null,
+        offerCreationToken: null,
+        duplicateOfSessionId: source.id,
+        status: source.costBaselineId || source.manualInput.monthlyCardVolumeCents !== null
+          ? 'ready_for_calculation'
+          : 'draft',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        lastOpenedAt: null,
+        completedAt: null,
+        archivedAt: null,
+        discardedAt: null,
+      });
+
+      saveBestPayComparisonSession(copy);
+      setActiveBestPayComparisonSessionId(copy.id);
+      return { ok: true as const, session: copy };
+    });
+
+    if ('error' in result && result.error === 'in_flight') {
+      return { ok: false, error: 'in_flight', message: 'Duplizieren läuft bereits.' };
+    }
+    return result as
+      | { ok: true; session: BestPayComparisonSession }
+      | { ok: false; error: BestPayComparisonError; message?: string };
+  }
+
+  archiveComparison(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ):
+    | { ok: true; session: BestPayComparisonSession }
+    | { ok: false; error: BestPayComparisonError; message?: string } {
+    const result = this.withInFlight(`archive:${sessionId}`, () => {
+      const session = this.getSession(sessionId, context);
+      if (!session || session.status === 'discarded') {
+        return { ok: false as const, error: 'not_found' as const };
+      }
+      if (session.archivedAt) {
+        return { ok: false as const, error: 'already_archived' as const };
+      }
+      session.archivedAt = nowIso();
+      session.updatedAt = nowIso();
+      saveBestPayComparisonSession(session);
+      if (getActiveBestPayComparisonSessionId() === sessionId) {
+        setActiveBestPayComparisonSessionId(null);
+      }
+      return { ok: true as const, session };
+    });
+
+    if ('error' in result && result.error === 'in_flight') {
+      return { ok: false, error: 'in_flight' };
+    }
+    return result as
+      | { ok: true; session: BestPayComparisonSession }
+      | { ok: false; error: BestPayComparisonError; message?: string };
+  }
+
+  restoreComparison(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ):
+    | { ok: true; session: BestPayComparisonSession }
+    | { ok: false; error: BestPayComparisonError; message?: string } {
+    const result = this.withInFlight(`restore:${sessionId}`, () => {
+      const session = this.getSession(sessionId, context);
+      if (!session || session.status === 'discarded') {
+        return { ok: false as const, error: 'not_found' as const };
+      }
+      if (!session.archivedAt) {
+        return { ok: false as const, error: 'not_archived' as const };
+      }
+      session.archivedAt = null;
+      session.updatedAt = nowIso();
+      saveBestPayComparisonSession(session);
+      this.refreshStaleStatus(sessionId, context);
+      const restored = this.getSession(sessionId, context);
+      return restored
+        ? { ok: true as const, session: restored }
+        : { ok: false as const, error: 'not_found' as const };
+    });
+
+    if ('error' in result && result.error === 'in_flight') {
+      return { ok: false, error: 'in_flight' };
+    }
+    return result as
+      | { ok: true; session: BestPayComparisonSession }
+      | { ok: false; error: BestPayComparisonError; message?: string };
+  }
+
+  deleteDraftComparison(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ):
+    | { ok: true }
+    | { ok: false; error: BestPayComparisonError; message?: string } {
+    const result = this.withInFlight(`delete:${sessionId}`, () => {
+      const session = this.getSession(sessionId, context);
+      if (!session) {
+        return { ok: false as const, error: 'not_found' as const };
+      }
+      const summary = this.getComparisonSummary(sessionId, context);
+      if (!summary?.canDelete) {
+        return {
+          ok: false as const,
+          error: 'not_deletable' as const,
+          message: 'Nur reine lokale Entwürfe ohne Angebot können gelöscht werden. Bitte archivieren.',
+        };
+      }
+      removeBestPayComparisonSession(sessionId);
+      return { ok: true as const };
+    });
+
+    if ('error' in result && result.error === 'in_flight') {
+      return { ok: false, error: 'in_flight' };
+    }
+    return result as { ok: true } | { ok: false; error: BestPayComparisonError; message?: string };
+  }
+
+  countArchived(context: BestPayComparisonUserContext): number {
+    this.ensureMigrated();
+    if (!this.canAccessCalculator(context)) {
+      return 0;
+    }
+    return readBestPayComparisonSessions().filter(
+      (session) => this.canAccess(session, context) && session.archivedAt && session.status !== 'discarded',
+    ).length;
   }
 
   async startBillingImport(
@@ -137,6 +456,7 @@ export class BestPayComparisonService {
     session.source = session.source === 'manual' ? 'mixed' : 'billing_import';
     session.status = 'billing_import';
     session.updatedAt = nowIso();
+    this.touchTitle(session);
     saveBestPayComparisonSession(session);
     return { ok: true, session, billingSessionId: billingSession.id };
   }
@@ -147,7 +467,7 @@ export class BestPayComparisonService {
     context: BestPayComparisonUserContext,
   ): BestPayComparisonSession | null {
     const session = this.getSession(sessionId, context);
-    if (!session || session.status === 'offer_created') {
+    if (!session || session.status === 'offer_created' || session.archivedAt) {
       return null;
     }
 
@@ -158,9 +478,10 @@ export class BestPayComparisonService {
     }
     if (session.result) {
       session.result.stale = true;
-      session.result.staleReasons = ['Manuelle Eingaben wurden geändert.'];
+      session.result.staleReasons = ['Bedarf geändert'];
     }
     session.updatedAt = nowIso();
+    this.touchTitle(session);
     saveBestPayComparisonSession(session);
     return session;
   }
@@ -177,10 +498,21 @@ export class BestPayComparisonService {
     const data = this.billingImportService.getSessionData(session.billingImportSessionId, context);
     const baseline = data?.baseline ?? null;
     if (baseline?.status === 'confirmed') {
+      if (
+        session.costBaselineVersion !== null &&
+        session.costBaselineVersion !== baseline.version &&
+        session.result
+      ) {
+        session.result.stale = true;
+        if (!session.result.staleReasons.includes('Kostenbasis geändert')) {
+          session.result.staleReasons.push('Kostenbasis geändert');
+        }
+      }
       session.costBaselineId = baseline.id;
       session.costBaselineVersion = baseline.version;
       session.status = 'ready_for_calculation';
       session.updatedAt = nowIso();
+      this.touchTitle(session);
       saveBestPayComparisonSession(session);
     } else if (data?.session.status === 'review_required') {
       session.status = 'review_required';
@@ -209,7 +541,7 @@ export class BestPayComparisonService {
     | { ok: false; error: BestPayComparisonError; message?: string }
   > {
     const session = this.getSession(sessionId, context);
-    if (!session) {
+    if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
 
@@ -257,7 +589,10 @@ export class BestPayComparisonService {
         ),
       );
 
-    if (calculation.result.primaryCandidate && !variants.some((v) => v.candidateId === calculation.result.primaryCandidate!.candidateId)) {
+    if (
+      calculation.result.primaryCandidate &&
+      !variants.some((v) => v.candidateId === calculation.result.primaryCandidate!.candidateId)
+    ) {
       variants.unshift(
         summarizePrimaryCandidate(
           calculation.result.primaryCandidate,
@@ -287,7 +622,9 @@ export class BestPayComparisonService {
     fresh.costBaselineId = baseline?.id ?? fresh.costBaselineId;
     fresh.costBaselineVersion = baseline?.version ?? fresh.costBaselineVersion;
     fresh.status = 'calculated';
+    fresh.completedAt = nowIso();
     fresh.updatedAt = nowIso();
+    this.touchTitle(fresh);
     saveBestPayComparisonSession(fresh);
     return { ok: true, session: fresh };
   }
@@ -298,7 +635,7 @@ export class BestPayComparisonService {
     context: BestPayComparisonUserContext,
   ): BestPayComparisonSession | null {
     const session = this.getSession(sessionId, context);
-    if (!session?.result) {
+    if (!session?.result || session.archivedAt) {
       return null;
     }
     if (!session.result.variants.some((variant) => variant.candidateId === candidateId)) {
@@ -317,7 +654,7 @@ export class BestPayComparisonService {
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: BestPayComparisonError; message?: string }> {
     const session = this.getSession(sessionId, context);
-    if (!session) {
+    if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
 
@@ -336,10 +673,13 @@ export class BestPayComparisonService {
 
     session.leadId = leadId;
     session.customerLabel = lead.companyName;
-    session.status = session.status === 'calculated' || session.status === 'recommendation_selected'
-      ? 'assigned'
-      : session.status;
+    session.leadDisplayName = lead.companyName;
+    session.status =
+      session.status === 'calculated' || session.status === 'recommendation_selected'
+        ? 'assigned'
+        : session.status;
     session.updatedAt = nowIso();
+    this.touchTitle(session);
     saveBestPayComparisonSession(session);
     return { ok: true, session };
   }
@@ -353,10 +693,9 @@ export class BestPayComparisonService {
     | { ok: false; error: BestPayComparisonError; message?: string }
   > {
     const session = this.getSession(sessionId, context);
-    if (!session) {
+    if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
-    // Idempotent: erneuter Aufruf liefert das bereits erzeugte Angebot zurück.
     if (session.offerId) {
       return { ok: true, session, offerId: session.offerId };
     }
@@ -435,14 +774,22 @@ export class BestPayComparisonService {
       return { ok: false, error: 'not_found' };
     }
     linked.offerId = created.offer.id;
+    linked.offerNumber = created.offer.offerNumber;
+    linked.offerTitle = created.offer.title;
     linked.offerCreationToken = token;
     linked.status = 'offer_created';
+    linked.completedAt = linked.completedAt ?? nowIso();
     linked.updatedAt = nowIso();
+    this.touchTitle(linked);
     saveBestPayComparisonSession(linked);
     return { ok: true, session: linked, offerId: created.offer.id };
   }
 
   canSeeCommission(context: BestPayComparisonUserContext): boolean {
     return context.role === 'admin' || context.role === 'field_service';
+  }
+
+  canAccessHistory(context: BestPayComparisonUserContext): boolean {
+    return this.canAccessCalculator(context);
   }
 }

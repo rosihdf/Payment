@@ -18,7 +18,7 @@ describe('A11.4 BestPayComparison Domain', () => {
 
   it('erzeugt versionierte Sessions', () => {
     const session = createBestPayComparisonSession('user_1');
-    expect(session.schemaVersion).toBe(1);
+    expect(session.schemaVersion).toBe(2);
     expect(session.status).toBe('draft');
     expect(session.offerId).toBeNull();
   });
@@ -87,13 +87,18 @@ describe('A11.4 BestPayComparison Domain', () => {
   it('persistiert Sessions versioniert', () => {
     migrateBestPayComparisonStorageIfNeeded();
     migrateBestPayComparisonStorageIfNeeded();
-    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonSessions)).toEqual([]);
-    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion)).toBe(1);
+    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonSessions)).toEqual({
+      activeSessionId: null,
+      sessions: [],
+    });
+    expect(readStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion)).toBe(2);
+    writeStorageItem(STORAGE_KEYS.bestPayComparisonStorageVersion, 1);
     writeStorageItem(STORAGE_KEYS.bestPayComparisonSessions, [
       createBestPayComparisonSession('user_1'),
     ]);
     migrateBestPayComparisonStorageIfNeeded();
-    expect(readStorageItem<unknown[]>(STORAGE_KEYS.bestPayComparisonSessions)).toHaveLength(1);
+    const store = readStorageItem<{ sessions: unknown[] }>(STORAGE_KEYS.bestPayComparisonSessions);
+    expect(store?.sessions).toHaveLength(1);
   });
 
   it('nutzt bestätigte Baseline für Ist-Kosten', () => {

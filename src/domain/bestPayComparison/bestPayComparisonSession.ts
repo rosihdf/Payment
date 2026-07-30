@@ -74,8 +74,10 @@ export interface BestPayComparisonSession {
   schemaVersion: number;
   status: BestPayComparisonStatus;
   source: BestPayComparisonSource | null;
+  title: string | null;
   leadId: string | null;
   customerLabel: string | null;
+  leadDisplayName: string | null;
   billingImportSessionId: string | null;
   costBaselineId: string | null;
   costBaselineVersion: number | null;
@@ -83,14 +85,21 @@ export interface BestPayComparisonSession {
   result: BestPayComparisonResultSummary | null;
   selectedCandidateId: string | null;
   offerId: string | null;
+  offerNumber: string | null;
+  offerTitle: string | null;
   offerCreationToken: string | null;
+  duplicateOfSessionId: string | null;
   createdByUserId: string;
   createdAt: string;
   updatedAt: string;
+  lastOpenedAt: string | null;
+  completedAt: string | null;
+  archivedAt: string | null;
   discardedAt: string | null;
 }
 
-export const BESTPAY_COMPARISON_SCHEMA_VERSION = 1;
+/** A11.5 Session-Schema (A11.4 v1 wird migriert). */
+export const BESTPAY_COMPARISON_SCHEMA_VERSION = 2;
 
 export const DEFAULT_BESTPAY_MANUAL_INPUT: BestPayManualInput = {
   monthlyCardVolumeCents: null,
