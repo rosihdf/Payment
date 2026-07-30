@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
-    dangerouslyIgnoreUnhandledErrors: true,
+    // localStorage-basierte Domain-Tests teilen sonst Worker-Zustand und werden flaky.
+    fileParallelism: false,
   },
 });

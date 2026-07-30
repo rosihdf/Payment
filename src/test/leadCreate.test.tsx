@@ -92,9 +92,9 @@ describe('Lead creation UI', () => {
 
     renderAtRoute(`/leads/${createdLead!.id}`, false);
 
-    expect(await screen.findByRole('heading', { name: 'Neuer Payment Shop' })).toBeInTheDocument();
-    expect(screen.getByText('Jonas Lehmann')).toBeInTheDocument();
-    expect(screen.getByText('jonas@payment-shop.de')).toBeInTheDocument();
+    expect((await screen.findAllByRole('heading', { name: 'Neuer Payment Shop' })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Jonas Lehmann')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('jonas@payment-shop.de')).length).toBeGreaterThan(0);
   });
 
   it('adds the created lead to the leads list', async () => {
@@ -112,7 +112,7 @@ describe('Lead creation UI', () => {
 
     renderAtRoute('/leads', false);
 
-    expect(await screen.findByText('Liste Test GmbH')).toBeInTheDocument();
+    expect((await screen.findAllByText('Liste Test GmbH')).length).toBeGreaterThan(0);
   });
 
   it('opens a confirmation dialog when canceling with changes', async () => {

@@ -39,8 +39,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
         runtimeCaching: [
+          {
+            urlPattern: /\/ocr\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ocr-assets-cache',
+              expiration: {
+                maxEntries: 16,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
@@ -59,4 +71,27 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/tesseract.js') || id.includes('node_modules/tesseract.js-core')) {
+            return 'ocr-tesseract';
+          }
+          if (id.includes('node_modules/pdfjs-dist')) {
+            return 'pdf-processing';
+          }
+          if (
+            id.includes('/billingImportEngine/providers/browserOcrExtractionProvider') ||
+            id.includes('/billingImportEngine/providers/lazyBrowserOcrExtractionProvider') ||
+            id.includes('/billingImportEngine/ocr/') ||
+            id.includes('/billingImportEngine/billingImagePreprocessing') ||
+            id.includes('/billingImportEngine/billingPdfPageRenderer')
+          ) {
+            return 'billing-ocr-feature';
+          }
+        },
+      },
+    },
+  },
 });

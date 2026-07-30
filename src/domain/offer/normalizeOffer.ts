@@ -15,6 +15,10 @@ import type {
   OfferTariffSnapshot,
 } from './offer';
 import { copyCustomerSnapshot, copyProductSnapshot, copyTariffSnapshot } from './offerSnapshots';
+import {
+  EMPTY_OFFER_RECOMMENDATION_LINK,
+  type OfferRecommendationLink,
+} from '../recommendation/recommendationRecord';
 
 const OFFER_STATUSES: OfferStatus[] = ['draft', 'completed', 'cancelled'];
 const OFFER_ITEM_TYPES: OfferItemType[] = ['product', 'manual'];
@@ -295,6 +299,30 @@ function reindexOfferItems(items: OfferItem[]): OfferItem[] {
     });
 }
 
+function normalizeRecommendationLink(value: unknown): OfferRecommendationLink {
+  if (!value || typeof value !== 'object') {
+    return { ...EMPTY_OFFER_RECOMMENDATION_LINK };
+  }
+
+  const raw = value as Record<string, unknown>;
+  const selectionType =
+    raw.selectionType === 'primary' || raw.selectionType === 'alternative'
+      ? raw.selectionType
+      : null;
+
+  return {
+    recommendationRecordId: asNullableString(raw.recommendationRecordId),
+    recommendationVersion:
+      typeof raw.recommendationVersion === 'number' ? raw.recommendationVersion : null,
+    selectedCandidateId: asNullableString(raw.selectedCandidateId),
+    selectionType,
+    deviationReason: asString(raw.deviationReason),
+    costBaselineId: asNullableString(raw.costBaselineId),
+    costBaselineVersion:
+      typeof raw.costBaselineVersion === 'number' ? raw.costBaselineVersion : null,
+  };
+}
+
 export function normalizeOffer(value: unknown): Offer {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   const timestamp = nowIso();
@@ -325,6 +353,7 @@ export function normalizeOffer(value: unknown): Offer {
     cancelledAt: asNullableString(raw.cancelledAt),
     cancelledByUserId: asNullableString(raw.cancelledByUserId),
     cancellationReason: asString(raw.cancellationReason),
+    recommendationLink: normalizeRecommendationLink(raw.recommendationLink),
     createdAt: asString(raw.createdAt) || timestamp,
     updatedAt: asString(raw.updatedAt) || timestamp,
   };

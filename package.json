@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "copy:ocr-assets": "node scripts/copy-ocr-assets.mjs",
+    "predev": "node scripts/copy-ocr-assets.mjs",
+    "prebuild": "node scripts/copy-ocr-assets.mjs",
     "build": "tsc -b && vite build",
+    "verify:ocr-build": "node scripts/verify-ocr-build-assets.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
@@ -14,13 +18,19 @@
   "dependencies": {
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.7.1",
+    "tesseract.js": "^6.0.1",
     "vite-plugin-pwa": "^1.0.2",
     "workbox-window": "^7.3.0"
   },
   "devDependencies": {
+    "@tesseract.js-data/deu": "^1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

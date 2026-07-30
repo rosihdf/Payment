@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
@@ -21,9 +21,18 @@ import {
 } from '../../utils/formatOffer';
 import { formatCardRate, formatGirocardClearing, formatOptionalCents, formatOptionalMonths } from '../../utils/formatTariff';
 import { TERMINAL_TYPE_LABELS } from '../../domain/tariff/tariff';
+import { OfferDocumentsSection } from '../offerDocument/OfferDocumentsSection';
+import { OfferCommissionSection } from './OfferCommissionSection';
+import { OfferPricingEvaluationSection } from './OfferPricingEvaluationSection';
+import { OfferRecommendationSection } from './OfferRecommendationSection';
 import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
 import styles from './OfferDetailPage.module.css';
+
+const OfferBillingImportSection = lazy(async () => {
+  const module = await import('./OfferBillingImportSection');
+  return { default: module.OfferBillingImportSection };
+});
 
 type DialogMode = 'complete' | 'cancel' | 'duplicate' | null;
 
@@ -40,7 +49,8 @@ export function OfferDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
-  const { offerService } = useServices();
+  const { offerService, offerDocumentService, pricingEvaluationService, commissionCalculationService, recommendationService, billingImportService } =
+    useServices();
   const { showToast } = useToast();
 
   const [offer, setOffer] = useState<Offer | null>(null);
@@ -70,13 +80,17 @@ export function OfferDetailPage() {
     void loadOffer();
   }, [loadOffer]);
 
-  const userContext = currentUser
-    ? {
-        userId: currentUser.id,
-        role: currentUser.role,
-        displayName: currentUser.name,
-      }
-    : null;
+  const userContext = useMemo(
+    () =>
+      currentUser
+        ? {
+            userId: currentUser.id,
+            role: currentUser.role,
+            displayName: currentUser.name,
+          }
+        : null,
+    [currentUser],
+  );
 
   const canEdit = offer && userContext ? offerService.canUserEditOffer(offer, userContext) : false;
 
@@ -353,6 +367,56 @@ export function OfferDetailPage() {
           </ul>
         )}
       </section>
+
+      {userContext ? (
+        <Suspense fallback={<p className={styles.sectionHint}>Abrechnungsimport wird vorbereitet…</p>}>
+          <OfferBillingImportSection
+            offer={offer}
+            userContext={userContext}
+            billingImportService={billingImportService}
+            showToast={showToast}
+            onBaselineConfirmed={() => {
+              void loadOffer();
+            }}
+          />
+        </Suspense>
+      ) : null}
+
+      {userContext ? (
+        <OfferRecommendationSection
+          offer={offer}
+          userContext={userContext}
+          recommendationService={recommendationService}
+          showToast={showToast}
+        />
+      ) : null}
+
+      {userContext ? (
+        <OfferPricingEvaluationSection
+          offer={offer}
+          userContext={userContext}
+          pricingEvaluationService={pricingEvaluationService}
+          showToast={showToast}
+        />
+      ) : null}
+
+      {userContext ? (
+        <OfferCommissionSection
+          offer={offer}
+          userContext={userContext}
+          commissionCalculationService={commissionCalculationService}
+          showToast={showToast}
+        />
+      ) : null}
+
+      {userContext ? (
+        <OfferDocumentsSection
+          offer={offer}
+          userContext={userContext}
+          offerDocumentService={offerDocumentService}
+          showToast={showToast}
+        />
+      ) : null}
 
       <section className={styles.detailSection}>
         <h2 className={styles.sectionTitle}>Angebotsdetails</h2>

@@ -54,7 +54,7 @@ describe('Routing', () => {
 
   it('renders the calculator page with comparison layout on /calculator', async () => {
     renderApp('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Vergleichsrechner' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Angebot von BestPay' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vergleichsergebnis' })).toBeInTheDocument();

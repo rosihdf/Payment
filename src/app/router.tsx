@@ -1,11 +1,16 @@
 import type { RouteObject } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { CalculatorPage } from '../features/calculator/CalculatorPage';
+import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
 import { OfferDetailPage } from '../features/offer/OfferDetailPage';
 import { OffersPage } from '../features/offer/OffersPage';
+import {
+  OfferDocumentDetailPage,
+  OfferDocumentPreviewPage,
+} from '../features/offerDocument/OfferDocumentDetailPage';
 import { LeadDetailPage } from '../features/lead/LeadDetailPage';
 import { EditLeadPage } from '../features/lead/EditLeadPage';
 import { LeadsPage } from '../features/lead/LeadsPage';
@@ -30,9 +35,12 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
       { path: 'leads/:id', element: <LeadDetailPage /> },
       { path: 'calculator', element: <CalculatorPage /> },
+      { path: 'calculator/bestpay', element: <BestPayComparisonPage /> },
       { path: 'offers', element: <OffersPage /> },
       { path: 'offers/new', element: <NewOfferPage /> },
       { path: 'offers/:id/edit', element: <EditOfferPage /> },
+      { path: 'offers/:id/preview', element: <OfferDocumentPreviewPage /> },
+      { path: 'offers/:offerId/documents/:documentId', element: <OfferDocumentDetailPage /> },
       { path: 'offers/:id', element: <OfferDetailPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'admin/tariffs', element: <AdminTariffsPage /> },

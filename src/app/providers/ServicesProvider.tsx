@@ -2,7 +2,13 @@ import { type ReactNode, useMemo } from 'react';
 import { LocalLeadDraftRepository } from '../../repositories/local/LocalLeadDraftRepository';
 import { LocalLeadEditDraftRepository } from '../../repositories/local/LocalLeadEditDraftRepository';
 import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
+import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
+import { LocalRecommendationRepository } from '../../repositories/local/LocalRecommendationRepository';
+import { LocalCommissionCalculationRepository } from '../../repositories/local/LocalCommissionCalculationRepository';
+import { LocalCommissionCatalogRepository } from '../../repositories/local/LocalCommissionCatalogRepository';
+import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPricingCatalogRepository';
+import { LocalPricingEvaluationRepository } from '../../repositories/local/LocalPricingEvaluationRepository';
 import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
 import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
 import { LocalUserRepository } from '../../repositories/local/LocalUserRepository';
@@ -26,6 +32,12 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       tariffRepository: new LocalTariffRepository(),
       productRepository: new LocalProductRepository(),
       offerRepository: new LocalOfferRepository(),
+      offerDocumentRepository: new LocalOfferDocumentRepository(),
+      pricingCatalogRepository: new LocalPricingCatalogRepository(),
+      pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
+      commissionCatalogRepository: new LocalCommissionCatalogRepository(),
+      commissionCalculationRepository: new LocalCommissionCalculationRepository(),
+      recommendationRepository: new LocalRecommendationRepository(),
     });
   }, []);
 

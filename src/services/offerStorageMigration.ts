@@ -1,7 +1,7 @@
 import { normalizeOffers } from '../domain/offer/normalizeOffer';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
-export const CURRENT_OFFER_STORAGE_VERSION = 1;
+export const CURRENT_OFFER_STORAGE_VERSION = 2;
 
 export function migrateOfferStorageIfNeeded(): void {
   const currentVersion = readStorageItem<number>(STORAGE_KEYS.offerStorageVersion) ?? 0;

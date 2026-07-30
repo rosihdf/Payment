@@ -1,0 +1,53 @@
+export type RecommendationReasonCategory =
+  | 'need_fit'
+  | 'cost'
+  | 'term'
+  | 'hardware'
+  | 'risk'
+  | 'alternative'
+  | 'limitation'
+  | 'internal';
+
+export const RECOMMENDATION_REASON_CODES = {
+  BEST_NEED_FIT: 'BEST_NEED_FIT',
+  LOWEST_PROJECTED_TOTAL_COST: 'LOWEST_PROJECTED_TOTAL_COST',
+  LOWEST_MONTHLY_FIXED_COST: 'LOWEST_MONTHLY_FIXED_COST',
+  LOWEST_INITIAL_COST: 'LOWEST_INITIAL_COST',
+  BETTER_FOR_HIGH_TRANSACTION_VOLUME: 'BETTER_FOR_HIGH_TRANSACTION_VOLUME',
+  BETTER_FOR_LOW_TRANSACTION_VOLUME: 'BETTER_FOR_LOW_TRANSACTION_VOLUME',
+  PREFERRED_CONTRACT_TERM: 'PREFERRED_CONTRACT_TERM',
+  SHORTER_CONTRACT_TERM: 'SHORTER_CONTRACT_TERM',
+  STANDARD_TERM_WITHOUT_EXCEPTION: 'STANDARD_TERM_WITHOUT_EXCEPTION',
+  MOBILE_HARDWARE_MATCH: 'MOBILE_HARDWARE_MATCH',
+  STATIONARY_HARDWARE_MATCH: 'STATIONARY_HARDWARE_MATCH',
+  REQUIRES_SPECIAL_TERM: 'REQUIRES_SPECIAL_TERM',
+  PRICE_REVIEW_REQUIRED: 'PRICE_REVIEW_REQUIRED',
+  COMMISSION_REVIEW_REQUIRED: 'COMMISSION_REVIEW_REQUIRED',
+  COST_PROJECTION_INCOMPLETE: 'COST_PROJECTION_INCOMPLETE',
+  MISSING_REQUIRED_INPUT: 'MISSING_REQUIRED_INPUT',
+  BLOCKED_BY_PRICING_CONFIGURATION: 'BLOCKED_BY_PRICING_CONFIGURATION',
+  ALTERNATIVE_LOWER_FIXED_COST: 'ALTERNATIVE_LOWER_FIXED_COST',
+  ALTERNATIVE_LOWER_VARIABLE_COST: 'ALTERNATIVE_LOWER_VARIABLE_COST',
+  ALTERNATIVE_SHORTER_TERM: 'ALTERNATIVE_SHORTER_TERM',
+} as const;
+
+export type RecommendationReasonCode =
+  (typeof RECOMMENDATION_REASON_CODES)[keyof typeof RECOMMENDATION_REASON_CODES];
+
+export interface RecommendationReason {
+  code: RecommendationReasonCode;
+  category: RecommendationReasonCategory;
+  priority: number;
+  customerFacingText: string;
+  internalText: string | null;
+  relatedInputField: string | null;
+  relatedCandidateId: string | null;
+  isPositive: boolean;
+  quantifiedDifferenceCents: number | null;
+}
+
+export function createRecommendationReason(
+  partial: RecommendationReason,
+): RecommendationReason {
+  return partial;
+}

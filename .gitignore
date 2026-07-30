@@ -18,6 +18,9 @@ coverage/
 !.env.example
 *.local
 
+# A11.3: OCR-Assets werden per predev/prebuild aus npm-Paketen nach public/ocr kopiert
+public/ocr/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -87,12 +87,15 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/leads` | Lead-Übersicht |
 | `/leads/new` | Neuer Lead |
 | `/leads/:id` | Lead-Detail |
-| `/calculator` | BestPay-Vergleichsrechner |
+| `/calculator` | Rechner-Hub (BestPay-Vergleich + Konditionsvergleich) |
+| `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
 | `/offers` | Angebotsübersicht (Admin und Außendienst) |
 | `/offers/new` | Neues Angebot anlegen |
 | `/offers/:id` | Angebotsdetail |
 | `/offers/:id/edit` | Angebot bearbeiten (nur Entwürfe) |
+| `/offers/:id/preview` | PDF-Vorschau |
+| `/offers/:offerId/documents/:documentId` | PDF-Dokumentdetail |
 | `/admin/products` | Produktverwaltung (Admin) |
 | `/admin/products/new` | Neues Produkt (Admin) |
 | `/admin/products/:id/edit` | Produkt bearbeiten (Admin) |
@@ -124,7 +127,25 @@ Unter `/offers` können Admin und Außendienst interne BestPay-Angebote konfigur
 - Status: Entwurf, Abgeschlossen, Storniert
 - Snapshots für Kunde, Tarif und Produkte — gespeicherte Angebote bleiben unabhängig von späteren Katalogänderungen
 - Angebotsnummern im Format `BP-ANG-YYYY-0001`
-- Kein PDF, keine E-Mail, keine Provision in A07
+- Keine E-Mail, keine Provision in A07
+
+## PDF-Angebotsdokumente (A08)
+
+Unter `/offers/:id` können Admin und Außendienst PDF-Dokumente zu Angeboten erzeugen und verwalten.
+
+- **PDF-Vorschau** — unverbindliche Vorschau ohne Speicherung (`/offers/:id/preview`)
+- **Finales PDF** — unveränderlicher Snapshot nur für abgeschlossene Angebote
+- **Neue Dokumentversion** — ersetzt die aktuelle Version; frühere Versionen bleiben als „Frühere Version“ sichtbar
+- Integritätsprüfung über Content-Hash im gespeicherten Snapshot
+- Lokale PDF-Erzeugung mit jsPDF, Download über Blob-URL
+- Absenderdaten aus dem Firmenprofil (`/profile`)
+
+### Routen
+
+| Route | Beschreibung |
+|-------|--------------|
+| `/offers/:id/preview` | PDF-Vorschau (nicht gespeichert) |
+| `/offers/:offerId/documents/:documentId` | PDF-Dokumentdetail mit Vorschau und Download |
 
 ### Berechtigungen
 
@@ -161,3 +182,300 @@ Geldwerte intern in Cent. Einige Produkte haben einen zweiten Preisbestandteil (
 ### Speicherung
 
 Produkte werden lokal in `localStorage` gehalten. Die versionierte Katalogmigration (`productCatalogVersion: 1`) ergänzt fehlende Initialprodukte idempotent, ohne bestehende Admin-Produkte zu überschreiben.
+
+## Preis- und Freigaberegel-Engine (A09)
+
+A09 wertet Angebots- und Kalkulationskontexte deterministisch gegen versionierte Preislisten, Preisregeln und Vertragslaufzeiten aus. Es liefert eine vollständige interne Preisentscheidung inklusive Prüfklasse und Freigabevorbereitung für spätere Blöcke (A10–A14).
+
+### Kernprinzipien
+
+- **Jedes Angebot benötigt Adminprüfung** — `standard` bedeutet Schnellprüfung, nicht automatische Freigabe
+- **Keine erfundenen Preise** — fehlende Konfiguration führt zu blockierenden Befunden
+- **Sonderlaufzeiten** sind mindestens `critical` und benötigen eine Begründung
+- **Preis unter Mindestpreis** ist `critical`
+- **Exakt 36 Monate** werden provisionsseitig nicht erfunden zugeordnet (Hinweis `PROVISION_TERM_AMBIGUOUS_36_MONTHS`)
+- **A09 berechnet noch keine Provision** — das folgt in A10
+
+### Prüfklassen
+
+| Klasse | Bedeutung |
+|--------|-----------|
+| `standard` | Reguläres Angebot, Schnellprüfung fachlich möglich |
+| `attention` | Auffällige Abweichung, Detailprüfung erforderlich |
+| `critical` | Kritische Abweichung oder blockierende Konfigurationslücke |
+
+### Engine-Schichten
+
+1. Eingabekontext (`PricingEvaluationInput`)
+2. Stichtags- und Preislistenversionsauflösung
+3. Regelmatching mit Spezifität und Priorität
+4. Preisgrenzenprüfung (Listen-, Ziel-, Mindestpreis, Nachlass)
+5. Laufzeitauswertung (Standard vs. Sonderlaufzeit)
+6. Prüfklassifikation
+7. Freigabevorbereitung (`ApprovalPreparation`)
+8. Reproduzierbarer Snapshot
+
+### UI-Integration
+
+Unter `/offers/:id` zeigt der Abschnitt **Preis- und Freigabeprüfung**:
+
+- Außendienst: empfohlener/gewählter Preis, Prüfstatus, Laufzeithinweise (ohne Mindestpreis)
+- Admin: zusätzlich Listen-/Ziel-/Mindestpreis, Preislistenversion, angewendete Regeln
+- Neuberechnung für Entwürfe über bestehendes Button-Pattern
+
+### Speicherung
+
+Preislisten, Laufzeiten, Regeln und Auswertungen werden lokal in `localStorage` gehalten. Die Katalogmigration startet **ohne erfundene Demo-Preisregeln** — produktive Preisdaten müssen administrativ gepflegt werden.
+
+### Abgrenzung zu A10
+
+A09 liefert: Preisgrenzen, Abweichungen, Prüfklasse, Snapshot, Freigabepaket. A10 übernimmt die vollständige Provisionsberechnung und -kürzung.
+
+## Provisions-Engine (A10)
+
+A10 berechnet auf Basis der A09-Preisbewertung individuelle BestPay-Provisionsvorschauen und eingefrorene Berechnungen.
+
+### Kernprinzipien
+
+- **A09-Preisbewertung ist verbindliche Grundlage** — keine parallele Preislogik
+- **Keine erfundenen Provisionssätze** — produktiver Katalog startet leer
+- **Exakt 36 Monate** werden nicht automatisch zugeordnet (`COMMISSION_TERM_AMBIGUOUS_36_MONTHS`)
+- **Laufende Beteiligungen** bleiben vorläufig, wenn Abrechnungsdaten fehlen
+- **Kürzungen** benötigen Adminentscheidung und Begründung (max. 50 % der ursprünglichen Provision)
+- **Keine Auszahlung** in A10 — höchstens Status `expected` nach Einfrieren
+
+### Belegte Demo-Modelle (nur Tests)
+
+- Klassisch: Terminal+ACQ >36M = 300 €, Terminal <36M = 200 €, ACQ = 150 €
+- Variabel: 150 € / 100 € / 100 € plus laufende Beteiligungen (explizit konfigurierte Formeln)
+- Zubehör: 20 % vom Verkaufspreis
+
+### Schwellenpräzision
+
+Gebühren wie 0,039 € und 0,014 € werden als `tenthsOfCent` gespeichert (39 bzw. 14).
+
+### UI
+
+Unter `/offers/:id` zeigt der Abschnitt **Provision** die Vorschau für Außendienst und Details/Kürzungsentscheidung für Admin.
+
+## BestPay-Empfehlungsrechner (A11)
+
+A11 vergleicht **ausschließlich BestPay-Konfigurationen** miteinander — keine Wettbewerber, kein Multi-Provider-Vergleich.
+
+### Kernprinzipien
+
+- **Kundenbedarf zuerst** — Provision dominiert nicht die Primärempfehlung
+- **A09 orchestrieren** — Preislogik wird nicht dupliziert
+- **A10 intern** — Provisionsvorschau je Kandidat ohne echtes Angebot pro Variante
+- **Keine erfundenen Gewichte** — produktiver WeightSet-Katalog startet leer; deterministische Grundregeln
+- **Blockierte Kandidaten** werden nicht regulär empfohlen oder übernommen
+- **Unvollständige Kosten** werden als solche markiert — kein scheinbar exakter Gesamtbetrag
+- **Snapshot** — reproduzierbare Entscheidungsgrundlage mit Katalogversionen
+- **Stale-Erkennung** — relevante Eingabe-/Katalogänderungen invalidieren Übernahme
+
+### Ablauf
+
+1. Bedarf aus Lead/Offer (`CustomerNeed`)
+2. Kandidatenbildung aus Tarifen, Hardware, Laufzeiten
+3. Harte Ausschlüsse (inaktiv, Laufzeit, Hardware)
+4. A09 je Kandidat, A10 intern
+5. Kostenprojektion, Scoring, Ranking
+6. Primärempfehlung + bis zu 2 Alternativen
+7. Übernahme in Angebotsentwurf mit Referenz und optionaler Abweichungsbegründung
+
+### UI
+
+Unter `/offers/:id` zeigt der Abschnitt **BestPay-Empfehlung** Primärempfehlung, Alternativen und Admin-Analyse.
+
+### Abgrenzung zu A12
+
+A11 bereitet gewählte Konfiguration und Snapshot-Referenz vor. A12 übernimmt finale Angebotserstellung, Adminfreigabe und PDF.
+
+## OCR-Abrechnungsimport und Ist-Kostenbasis (A11.1)
+
+A11.1 erfasst **Fremdanbieter-Abrechnungen** ausschließlich als Ist-Situation des Kunden — kein Wettbewerber-Produktkatalog.
+
+### Kernprinzipien
+
+- **Manuelle Prüfung Pflicht** — OCR-Werte fließen nie ungeprüft in A11 ein
+- **PDF-Text zuerst** — eingebetteter Text via `pdfjs`; OCR-Fallback nur vorbereitet (Bilder: `BILLING_OCR_UNAVAILABLE`)
+- **Mock-OCR nur Demo/Test** — `VITE_BILLING_DEMO_OCR=true` oder Tests
+- **Keine Originaldateien in localStorage** — Session-In-Memory; Metadaten und Snapshots persistent
+- **Mehrfachabrechnungen** — gewichtete Monatsnormalisierung, Dubletten- und Ausreißerkennung ohne stille Entfernung
+- **Einmalige Kosten getrennt** — nicht ungeprüft in laufende Monatskosten gemischt
+
+### Ablauf
+
+1. Upload/Foto einer oder mehrerer Abrechnungen (`OfferBillingImportSection`)
+2. Validierung, Fingerprint, Extraktion (PDF-Text / Demo-Mock)
+3. Felderkennung mit Konfidenz und Konfliktauflösung
+4. Prüfung: bestätigen, korrigieren, verwerfen, manuell ergänzen
+5. Periodennormalisierung und Aggregation zu `CustomerCostBaseline`
+6. Bestätigung erzeugt unveränderlichen `BillingImportSnapshot`
+7. A11 übernimmt Baseline in `CustomerNeed` und markiert Empfehlung bei Änderung als stale
+8. Ist-vs-BestPay-Vergleich in der Empfehlungsansicht (nur bei vergleichbarer Basis)
+
+### Unterstützte Formate
+
+PDF, JPG/JPEG, PNG, WEBP — HEIC derzeit nicht. Kameraaufnahme über Browser (`capture="environment"`).
+
+### Abgrenzung
+
+Kein Fremdanbieter-Tarifvergleich. A12 übernimmt finale Angebotserstellung, Adminfreigabe und PDF.
+
+## Produktive lokale OCR und Korrekturansicht (A11.2)
+
+A11.2 ersetzt den Platzhalter `UnavailableOcrExtractionProvider` durch **`BrowserOcrExtractionProvider`** (Tesseract.js 6.x) — **OCR läuft lokal im Browser**. Kundendokumente werden für OCR **nicht an externe Dienste übertragen**.
+
+### OCR-Technologie
+
+- Bibliothek: **tesseract.js** mit Web Worker
+- Sprachmodelle: **deu+eng** (Deutsch Standard, Englisch für gemischte Abrechnungen)
+- Worker-Wiederverwendung pro Importsitzung, maximal ein paralleler OCR-Job
+- Sprachdaten werden beim ersten Lauf geladen (gleicher Origin über npm-Paket)
+
+### PDF-Strategie
+
+1. Eingebetteter PDF-Text via `pdfjs-dist` (bevorzugt)
+2. Textqualitätsprüfung (Länge, lesbare Zeichen, Abrechnungsschlüsselwörter)
+3. Bei unzureichendem Text: Seitenrendering + lokale OCR
+4. Dokumente als `embedded_text`, `ocr` oder `mixed` gekennzeichnet
+
+### Bildverarbeitung
+
+- Formate: JPG/JPEG, PNG, WEBP (+ Kameraaufnahme)
+- Vorverarbeitung: Graustufe, leichte Kontrastanpassung, Skalierung, Transparenz auf Weiß
+- Manuelle Rotation (90° links/rechts, zurücksetzen) ohne Original-Blob zu verändern
+- OCR-Cache in-memory (Fingerprint, Seite, Rotation, Provider-Version)
+
+### Korrekturansicht
+
+- Editierbare Feldtypen (Geld, Ganzzahl, Prozent, Datum, Zeitraum)
+- Mehrere Feldkandidaten vergleichen und auswählen
+- Manuelle Gebührenpositionen (`BillingCostLineItem`) ergänzen
+- Perioden und Baseline-Vorschau werden nach Korrekturen neu berechnet
+- Erst **Werte übernehmen** erzeugt die bestätigte Ist-Kostenbasis für A11
+
+### Datenschutz
+
+- Keine Originaldateien in localStorage
+- Keine vollständigen OCR-Texte in Console-Logs
+- Object-URLs und Canvas-Ressourcen werden freigegeben
+- Mock-OCR nur mit `VITE_BILLING_DEMO_OCR=true` oder in Tests
+
+### Offlinegrenzen
+
+Nach erstmaligem Laden von Worker und Sprachdaten grundsätzlich offline nutzbar. Sehr große PDFs und ältere Android-Geräte können Leistungsgrenzen haben.
+
+### Bekannte Leistungsgrenzen
+
+- Kein HEIC-Support
+- Keine Perspektivkorrektur
+- OCR-Konfidenz ersetzt keine fachliche Prüfung
+- Alte bestätigte Snapshots werden durch bessere OCR nicht verändert
+
+## Eigenständiger BestPay-Vergleichsrechner (A11.4)
+
+Unter **Rechner** (`/calculator`) gibt es den Einstieg **BestPay-Vergleich**.
+
+### Einstieg
+
+- Primär: **Abrechnung einlesen** → `/calculator/bestpay?mode=billing`
+- Sekundär: **Werte manuell eingeben** → `/calculator/bestpay?mode=manual`
+- Funktioniert **ohne vorhandenes Angebot** und ohne vorherige Lead-Zuordnung
+
+### Ablauf
+
+1. Grundlage wählen (OCR/Billing oder manuell)
+2. Ist-Daten prüfen/bestätigen (bestehende A11.1–A11.3-Pipeline)
+3. Bedarf und Zielbild erfassen
+4. BestPay berechnen über A09/A10/A11-Engines
+5. Empfehlung, Alternativen, Ersparnis/Mehrkosten
+6. Optional Lead zuordnen und **Angebot erstellen**
+
+### Wiederverwendung
+
+- Billing/OCR: `BillingImportService.getOrCreateFreeSession` + bestehende `OfferBillingImportSection` (Session-Modus)
+- Recommendation: `RecommendationService.calculateForStandaloneNeed`
+- Pricing/Commission: innerhalb der Recommendation-Engine
+- Angebot: `OfferService.createOffer` + Recommendation-/Baseline-Link
+
+### Persistenz
+
+- `BestPayComparisonSession` versioniert in localStorage
+- Entwurf wiederherstellbar, verwerfbar
+- Keine Originaldateien persistent
+
+### Rechte
+
+- Rechner für Außendienst und Admin
+- Provision nur intern sichtbar (getrennt vom Händlernutzen)
+- Angebot nur mit Lead-Zuordnung und Angebotsrecht über bestehende Offer-Services
+
+### Snapshots / Stale
+
+- Ergebnis speichert Recommendation-Version und Fingerprint
+- Geänderte manuelle Eingaben markieren das Ergebnis als `stale`
+- Stale blockiert die Angebotsanlage bis zur bewussten Neuberechnung
+
+### Datenschutz
+
+- Original-PDF/Fotos werden nicht in der Comparison-Session persistiert
+- OCR bleibt lokal im Browser (A11.2/A11.3)
+
+### Bekannte Grenzen
+
+- Keine separate Kunden-Domain: Zuordnung erfolgt über Lead
+- Kostenartenaufschlüsselung Ist-vs-BestPay nutzt die von A11 gelieferten Aggregate
+- Keine Listenansicht gespeicherter Berechnungen (A11.5)
+
+### Abgrenzung A11.5
+
+Keine vollständige Berechnungshistorie/Listenansicht in A11.4.
+
+## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
+
+A11.3 bereitet die A11.2-OCR technisch für Produktion vor, ohne fachliche Logik zu verändern.
+
+### Lazy Loading
+
+- Der normale CRM-Start lädt **keinen Tesseract-Stack**
+- `LazyBrowserOcrExtractionProvider` lädt OCR-Module erst beim ersten OCR-Aufruf
+- `OfferBillingImportSection` wird per `React.lazy()` geladen
+- PDF.js und PDF-Textprovider werden erst bei PDF-Verarbeitung dynamisch importiert
+- Getrennte Chunks: `ocr-tesseract`, `billing-ocr-feature`, `pdf-processing`
+
+### Same-Origin OCR-Assets
+
+OCR-Assets liegen unter `public/ocr/` und werden vor Build kopiert:
+
+- Worker: `ocr/worker/worker.min.js`
+- Core/WASM: `ocr/core/tesseract-core-lstm.wasm(.js)`
+- Sprachen: `ocr/lang/deu.traineddata.gz`, `ocr/lang/eng.traineddata.gz`
+
+Quellen: `tesseract.js`, `tesseract.js-core`, `@tesseract.js-data/deu`, `@tesseract.js-data/eng`.
+
+Die Dateien unter `public/ocr/` werden **nicht versioniert** (`.gitignore`). `predev` / `prebuild` bzw. `npm run copy:ocr-assets` erzeugen sie reproduzierbar aus `node_modules`.
+
+`resolveBillingOcrAssetPaths()` setzt explizite Pfade – **keine jsDelivr-/CDN-Fallbacks** im produktiven Betrieb.
+
+### Build-Verifikation
+
+```bash
+npm run build
+npm run verify:ocr-build
+```
+
+Das Skript prüft: Hauptentry ohne Tesseract, OCR-Lazy-Chunks vorhanden, `dist/ocr`-Assets vorhanden, keine aktiven CDN-Pfade in Anwendungs-Chunks.
+
+### Offline und PWA
+
+- Same Origin ≠ garantiert offline
+- PWA cached OCR-Assets per Runtime-Cache unter `/ocr/` (große Sprachdateien nicht im Precache)
+- Nach erstem erfolgreichen Laden grundsätzlich offline nutzbar, abhängig vom Browser-/SW-Cache
+
+### Abort-Stabilisierung
+
+- Zentrale Helfer in `src/utils/abort.ts`
+- Nutzerabbruch ist kontrollierter Zustand (`BILLING_OCR_ABORTED`), kein Systemfehler
+- Tests: Request-Polyfill verhindert React-Router-/AbortSignal-Inkompatibilitäten in Vitest

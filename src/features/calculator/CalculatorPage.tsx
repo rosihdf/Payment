@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { DEFAULT_CURRENT_PAYMENT_CONDITIONS } from '../../domain/calculator/comparisonDefaults';
@@ -91,8 +92,8 @@ export function CalculatorPage() {
   return (
     <section>
       <PageHeader
-        title="Vergleichsrechner"
-        subtitle="Bisherige Payment-Kosten mit einem BestPay-Tarif vergleichen"
+        title="Rechner"
+        subtitle="BestPay-Vergleich und Konditionsrechner für den Außendienst"
         actions={
           <button type="button" className={styles.resetButton} onClick={handleReset}>
             Eingaben zurücksetzen
@@ -100,6 +101,28 @@ export function CalculatorPage() {
         }
       />
 
+      <div className={styles.hubGrid}>
+        <article className={styles.hubCard}>
+          <h2 className={styles.hubTitle}>BestPay-Vergleich</h2>
+          <p className={styles.hubText}>
+            Aktuelle Zahlungsverkehrskosten erfassen, BestPay-Varianten vergleichen und eine
+            Empfehlung berechnen.
+          </p>
+          <div className={styles.hubActions}>
+            <Link className={styles.hubPrimary} to="/calculator/bestpay?mode=billing&new=1">
+              Abrechnung einlesen
+            </Link>
+            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
+              Werte manuell eingeben
+            </Link>
+          </div>
+        </article>
+      </div>
+
+      <h2 className={styles.sectionHeading}>Konditionsvergleich</h2>
+      <p className={styles.sectionHint}>
+        Bisherige Payment-Kosten manuell mit einem aktiven BestPay-Tarif vergleichen.
+      </p>
       {tariffUnavailableMessage ? (
         <p className={styles.notice} role="status">
           {tariffUnavailableMessage}

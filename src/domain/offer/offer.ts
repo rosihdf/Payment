@@ -1,5 +1,6 @@
 import type { ProductCategory } from '../product/product';
 import type { TerminalType } from '../tariff/tariff';
+import type { OfferRecommendationLink } from '../recommendation/recommendationRecord';
 
 export type OfferStatus = 'draft' | 'completed' | 'cancelled';
 
@@ -146,6 +147,8 @@ export interface Offer {
   cancelledAt: string | null;
   cancelledByUserId: string | null;
   cancellationReason: string;
+
+  recommendationLink: OfferRecommendationLink;
 
   createdAt: string;
   updatedAt: string;

@@ -27,12 +27,12 @@ function renderAtRoute(initialRoute: string, currentUserId = 'user_001') {
 describe('Calculator navigation and access', () => {
   it('renders calculator for field service', async () => {
     renderAtRoute('/calculator', 'user_001');
-    expect(await screen.findByRole('heading', { name: 'Vergleichsrechner' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
   });
 
   it('renders calculator for admin', async () => {
     renderAtRoute('/calculator', 'user_004');
-    expect(await screen.findByRole('heading', { name: 'Vergleichsrechner' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
   });
 
   it('allows direct route access', async () => {

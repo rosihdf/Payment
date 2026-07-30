@@ -8,6 +8,10 @@ import type { Product } from '../domain/product/product';
 import type { Tariff } from '../domain/tariff/tariff';
 import type { User } from '../domain/user/user';
 import {
+  CURRENT_OFFER_DOCUMENT_STORAGE_VERSION,
+  migrateOfferDocumentStorageIfNeeded,
+} from './offerDocumentStorageMigration';
+import {
   CURRENT_OFFER_STORAGE_VERSION,
   migrateOfferStorageIfNeeded,
 } from './offerStorageMigration';
@@ -19,6 +23,11 @@ import {
   CURRENT_TARIFF_CATALOG_VERSION,
   migrateTariffCatalogIfNeeded,
 } from './tariffCatalogMigration';
+import {
+  migrateRecommendationCatalogIfNeeded,
+  migrateRecommendationStorageIfNeeded,
+} from './recommendationStorageMigration';
+import { migrateBillingImportStorageIfNeeded } from './billingImportStorageMigration';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
 const DEMO_USERS: User[] = [
@@ -144,8 +153,14 @@ export function seedDemoData(): void {
     migrateTariffCatalogIfNeeded();
     migrateProductCatalogIfNeeded();
     migrateOfferStorageIfNeeded();
+    migrateOfferDocumentStorageIfNeeded();
+    migrateRecommendationCatalogIfNeeded();
+    migrateRecommendationStorageIfNeeded();
+    migrateBillingImportStorageIfNeeded();
     return;
   }
+
+  migrateBillingImportStorageIfNeeded();
 
   writeStorageItem(STORAGE_KEYS.users, getDemoUsers());
   writeStorageItem(STORAGE_KEYS.leads, getDemoLeads());
@@ -155,6 +170,8 @@ export function seedDemoData(): void {
   writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.offers, []);
   writeStorageItem(STORAGE_KEYS.offerStorageVersion, CURRENT_OFFER_STORAGE_VERSION);
+  writeStorageItem(STORAGE_KEYS.offerDocuments, []);
+  writeStorageItem(STORAGE_KEYS.offerDocumentStorageVersion, CURRENT_OFFER_DOCUMENT_STORAGE_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
@@ -168,21 +185,14 @@ export function resetDemoDataForTests(): void {
   writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.offers, []);
   writeStorageItem(STORAGE_KEYS.offerStorageVersion, CURRENT_OFFER_STORAGE_VERSION);
+  writeStorageItem(STORAGE_KEYS.offerDocuments, []);
+  writeStorageItem(STORAGE_KEYS.offerDocumentStorageVersion, CURRENT_OFFER_DOCUMENT_STORAGE_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
 
 export function clearDemoDataForTests(): void {
-  localStorage.removeItem(STORAGE_KEYS.users);
-  localStorage.removeItem(STORAGE_KEYS.leads);
-  localStorage.removeItem(STORAGE_KEYS.tariffs);
-  localStorage.removeItem(STORAGE_KEYS.tariffCatalogVersion);
-  localStorage.removeItem(STORAGE_KEYS.products);
-  localStorage.removeItem(STORAGE_KEYS.productCatalogVersion);
-  localStorage.removeItem(STORAGE_KEYS.offers);
-  localStorage.removeItem(STORAGE_KEYS.offerStorageVersion);
-  localStorage.removeItem(STORAGE_KEYS.currentUserId);
-  localStorage.removeItem(STORAGE_KEYS.seeded);
-  localStorage.removeItem(STORAGE_KEYS.leadDrafts);
-  localStorage.removeItem(STORAGE_KEYS.leadEditDrafts);
+  for (const key of Object.values(STORAGE_KEYS)) {
+    localStorage.removeItem(key);
+  }
 }

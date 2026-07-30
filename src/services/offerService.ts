@@ -10,6 +10,7 @@ import type {
   OfferItem,
   OfferItemPriceType,
 } from '../domain/offer/offer';
+import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../domain/recommendation/recommendationRecord';
 import { generateNextOfferNumber } from '../domain/offer/offerNumber';
 import {
   isPriceOverridden,
@@ -417,6 +418,7 @@ export class OfferService {
       cancelledAt: null,
       cancelledByUserId: null,
       cancellationReason: '',
+      recommendationLink: { ...EMPTY_OFFER_RECOMMENDATION_LINK },
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -644,6 +646,7 @@ export class OfferService {
       cancelledAt: null,
       cancelledByUserId: null,
       cancellationReason: '',
+      recommendationLink: { ...EMPTY_OFFER_RECOMMENDATION_LINK },
       createdAt: timestamp,
       updatedAt: timestamp,
     };

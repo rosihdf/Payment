@@ -50,3 +50,31 @@ Object.defineProperty(window, 'matchMedia', {
 if (!HTMLElement.prototype.scrollIntoView) {
   HTMLElement.prototype.scrollIntoView = () => undefined;
 }
+
+if (typeof URL.createObjectURL !== 'function') {
+  URL.createObjectURL = () => 'blob:mock-url';
+}
+
+if (typeof URL.revokeObjectURL !== 'function') {
+  URL.revokeObjectURL = () => undefined;
+}
+
+const OriginalRequest = globalThis.Request;
+globalThis.Request = class Request extends OriginalRequest {
+  constructor(input: RequestInfo | URL, init?: RequestInit) {
+    try {
+      super(input, init);
+    } catch (error) {
+      if (
+        init?.signal &&
+        error instanceof TypeError &&
+        /AbortSignal/.test(error.message)
+      ) {
+        const { signal: _signal, ...rest } = init;
+        super(input, rest);
+        return;
+      }
+      throw error;
+    }
+  }
+} as typeof Request;

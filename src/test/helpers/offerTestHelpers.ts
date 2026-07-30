@@ -22,6 +22,7 @@ import {
   resetDemoDataForTests,
 } from '../../services/demoDataService';
 import type { OfferService, OfferUserContext } from '../../services/offerService';
+import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../../domain/recommendation/recommendationRecord';
 import { generateId, nowIso } from '../../utils/id';
 import { STORAGE_KEYS, writeStorageItem } from '../../utils/storage';
 
@@ -199,6 +200,7 @@ export function createTestOffer(overrides: Partial<Offer> = {}): Offer {
     cancelledAt: null,
     cancelledByUserId: null,
     cancellationReason: '',
+    recommendationLink: { ...EMPTY_OFFER_RECOMMENDATION_LINK },
     createdAt: timestamp,
     updatedAt: timestamp,
     ...overrides,

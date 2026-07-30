@@ -36,9 +36,11 @@ describe('Calculator page', () => {
 
   it('loads the calculator page', async () => {
     renderAtRoute('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Vergleichsrechner' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'BestPay-Vergleich' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrechnung einlesen' })).toBeInTheDocument();
     expect(
-      screen.getByText('Bisherige Payment-Kosten mit einem BestPay-Tarif vergleichen'),
+      screen.getByText('Bisherige Payment-Kosten manuell mit einem aktiven BestPay-Tarif vergleichen.'),
     ).toBeInTheDocument();
   });
 
