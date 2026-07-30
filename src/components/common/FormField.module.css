@@ -1,0 +1,32 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.labelRequired::after {
+  content: ' *';
+  color: var(--color-danger);
+}
+
+.control {
+  min-height: var(--touch-target);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

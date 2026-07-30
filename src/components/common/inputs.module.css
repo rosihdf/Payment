@@ -1,0 +1,22 @@
+.input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+.inputError {
+  border-color: var(--color-danger);
+}
+
+.input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

@@ -1,0 +1,66 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.dialog {
+  width: min(100%, 28rem);
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.title {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+}
+
+.message {
+  margin-bottom: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.primary {
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+@media (min-width: 480px) {
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}

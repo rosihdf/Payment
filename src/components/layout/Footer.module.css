@@ -1,0 +1,15 @@
+.footer {
+  margin-top: auto;
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .footer {
+    text-align: left;
+  }
+}

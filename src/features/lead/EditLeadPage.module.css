@@ -1,0 +1,52 @@
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.editLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.listLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .actions {
+    justify-content: flex-end;
+  }
+}

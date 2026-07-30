@@ -1,0 +1,73 @@
+.container {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--bottom-nav-height) + var(--space-4));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 22rem;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-md);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.variant {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.message {
+  font-size: var(--font-size-sm);
+}
+
+.dismiss {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.info .variant {
+  color: var(--color-accent);
+}
+
+.success .variant {
+  color: var(--color-success);
+}
+
+.warning .variant {
+  color: var(--color-warning);
+}
+
+.error .variant {
+  color: var(--color-danger);
+}
+
+@media (min-width: 768px) {
+  .container {
+    bottom: var(--space-4);
+  }
+}

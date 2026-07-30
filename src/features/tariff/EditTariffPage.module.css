@@ -1,0 +1,13 @@
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
