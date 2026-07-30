@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   seeded: 'amrtech.seeded',
   leadDrafts: 'amrtech.leadDrafts',
   leadEditDrafts: 'amrtech.leadEditDrafts',
+  offers: 'amrtech.offers',
+  offerStorageVersion: 'amrtech.offerStorageVersion',
 } as const;
 
 export function readStorageItem<T>(key: string): T | null {

@@ -1,12 +1,14 @@
 import type { LeadDraftRepository } from '../repositories/interfaces/LeadDraftRepository';
 import type { LeadEditDraftRepository } from '../repositories/interfaces/LeadEditDraftRepository';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
+import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
 import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
 import { LeadDraftService } from './leadDraftService';
 import { LeadEditDraftService } from './leadEditDraftService';
 import { LeadService } from './leadService';
+import { OfferService } from './offerService';
 import { ProductService } from './productService';
 import { TariffService } from './tariffService';
 import { UserService } from './userService';
@@ -18,6 +20,7 @@ export interface AppServices {
   leadEditDraftService: LeadEditDraftService;
   tariffService: TariffService;
   productService: ProductService;
+  offerService: OfferService;
 }
 
 export interface AppRepositories {
@@ -27,6 +30,7 @@ export interface AppRepositories {
   leadEditDraftRepository: LeadEditDraftRepository;
   tariffRepository: TariffRepository;
   productRepository: ProductRepository;
+  offerRepository: OfferRepository;
 }
 
 export function createServices(repositories: AppRepositories): AppServices {
@@ -37,5 +41,11 @@ export function createServices(repositories: AppRepositories): AppServices {
     leadEditDraftService: new LeadEditDraftService(repositories.leadEditDraftRepository),
     tariffService: new TariffService(repositories.tariffRepository),
     productService: new ProductService(repositories.productRepository),
+    offerService: new OfferService(
+      repositories.offerRepository,
+      repositories.leadRepository,
+      repositories.tariffRepository,
+      repositories.productRepository,
+    ),
   };
 }

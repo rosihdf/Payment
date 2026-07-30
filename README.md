@@ -89,6 +89,10 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/leads/:id` | Lead-Detail |
 | `/calculator` | BestPay-Vergleichsrechner |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
+| `/offers` | Angebotsübersicht (Admin und Außendienst) |
+| `/offers/new` | Neues Angebot anlegen |
+| `/offers/:id` | Angebotsdetail |
+| `/offers/:id/edit` | Angebot bearbeiten (nur Entwürfe) |
 | `/admin/products` | Produktverwaltung (Admin) |
 | `/admin/products/new` | Neues Produkt (Admin) |
 | `/admin/products/:id/edit` | Produkt bearbeiten (Admin) |
@@ -108,7 +112,28 @@ Produkte und Payment-Tarife sind getrennte Domänen:
 - **Produkte:** Hardware, Kassensysteme, Zubehör, Softwaremodule, Dienstleistungen
 - **Tarife:** Payment-Konditionen (z. B. BestPay Mobile A920 Classic/Flat)
 
-Es gibt keine automatische Tarifempfehlung, keine Produktpakete und keine Angebotskonfiguration in A06. Gemeinsam genutzt wird nur die Terminalart (stationär/mobil) zur Darstellung — ohne fachliche Verknüpfung.
+Es gibt keine automatische Tarifempfehlung und keine automatische Produkt-/Tarifverknüpfung. Gemeinsam genutzt wird nur die Terminalart (stationär/mobil) zur Darstellung.
+
+## Angebotskonfiguration
+
+Unter `/offers` können Admin und Außendienst interne BestPay-Angebote konfigurieren und speichern.
+
+- Lead/Kunde auswählen, optional einen Payment-Tarif und Produktpositionen hinzufügen
+- Mengen und kontrollierte Preisüberschreibungen mit Begründung
+- Monatliche und einmalige Summen (Tarif-Fixkosten + Positionen)
+- Status: Entwurf, Abgeschlossen, Storniert
+- Snapshots für Kunde, Tarif und Produkte — gespeicherte Angebote bleiben unabhängig von späteren Katalogänderungen
+- Angebotsnummern im Format `BP-ANG-YYYY-0001`
+- Kein PDF, keine E-Mail, keine Provision in A07
+
+### Berechtigungen
+
+- **Admin:** alle Angebote sehen und bearbeiten
+- **Außendienst:** nur eigene Angebote; Leads gemäß bestehender Lead-Berechtigung
+
+### Abgrenzung
+
+Tarife, Produkte und Angebote bleiben getrennte Domänen. Variable Tarifkonditionen (Transaktionsentgelte, Kartenentgelte) werden angezeigt, aber nicht in die feste Angebotssumme eingerechnet.
 
 ### Produktkategorien
 

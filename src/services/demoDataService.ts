@@ -8,6 +8,10 @@ import type { Product } from '../domain/product/product';
 import type { Tariff } from '../domain/tariff/tariff';
 import type { User } from '../domain/user/user';
 import {
+  CURRENT_OFFER_STORAGE_VERSION,
+  migrateOfferStorageIfNeeded,
+} from './offerStorageMigration';
+import {
   CURRENT_PRODUCT_CATALOG_VERSION,
   migrateProductCatalogIfNeeded,
 } from './productCatalogMigration';
@@ -139,6 +143,7 @@ export function seedDemoData(): void {
   if (isDemoDataSeeded()) {
     migrateTariffCatalogIfNeeded();
     migrateProductCatalogIfNeeded();
+    migrateOfferStorageIfNeeded();
     return;
   }
 
@@ -148,6 +153,8 @@ export function seedDemoData(): void {
   writeStorageItem(STORAGE_KEYS.tariffCatalogVersion, CURRENT_TARIFF_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.products, getDemoProducts());
   writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
+  writeStorageItem(STORAGE_KEYS.offers, []);
+  writeStorageItem(STORAGE_KEYS.offerStorageVersion, CURRENT_OFFER_STORAGE_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
@@ -159,6 +166,8 @@ export function resetDemoDataForTests(): void {
   writeStorageItem(STORAGE_KEYS.tariffCatalogVersion, CURRENT_TARIFF_CATALOG_VERSION);
   writeStorageItem(STORAGE_KEYS.products, getDemoProducts());
   writeStorageItem(STORAGE_KEYS.productCatalogVersion, CURRENT_PRODUCT_CATALOG_VERSION);
+  writeStorageItem(STORAGE_KEYS.offers, []);
+  writeStorageItem(STORAGE_KEYS.offerStorageVersion, CURRENT_OFFER_STORAGE_VERSION);
   writeStorageItem(STORAGE_KEYS.currentUserId, DEMO_USERS[0]?.id ?? '');
   writeStorageItem(STORAGE_KEYS.seeded, true);
 }
@@ -170,6 +179,8 @@ export function clearDemoDataForTests(): void {
   localStorage.removeItem(STORAGE_KEYS.tariffCatalogVersion);
   localStorage.removeItem(STORAGE_KEYS.products);
   localStorage.removeItem(STORAGE_KEYS.productCatalogVersion);
+  localStorage.removeItem(STORAGE_KEYS.offers);
+  localStorage.removeItem(STORAGE_KEYS.offerStorageVersion);
   localStorage.removeItem(STORAGE_KEYS.currentUserId);
   localStorage.removeItem(STORAGE_KEYS.seeded);
   localStorage.removeItem(STORAGE_KEYS.leadDrafts);

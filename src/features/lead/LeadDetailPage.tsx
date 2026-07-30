@@ -3,6 +3,8 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { Lead } from '../../domain/lead/lead';
+import type { Offer } from '../../domain/offer/offer';
+import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import {
   LEAD_INTEREST_LABELS,
   LEAD_STATUS_LABELS,
@@ -18,6 +20,7 @@ import {
   displayInteger,
   displayText,
   formatContactName,
+  formatDate,
 } from '../../utils/format';
 import styles from './LeadDetailPage.module.css';
 
@@ -44,8 +47,9 @@ export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { currentUser } = useCurrentUser();
-  const { leadService, userService } = useServices();
+  const { leadService, userService, offerService } = useServices();
   const [lead, setLead] = useState<Lead | null>(null);
+  const [offers, setOffers] = useState<Offer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,6 +70,20 @@ export function LeadDetailPage() {
       setIsLoading(false);
     });
   }, [id, leadService, location.key]);
+
+  useEffect(() => {
+    if (!id || !currentUser) {
+      return;
+    }
+
+    void offerService
+      .getOffersForLead(id, {
+        userId: currentUser.id,
+        role: currentUser.role,
+        displayName: currentUser.name,
+      })
+      .then(setOffers);
+  }, [currentUser, id, offerService, location.key]);
 
   const getUserName = (userId: string): string =>
     users.find((user) => user.id === userId)?.name ?? 'Nicht angegeben';
@@ -177,9 +195,38 @@ export function LeadDetailPage() {
       </section>
 
       <section className={styles.detailSection}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>Angebote</h2>
+          <Link className={styles.editLink} to={`/offers/new?leadId=${lead.id}`}>
+            Neues Angebot
+          </Link>
+        </div>
+
+        {offers.length === 0 ? (
+          <p className={styles.emptyHint}>Für diesen Lead liegen noch keine Angebote vor.</p>
+        ) : (
+          <ul className={styles.offerList}>
+            {offers.map((offer) => (
+              <li key={offer.id}>
+                <Link className={styles.offerCard} to={`/offers/${offer.id}`}>
+                  <div className={styles.offerCardHeader}>
+                    <span className={styles.offerTitle}>{offer.title}</span>
+                    <span className={styles.offerStatus}>{OFFER_STATUS_LABELS[offer.status]}</span>
+                  </div>
+                  <div className={styles.offerMeta}>
+                    <span>{offer.offerNumber}</span>
+                    <span>Aktualisiert: {formatDate(offer.updatedAt)}</span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className={styles.detailSection}>
         <h2 className={styles.sectionTitle}>Metadaten</h2>
         <dl className={styles.grid}>
-          <DetailRow label="Erstellt am" value={displayDateTime(lead.createdAt)} />
           <DetailRow label="Zuletzt geändert" value={displayDateTime(lead.updatedAt)} />
           <DetailRow label="Erstellt von" value={getUserName(lead.createdByUserId)} />
           <DetailRow label="Zuständiger Benutzer" value={getUserName(lead.assignedSalesUserId)} />

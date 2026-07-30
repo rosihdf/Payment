@@ -8,6 +8,7 @@ function NavIcon({ icon }: { icon: string }) {
     home: '⌂',
     leads: '☰',
     add: '+',
+    offers: '◈',
     calculator: '∑',
     tariffs: '€',
     products: '▣',
