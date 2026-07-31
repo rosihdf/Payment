@@ -18,7 +18,13 @@ export type AuditAction =
   | 'backup'
   | 'restore_preview'
   | 'migration'
-  | 'diagnostic_repair';
+  | 'diagnostic_repair'
+  | 'contract_created'
+  | 'contract_status_changed'
+  | 'contract_version_created'
+  | 'contract_version_activated'
+  | 'contract_termination_recorded'
+  | 'contract_termination_confirmed';
 
 export type AuditEntityType =
   | 'user'
@@ -29,7 +35,10 @@ export type AuditEntityType =
   | 'template'
   | 'export'
   | 'backup'
-  | 'system';
+  | 'system'
+  | 'contract'
+  | 'contract_version'
+  | 'contract_termination';
 
 export interface AuditChangeField {
   field: string;
@@ -75,4 +84,10 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   restore_preview: 'Restore-Vorprüfung',
   migration: 'Migration',
   diagnostic_repair: 'Diagnose-Reparatur',
+  contract_created: 'Vertrag angelegt',
+  contract_status_changed: 'Vertragsstatus geändert',
+  contract_version_created: 'Vertragsversion erstellt',
+  contract_version_activated: 'Vertragsversion aktiviert',
+  contract_termination_recorded: 'Kündigung erfasst',
+  contract_termination_confirmed: 'Kündigung bestätigt',
 };

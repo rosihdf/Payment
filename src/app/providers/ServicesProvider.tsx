@@ -20,6 +20,9 @@ import { LocalUserRepository } from '../../repositories/local/LocalUserRepositor
 import { LocalAuditRepository } from '../../repositories/local/LocalAuditRepository';
 import { LocalApprovalRuleRepository } from '../../repositories/local/LocalApprovalRuleRepository';
 import { LocalDocumentTemplateRepository } from '../../repositories/local/LocalDocumentTemplateRepository';
+import { LocalContractRepository } from '../../repositories/local/LocalContractRepository';
+import { LocalContractVersionRepository } from '../../repositories/local/LocalContractVersionRepository';
+import { LocalContractTerminationRepository } from '../../repositories/local/LocalContractTerminationRepository';
 import { createServices } from '../../services';
 import { seedDemoData } from '../../services/demoDataService';
 import { ServicesContext } from '../../hooks/useServices';
@@ -54,6 +57,9 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       recommendationRepository: new LocalRecommendationRepository(),
       salesTaskRepository: new LocalSalesTaskRepository(),
       salesActivityRepository: new LocalSalesActivityRepository(),
+      contractRepository: new LocalContractRepository(),
+      contractVersionRepository: new LocalContractVersionRepository(),
+      contractTerminationRepository: new LocalContractTerminationRepository(),
     });
   }, []);
 

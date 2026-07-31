@@ -27,6 +27,16 @@ describe('Navigation role filtering', () => {
     expect(adminItems.some((item) => item.to === '/products')).toBe(true);
   });
 
+  it('shows contracts nav entry for roles with contracts.view_own', () => {
+    const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
+    const reviewerItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'reviewer');
+
+    expect(fieldServiceItems.some((item) => item.to === '/contracts' && item.label === 'Verträge')).toBe(
+      true,
+    );
+    expect(reviewerItems.some((item) => item.to === '/contracts')).toBe(false);
+  });
+
   it('shows offers nav entry for all roles', () => {
     const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
     const adminItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');

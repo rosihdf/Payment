@@ -18,7 +18,21 @@ export type SalesActivityType =
   | 'task_created'
   | 'task_completed'
   | 'activation'
-  | 'commission';
+  | 'commission'
+  | 'contract_created'
+  | 'contract_version_created'
+  | 'contract_version_activated'
+  | 'contract_tariff_changed'
+  | 'contract_term_changed'
+  | 'contract_hardware_changed'
+  | 'contract_termination_recorded'
+  | 'contract_termination_confirmed'
+  | 'contract_termination_withdrawn'
+  | 'contract_renewal_created'
+  | 'contract_suspended'
+  | 'contract_reactivated'
+  | 'contract_ended'
+  | 'contract_document_created';
 
 export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   note: 'Notiz',
@@ -35,10 +49,24 @@ export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   approval_requested: 'Freigabe angefordert',
   approval_completed: 'Freigabe erfolgt',
   offer_accepted: 'Angebot angenommen',
-  task_created: 'Aufgabe erstellt',
+  task_created: 'Aufgabe angelegt',
   task_completed: 'Aufgabe erledigt',
   activation: 'Aktivierung',
   commission: 'Provision',
+  contract_created: 'Vertrag erstellt',
+  contract_version_created: 'Vertragsversion erstellt',
+  contract_version_activated: 'Vertragsversion aktiviert',
+  contract_tariff_changed: 'Tarif geändert',
+  contract_term_changed: 'Laufzeit geändert',
+  contract_hardware_changed: 'Hardware geändert',
+  contract_termination_recorded: 'Kündigung erfasst',
+  contract_termination_confirmed: 'Kündigung bestätigt',
+  contract_termination_withdrawn: 'Kündigung zurückgezogen',
+  contract_renewal_created: 'Verlängerung erstellt',
+  contract_suspended: 'Vertrag gesperrt',
+  contract_reactivated: 'Vertrag reaktiviert',
+  contract_ended: 'Vertrag beendet',
+  contract_document_created: 'Vertragsdokument erzeugt',
 };
 
 export interface SalesActivity {
@@ -52,6 +80,8 @@ export interface SalesActivity {
   leadId: string | null;
   comparisonSessionId: string | null;
   offerId: string | null;
+  contractId: string | null;
+  contractVersionId: string | null;
   taskId: string | null;
   isSystem: boolean;
   editable: boolean;
@@ -69,6 +99,8 @@ export interface CreateSalesActivityInput {
   leadId?: string | null;
   comparisonSessionId?: string | null;
   offerId?: string | null;
+  contractId?: string | null;
+  contractVersionId?: string | null;
   taskId?: string | null;
   isSystem?: boolean;
   editable?: boolean;

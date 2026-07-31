@@ -41,6 +41,7 @@ type Result = { ok: true; offer: Offer } | { ok: false; error: 'not_found' | 'fo
 export class OfferWorkflowService {
   private activityService: SalesActivityService | null = null;
   private taskService: SalesTaskService | null = null;
+  private contractService: import('./contractService').ContractService | null = null;
   private readonly offerRepository: OfferRepository;
   private readonly versionRepository: OfferVersionRepository;
   private readonly eventRepository: OfferWorkflowEventRepository;
@@ -63,6 +64,7 @@ export class OfferWorkflowService {
 
   setSalesTaskService(service: SalesTaskService): void { this.taskService = service; }
   setSalesActivityService(service: SalesActivityService): void { this.activityService = service; }
+  setContractService(service: import('./contractService').ContractService): void { this.contractService = service; }
 
   async getVersions(offerId: string): Promise<OfferVersion[]> { return this.versionRepository.getByOfferId(offerId); }
   async getVersionById(id: string): Promise<OfferVersion | null> { return this.versionRepository.getById(id); }
@@ -240,7 +242,18 @@ export class OfferWorkflowService {
     const validationError = validateStructuredAcceptance(acceptance);
     if (validationError) return { ok: false, error: 'validation' };
     const result = await this.transition(offerId, 'accept', context);
-    if (result.ok) { await this.event({ id: generateId('offer_acceptance'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: acceptance.note, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText }); await this.record('offer_accepted', 'Angebot angenommen', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`); }
+    if (result.ok) {
+      await this.event({ id: generateId('offer_acceptance'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: acceptance.note, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
+      await this.record('offer_accepted', 'Angebot angenommen', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
+      if (this.contractService) {
+        await this.contractService.createFromAcceptedOffer(offerId, {
+          userId: context.userId,
+          role: context.role,
+          displayName: context.displayName,
+          status: 'active',
+        });
+      }
+    }
     return result;
   }
   async declineOffer(offerId: string, context: OfferUserContext, input: Pick<OfferDecline, 'reason' | 'otherText' | 'note'> | string = ''): Promise<Result> {
@@ -258,7 +271,18 @@ export class OfferWorkflowService {
     const checklistError = validateActivationChecklist(checklist);
     if (checklistError) return { ok: false, error: 'validation' };
     const result = await this.transition(offerId, 'prepare_activation', context);
-    if (result.ok) { await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'prepared', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', checklist, activatedAt: null, externalReference: null, deviations: [], activatedHardware: [] }); if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Aktivierung vorbereiten', type: 'check_activation', priority: 'high', dueAt: endOfDayIso(), leadId: result.offer.leadId, offerId, sourceKey: `auto:prepare_activation:${offerId}` }, context); }
+    if (result.ok) {
+      await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'prepared', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', checklist, activatedAt: null, externalReference: null, deviations: [], activatedHardware: [] });
+      if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Aktivierung vorbereiten', type: 'check_activation', priority: 'high', dueAt: endOfDayIso(), leadId: result.offer.leadId, offerId, sourceKey: `auto:prepare_activation:${offerId}` }, context);
+      if (this.contractService) {
+        await this.contractService.syncFromOfferActivation(offerId, {
+          userId: context.userId,
+          role: context.role,
+          displayName: context.displayName,
+          status: 'active',
+        });
+      }
+    }
     return result;
   }
   async activate(offerId: string, context: OfferUserContext, input: { externalReference?: string; note?: string; deviations?: OfferActivationDeviation[]; activatedHardware?: string[] } = {}): Promise<Result> {
@@ -266,7 +290,18 @@ export class OfferWorkflowService {
     const deviationError = validateActivationDeviations(deviations);
     if (deviationError) return { ok: false, error: 'validation' };
     const result = await this.transition(offerId, 'activate', context);
-    if (result.ok) { await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'activated', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: input.note ?? '', checklist: { offerVersionId: result.offer.currentVersionId ?? '', checks: {} }, activatedAt: nowIso(), externalReference: input.externalReference ?? null, deviations, activatedHardware: input.activatedHardware ?? [] }); await this.record('activation', 'Angebot aktiviert', input.note ?? '', result.offer, context, `activation:${offerId}`); }
+    if (result.ok) {
+      await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'activated', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: input.note ?? '', checklist: { offerVersionId: result.offer.currentVersionId ?? '', checks: {} }, activatedAt: nowIso(), externalReference: input.externalReference ?? null, deviations, activatedHardware: input.activatedHardware ?? [] });
+      await this.record('activation', 'Angebot aktiviert', input.note ?? '', result.offer, context, `activation:${offerId}`);
+      if (this.contractService) {
+        await this.contractService.syncFromOfferActivation(offerId, {
+          userId: context.userId,
+          role: context.role,
+          displayName: context.displayName,
+          status: 'active',
+        });
+      }
+    }
     return result;
   }
   async syncFromCommissionCase(offerId: string, context: OfferUserContext): Promise<Result> {
@@ -279,8 +314,29 @@ export class OfferWorkflowService {
   async cancelWorkflow(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'cancel', context); }
   async compareVersions(beforeId: string, afterId: string): Promise<OfferVersionDiffEntry[]> { const [before, after] = await Promise.all([this.getVersionById(beforeId), this.getVersionById(afterId)]); return before && after ? compareOfferVersions(before, after) : []; }
   async listDocuments(offerId: string): Promise<SalesDocument[]> { return this.documentRepository.getByOfferId(offerId); }
-  async registerDocument(offerId: string, input: Omit<SalesDocument, 'id' | 'schemaVersion' | 'offerId' | 'createdAt' | 'createdByUserId' | 'createdByDisplayName'>, context: OfferUserContext): Promise<SalesDocument> {
-    const document: SalesDocument = { id: generateId('sales_document'), schemaVersion: SALES_DOCUMENT_SCHEMA_VERSION, offerId, ...input, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName };
+  async registerDocument(
+    offerId: string,
+    input: Partial<Omit<SalesDocument, 'id' | 'schemaVersion' | 'offerId' | 'createdAt' | 'createdByUserId' | 'createdByDisplayName'>> &
+      Pick<SalesDocument, 'type' | 'fileName' | 'mimeType'>,
+    context: OfferUserContext,
+  ): Promise<SalesDocument> {
+    const document: SalesDocument = {
+      id: generateId('sales_document'),
+      schemaVersion: SALES_DOCUMENT_SCHEMA_VERSION,
+      offerId,
+      offerVersionId: input.offerVersionId ?? null,
+      contractId: input.contractId ?? null,
+      contractVersionId: input.contractVersionId ?? null,
+      terminationId: input.terminationId ?? null,
+      type: input.type,
+      fileName: input.fileName,
+      mimeType: input.mimeType,
+      externalReference: input.externalReference ?? null,
+      checksum: input.checksum ?? null,
+      createdAt: nowIso(),
+      createdByUserId: context.userId,
+      createdByDisplayName: context.displayName,
+    };
     return this.documentRepository.create(document);
   }
   async getWorkflowSummary(offerId: string): Promise<{ offer: Offer | null; currentVersion: OfferVersion | null; events: OfferWorkflowEvent[]; documents: SalesDocument[]; immutable: boolean }> {

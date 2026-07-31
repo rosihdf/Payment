@@ -53,6 +53,22 @@ Unterbereiche:
 - Nur sichere Reparaturen automatisch (z. B. beschädigte Cache-Zeilen)
 - Keine stillen Änderungen an Annahmen, Freigaben oder Snapshots
 
+## Vertragsmanagement (C)
+
+- Routen: `/contracts`, `/contracts/:contractId`
+- Entstehung: aus angenommenen OfferVersions, idempotent über `sourceKey`
+- Nummernschema: `V-YYYY-NNNNN`
+- Stores: `amrtech.contracts`, `amrtech.contractVersions`, `amrtech.contractTerminations`
+- Statusänderungen nur über `ContractService` (keine Render-Mutation)
+- Export/Backup/Diagnose/Restore-Vorprüfung kennen Vertragsstores
+- OCR und PDF.js werden über `/contracts` nicht geladen
+
+### Abgrenzung D
+
+- Kein vollständiges Händler-Onboarding
+- Keine Terminal-Lager- oder Seriennummernverwaltung
+- Keine BestPay-Aktivierungs-API, kein Händler-/Kundenportal
+
 ## Bekannte Grenzen
 
 - Keine echte Server-API, OAuth, Cloud-Sync oder Mandantentrennung

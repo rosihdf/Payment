@@ -12,7 +12,10 @@ export type DiagnosticArea =
   | 'tariff'
   | 'product'
   | 'commission'
-  | 'storage';
+  | 'storage'
+  | 'contract'
+  | 'contract_version'
+  | 'contract_termination';
 
 export interface DiagnosticFinding {
   id: string;

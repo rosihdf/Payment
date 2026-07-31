@@ -183,7 +183,7 @@ function normalizeProductSnapshot(value: unknown): OfferProductSnapshot | null {
   };
 }
 
-function normalizeTariffSnapshot(value: unknown): OfferTariffSnapshot | null {
+export function normalizeTariffSnapshot(value: unknown): OfferTariffSnapshot | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
@@ -220,7 +220,7 @@ function normalizeTariffSnapshot(value: unknown): OfferTariffSnapshot | null {
   };
 }
 
-function normalizeCustomerSnapshot(value: unknown): OfferCustomerSnapshot {
+export function normalizeCustomerSnapshot(value: unknown): OfferCustomerSnapshot {
   if (!value || typeof value !== 'object') {
     return {
       leadId: '',
@@ -254,7 +254,7 @@ function normalizeCustomerSnapshot(value: unknown): OfferCustomerSnapshot {
   };
 }
 
-function normalizeOfferItem(value: unknown, fallbackSortOrder: number): OfferItem {
+export function normalizeOfferItem(value: unknown, fallbackSortOrder: number): OfferItem {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   const timestamp = nowIso();
   const priceType = asOfferItemPriceType(raw.priceType);

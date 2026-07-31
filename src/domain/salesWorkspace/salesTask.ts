@@ -10,7 +10,17 @@ export type SalesTaskType =
   | 'follow_up_offer'
   | 'check_activation'
   | 'check_commission'
-  | 'general';
+  | 'general'
+  | 'review_contract'
+  | 'prepare_contract_change'
+  | 'review_tariff_change'
+  | 'execute_hardware_change'
+  | 'prepare_renewal'
+  | 'check_termination_deadline'
+  | 'process_termination'
+  | 'winback'
+  | 'close_contract'
+  | 'request_contract_document';
 
 export type SalesTaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
 
@@ -29,6 +39,16 @@ export const SALES_TASK_TYPE_LABELS: Record<SalesTaskType, string> = {
   check_activation: 'Aktivierung prüfen',
   check_commission: 'Provision prüfen',
   general: 'Allgemeine Aufgabe',
+  review_contract: 'Vertragsprüfung',
+  prepare_contract_change: 'Vertragsänderung vorbereiten',
+  review_tariff_change: 'Tarifwechsel prüfen',
+  execute_hardware_change: 'Hardwareänderung durchführen',
+  prepare_renewal: 'Verlängerung vorbereiten',
+  check_termination_deadline: 'Kündigungsfrist prüfen',
+  process_termination: 'Kündigung bearbeiten',
+  winback: 'Rückgewinnung',
+  close_contract: 'Vertragsende abschließen',
+  request_contract_document: 'Dokument nachfordern',
 };
 
 export const SALES_TASK_STATUS_LABELS: Record<SalesTaskStatus, string> = {
@@ -62,6 +82,8 @@ export interface SalesTask {
   leadId: string | null;
   comparisonSessionId: string | null;
   offerId: string | null;
+  contractId: string | null;
+  contractVersionId: string | null;
   wizardEnabled: boolean;
   origin: SalesTaskOrigin;
   /** Stable key for automatic/idempotent tasks, e.g. auto:continue_calculation:session_xyz */
@@ -81,6 +103,8 @@ export interface CreateSalesTaskInput {
   leadId?: string | null;
   comparisonSessionId?: string | null;
   offerId?: string | null;
+  contractId?: string | null;
+  contractVersionId?: string | null;
   wizardEnabled?: boolean;
   origin?: SalesTaskOrigin;
   sourceKey?: string | null;
@@ -98,5 +122,7 @@ export interface UpdateSalesTaskInput {
   leadId?: string | null;
   comparisonSessionId?: string | null;
   offerId?: string | null;
+  contractId?: string | null;
+  contractVersionId?: string | null;
   completionNote?: string;
 }

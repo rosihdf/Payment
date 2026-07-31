@@ -25,6 +25,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: SALES_WIZARD_PATH, label: 'Vertriebsprozess', icon: 'wizard' },
   { to: '/leads', label: 'Leads', icon: 'leads' },
   { to: '/offers', label: 'Angebote', icon: 'offers' },
+  { to: '/contracts', label: 'Verträge', icon: 'contracts', permission: 'contracts.view_own' },
   { to: '/calculator', label: 'Rechner', icon: 'calculator' },
   { to: '/products', label: 'Produkte', icon: 'products' },
   { to: '/admin', label: 'Administration', icon: 'admin', permission: 'admin.access' },
@@ -37,6 +38,7 @@ export const OPERATIVE_SIDEBAR_NAV_LABELS = [
   'Vertriebsprozess',
   'Leads',
   'Angebote',
+  'Verträge',
   'Rechner',
 ] as const;
 

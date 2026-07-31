@@ -30,6 +30,18 @@ export type Permission =
   | 'offers.activate'
   | 'offers.commission_release'
   | 'offers.commission_status'
+  | 'contracts.view_own'
+  | 'contracts.view_team'
+  | 'contracts.create'
+  | 'contracts.change'
+  | 'contracts.change_approve'
+  | 'contracts.terminate'
+  | 'contracts.extend'
+  | 'contracts.suspend'
+  | 'contracts.activate'
+  | 'contracts.documents'
+  | 'contracts.provision'
+  | 'contracts.audit'
   | 'admin.access'
   | 'admin.users'
   | 'admin.roles'
@@ -73,6 +85,18 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'offers.activate': 'Aktivierung dokumentieren',
   'offers.commission_release': 'Provision freigeben',
   'offers.commission_status': 'Provisionsstatus ändern',
+  'contracts.view_own': 'Eigene Verträge sehen',
+  'contracts.view_team': 'Teamverträge sehen',
+  'contracts.create': 'Vertrag anlegen',
+  'contracts.change': 'Vertragsänderung starten',
+  'contracts.change_approve': 'Vertragsänderung freigeben',
+  'contracts.terminate': 'Kündigung erfassen',
+  'contracts.extend': 'Vertrag verlängern',
+  'contracts.suspend': 'Vertrag sperren',
+  'contracts.activate': 'Vertragsaktivierung steuern',
+  'contracts.documents': 'Vertragsdokumente verwalten',
+  'contracts.provision': 'Vertragsprovision sehen',
+  'contracts.audit': 'Vertragsaudit sehen',
   'admin.access': 'Administration öffnen',
   'admin.users': 'Benutzer verwalten',
   'admin.roles': 'Rollen und Rechte verwalten',
@@ -107,6 +131,11 @@ const FIELD_SERVICE_PERMISSIONS: Permission[] = [
   'offers.accept',
   'offers.decline',
   'offers.activate',
+  'contracts.view_own',
+  'contracts.create',
+  'contracts.change',
+  'contracts.terminate',
+  'contracts.documents',
 ];
 
 const SALES_LEAD_PERMISSIONS: Permission[] = [
@@ -121,6 +150,13 @@ const SALES_LEAD_PERMISSIONS: Permission[] = [
   'offers.request_changes',
   'offers.commission_release',
   'offers.commission_status',
+  'contracts.view_team',
+  'contracts.change_approve',
+  'contracts.extend',
+  'contracts.suspend',
+  'contracts.activate',
+  'contracts.provision',
+  'contracts.audit',
 ];
 
 const REVIEWER_PERMISSIONS: Permission[] = [
@@ -131,6 +167,8 @@ const REVIEWER_PERMISSIONS: Permission[] = [
   'commission.view',
   'offers.approve',
   'offers.request_changes',
+  'contracts.view_team',
+  'contracts.change_approve',
 ];
 
 const READONLY_PERMISSIONS: Permission[] = [
@@ -138,6 +176,7 @@ const READONLY_PERMISSIONS: Permission[] = [
   'activities.view',
   'calculator.create',
   'commission.view',
+  'contracts.view_own',
 ];
 
 const ADMIN_PERMISSIONS: Permission[] = Object.keys(PERMISSION_LABELS) as Permission[];

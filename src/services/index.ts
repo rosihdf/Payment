@@ -16,6 +16,9 @@ import type { UserRepository } from '../repositories/interfaces/UserRepository';
 import type { AuditRepository } from '../repositories/interfaces/AuditRepository';
 import type { ApprovalRuleRepository } from '../repositories/interfaces/ApprovalRuleRepository';
 import type { DocumentTemplateRepository } from '../repositories/interfaces/DocumentTemplateRepository';
+import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
+import type { ContractVersionRepository } from '../repositories/interfaces/ContractVersionRepository';
+import type { ContractTerminationRepository } from '../repositories/interfaces/ContractTerminationRepository';
 import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
 import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
@@ -25,6 +28,7 @@ import { ApprovalRuleService } from './approvalRuleService';
 import { AuditService } from './auditService';
 import { CommissionCalculationService } from './commissionCalculationService';
 import { CommissionCatalogAdminService } from './commissionCatalogAdminService';
+import { ContractService } from './contractService';
 import { DataDiagnosticService } from './dataDiagnosticService';
 import { DataExportService, DataRestoreService } from './dataExportService';
 import { DocumentTemplateService } from './documentTemplateService';
@@ -76,6 +80,7 @@ export interface AppServices {
   salesTaskService: SalesTaskService;
   salesActivityService: SalesActivityService;
   salesWorkspaceService: SalesWorkspaceService;
+  contractService: ContractService;
 }
 
 export interface AppRepositories {
@@ -100,6 +105,9 @@ export interface AppRepositories {
   recommendationRepository: LocalRecommendationRepository;
   salesTaskRepository: SalesTaskRepository;
   salesActivityRepository: SalesActivityRepository;
+  contractRepository: ContractRepository;
+  contractVersionRepository: ContractVersionRepository;
+  contractTerminationRepository: ContractTerminationRepository;
 }
 
 export function createServices(repositories: AppRepositories): AppServices {
@@ -181,6 +189,19 @@ export function createServices(repositories: AppRepositories): AppServices {
     salesTaskService,
     salesActivityService,
   );
+  const contractService = new ContractService(
+    repositories.contractRepository,
+    repositories.contractVersionRepository,
+    repositories.contractTerminationRepository,
+    repositories.offerRepository,
+    repositories.offerVersionRepository,
+    repositories.salesDocumentRepository,
+    repositories.salesTaskRepository,
+    auditService,
+  );
+  contractService.setSalesTaskService(salesTaskService);
+  contractService.setSalesActivityService(salesActivityService);
+  offerWorkflowService.setContractService(contractService);
 
   return {
     userService: new UserService(repositories.userRepository),
@@ -224,5 +245,6 @@ export function createServices(repositories: AppRepositories): AppServices {
     salesTaskService,
     salesActivityService,
     salesWorkspaceService,
+    contractService,
   };
 }

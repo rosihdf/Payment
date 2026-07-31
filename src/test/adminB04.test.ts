@@ -25,6 +25,9 @@ import { LocalCommissionCalculationRepository } from '../repositories/local/Loca
 import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
 import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
 import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
+import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
+import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
+import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
 import { migrateAdminStorageIfNeeded } from '../services/adminStorageMigration';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
@@ -51,6 +54,9 @@ function createTestServices() {
     recommendationRepository: new LocalRecommendationRepository(),
     salesTaskRepository: new LocalSalesTaskRepository(),
     salesActivityRepository: new LocalSalesActivityRepository(),
+    contractRepository: new LocalContractRepository(),
+    contractVersionRepository: new LocalContractVersionRepository(),
+    contractTerminationRepository: new LocalContractTerminationRepository(),
   });
 }
 

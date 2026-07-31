@@ -4,8 +4,11 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { FormField } from '../../components/common/FormField';
 import { PageHeader } from '../../components/layout/PageHeader';
+import type { Contract } from '../../domain/contract/contract';
+import { CONTRACT_STATUS_LABELS } from '../../domain/contract/contractStatus';
 import type { Offer } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
+import { hasPermission } from '../../domain/permission/permission';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
@@ -51,11 +54,12 @@ export function OfferDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
-  const { offerService, offerDocumentService, pricingEvaluationService, commissionCalculationService, recommendationService, billingImportService } =
+  const { offerService, offerDocumentService, pricingEvaluationService, commissionCalculationService, recommendationService, billingImportService, contractService } =
     useServices();
   const { showToast } = useToast();
 
   const [offer, setOffer] = useState<Offer | null>(null);
+  const [linkedContract, setLinkedContract] = useState<Contract | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionRunning, setIsActionRunning] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
@@ -74,8 +78,19 @@ export function OfferDetailPage() {
       displayName: currentUser.name,
     });
     setOffer(result);
+    if (result) {
+      const contract = await contractService.getByOfferId(id, {
+        userId: currentUser.id,
+        role: currentUser.role,
+        displayName: currentUser.name,
+        status: currentUser.status,
+      });
+      setLinkedContract(contract);
+    } else {
+      setLinkedContract(null);
+    }
     setIsLoading(false);
-  }, [currentUser, id, offerService]);
+  }, [currentUser, id, offerService, contractService]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -95,6 +110,32 @@ export function OfferDetailPage() {
   );
 
   const canEdit = offer && userContext ? offerService.canUserEditOffer(offer, userContext) : false;
+  const canCreateContract =
+    userContext &&
+    hasPermission(userContext.role, 'contracts.create') &&
+    ['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
+      offer?.workflowStatus ?? '',
+    );
+
+  const handleCreateContract = () => {
+    if (!offer || !userContext || !currentUser) return;
+
+    void (async () => {
+      setIsActionRunning(true);
+      const result = await contractService.createFromAcceptedOffer(offer.id, {
+        ...userContext,
+        status: currentUser.status,
+      });
+      if (result.ok) {
+        showToast(`Vertrag ${result.value.contractNumber} angelegt`, 'success');
+        setLinkedContract(result.value);
+        navigate(`/contracts/${result.value.id}`);
+      } else {
+        showToast(result.message ?? 'Vertrag konnte nicht angelegt werden', 'error');
+      }
+      setIsActionRunning(false);
+    })();
+  };
 
   const handleComplete = () => {
     if (!offer || !userContext) {
@@ -259,6 +300,20 @@ export function OfferDetailPage() {
                 Als Entwurf duplizieren
               </button>
             ) : null}
+            {linkedContract ? (
+              <Link className={styles.secondaryAction} to={`/contracts/${linkedContract.id}`}>
+                Vertrag {linkedContract.contractNumber}
+              </Link>
+            ) : canCreateContract ? (
+              <button
+                type="button"
+                className={styles.primaryAction}
+                disabled={isActionRunning}
+                onClick={handleCreateContract}
+              >
+                Vertrag anlegen
+              </button>
+            ) : null}
             <Link className={styles.link} to="/offers">
               Zur Übersicht
             </Link>
@@ -273,6 +328,28 @@ export function OfferDetailPage() {
       </div>
 
       <OfferWorkflowSection offer={offer} onUpdated={loadOffer} />
+
+      <section className={styles.detailSection}>
+        <h2 className={styles.sectionTitle}>Vertrag</h2>
+        {linkedContract ? (
+          <dl className={styles.grid}>
+            <DetailRow label="Vertragsnummer" value={linkedContract.contractNumber} />
+            <DetailRow label="Status" value={CONTRACT_STATUS_LABELS[linkedContract.status]} />
+            <div className={styles.row}>
+              <dt>Vertrag</dt>
+              <dd>
+                <Link className={styles.inlineLink} to={`/contracts/${linkedContract.id}`}>
+                  Zum Vertrag
+                </Link>
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className={styles.sectionHint}>
+            Noch kein Vertrag verknüpft. Bei angenommenen Angeboten kann ein Vertrag angelegt werden.
+          </p>
+        )}
+      </section>
 
       <section className={styles.detailSection}>
         <h2 className={styles.sectionTitle}>Kunde</h2>

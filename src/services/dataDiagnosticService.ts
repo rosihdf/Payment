@@ -1,4 +1,9 @@
 import type { DiagnosticFinding } from '../domain/diagnostic/diagnosticFinding';
+import {
+  normalizeContracts,
+  normalizeContractTerminations,
+  normalizeContractVersions,
+} from '../domain/contract/normalizeContract';
 import { normalizeOffers } from '../domain/offer/normalizeOffer';
 import { normalizeOfferVersions } from '../domain/offer/normalizeOfferVersion';
 import type { UserContext } from '../domain/user/user';
@@ -135,6 +140,233 @@ export class DataDiagnosticService {
           entityId: String(row.id ?? 'unknown'),
           description: 'Aufgabe ohne gültigen Lead',
           recommendedAction: 'Aufgabe prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const contracts = normalizeContracts(readStorageItem(STORAGE_KEYS.contracts) ?? []);
+    const contractVersions = normalizeContractVersions(
+      readStorageItem(STORAGE_KEYS.contractVersions) ?? [],
+    );
+    const terminations = normalizeContractTerminations(
+      readStorageItem(STORAGE_KEYS.contractTerminations) ?? [],
+    );
+    const contractIds = new Set(contracts.map((contract) => contract.id));
+    const contractNumbers = new Map<string, string>();
+    const contractsByOffer = new Map<string, string[]>();
+
+    for (const contract of contracts) {
+      if (contractNumbers.has(contract.contractNumber)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'critical',
+          area: 'contract',
+          entityId: contract.id,
+          description: `Doppelte Vertragsnummer ${contract.contractNumber}`,
+          recommendedAction: 'Vertragsnummer prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      } else {
+        contractNumbers.set(contract.contractNumber, contract.id);
+      }
+
+      if (contract.sourceOfferId) {
+        const list = contractsByOffer.get(contract.sourceOfferId) ?? [];
+        list.push(contract.id);
+        contractsByOffer.set(contract.sourceOfferId, list);
+      }
+
+      if (!contract.currentVersionId || !contractVersions.some((version) => version.id === contract.currentVersionId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'contract',
+          entityId: contract.id,
+          description: 'Contract ohne aktuelle Version',
+          recommendedAction: 'Version zuordnen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+
+      if (contract.leadId && !leadIds.has(contract.leadId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'contract',
+          entityId: contract.id,
+          description: 'Contract mit fehlendem Lead',
+          recommendedAction: 'Leadreferenz prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+
+      if (contract.sourceOfferId && !offerIds.has(contract.sourceOfferId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'contract',
+          entityId: contract.id,
+          description: 'Contract mit fehlendem Ursprungsoffer',
+          recommendedAction: 'Als Import/Fehlerbestand prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+
+      if (
+        contract.startDate &&
+        contract.endDate &&
+        contract.endDate < contract.startDate
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'contract',
+          entityId: contract.id,
+          description: 'Ungültige Laufzeit (Ende vor Beginn)',
+          recommendedAction: 'Laufzeit korrigieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+
+      if (
+        contract.status === 'ended' &&
+        contract.startDate &&
+        contract.endDate &&
+        contract.endDate < contract.startDate
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'contract',
+          entityId: contract.id,
+          description: 'ended vor Vertragsbeginn',
+          recommendedAction: 'Status und Daten prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const [offerId, linked] of contractsByOffer) {
+      if (linked.length > 1) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'critical',
+          area: 'contract',
+          entityId: offerId,
+          description: 'Mehrere Verträge für dasselbe Offer',
+          recommendedAction: 'Doppelte Vertragserzeugung prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const offer of offers) {
+      if (
+        ['accepted', 'activation_pending', 'activated'].includes(offer.workflowStatus) &&
+        !contractsByOffer.has(offer.id)
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'contract',
+          entityId: offer.id,
+          description: 'Angenommenes Offer ohne Vertrag',
+          recommendedAction: 'Vertrag kontrolliert anlegen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const activeByContract = new Map<string, number>();
+    for (const version of contractVersions) {
+      if (!contractIds.has(version.contractId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'contract_version',
+          entityId: version.id,
+          description: 'ContractVersion ohne Contract',
+          recommendedAction: 'Verwaiste Version isolieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+      if (version.status === 'active') {
+        activeByContract.set(
+          version.contractId,
+          (activeByContract.get(version.contractId) ?? 0) + 1,
+        );
+      }
+    }
+
+    for (const [contractId, count] of activeByContract) {
+      if (count > 1) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'critical',
+          area: 'contract_version',
+          entityId: contractId,
+          description: 'Mehrere aktive Vertragsversionen',
+          recommendedAction: 'Nur eine aktive Version behalten',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const termination of terminations) {
+      if (!contractIds.has(termination.contractId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'contract_termination',
+          entityId: termination.id,
+          description: 'Kündigung ohne Contract',
+          recommendedAction: 'Kündigung prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+      if (
+        termination.requestedEndDate &&
+        termination.receivedAt &&
+        termination.requestedEndDate < termination.receivedAt.slice(0, 10)
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'contract_termination',
+          entityId: termination.id,
+          description: 'Kündigungsdatum vor Eingang',
+          recommendedAction: 'Fristen prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const task of tasks) {
+      if (!task || typeof task !== 'object') continue;
+      const row = task as Record<string, unknown>;
+      const contractId = typeof row.contractId === 'string' ? row.contractId : null;
+      if (contractId && !contractIds.has(contractId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'task',
+          entityId: String(row.id ?? 'unknown'),
+          description: 'Task mit fehlendem Contract',
+          recommendedAction: 'Contract-Bezug prüfen',
           autoRepairable: false,
           repairKey: null,
         });

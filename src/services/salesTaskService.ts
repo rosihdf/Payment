@@ -32,6 +32,7 @@ export interface SalesTaskFilters {
   assigneeUserId?: string | 'all' | 'mine';
   leadId?: string | null;
   offerId?: string | null;
+  contractId?: string | null;
   comparisonSessionId?: string | null;
   dueBucket?: 'overdue' | 'today' | 'upcoming' | 'undated' | 'all';
   query?: string;
@@ -143,6 +144,9 @@ export class SalesTaskService {
         if (filters.offerId !== undefined && task.offerId !== filters.offerId) {
           return false;
         }
+        if (filters.contractId !== undefined && task.contractId !== filters.contractId) {
+          return false;
+        }
         if (
           filters.comparisonSessionId !== undefined &&
           task.comparisonSessionId !== filters.comparisonSessionId
@@ -228,6 +232,8 @@ export class SalesTaskService {
       leadId: input.leadId ?? null,
       comparisonSessionId: input.comparisonSessionId ?? null,
       offerId: input.offerId ?? null,
+      contractId: input.contractId ?? null,
+      contractVersionId: input.contractVersionId ?? null,
       wizardEnabled: Boolean(input.wizardEnabled),
       origin: input.origin ?? 'manual',
       sourceKey: input.sourceKey ?? null,

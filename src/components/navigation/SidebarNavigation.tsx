@@ -15,6 +15,7 @@ function NavIcon({ icon }: { icon: string }) {
     leads: '☰',
     add: '+',
     offers: '◈',
+    contracts: '▤',
     calculator: '∑',
     wizard: '⇢',
     tariffs: '€',

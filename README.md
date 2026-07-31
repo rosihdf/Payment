@@ -16,6 +16,23 @@ Unter `/admin` bündelt die Anwendung zentrale Stammdaten- und Betriebsfunktione
 
 Die Anwendung läuft im **lokalen Datenmodus** (Browser-`localStorage`). Es gibt keine Cloud-Synchronisation. Gesamtsicherungen exportieren strukturierte JSON-Daten ohne Binärdateien, Secrets oder OCR-Bilder. Restore-Vorprüfungen mutieren keine Daten vor expliziter Bestätigung. Provisionsvorschau und Freigabesimulation nutzen die bestehenden Engines.
 
+## C: Vertragsmanagement
+
+Unter `/contracts` verwaltet die Anwendung dauerhafte Vertragsbeziehungen. Verträge entstehen idempotent aus angenommenen Angebotsversionen (`accepted` bzw. Folgezustände). Das Angebot bleibt historischer Abschlussnachweis; `Contract` und `ContractVersion` sind die laufende Konditionswahrheit.
+
+Fachlicher Umfang:
+
+- Vertragsübersicht mit Suche, Filtern, Fristen und Kennzahlen
+- Vertragsdetail mit Übersicht, Versionen, Änderungen, Kündigung, Dokumenten, Aufgaben/Aktivitäten
+- Statusmodell mit service-seitigen Übergängen (keine Mutation durch bloßes Rendern)
+- Versionierung inkl. Diff, geplanter Aktivierung und Freigabebewertung über die bestehende Approval-Logik
+- Laufzeiten/Kündigungsfristen zentral berechnet; Fristaufgaben idempotent über `sourceKey`
+- Strukturierte Kündigungen inkl. Rückgewinnung und Nachweisreferenz
+- Dokumentmetadaten mit Contract-/Version-Bezug (keine Binärdaten in `localStorage`)
+- Integration mit Angebot, Aktivierung, Provision (Referenz), Admin-Export/Backup/Diagnose/Audit
+
+Abgrenzung D: Kein vollständiges Händler-Onboarding, keine Terminal-Lager-/Seriennummernverwaltung, keine BestPay-Aktivierungs-API.
+
 Weitere Betriebshinweise: `docs/OPERATIONS.md`
 
 ## Technologie
@@ -116,6 +133,8 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/offers/:id/edit` | Angebot bearbeiten (nur Entwürfe) |
 | `/offers/:id/preview` | PDF-Vorschau |
 | `/offers/:offerId/documents/:documentId` | PDF-Dokumentdetail |
+| `/contracts` | Vertragsübersicht |
+| `/contracts/:contractId` | Vertragsdetail |
 | `/admin` | Administration (Übersicht, Benutzer, Stammdaten, Betrieb) |
 | `/admin/users` | Benutzerverwaltung |
 | `/admin/roles` | Rollen und Rechte |

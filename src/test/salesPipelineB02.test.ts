@@ -167,6 +167,8 @@ describe('B02 sales pipeline derivation', () => {
               leadId: 'lead_1',
               comparisonSessionId: null,
               offerId: 'offer_1',
+              contractId: null,
+              contractVersionId: null,
               taskId: null,
               isSystem: true,
               editable: false,

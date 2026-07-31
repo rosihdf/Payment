@@ -11,6 +11,8 @@ import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
 import { OfferDetailPage } from '../features/offer/OfferDetailPage';
 import { OffersPage } from '../features/offer/OffersPage';
+import { ContractDetailPage } from '../features/contract/ContractDetailPage';
+import { ContractsPage } from '../features/contract/ContractsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
@@ -59,6 +61,8 @@ export const appRoutes: RouteObject[] = [
       { path: 'offers/:id/preview', element: <OfferDocumentPreviewPage /> },
       { path: 'offers/:offerId/documents/:documentId', element: <OfferDocumentDetailPage /> },
       { path: 'offers/:id', element: <OfferDetailPage /> },
+      { path: 'contracts', element: <ContractsPage /> },
+      { path: 'contracts/:contractId', element: <ContractDetailPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },

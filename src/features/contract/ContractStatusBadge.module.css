@@ -1,0 +1,29 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted, #f4f6f8);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.badge[data-status='active'] {
+  border-color: #16a34a;
+  background: #ecfdf3;
+}
+
+.badge[data-status='suspended'],
+.badge[data-status='terminated'] {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.badge[data-status='expiring'],
+.badge[data-status='termination_pending'] {
+  border-color: #d97706;
+  background: #fffbeb;
+}

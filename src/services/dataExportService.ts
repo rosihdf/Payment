@@ -10,6 +10,7 @@ import { CURRENT_AUDIT_STORAGE_VERSION } from './auditStorageMigration';
 import { CURRENT_TARIFF_CATALOG_VERSION } from './tariffCatalogMigration';
 import { CURRENT_PRODUCT_CATALOG_VERSION } from './productCatalogMigration';
 import { CURRENT_OFFER_STORAGE_VERSION } from './offerStorageMigration';
+import { CURRENT_CONTRACT_STORAGE_VERSION } from './contractStorageMigration';
 
 const EXPORTABLE_AREAS = [
   'users',
@@ -22,6 +23,9 @@ const EXPORTABLE_AREAS = [
   'products',
   'approvalRules',
   'audit',
+  'contracts',
+  'contractVersions',
+  'contractTerminations',
 ] as const;
 
 export type ExportArea = (typeof EXPORTABLE_AREAS)[number];
@@ -37,6 +41,9 @@ const AREA_STORAGE_MAP: Record<ExportArea, string> = {
   products: STORAGE_KEYS.products,
   approvalRules: STORAGE_KEYS.approvalRules,
   audit: STORAGE_KEYS.auditEntries,
+  contracts: STORAGE_KEYS.contracts,
+  contractVersions: STORAGE_KEYS.contractVersions,
+  contractTerminations: STORAGE_KEYS.contractTerminations,
 };
 
 const FULL_BACKUP_KEYS = Object.values(STORAGE_KEYS).filter(
@@ -136,6 +143,7 @@ export class DataExportService {
         tariffs: CURRENT_TARIFF_CATALOG_VERSION,
         products: CURRENT_PRODUCT_CATALOG_VERSION,
         offers: CURRENT_OFFER_STORAGE_VERSION,
+        contracts: CURRENT_CONTRACT_STORAGE_VERSION,
       },
       recordCounts,
       checksum: null as string | null,
