@@ -5,6 +5,7 @@ import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
 import { formatContactName, formatDate } from '../../utils/format';
 import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
+import { OfferWorkflowStatusBadge } from './OfferWorkflowStatusBadge';
 import styles from './OfferCard.module.css';
 
 interface OfferCardProps {
@@ -28,7 +29,10 @@ export function OfferCard({ offer, actions }: OfferCardProps) {
           </Link>
           <p className={styles.number}>{offer.offerNumber}</p>
         </div>
-        <OfferStatusBadge status={offer.status} />
+        <div className={styles.badges}>
+          <OfferStatusBadge status={offer.status} />
+          <OfferWorkflowStatusBadge status={offer.workflowStatus} />
+        </div>
       </div>
 
       <dl className={styles.details}>

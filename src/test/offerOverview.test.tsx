@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -96,7 +96,8 @@ describe('Offer overview UI', () => {
 
     renderAtRoute('/offers', false);
 
-    await user.click(await screen.findByRole('button', { name: 'Entwurf' }));
+    const statusGroup = await screen.findByRole('group', { name: 'Status' });
+    await user.click(within(statusGroup).getByRole('button', { name: 'Entwurf' }));
 
     await waitFor(() => {
       expect(screen.getByText('Entwurf Angebot')).toBeInTheDocument();

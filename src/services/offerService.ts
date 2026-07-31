@@ -31,6 +31,8 @@ import type { OfferRepository } from '../repositories/interfaces/OfferRepository
 import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import { OfferNotFoundError } from '../repositories/errors/OfferNotFoundError';
+import type { OfferWorkflowService } from './offerWorkflowService';
+import { isEditableWorkflowStatus, syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
 import {
   hasOfferValidationErrors,
   sanitizeOfferInput,
@@ -168,6 +170,7 @@ export class OfferService {
   private readonly leadRepository: LeadRepository;
   private readonly tariffRepository: TariffRepository;
   private readonly productRepository: ProductRepository;
+  private workflowService: OfferWorkflowService | null = null;
 
   constructor(
     offerRepository: OfferRepository,
@@ -181,12 +184,16 @@ export class OfferService {
     this.productRepository = productRepository;
   }
 
+  setWorkflowService(workflowService: OfferWorkflowService): void {
+    this.workflowService = workflowService;
+  }
+
   canUserAccessOffer(offer: Offer, context: OfferUserContext): boolean {
     return canUserAccessOffer(offer, context);
   }
 
   canUserEditOffer(offer: Offer, context: OfferUserContext): boolean {
-    return offer.status === 'draft' && canUserAccessOffer(offer, context);
+    return isEditableWorkflowStatus(offer.workflowStatus) && canUserAccessOffer(offer, context);
   }
 
   async getOffers(context: OfferUserContext): Promise<Offer[]> {
@@ -219,6 +226,9 @@ export class OfferService {
 
     return offers.filter((offer) => {
       if (filters.status !== 'all' && offer.status !== filters.status) {
+        return false;
+      }
+      if (filters.workflowStatus && filters.workflowStatus !== 'all' && offer.workflowStatus !== filters.workflowStatus) {
         return false;
       }
 
@@ -402,6 +412,11 @@ export class OfferService {
       id: generateId('offer'),
       offerNumber: generateNextOfferNumber(existingOffers, timestamp),
       status: 'draft',
+      workflowStatus: 'draft',
+      currentVersionNumber: 0,
+      currentVersionId: null,
+      sourceComparisonSessionId: null,
+      sourceScenarioId: null,
       leadId: lead.id,
       customerSnapshot: createCustomerSnapshotFromLead(lead),
       tariffSnapshot,
@@ -425,7 +440,7 @@ export class OfferService {
 
     try {
       const created = await this.offerRepository.create(offer);
-      return { ok: true, offer: created };
+      return { ok: true, offer: this.workflowService ? await this.workflowService.ensureInitialVersion(created) : created };
     } catch {
       return { ok: false, error: 'storage' };
     }
@@ -441,7 +456,7 @@ export class OfferService {
       return { ok: false, error: 'forbidden' };
     }
 
-    if (existing.status !== 'draft') {
+    if (!isEditableWorkflowStatus(existing.workflowStatus)) {
       return { ok: false, error: 'invalid_status' };
     }
 
@@ -507,6 +522,16 @@ export class OfferService {
   }
 
   async completeOffer(id: string, context: OfferUserContext): Promise<OfferActionResult> {
+    if (this.workflowService) {
+      const result = await this.workflowService.acceptOffer(id, context, {
+        acceptedByName: context.displayName,
+        acceptanceType: 'personal_confirmation',
+        otherText: null,
+        note: 'Abschluss über Legacy-API',
+      });
+      if (result.ok) return result;
+      return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
+    }
     const existing = await this.offerRepository.getById(id);
     if (!existing) {
       return { ok: false, error: 'not_found' };
@@ -555,7 +580,8 @@ export class OfferService {
     const timestamp = nowIso();
     const completed: Offer = {
       ...existing,
-      status: 'completed',
+      workflowStatus: 'accepted',
+      status: syncLegacyOfferStatus('accepted'),
       completedAt: timestamp,
       completedByUserId: context.userId,
       updatedAt: timestamp,
@@ -587,11 +613,20 @@ export class OfferService {
     if (reasonError) {
       return { ok: false, errors: { reason: reasonError } };
     }
+    if (this.workflowService) {
+      const result = await this.workflowService.cancelWorkflow(id, context);
+      if (result.ok && reason.trim()) {
+        return { ok: true, offer: await this.offerRepository.update({ ...result.offer, cancellationReason: reason.trim() }) };
+      }
+      if (result.ok) return result;
+      return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
+    }
 
     const timestamp = nowIso();
     const cancelled: Offer = {
       ...existing,
-      status: 'cancelled',
+      workflowStatus: 'cancelled',
+      status: syncLegacyOfferStatus('cancelled'),
       cancelledAt: timestamp,
       cancelledByUserId: context.userId,
       cancellationReason: reason.trim(),
@@ -636,6 +671,11 @@ export class OfferService {
       id: generateId('offer'),
       offerNumber: generateNextOfferNumber(allOffers, timestamp),
       status: 'draft',
+      workflowStatus: 'draft',
+      currentVersionNumber: 0,
+      currentVersionId: null,
+      sourceComparisonSessionId: null,
+      sourceScenarioId: null,
       items: duplicatedItems,
       customerSnapshot: copyCustomerSnapshot(existing.customerSnapshot),
       tariffSnapshot: existing.tariffSnapshot ? copyTariffSnapshot(existing.tariffSnapshot) : null,
@@ -653,7 +693,7 @@ export class OfferService {
 
     try {
       const saved = await this.offerRepository.create(duplicate);
-      return { ok: true, offer: saved };
+      return { ok: true, offer: this.workflowService ? await this.workflowService.ensureInitialVersion(saved) : saved };
     } catch {
       return { ok: false, error: 'storage' };
     }

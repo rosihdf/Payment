@@ -45,7 +45,10 @@ describe('Offer status actions UI', () => {
     const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
-    const offer = await seedOfferInStorage(repository, { title: 'Abschluss Test' });
+    const offer = await seedOfferInStorage(repository, {
+      title: 'Abschluss Test',
+      workflowStatus: 'sent',
+    });
 
     renderAtRoute(`/offers/${offer.id}`, false);
 

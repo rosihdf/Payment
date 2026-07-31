@@ -53,6 +53,7 @@ export function SalesWizardPage() {
     bestPayComparisonService,
     billingImportService,
     leadService,
+    offerWorkflowService,
   } = useServices();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -75,6 +76,9 @@ export function SalesWizardPage() {
   const [industry, setIndustry] = useState('');
   const [approvalNotes, setApprovalNotes] = useState('');
   const [scenarioLabel, setScenarioLabel] = useState('');
+  const [workflowView, setWorkflowView] = useState<Awaited<
+    ReturnType<typeof offerWorkflowService.getWizardWorkflowView>
+  > | null>(null);
 
   const userContext = useMemo(
     () =>
@@ -121,7 +125,7 @@ export function SalesWizardPage() {
     let active: BestPayComparisonSession | null = null;
 
     if (sessionId) {
-      const resumed = salesWizardService.resumeWizard(sessionId, userContext);
+      const resumed = await salesWizardService.resumeWizard(sessionId, userContext);
       if (!resumed.ok) {
         showToast('Gespeicherter Vorgang nicht gefunden', 'error');
         active = salesWizardService.startWizard(userContext);
@@ -134,7 +138,7 @@ export function SalesWizardPage() {
     } else {
       const draft = bestPayComparisonService.getActiveDraft(userContext);
       if (draft?.wizard.enabled || draft?.entryMode === 'wizard') {
-        const resumed = salesWizardService.resumeWizard(draft.id, userContext);
+        const resumed = await salesWizardService.resumeWizard(draft.id, userContext);
         active = resumed.ok ? resumed.session : salesWizardService.startWizard(userContext);
       } else {
         active = salesWizardService.startWizard(userContext);
@@ -143,9 +147,15 @@ export function SalesWizardPage() {
 
     setSession(active);
     syncNeedFields(active);
+    if (active.offerId) {
+      setWorkflowView(await offerWorkflowService.getWizardWorkflowView(active.offerId));
+    } else {
+      setWorkflowView(null);
+    }
   }, [
     bestPayComparisonService,
     salesWizardService,
+    offerWorkflowService,
     searchParams,
     showToast,
     syncNeedFields,
@@ -209,12 +219,17 @@ export function SalesWizardPage() {
     if (step === 'need') {
       persistNeed();
     }
-    const result = salesWizardService.goNext(session.id, userContext);
-    if (!result.ok) {
-      showToast(result.message ?? 'Schritt nicht möglich', 'error');
-      return;
-    }
-    setSession(result.session);
+    void (async () => {
+      const result = await salesWizardService.goNext(session.id, userContext);
+      if (!result.ok) {
+        showToast(result.message ?? 'Schritt nicht möglich', 'error');
+        return;
+      }
+      setSession(result.session);
+      if (result.session.offerId) {
+        setWorkflowView(await offerWorkflowService.getWizardWorkflowView(result.session.offerId));
+      }
+    })();
   };
 
   const handleGoBack = () => {
@@ -308,27 +323,39 @@ export function SalesWizardPage() {
       return;
     }
     setSession(result.session);
+    setWorkflowView(await offerWorkflowService.getWizardWorkflowView(result.offerId));
     showToast('Angebotsentwurf erzeugt', 'success');
   };
 
   const handleAcknowledgeApproval = () => {
-    const result = salesWizardService.acknowledgeApproval(session.id, approvalNotes, userContext);
-    if (!result.ok) {
-      showToast(result.message ?? 'Freigabe nicht möglich', 'error');
-      return;
-    }
-    setSession(result.session);
-    showToast('Freigabe bestätigt', 'success');
+    void (async () => {
+      const result = await salesWizardService.acknowledgeApproval(
+        session.id,
+        approvalNotes,
+        userContext,
+      );
+      if (!result.ok) {
+        showToast(result.message ?? 'Freigabe nicht möglich', 'error');
+        return;
+      }
+      setSession(result.session);
+      if (result.session.offerId) {
+        setWorkflowView(await offerWorkflowService.getWizardWorkflowView(result.session.offerId));
+      }
+      showToast('Freigabe eingereicht', 'success');
+    })();
   };
 
   const handleComplete = () => {
-    const result = salesWizardService.completeWizard(session.id, userContext);
-    if (!result.ok) {
-      showToast(result.message ?? 'Abschluss nicht möglich', 'error');
-      return;
-    }
-    setSession(result.session);
-    showToast('Vertriebsprozess abgeschlossen', 'success');
+    void (async () => {
+      const result = await salesWizardService.completeWizard(session.id, userContext);
+      if (!result.ok) {
+        showToast(result.message ?? 'Abschluss nicht möglich', 'error');
+        return;
+      }
+      setSession(result.session);
+      showToast('Vertriebsprozess abgeschlossen', 'success');
+    })();
   };
 
   return (
@@ -1095,6 +1122,26 @@ export function SalesWizardPage() {
           {step === 'approval' ? (
             <article className={styles.card}>
               <h2>Freigabe</h2>
+              {workflowView ? (
+                <dl className={styles.metrics}>
+                  <div>
+                    <dt>Workflowstatus</dt>
+                    <dd>{workflowView.workflowStatus ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Version</dt>
+                    <dd>{workflowView.version?.versionNumber ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Freigabe erforderlich</dt>
+                    <dd>{workflowView.approvalRequired ? 'Ja' : 'Nein'}</dd>
+                  </div>
+                  <div>
+                    <dt>Freigegeben</dt>
+                    <dd>{workflowView.approved ? 'Ja' : 'Nein'}</dd>
+                  </div>
+                </dl>
+              ) : null}
               {selectedScenario?.approval ? (
                 <>
                   <dl className={styles.metrics}>
@@ -1142,7 +1189,7 @@ export function SalesWizardPage() {
                   className={styles.primaryAction}
                   onClick={handleAcknowledgeApproval}
                 >
-                  Freigabe bestätigen
+                  Freigabe anfordern
                 </button>
               </div>
               {session.wizard.approvalAcknowledgedAt ? (
@@ -1158,6 +1205,22 @@ export function SalesWizardPage() {
             <div className={styles.stack}>
               <article className={styles.heroCard}>
                 <h2>Abschluss</h2>
+                {workflowView ? (
+                  <dl className={styles.metrics}>
+                    <div>
+                      <dt>Workflowstatus</dt>
+                      <dd>{workflowView.workflowStatus ?? '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Angebotsversion</dt>
+                      <dd>{workflowView.version?.versionNumber ?? '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Freigabe</dt>
+                      <dd>{workflowView.approved ? 'Erledigt' : 'Offen'}</dd>
+                    </div>
+                  </dl>
+                ) : null}
                 <dl className={styles.metrics}>
                   <div>
                     <dt>Lead</dt>

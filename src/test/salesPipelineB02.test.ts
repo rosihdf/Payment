@@ -49,6 +49,11 @@ function baseOffer(overrides: Partial<Offer> = {}): Offer {
     id: 'offer_1',
     offerNumber: 'ANG-1',
     status: 'draft',
+    workflowStatus: 'draft',
+    currentVersionNumber: 0,
+    currentVersionId: null,
+    sourceComparisonSessionId: null,
+    sourceScenarioId: null,
     leadId: 'lead_1',
     customerSnapshot: {
       leadId: 'lead_1',
@@ -81,7 +86,7 @@ function baseOffer(overrides: Partial<Offer> = {}): Offer {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
-  };
+  } as Offer;
 }
 
 function facts(partial: Partial<SalesPipelineFacts>): SalesPipelineFacts {

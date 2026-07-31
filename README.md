@@ -2,6 +2,14 @@
 
 Außendienst-Anwendung zur Aufnahme von Payment-Leads und zum Vergleich zwischen dem aktuellen Payment-Anbieter eines Interessenten und einem BestPay-Angebot.
 
+## B03: Verbindlicher Angebotsworkflow
+
+Angebote führen zusätzlich zum Legacy-Status einen service-geschützten Workflow mit Freigabe, Versand, Annahme/Ablehnung, Aktivierung und Provision. Jede Angebotsversion enthält einen unveränderlichen Snapshot inklusive Summen, Angebotsnummer, Vertragsmodell, Terminal- und Zubehörpositionen, Preis-/Provisionsreferenzen sowie Freigabe- und Kostenbasisdaten. Die zentrale Snapshot-Validierung kann von Wizard, Aktivierung und PDF-Ausgabe verwendet werden.
+
+Freigabe, Versand, Annahme, Ablehnung und Aktivierung werden als nachvollziehbare Ereignisse gespeichert. Annahme und Ablehnung nutzen feste, auswertbare Gründe; Aktivierungen enthalten versionsgebundene Checklisten, Abweichungen, Hardware und externe Referenzen. Die Freigabe schützt vor Selbstfreigabe im Außendienst. Automatische Freigabe-, Nachfass- und Aktivierungsaufgaben sowie Aktivitäten verwenden stabile Source-Keys und sind damit idempotent. Dokumente werden ausschließlich als Metadaten (kein Binärinhalt in `localStorage`) registriert.
+
+Workflow-Mutationen erfolgen über `OfferWorkflowService`. Versionen werden bei relevanten Snapshot-Änderungen erzeugt, Ablauf wird ausschließlich explizit geprüft, und BestPay-Angebote erhalten ihre Vergleichs- und Szenario-Herkunft. Der Wizard kann den aktuellen Workflow-Kontext einschließlich Version und Freigabebedarf abrufen; `approvalAcknowledgedAt` bleibt ausschließlich ein veralteter UI-Wiederaufnahmehinweis.
+
 ## Technologie
 
 - React + TypeScript
@@ -551,11 +559,11 @@ Kennzahlen (überfällig, heute, offene Leads/Wizards/Berechnungen, Freigaben, N
 - Keine Originaldokumente, keine OCR-Rohdaten, keine zweite Lead-/Offer-/Session-Wahrheit
 - Spätere Serverpersistenz über Repository-Interfaces vorbereitet
 
-### Bekannte Grenzen / Abgrenzung B03
+### Bekannte Grenzen / Abgrenzung B04
 
-- Kein E-Mail-Versand, keine Kalender-/Telefon-Integration, kein Vertragsgenerator
-- Offerstatuskette bleibt bewusst schlank; erweiterte Status kommen ggf. mit B03
-- B03: Vertragsabschluss und Dokumente
+- Kein E-Mail-Versand, keine externe Signaturplattform, keine BestPay-Aktivierungs-API
+- Keine Cloud-Synchronisation, kein vollständiges DMS
+- B04: Administration und Produktivbetrieb
 
 ## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
 

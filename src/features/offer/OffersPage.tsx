@@ -9,6 +9,10 @@ import {
   type OfferFilters,
   type OfferStatusFilter,
 } from '../../domain/offer/offer';
+import {
+  OFFER_WORKFLOW_STATUS_LABELS,
+  type OfferWorkflowStatusFilter,
+} from '../../domain/offer/offerWorkflow';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { OfferCard } from './OfferCard';
@@ -19,6 +23,24 @@ const STATUS_FILTER_OPTIONS: Array<{ value: OfferStatusFilter; label: string }> 
   { value: 'draft', label: OFFER_STATUS_LABELS.draft },
   { value: 'completed', label: OFFER_STATUS_LABELS.completed },
   { value: 'cancelled', label: OFFER_STATUS_LABELS.cancelled },
+];
+
+const WORKFLOW_FILTER_OPTIONS: Array<{ value: OfferWorkflowStatusFilter; label: string }> = [
+  { value: 'all', label: 'Alle Workflow-Status' },
+  { value: 'draft', label: OFFER_WORKFLOW_STATUS_LABELS.draft },
+  { value: 'approval_required', label: OFFER_WORKFLOW_STATUS_LABELS.approval_required },
+  { value: 'in_approval', label: OFFER_WORKFLOW_STATUS_LABELS.in_approval },
+  { value: 'ready_to_send', label: OFFER_WORKFLOW_STATUS_LABELS.ready_to_send },
+  { value: 'sent', label: OFFER_WORKFLOW_STATUS_LABELS.sent },
+  { value: 'accepted', label: OFFER_WORKFLOW_STATUS_LABELS.accepted },
+  { value: 'declined', label: OFFER_WORKFLOW_STATUS_LABELS.declined },
+  { value: 'expired', label: OFFER_WORKFLOW_STATUS_LABELS.expired },
+  { value: 'activation_pending', label: OFFER_WORKFLOW_STATUS_LABELS.activation_pending },
+  { value: 'activated', label: OFFER_WORKFLOW_STATUS_LABELS.activated },
+  { value: 'released', label: OFFER_WORKFLOW_STATUS_LABELS.released },
+  { value: 'accounted', label: OFFER_WORKFLOW_STATUS_LABELS.accounted },
+  { value: 'paid', label: OFFER_WORKFLOW_STATUS_LABELS.paid },
+  { value: 'cancelled', label: OFFER_WORKFLOW_STATUS_LABELS.cancelled },
 ];
 
 const OWNER_FILTER_OPTIONS: Array<{ value: OfferFilters['owner']; label: string }> = [
@@ -34,6 +56,7 @@ export function OffersPage() {
   const [filters, setFilters] = useState<OfferFilters>({
     search: '',
     status: 'all',
+    workflowStatus: 'all',
     owner: 'all',
   });
 
@@ -101,6 +124,27 @@ export function OffersPage() {
                   }`}
                   aria-pressed={filters.status === option.value}
                   onClick={() => setFilters((current) => ({ ...current, status: option.value }))}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className={styles.filterGroup}>
+            <legend className={styles.filterLegend}>Workflow</legend>
+            <div className={styles.filterOptions}>
+              {WORKFLOW_FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`${styles.filterButton} ${
+                    filters.workflowStatus === option.value ? styles.filterButtonActive : ''
+                  }`}
+                  aria-pressed={filters.workflowStatus === option.value}
+                  onClick={() =>
+                    setFilters((current) => ({ ...current, workflowStatus: option.value }))
+                  }
                 >
                   {option.label}
                 </button>

@@ -767,6 +767,8 @@ export class BestPayComparisonService {
 
     await this.offerRepository.update({
       ...offer,
+      sourceComparisonSessionId: session.id,
+      sourceScenarioId: session.wizard.selectedScenarioId,
       recommendationLink: {
         ...offer.recommendationLink,
         recommendationRecordId: session.result.recommendationRecordId,

@@ -1,6 +1,7 @@
 import type { ProductCategory } from '../product/product';
 import type { TerminalType } from '../tariff/tariff';
 import type { OfferRecommendationLink } from '../recommendation/recommendationRecord';
+import type { OfferWorkflowStatus, OfferWorkflowStatusFilter } from './offerWorkflow';
 
 export type OfferStatus = 'draft' | 'completed' | 'cancelled';
 
@@ -124,6 +125,11 @@ export interface Offer {
   offerNumber: string;
 
   status: OfferStatus;
+  workflowStatus: OfferWorkflowStatus;
+  currentVersionNumber: number;
+  currentVersionId: string | null;
+  sourceComparisonSessionId: string | null;
+  sourceScenarioId: string | null;
 
   leadId: string;
   customerSnapshot: OfferCustomerSnapshot;
@@ -193,6 +199,7 @@ export type OfferFormMode = 'create' | 'edit';
 export interface OfferFilters {
   search: string;
   status: OfferStatusFilter;
+  workflowStatus?: OfferWorkflowStatusFilter;
   owner: OfferOwnerFilter;
 }
 

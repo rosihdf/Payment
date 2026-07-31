@@ -222,7 +222,7 @@ export class SalesWorkspaceService {
     }
 
     for (const offer of offers) {
-      if (offer.status === 'completed') {
+      if (offer.workflowStatus === 'accepted') {
         await this.taskService.ensureAutomaticTask(
           {
             title: 'Aktivierung prüfen',
@@ -231,7 +231,7 @@ export class SalesWorkspaceService {
             dueAt: endOfDayIso(new Date(Date.now() + 3 * 86400000)),
             leadId: offer.leadId,
             offerId: offer.id,
-            sourceKey: `auto:check_activation:${offer.id}`,
+            sourceKey: `auto:prepare_activation:${offer.id}`,
           },
           context,
         );
@@ -306,7 +306,10 @@ export class SalesWorkspaceService {
         .map((entry) => entry.status);
       const commissionCaseStatus = caseStatuses[0] ?? null;
       const approvalRequired =
-        leadOffers.some((offer) => offer.status === 'draft' && this.approvalRequiredForOffer(offer)) ||
+        leadOffers.some((offer) =>
+          ['approval_required', 'in_approval', 'changes_requested'].includes(offer.workflowStatus) ||
+          (offer.workflowStatus === 'draft' && this.approvalRequiredForOffer(offer)),
+        ) ||
         leadSessions.some((session) => this.approvalRequiredForSession(session));
 
       const facts = {
@@ -429,7 +432,8 @@ export class SalesWorkspaceService {
       .filter((session) => session.result?.stale && session.status !== 'discarded')
       .slice(0, 50);
     const offersInApproval = offers.filter(
-      (offer) => offer.status === 'draft' && this.approvalRequiredForOffer(offer),
+      (offer) => ['approval_required', 'in_approval', 'changes_requested'].includes(offer.workflowStatus) ||
+        (offer.workflowStatus === 'draft' && this.approvalRequiredForOffer(offer)),
     );
     const followUpOfferIds = new Set(
       tasks
@@ -445,10 +449,10 @@ export class SalesWorkspaceService {
       const sent = activities.some(
         (activity) => activity.offerId === offer.id && activity.type === 'offer_sent',
       );
-      return sent && offer.status === 'draft' && !followUpOfferIds.has(offer.id);
+      return (sent || offer.workflowStatus === 'sent') && !followUpOfferIds.has(offer.id);
     });
 
-    const acceptedOffers = offers.filter((offer) => offer.status === 'completed');
+    const acceptedOffers = offers.filter((offer) => offer.workflowStatus === 'accepted');
     const activationOfferIds = new Set(
       commissionCases
         .filter((entry) => entry.status === 'expected' || entry.status === 'reserved')

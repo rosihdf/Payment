@@ -7,10 +7,15 @@ import { LocalTariffRepository } from '../repositories/local/LocalTariffReposito
 import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
 import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import { RecommendationService } from '../services/recommendationService';
-import { OfferService } from '../services/offerService';
+import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
+import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
+import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
+import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
+import { OfferWorkflowService } from '../services/offerWorkflowService';
 import { BillingImportService } from '../services/billingImportService';
 import { BestPayComparisonService } from '../services/bestPayComparisonService';
 import { LeadService } from '../services/leadService';
+import { OfferService } from '../services/offerService';
 import { SalesWizardService } from '../services/salesWizardService';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { seedTestRecommendationCatalog } from './helpers/recommendationTestHelpers';
@@ -20,6 +25,7 @@ import {
   saveBestPayComparisonSession,
 } from '../services/bestPayComparisonStorageMigration';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
+import { createTestOffer } from './helpers/offerTestHelpers';
 
 function createWizardService() {
   const leadRepository = new LocalLeadRepository();
@@ -41,6 +47,14 @@ function createWizardService() {
     new LocalTariffRepository(),
     new LocalProductRepository(),
   );
+  const offerWorkflowService = new OfferWorkflowService(
+    offerRepository,
+    new LocalOfferVersionRepository(),
+    new LocalOfferWorkflowEventRepository(),
+    new LocalSalesDocumentRepository(),
+    new LocalPricingEvaluationRepository(),
+  );
+  offerService.setWorkflowService(offerWorkflowService);
   const bestPayComparisonService = new BestPayComparisonService(
     billingImportService,
     recommendationService,
@@ -50,9 +64,17 @@ function createWizardService() {
   );
   const leadService = new LeadService(leadRepository);
   return {
-    wizard: new SalesWizardService(bestPayComparisonService, recommendationService, leadService),
+    wizard: new SalesWizardService(
+      bestPayComparisonService,
+      recommendationService,
+      leadService,
+      offerWorkflowService,
+      offerService,
+    ),
     bestPayComparisonService,
     leadService,
+    offerWorkflowService,
+    offerRepository,
   };
 }
 
@@ -66,7 +88,7 @@ describe('B01 SalesWizardService', () => {
     writeStorageItem(STORAGE_KEYS.currentUserId, 'user_001');
   });
 
-  it('startet Wizard mit Autosave und Resume', () => {
+  it('startet Wizard mit Autosave und Resume', async () => {
     const { wizard } = createWizardService();
     const started = wizard.startWizard(context);
     expect(started.entryMode).toBe('wizard');
@@ -75,7 +97,7 @@ describe('B01 SalesWizardService', () => {
     expect(getActiveBestPayComparisonSessionId()).toBe(started.id);
 
     wizard.updateProspectDraft(started.id, { companyName: 'Wizard Café' }, context);
-    const resumed = wizard.resumeWizard(started.id, context);
+    const resumed = await wizard.resumeWizard(started.id, context);
     expect(resumed.ok).toBe(true);
     if (!resumed.ok) {
       return;
@@ -84,14 +106,14 @@ describe('B01 SalesWizardService', () => {
     expect(resumed.session.id).toBe(started.id);
   });
 
-  it('navigiert Schritte vor und zurück mit Validierung', () => {
+  it('navigiert Schritte vor und zurück mit Validierung', async () => {
     const { wizard } = createWizardService();
     const session = wizard.startWizard(context);
 
-    expect(wizard.goNext(session.id, context).ok).toBe(true);
+    expect((await wizard.goNext(session.id, context)).ok).toBe(true);
     expect(wizard.getSession(session.id, context)?.wizard.currentStep).toBe('costs');
 
-    const blocked = wizard.goNext(session.id, context);
+    const blocked = await wizard.goNext(session.id, context);
     expect(blocked.ok).toBe(false);
 
     wizard.updateNeed(
@@ -102,7 +124,7 @@ describe('B01 SalesWizardService', () => {
       },
       context,
     );
-    expect(wizard.goNext(session.id, context).ok).toBe(true);
+    expect((await wizard.goNext(session.id, context)).ok).toBe(true);
     expect(wizard.getSession(session.id, context)?.wizard.currentStep).toBe('need');
 
     const back = wizard.goBack(session.id, context);
@@ -229,9 +251,9 @@ describe('B01 SalesWizardService', () => {
     }
     expect(offer.session.offerId).toBeTruthy();
 
-    const approval = wizard.acknowledgeApproval(session.id, 'intern ok', context);
+    const approval = await wizard.acknowledgeApproval(session.id, 'intern ok', context);
     expect(approval.ok).toBe(true);
-    const completed = wizard.completeWizard(session.id, context);
+    const completed = await wizard.completeWizard(session.id, context);
     expect(completed.ok).toBe(true);
     if (!completed.ok) {
       return;
@@ -245,8 +267,8 @@ describe('B01 SalesWizardService', () => {
     );
   });
 
-  it('überspringt Freigabe automatisch wenn nicht nötig', () => {
-    const { wizard } = createWizardService();
+  it('überspringt Freigabe automatisch wenn nicht nötig', async () => {
+    const { wizard, offerRepository } = createWizardService();
     const session = wizard.startWizard(context);
     wizard.updateNeed(
       session.id,
@@ -301,17 +323,23 @@ describe('B01 SalesWizardService', () => {
     };
     current.result = target.result;
     current.selectedCandidateId = 'c1';
+    await offerRepository.create(
+      createTestOffer({
+        id: 'offer_test',
+        workflowStatus: 'ready_to_send',
+        status: 'draft',
+      }),
+    );
     current.offerId = 'offer_test';
     current.wizard.selectedScenarioId = target.id;
     current.wizard.currentStep = 'offer';
     saveBestPayComparisonSession(current);
 
-    const next = wizard.goNext(session.id, context);
+    const next = await wizard.goNext(session.id, context);
     expect(next.ok).toBe(true);
     if (!next.ok) {
       return;
     }
     expect(next.session.wizard.currentStep).toBe('closing');
-    expect(next.session.wizard.approvalAcknowledgedAt).toBeTruthy();
   });
 });

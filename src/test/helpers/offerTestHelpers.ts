@@ -184,6 +184,11 @@ export function createTestOffer(overrides: Partial<Offer> = {}): Offer {
     id: generateId('offer'),
     offerNumber: nextTestOfferNumber(),
     status: 'draft',
+    workflowStatus: 'draft',
+    currentVersionNumber: 0,
+    currentVersionId: null,
+    sourceComparisonSessionId: null,
+    sourceScenarioId: null,
     leadId: lead.id,
     customerSnapshot: createCustomerSnapshotFromLead(lead),
     tariffSnapshot: createTariffSnapshotFromTariff(tariff),
@@ -204,7 +209,7 @@ export function createTestOffer(overrides: Partial<Offer> = {}): Offer {
     createdAt: timestamp,
     updatedAt: timestamp,
     ...overrides,
-  };
+  } as Offer;
 }
 
 export async function createOfferViaService(

@@ -4,6 +4,9 @@ import { LocalLeadEditDraftRepository } from '../../repositories/local/LocalLead
 import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
 import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
+import { LocalOfferVersionRepository } from '../../repositories/local/LocalOfferVersionRepository';
+import { LocalOfferWorkflowEventRepository } from '../../repositories/local/LocalOfferWorkflowEventRepository';
+import { LocalSalesDocumentRepository } from '../../repositories/local/LocalSalesDocumentRepository';
 import { LocalRecommendationRepository } from '../../repositories/local/LocalRecommendationRepository';
 import { LocalCommissionCalculationRepository } from '../../repositories/local/LocalCommissionCalculationRepository';
 import { LocalCommissionCatalogRepository } from '../../repositories/local/LocalCommissionCatalogRepository';
@@ -34,6 +37,9 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       tariffRepository: new LocalTariffRepository(),
       productRepository: new LocalProductRepository(),
       offerRepository: new LocalOfferRepository(),
+      offerVersionRepository: new LocalOfferVersionRepository(),
+      offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
+      salesDocumentRepository: new LocalSalesDocumentRepository(),
       offerDocumentRepository: new LocalOfferDocumentRepository(),
       pricingCatalogRepository: new LocalPricingCatalogRepository(),
       pricingEvaluationRepository: new LocalPricingEvaluationRepository(),

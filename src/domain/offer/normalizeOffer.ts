@@ -19,6 +19,11 @@ import {
   EMPTY_OFFER_RECOMMENDATION_LINK,
   type OfferRecommendationLink,
 } from '../recommendation/recommendationRecord';
+import {
+  mapLegacyOfferStatus,
+  syncLegacyOfferStatus,
+  type OfferWorkflowStatus,
+} from './offerWorkflow';
 
 const OFFER_STATUSES: OfferStatus[] = ['draft', 'completed', 'cancelled'];
 const OFFER_ITEM_TYPES: OfferItemType[] = ['product', 'manual'];
@@ -27,6 +32,11 @@ const OFFER_ITEM_PRICE_TYPES: OfferItemPriceType[] = [
   'one_time',
   'included',
   'on_request',
+];
+const WORKFLOW_STATUSES: OfferWorkflowStatus[] = [
+  'draft', 'approval_required', 'in_approval', 'changes_requested', 'approved', 'ready_to_send',
+  'sent', 'accepted', 'declined', 'expired', 'activation_pending', 'activated', 'released',
+  'accounted', 'paid', 'cancelled',
 ];
 
 function asString(value: unknown, fallback = ''): string {
@@ -48,6 +58,12 @@ function asOfferStatus(value: unknown): OfferStatus {
   }
 
   return 'draft';
+}
+
+function asWorkflowStatus(value: unknown, legacy: OfferStatus): OfferWorkflowStatus {
+  return typeof value === 'string' && WORKFLOW_STATUSES.includes(value as OfferWorkflowStatus)
+    ? value as OfferWorkflowStatus
+    : mapLegacyOfferStatus(legacy);
 }
 
 function asOfferItemType(value: unknown): OfferItemType {
@@ -327,6 +343,13 @@ export function normalizeOffer(value: unknown): Offer {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   const timestamp = nowIso();
   const status = asOfferStatus(raw.status);
+  const normalizedWorkflowStatus = asWorkflowStatus(raw.workflowStatus, status);
+  // Preserve completed/cancelled legacy records created before B03 even when a
+  // test fixture or stale client has carried a default draft workflow value.
+  const workflowStatus =
+    status !== 'draft' && normalizedWorkflowStatus === 'draft'
+      ? mapLegacyOfferStatus(status)
+      : normalizedWorkflowStatus;
   const items = reindexOfferItems(
     Array.isArray(raw.items)
       ? raw.items.map((item, index) => normalizeOfferItem(item, index))
@@ -336,7 +359,12 @@ export function normalizeOffer(value: unknown): Offer {
   const offer: Offer = {
     id: asString(raw.id) || generateId('offer'),
     offerNumber: asString(raw.offerNumber),
-    status,
+    status: syncLegacyOfferStatus(workflowStatus),
+    workflowStatus,
+    currentVersionNumber: Math.max(0, asNonNegativeInteger(raw.currentVersionNumber)),
+    currentVersionId: asNullableString(raw.currentVersionId),
+    sourceComparisonSessionId: asNullableString(raw.sourceComparisonSessionId),
+    sourceScenarioId: asNullableString(raw.sourceScenarioId),
     leadId: asString(raw.leadId),
     customerSnapshot: copyCustomerSnapshot(normalizeCustomerSnapshot(raw.customerSnapshot)),
     tariffSnapshot: raw.tariffSnapshot ? copyTariffSnapshot(normalizeTariffSnapshot(raw.tariffSnapshot)!) : null,

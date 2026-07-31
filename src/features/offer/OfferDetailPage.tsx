@@ -27,6 +27,8 @@ import { OfferPricingEvaluationSection } from './OfferPricingEvaluationSection';
 import { OfferRecommendationSection } from './OfferRecommendationSection';
 import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
+import { OfferWorkflowSection } from './OfferWorkflowSection';
+import { OfferWorkflowStatusBadge } from './OfferWorkflowStatusBadge';
 import styles from './OfferDetailPage.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -266,8 +268,11 @@ export function OfferDetailPage() {
 
       <div className={styles.statusRow}>
         <OfferStatusBadge status={offer.status} />
+        <OfferWorkflowStatusBadge status={offer.workflowStatus} />
         <span className={styles.meta}>Erstellt von {offer.createdByDisplayName}</span>
       </div>
+
+      <OfferWorkflowSection offer={offer} onUpdated={loadOffer} />
 
       <section className={styles.detailSection}>
         <h2 className={styles.sectionTitle}>Kunde</h2>

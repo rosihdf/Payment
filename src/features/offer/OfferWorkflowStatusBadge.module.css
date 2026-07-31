@@ -1,0 +1,60 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid transparent;
+}
+
+.draft,
+.changes_requested {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  border-color: var(--color-border-light);
+}
+
+.approval_required,
+.in_approval {
+  background: #fff4e5;
+  color: #8a4b00;
+  border-color: #f0c987;
+}
+
+.approved,
+.ready_to_send {
+  background: #e8f4ff;
+  color: #0b4f8a;
+  border-color: #9ecdf5;
+}
+
+.sent,
+.expired {
+  background: #f3ecff;
+  color: #4a2d7a;
+  border-color: #c9b3ef;
+}
+
+.accepted,
+.activation_pending,
+.activated {
+  background: #e7f7ed;
+  color: #1f6b3a;
+  border-color: #9fd4b0;
+}
+
+.released,
+.accounted,
+.paid {
+  background: #e7f7ed;
+  color: #14532d;
+  border-color: #86efac;
+}
+
+.declined,
+.cancelled {
+  background: #fdecec;
+  color: #8a1f1f;
+  border-color: #f5b4b4;
+}

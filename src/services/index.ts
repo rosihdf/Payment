@@ -3,6 +3,9 @@ import type { LeadEditDraftRepository } from '../repositories/interfaces/LeadEdi
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
 import type { OfferDocumentRepository } from '../repositories/interfaces/OfferDocumentRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
+import type { OfferVersionRepository } from '../repositories/interfaces/OfferVersionRepository';
+import type { OfferWorkflowEventRepository } from '../repositories/interfaces/OfferWorkflowEventRepository';
+import type { SalesDocumentRepository } from '../repositories/interfaces/SalesDocumentRepository';
 import type { PricingCatalogRepository } from '../repositories/interfaces/PricingCatalogRepository';
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
@@ -22,6 +25,7 @@ import { LeadEditDraftService } from './leadEditDraftService';
 import { LeadService } from './leadService';
 import { createOfferDocumentService } from './offerDocumentService';
 import { OfferService } from './offerService';
+import { OfferWorkflowService } from './offerWorkflowService';
 import { PricingEvaluationService } from './pricingEvaluationService';
 import { ProductService } from './productService';
 import { SalesActivityService } from './salesActivityService';
@@ -39,6 +43,7 @@ export interface AppServices {
   tariffService: TariffService;
   productService: ProductService;
   offerService: OfferService;
+  offerWorkflowService: OfferWorkflowService;
   offerDocumentService: ReturnType<typeof createOfferDocumentService>;
   pricingEvaluationService: PricingEvaluationService;
   commissionCalculationService: CommissionCalculationService;
@@ -59,6 +64,9 @@ export interface AppRepositories {
   tariffRepository: TariffRepository;
   productRepository: ProductRepository;
   offerRepository: OfferRepository;
+  offerVersionRepository: OfferVersionRepository;
+  offerWorkflowEventRepository: OfferWorkflowEventRepository;
+  salesDocumentRepository: SalesDocumentRepository;
   offerDocumentRepository: OfferDocumentRepository;
   pricingCatalogRepository: PricingCatalogRepository;
   pricingEvaluationRepository: PricingEvaluationRepository;
@@ -95,14 +103,26 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.offerRepository,
   );
   const leadService = new LeadService(repositories.leadRepository);
+  const salesTaskService = new SalesTaskService(repositories.salesTaskRepository);
+  const salesActivityService = new SalesActivityService(repositories.salesActivityRepository);
+  salesTaskService.setActivityService(salesActivityService);
+  const offerWorkflowService = new OfferWorkflowService(
+    repositories.offerRepository,
+    repositories.offerVersionRepository,
+    repositories.offerWorkflowEventRepository,
+    repositories.salesDocumentRepository,
+    repositories.pricingEvaluationRepository,
+  );
+  offerWorkflowService.setSalesTaskService(salesTaskService);
+  offerWorkflowService.setSalesActivityService(salesActivityService);
+  offerService.setWorkflowService(offerWorkflowService);
   const salesWizardService = new SalesWizardService(
     bestPayComparisonService,
     recommendationService,
     leadService,
+    offerWorkflowService,
+    offerService,
   );
-  const salesTaskService = new SalesTaskService(repositories.salesTaskRepository);
-  const salesActivityService = new SalesActivityService(repositories.salesActivityRepository);
-  salesTaskService.setActivityService(salesActivityService);
   const salesWorkspaceService = new SalesWorkspaceService(
     repositories.leadRepository,
     repositories.offerRepository,
@@ -120,6 +140,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     tariffService: new TariffService(repositories.tariffRepository),
     productService: new ProductService(repositories.productRepository),
     offerService,
+    offerWorkflowService,
     offerDocumentService: createOfferDocumentService(
       repositories.offerDocumentRepository,
       repositories.offerRepository,

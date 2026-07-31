@@ -24,6 +24,8 @@ import type {
 } from './bestPayComparisonService';
 import type { LeadService } from './leadService';
 import type { RecommendationService } from './recommendationService';
+import type { OfferWorkflowService } from './offerWorkflowService';
+import type { OfferService } from './offerService';
 import {
   saveBestPayComparisonSession,
   setActiveBestPayComparisonSessionId,
@@ -49,15 +51,19 @@ export class SalesWizardService {
   private readonly bestPayComparisonService: BestPayComparisonService;
   private readonly recommendationService: RecommendationService;
   private readonly leadService: LeadService;
+  private readonly offerWorkflowService: OfferWorkflowService | null;
 
   constructor(
     bestPayComparisonService: BestPayComparisonService,
     recommendationService: RecommendationService,
     leadService: LeadService,
+    offerWorkflowService: OfferWorkflowService | null = null,
+    _offerService: OfferService | null = null,
   ) {
     this.bestPayComparisonService = bestPayComparisonService;
     this.recommendationService = recommendationService;
     this.leadService = leadService;
+    this.offerWorkflowService = offerWorkflowService;
   }
 
   private persist(session: BestPayComparisonSession): BestPayComparisonSession {
@@ -79,6 +85,7 @@ export class SalesWizardService {
       prospectDraft: { ...DEFAULT_SALES_WIZARD_PROSPECT },
       scenarios: [],
       selectedScenarioId: null,
+      // Deprecated: UI-Wiederaufnahmehinweis, nie Freigabequelle.
       approvalAcknowledgedAt: null,
       approvalNotes: '',
       wizardCompletedAt: null,
@@ -87,10 +94,10 @@ export class SalesWizardService {
     return this.persist(session);
   }
 
-  resumeWizard(
+  async resumeWizard(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError } {
+  ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError }> {
     const resumed = this.bestPayComparisonService.resumeComparison(sessionId, context);
     if (!resumed.ok) {
       return { ok: false, error: resumed.error };
@@ -100,6 +107,14 @@ export class SalesWizardService {
     session.wizard.enabled = true;
     if (!session.wizard.currentStep) {
       session.wizard.currentStep = 'prospect';
+    }
+    if (session.offerId && this.offerWorkflowService) {
+      const view = await this.offerWorkflowService.getWizardWorkflowView(session.offerId);
+      if (view?.workflowStatus) {
+        session.wizard.currentStep = this.offerWorkflowService.resolveWizardStepFromWorkflow(
+          view.workflowStatus,
+        );
+      }
     }
     return { ok: true, session: this.persist(session) };
   }
@@ -126,15 +141,15 @@ export class SalesWizardService {
     return this.persist(session);
   }
 
-  goNext(
+  async goNext(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string } {
+  ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
     const session = this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
-    const validation = this.validateStep(session, session.wizard.currentStep);
+    const validation = await this.validateStep(session, session.wizard.currentStep);
     if (!validation.ok) {
       return validation;
     }
@@ -143,18 +158,39 @@ export class SalesWizardService {
       return { ok: true, session };
     }
 
-    // Freigabe nur bei Bedarf; sonst automatisch weiter zum Abschluss.
     if (next === 'approval') {
-      const selected = session.wizard.scenarios.find(
-        (scenario) => scenario.id === session.wizard.selectedScenarioId,
-      );
-      const needsReview =
-        Boolean(selected?.approval?.adminReviewRequired) ||
-        Boolean(selected?.approval?.detailReviewRequired) ||
-        Boolean(selected?.approval?.approvalBlocked);
-      if (!needsReview) {
-        session.wizard.approvalAcknowledgedAt = session.wizard.approvalAcknowledgedAt ?? nowIso();
-        next = 'closing';
+      if (session.offerId && this.offerWorkflowService) {
+        const view = await this.offerWorkflowService.getWizardWorkflowView(session.offerId);
+        if (view) {
+          const skipApproval =
+            !view.approvalRequired ||
+            view.approved ||
+            (view.workflowStatus &&
+              ['ready_to_send', 'sent', 'accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
+                view.workflowStatus,
+              ));
+          if (skipApproval) {
+            if (view.workflowStatus === 'draft' && !view.approvalRequired) {
+              await this.offerWorkflowService.submitForApproval(session.offerId, {
+                userId: context.userId,
+                role: context.role,
+                displayName: context.displayName ?? context.userId,
+              });
+            }
+            next = 'closing';
+          }
+        }
+      } else {
+        const selected = session.wizard.scenarios.find(
+          (scenario) => scenario.id === session.wizard.selectedScenarioId,
+        );
+        const needsReview =
+          Boolean(selected?.approval?.adminReviewRequired) ||
+          Boolean(selected?.approval?.detailReviewRequired) ||
+          Boolean(selected?.approval?.approvalBlocked);
+        if (!needsReview) {
+          next = 'closing';
+        }
       }
     }
 
@@ -178,10 +214,10 @@ export class SalesWizardService {
     return this.persist(session);
   }
 
-  validateStep(
+  async validateStep(
     session: BestPayComparisonSession,
     step: SalesWizardStepId,
-  ): { ok: true } | { ok: false; error: SalesWizardError; message?: string } {
+  ): Promise<{ ok: true } | { ok: false; error: SalesWizardError; message?: string }> {
     switch (step) {
       case 'prospect':
         return { ok: true };
@@ -230,10 +266,23 @@ export class SalesWizardService {
         }
         return { ok: true };
       case 'approval': {
-        const selected = session.wizard.scenarios.find(
-          (scenario) => scenario.id === session.wizard.selectedScenarioId,
-        );
-        if (selected?.approval?.approvalBlocked && !session.wizard.approvalAcknowledgedAt) {
+        if (session.offerId && this.offerWorkflowService) {
+          const view = await this.offerWorkflowService.getWizardWorkflowView(session.offerId);
+          if (
+            view?.approvalRequired &&
+            !view.approved &&
+            view.workflowStatus &&
+            ['approval_required', 'in_approval', 'draft', 'changes_requested'].includes(view.workflowStatus)
+          ) {
+            return {
+              ok: false,
+              error: 'approval_blocked',
+              message: 'Freigabe ausstehend. Bitte Freigabe anfordern oder Entscheidung abwarten.',
+            };
+          }
+        }
+        const selected = session.wizard.scenarios.find((scenario) => scenario.id === session.wizard.selectedScenarioId);
+        if (selected?.approval?.approvalBlocked && !session.wizard.approvalNotes.trim() && !session.offerId) {
           return {
             ok: false,
             error: 'approval_blocked',
@@ -641,62 +690,109 @@ export class SalesWizardService {
     if (!session.wizard.selectedScenarioId || !session.result || !session.selectedCandidateId) {
       return { ok: false, error: 'scenario_required', message: 'Bitte zuerst eine Variante auswählen.' };
     }
-    return this.bestPayComparisonService.createOfferFromComparison(sessionId, context);
+    const created = await this.bestPayComparisonService.createOfferFromComparison(sessionId, context);
+    if (!created.ok) return created;
+    const scenarioId = session.wizard.selectedScenarioId;
+    if (scenarioId) {
+      await this.offerWorkflowService?.syncOfferAfterWizardCreation(
+        created.offerId,
+        sessionId,
+        scenarioId,
+        { userId: context.userId, role: context.role, displayName: context.displayName ?? context.userId },
+      );
+    }
+    return created;
   }
 
-  acknowledgeApproval(
+  async acknowledgeApproval(
     sessionId: string,
     notes: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string } {
+  ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
     const session = this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
+    }
+    if (!session.offerId || !this.offerWorkflowService) {
+      return {
+        ok: false,
+        error: 'incomplete_input',
+        message: 'Bitte zuerst einen Angebotsentwurf erzeugen.',
+      };
     }
     const selected = session.wizard.scenarios.find(
       (scenario) => scenario.id === session.wizard.selectedScenarioId,
     );
-    if (selected?.approval?.approvalBlocked) {
-      // Allow continue only with explicit acknowledgement for blocked cases.
-      session.wizard.approvalNotes = notes.trim();
-      if (!notes.trim()) {
-        return {
-          ok: false,
-          error: 'approval_blocked',
-          message: 'Bitte eine Begründung zur blockierten Freigabe hinterlegen.',
-        };
-      }
+    if (selected?.approval?.approvalBlocked && !notes.trim()) {
+      return {
+        ok: false,
+        error: 'approval_blocked',
+        message: 'Bitte eine Begründung zur blockierten Freigabe hinterlegen.',
+      };
     }
-    session.wizard.approvalAcknowledgedAt = nowIso();
+    const offerContext = {
+      userId: context.userId,
+      role: context.role,
+      displayName: context.displayName ?? context.userId,
+    };
+    const result = await this.offerWorkflowService.submitForApproval(
+      session.offerId,
+      offerContext,
+      notes.trim(),
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: 'approval_blocked',
+        message: 'Freigabe konnte nicht eingereicht werden.',
+      };
+    }
     session.wizard.approvalNotes = notes.trim();
+    // Deprecated UI resume hint only – not workflow truth.
+    session.wizard.approvalAcknowledgedAt = nowIso();
     return { ok: true, session: this.persist(session) };
   }
 
-  completeWizard(
+  async completeWizard(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string } {
+  ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
     const session = this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
-    if (!session.wizard.approvalAcknowledgedAt) {
-      const selected = session.wizard.scenarios.find(
-        (scenario) => scenario.id === session.wizard.selectedScenarioId,
-      );
-      if (!selected?.approval?.approvalBlocked) {
-        session.wizard.approvalAcknowledgedAt = nowIso();
-      } else {
+    if (session.offerId && this.offerWorkflowService) {
+      const view = await this.offerWorkflowService.getWizardWorkflowView(session.offerId);
+      const allowed = [
+        'approved',
+        'ready_to_send',
+        'sent',
+        'accepted',
+        'activation_pending',
+        'activated',
+        'released',
+        'accounted',
+        'paid',
+      ];
+      if (!view?.workflowStatus || !allowed.includes(view.workflowStatus)) {
         return {
           ok: false,
           error: 'approval_blocked',
-          message: 'Freigabe muss bestätigt werden.',
+          message: 'Der Angebotsworkflow ist noch nicht freigegeben oder versandbereit.',
         };
       }
+    } else if (!session.wizard.approvalAcknowledgedAt) {
+      return { ok: false, error: 'approval_blocked', message: 'Freigabe muss bestätigt werden.' };
     }
     session.wizard.currentStep = 'closing';
     session.wizard.wizardCompletedAt = nowIso();
     session.completedAt = session.completedAt ?? nowIso();
     return { ok: true, session: this.persist(session) };
+  }
+
+  async getWizardOfferContext(sessionId: string, context: BestPayComparisonUserContext) {
+    const session = this.getSession(sessionId, context);
+    if (!session?.offerId) return null;
+    return this.offerWorkflowService?.getWizardWorkflowView(session.offerId) ?? null;
   }
 }

@@ -2,6 +2,7 @@ import type { BestPayComparisonSession } from '../bestPayComparison/bestPayCompa
 import type { CommissionCaseStatus } from '../commission/commissionCase';
 import type { Lead, LeadStatus } from '../lead/lead';
 import type { Offer, OfferStatus } from '../offer/offer';
+import type { OfferWorkflowStatus } from '../offer/offerWorkflow';
 import { SALES_WIZARD_NEW_PATH, salesWizardSessionPath } from '../../utils/routes';
 import type { SalesActivity } from './salesActivity';
 import type { SalesTask } from './salesTask';
@@ -131,6 +132,17 @@ function phaseFromOfferStatus(status: OfferStatus): SalesPipelinePhase | null {
   }
 }
 
+function phaseFromWorkflowStatus(status: OfferWorkflowStatus): SalesPipelinePhase {
+  if (['approval_required', 'in_approval', 'changes_requested'].includes(status)) return 'approval';
+  if (['approved', 'ready_to_send', 'draft'].includes(status)) return 'offer';
+  if (['sent', 'expired'].includes(status)) return 'follow_up';
+  if (status === 'accepted') return 'accepted';
+  if (['activation_pending', 'activated'].includes(status)) return 'activation';
+  if (['released', 'accounted'].includes(status)) return 'accounted';
+  if (status === 'paid') return 'won';
+  return 'lost';
+}
+
 function phaseFromCommission(status: CommissionCaseStatus | null): SalesPipelinePhase | null {
   if (!status) {
     return null;
@@ -163,7 +175,10 @@ export function deriveSalesPipelinePhase(facts: SalesPipelineFacts): SalesPipeli
   const { lead, sessions, offers, tasks, activities, commissionCaseStatus, approvalRequired } =
     facts;
 
-  if (lead?.status === 'lost' || offers.some((offer) => offer.status === 'cancelled')) {
+  if (
+    lead?.status === 'lost' ||
+    offers.some((offer) => offer.status === 'cancelled' || offer.workflowStatus === 'cancelled')
+  ) {
     if (lead?.status === 'won') {
       return 'won';
     }
@@ -224,7 +239,9 @@ export function deriveSalesPipelinePhase(facts: SalesPipelineFacts): SalesPipeli
     phase = maxPhase(phase, 'follow_up');
   }
   for (const offer of offers) {
-    const offerPhase = phaseFromOfferStatus(offer.status);
+    const offerPhase = offer.workflowStatus
+      ? phaseFromWorkflowStatus(offer.workflowStatus)
+      : phaseFromOfferStatus(offer.status);
     if (offerPhase) {
       phase = maxPhase(phase, offerPhase);
     }
