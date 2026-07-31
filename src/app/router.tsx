@@ -3,7 +3,9 @@ import { AppShell } from '../components/layout/AppShell';
 import { CalculatorPage } from '../features/calculator/CalculatorPage';
 import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
 import { BestPayComparisonHistoryPage } from '../features/calculator/BestPayComparisonHistoryPage';
+import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
 import { SalesWizardPage } from '../features/calculator/SalesWizardPage';
+import { SalesWorkspacePage } from '../features/sales/SalesWorkspacePage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
@@ -36,8 +38,10 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/new', element: <NewLeadPage /> },
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
       { path: 'leads/:id', element: <LeadDetailPage /> },
+      { path: 'sales', element: <SalesWorkspacePage /> },
+      { path: 'sales/wizard', element: <SalesWizardPage /> },
       { path: 'calculator', element: <CalculatorPage /> },
-      { path: 'calculator/wizard', element: <SalesWizardPage /> },
+      { path: 'calculator/wizard', element: <CalculatorWizardRedirect /> },
       { path: 'calculator/bestpay/history', element: <BestPayComparisonHistoryPage /> },
       { path: 'calculator/bestpay', element: <BestPayComparisonPage /> },
       { path: 'offers', element: <OffersPage /> },

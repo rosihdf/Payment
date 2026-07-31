@@ -87,8 +87,10 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/leads` | Lead-Übersicht |
 | `/leads/new` | Neuer Lead |
 | `/leads/:id` | Lead-Detail |
-| `/calculator` | Rechner-Hub (BestPay, Neue Berechnung, Berechnungen, Vertriebs-Wizard) |
-| `/calculator/wizard` | BestPay Vertriebs-Wizard (B01) |
+| `/calculator` | Rechner-Hub (BestPay-Einzelberechnung, Neue Berechnung, gespeicherte Berechnungen) |
+| `/calculator/wizard` | Legacy-Redirect auf `/sales/wizard` |
+| `/sales` | Vertriebsarbeitsplatz (Pipeline, laufende Vertriebsfälle) |
+| `/sales/wizard` | BestPay Vertriebsprozess (B01, technisch SalesWizard) |
 | `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
 | `/calculator/bestpay/history` | Gespeicherte BestPay-Berechnungen (A11.5) |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
@@ -471,7 +473,7 @@ Kein separater A11.6-Block mehr: Varianten-/Szenariovergleich ist Teil des B01-V
 
 ## BestPay Vertriebs-Wizard (B01)
 
-Unter **Rechner** → **Vertriebs-Wizard** (`/calculator/wizard`) orchestriert die App den vollständigen Vertriebsablauf.
+Unter **Vertriebsprozess** (`/sales/wizard`) orchestriert die App den vollständigen Vertriebsablauf. Der Einstieg erfolgt über den Hauptnavigationseintrag **Vertriebsprozess** oder über den Vertriebsarbeitsplatz (`/sales`) mit **Neuen Vertriebsfall starten**. Die Legacy-Route `/calculator/wizard` leitet auf `/sales/wizard` um.
 
 ### Schritte
 
@@ -490,11 +492,70 @@ Unter **Rechner** → **Vertriebs-Wizard** (`/calculator/wizard`) orchestriert d
 - Autosave bei jeder Service-Änderung; Resume über `?session=` oder aktiven Wizard-Entwurf
 - Desktop: linke Fortschrittsnavigation; mobil: horizontale Schrittleiste
 
-### Hub-Einstiege
+### Hub-Einstiege (Rechner)
 
-- BestPay / Vertriebs-Wizard
 - Neue Berechnung
-- Berechnungen (Historie A11.5)
+- Abrechnung einlesen
+- Manuell eingeben
+- Gespeicherte Berechnungen (Historie A11.5)
+- Unaufdringlicher Hinweis zum Vertriebsprozess
+
+## Vertriebsarbeitsplatz (B02)
+
+Unter **Vertrieb** (`/sales`) liegt der tägliche operative Arbeitsplatz.
+
+### Zweck
+
+Handlungsorientierte Übersicht über Pipeline, Aufgaben/Wiedervorlagen, Aktivitäten und erwartete Abschlüsse – verbunden mit Lead, Wizard, Berechnung, Angebot, Freigabe und Provision.
+
+### Pipelinephasen
+
+Neu → Kontakt → Abrechnung → Berechnung → Angebot → Freigabe → Nachfassen → Angenommen → Aktivierung → Abgerechnet → Gewonnen / Verloren
+
+Die Ableitung erfolgt deterministisch aus Lead-, Session-, Offer-, Aktivitäts-, Aufgaben- und Provisionsdaten. Der bestehende Offerstatus (`draft` / `completed` / `cancelled`) wird nicht überschrieben. Spätere Stufen nutzen u. a. Commission-Case-Status und dokumentierte Aktivitäten (z. B. Angebot versendet).
+
+Vorgänge ohne Lead erscheinen unter **Noch nicht zugeordnet**.
+
+### Aufgaben und Wiedervorlagen
+
+- Domain `SalesTask` (versionierter Store)
+- Typen u. a. Rückruf, Abrechnung, Berechnung fortsetzen, Freigabe, Nachfassen, Aktivierung, Provision
+- Status: offen / in Bearbeitung / erledigt / abgebrochen
+- Priorität: normal / hoch / dringend
+- Wiedervorlagen = Aufgaben mit Fälligkeit
+- Automatische Aufgaben (idempotent über `sourceKey`), z. B. Wizard-Entwurf → „Berechnung fortsetzen“
+- Erledigung erzeugt genau eine Systemaktivität
+
+### Aktivitäten und Notizen
+
+- Domain `SalesActivity` (versionierter Store)
+- Manuell: Notiz, Telefonat, E-Mail, Termin (intern, nicht in Kundendokumente)
+- Systemaktivitäten: nicht editierbar/löschbar, idempotent, nicht bei bloßem Lesen
+- Timeline im Arbeitsplatz und kompakt im Lead-Detail
+
+### Dashboard
+
+Kennzahlen (überfällig, heute, offene Leads/Wizards/Berechnungen, Freigaben, Nachfassen, erwartete Abschlüsse), Listen Heute / Offene Vorgänge / Erwartete Abschlüsse, Suche und Scope **Meine Vorgänge** (Team nur Admin).
+
+### Rechte
+
+- Außendienst: primär eigene Vorgänge/Aufgaben
+- Admin: Teamansicht
+- Provision nur gemäß bestehendem Recht sichtbar
+- Service-seitige Sichtbarkeitsprüfung
+
+### Persistenz / Datenschutz
+
+- Lokale Stores `salesTasks` / `salesActivities` mit Schema- und Storage-Version
+- Migration + Isolation beschädigter Einträge
+- Keine Originaldokumente, keine OCR-Rohdaten, keine zweite Lead-/Offer-/Session-Wahrheit
+- Spätere Serverpersistenz über Repository-Interfaces vorbereitet
+
+### Bekannte Grenzen / Abgrenzung B03
+
+- Kein E-Mail-Versand, keine Kalender-/Telefon-Integration, kein Vertragsgenerator
+- Offerstatuskette bleibt bewusst schlank; erweiterte Status kommen ggf. mit B03
+- B03: Vertragsabschluss und Dokumente
 
 ## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
 

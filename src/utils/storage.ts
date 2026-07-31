@@ -42,6 +42,10 @@ export const STORAGE_KEYS = {
   billingImportStorageVersion: 'amrtech.billingImportStorageVersion',
   bestPayComparisonSessions: 'amrtech.bestPayComparisonSessions',
   bestPayComparisonStorageVersion: 'amrtech.bestPayComparisonStorageVersion',
+  salesTasks: 'amrtech.salesTasks',
+  salesTaskStorageVersion: 'amrtech.salesTaskStorageVersion',
+  salesActivities: 'amrtech.salesActivities',
+  salesActivityStorageVersion: 'amrtech.salesActivityStorageVersion',
 } as const;
 
 export function readStorageItem<T>(key: string): T | null {

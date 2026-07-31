@@ -6,6 +6,7 @@ import styles from './BottomNavigation.module.css';
 function NavIcon({ icon }: { icon: string }) {
   const icons: Record<string, string> = {
     home: '⌂',
+    sales: '◎',
     leads: '☰',
     add: '+',
     offers: '◈',

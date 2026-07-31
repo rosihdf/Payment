@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { EmptyState } from '../../components/feedback/EmptyState';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { SALES_WIZARD_PATH } from '../../utils/routes';
 import { DEFAULT_CURRENT_PAYMENT_CONDITIONS } from '../../domain/calculator/comparisonDefaults';
 import { mapTariffToBestPayComparisonConditions } from '../../domain/calculator/comparisonMapping';
 import type { CurrentPaymentConditions } from '../../domain/calculator/comparison';
@@ -93,7 +94,7 @@ export function CalculatorPage() {
     <section>
       <PageHeader
         title="Rechner"
-        subtitle="BestPay-Vergleich und Konditionsrechner für den Außendienst"
+        subtitle="BestPay-Einzelberechnung und Konditionsvergleich für den Außendienst"
         actions={
           <button type="button" className={styles.resetButton} onClick={handleReset}>
             Eingaben zurücksetzen
@@ -105,23 +106,29 @@ export function CalculatorPage() {
         <article className={styles.hubCard}>
           <h2 className={styles.hubTitle}>BestPay</h2>
           <p className={styles.hubText}>
-            Vergleichsrechner, gespeicherte Berechnungen und der vollständige Vertriebs-Wizard vom
-            Interessenten bis zum Angebotsentwurf.
+            Freie oder schnelle Einzelberechnungen, Abrechnung einlesen, manuelle Eingabe und
+            gespeicherte Berechnungen.
           </p>
           <div className={styles.hubActions}>
-            <Link className={styles.hubPrimary} to="/calculator/wizard?new=1">
-              Vertriebs-Wizard
-            </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=billing&new=1">
+            <Link className={styles.hubPrimary} to="/calculator/bestpay?mode=billing&new=1">
               Neue Berechnung
             </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
-              Berechnungen
+            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=billing&new=1">
+              Abrechnung einlesen
             </Link>
             <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
               Manuell eingeben
             </Link>
+            <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
+              Gespeicherte Berechnungen
+            </Link>
           </div>
+          <p className={styles.wizardHint}>
+            Kompletter Vertriebsfall?{' '}
+            <Link className={styles.wizardHintLink} to={SALES_WIZARD_PATH}>
+              Zum Vertriebsprozess
+            </Link>
+          </p>
         </article>
       </div>
 

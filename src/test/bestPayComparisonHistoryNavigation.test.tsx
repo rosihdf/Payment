@@ -39,6 +39,6 @@ describe('A11.5 BestPay history navigation', () => {
 
   it('zeigt Einstieg auf dem Rechner-Hub', async () => {
     renderAtRoute('/calculator');
-    expect(await screen.findByRole('link', { name: 'Berechnungen' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Gespeicherte Berechnungen' })).toBeInTheDocument();
   });
 });

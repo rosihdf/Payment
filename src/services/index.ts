@@ -6,6 +6,8 @@ import type { OfferRepository } from '../repositories/interfaces/OfferRepository
 import type { PricingCatalogRepository } from '../repositories/interfaces/PricingCatalogRepository';
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
+import type { SalesActivityRepository } from '../repositories/interfaces/SalesActivityRepository';
+import type { SalesTaskRepository } from '../repositories/interfaces/SalesTaskRepository';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
 import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
@@ -22,7 +24,10 @@ import { createOfferDocumentService } from './offerDocumentService';
 import { OfferService } from './offerService';
 import { PricingEvaluationService } from './pricingEvaluationService';
 import { ProductService } from './productService';
+import { SalesActivityService } from './salesActivityService';
+import { SalesTaskService } from './salesTaskService';
 import { SalesWizardService } from './salesWizardService';
+import { SalesWorkspaceService } from './salesWorkspaceService';
 import { TariffService } from './tariffService';
 import { UserService } from './userService';
 
@@ -41,6 +46,9 @@ export interface AppServices {
   billingImportService: BillingImportService;
   bestPayComparisonService: BestPayComparisonService;
   salesWizardService: SalesWizardService;
+  salesTaskService: SalesTaskService;
+  salesActivityService: SalesActivityService;
+  salesWorkspaceService: SalesWorkspaceService;
 }
 
 export interface AppRepositories {
@@ -57,6 +65,8 @@ export interface AppRepositories {
   commissionCatalogRepository: LocalCommissionCatalogRepository;
   commissionCalculationRepository: LocalCommissionCalculationRepository;
   recommendationRepository: LocalRecommendationRepository;
+  salesTaskRepository: SalesTaskRepository;
+  salesActivityRepository: SalesActivityRepository;
 }
 
 export function createServices(repositories: AppRepositories): AppServices {
@@ -90,6 +100,17 @@ export function createServices(repositories: AppRepositories): AppServices {
     recommendationService,
     leadService,
   );
+  const salesTaskService = new SalesTaskService(repositories.salesTaskRepository);
+  const salesActivityService = new SalesActivityService(repositories.salesActivityRepository);
+  salesTaskService.setActivityService(salesActivityService);
+  const salesWorkspaceService = new SalesWorkspaceService(
+    repositories.leadRepository,
+    repositories.offerRepository,
+    repositories.salesTaskRepository,
+    repositories.salesActivityRepository,
+    salesTaskService,
+    salesActivityService,
+  );
 
   return {
     userService: new UserService(repositories.userRepository),
@@ -119,5 +140,8 @@ export function createServices(repositories: AppRepositories): AppServices {
     recommendationService,
     bestPayComparisonService,
     salesWizardService,
+    salesTaskService,
+    salesActivityService,
+    salesWorkspaceService,
   };
 }

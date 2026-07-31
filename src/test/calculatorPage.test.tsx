@@ -38,9 +38,11 @@ describe('Calculator page', () => {
     renderAtRoute('/calculator');
     expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'BestPay' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Vertriebs-Wizard' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Vertriebs-Wizard' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Vertriebsprozess' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Neue Berechnung' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Berechnungen' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gespeicherte Berechnungen' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zum Vertriebsprozess' })).toBeInTheDocument();
     expect(
       screen.getByText('Bisherige Payment-Kosten manuell mit einem aktiven BestPay-Tarif vergleichen.'),
     ).toBeInTheDocument();

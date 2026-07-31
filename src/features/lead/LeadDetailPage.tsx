@@ -12,6 +12,9 @@ import {
   SYNC_STATE_LABELS,
 } from '../../domain/lead/lead';
 import type { User } from '../../domain/user/user';
+import type { SalesActivity } from '../../domain/salesWorkspace/salesActivity';
+import { SALES_ACTIVITY_TYPE_LABELS } from '../../domain/salesWorkspace/salesActivity';
+import type { SalesTask } from '../../domain/salesWorkspace/salesTask';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import {
@@ -22,6 +25,7 @@ import {
   formatContactName,
   formatDate,
 } from '../../utils/format';
+import { SALES_WIZARD_NEW_PATH, salesWizardSessionPath } from '../../utils/routes';
 import styles from './LeadDetailPage.module.css';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -47,11 +51,15 @@ export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { currentUser } = useCurrentUser();
-  const { leadService, userService, offerService } = useServices();
+  const { leadService, userService, offerService, salesWorkspaceService } = useServices();
   const [lead, setLead] = useState<Lead | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pipelinePhaseLabel, setPipelinePhaseLabel] = useState<string | null>(null);
+  const [openTasks, setOpenTasks] = useState<SalesTask[]>([]);
+  const [timeline, setTimeline] = useState<SalesActivity[]>([]);
+  const [wizardSessionId, setWizardSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     void userService.getAllUsers().then(setUsers);
@@ -83,7 +91,27 @@ export function LeadDetailPage() {
         displayName: currentUser.name,
       })
       .then(setOffers);
-  }, [currentUser, id, offerService, location.key]);
+
+    void salesWorkspaceService
+      .getLeadWorkspaceSummary(id, {
+        userId: currentUser.id,
+        role: currentUser.role,
+        displayName: currentUser.name,
+      })
+      .then((summary) => {
+        if (!summary) {
+          setPipelinePhaseLabel(null);
+          setOpenTasks([]);
+          setTimeline([]);
+          setWizardSessionId(null);
+          return;
+        }
+        setPipelinePhaseLabel(summary.phaseLabel);
+        setOpenTasks(summary.openTasks);
+        setTimeline(summary.timeline.slice(0, 5));
+        setWizardSessionId(summary.sessions[0]?.id ?? null);
+      });
+  }, [currentUser, id, offerService, salesWorkspaceService, location.key]);
 
   const getUserName = (userId: string): string =>
     users.find((user) => user.id === userId)?.name ?? 'Nicht angegeben';
@@ -136,6 +164,19 @@ export function LeadDetailPage() {
                 Lead bearbeiten
               </Link>
             ) : null}
+            <Link className={styles.editLink} to="/sales">
+              Vertrieb
+            </Link>
+            <Link
+              className={styles.editLink}
+              to={
+                wizardSessionId
+                  ? salesWizardSessionPath(wizardSessionId)
+                  : `${SALES_WIZARD_NEW_PATH}`
+              }
+            >
+              Vertriebsprozess
+            </Link>
             <Link className={styles.link} to="/leads">
               Zur Übersicht
             </Link>
@@ -188,10 +229,32 @@ export function LeadDetailPage() {
         <dl className={styles.grid}>
           <DetailRow label="Interesse" value={LEAD_INTEREST_LABELS[lead.interest]} />
           <DetailRow label="Status" value={LEAD_STATUS_LABELS[lead.status]} />
+          <DetailRow
+            label="Pipelinephase"
+            value={pipelinePhaseLabel ?? 'Noch nicht ermittelt'}
+          />
           <DetailRow label="Benötigte Terminals" value={String(lead.requiredTerminalCount)} />
           <DetailRow label="Nächster Kontakt" value={displayDateTime(lead.nextFollowUpAt)} />
+          <DetailRow
+            label="Offene Aufgaben"
+            value={
+              openTasks.length > 0
+                ? openTasks.map((task) => task.title).join(', ')
+                : 'Keine'
+            }
+          />
           <DetailRow label="Notizen" value={displayText(lead.notes)} />
         </dl>
+        {timeline.length > 0 ? (
+          <ul className={styles.offerList}>
+            {timeline.map((activity) => (
+              <li key={activity.id} className={styles.emptyHint}>
+                {formatDate(activity.occurredAt)} · {SALES_ACTIVITY_TYPE_LABELS[activity.type]}:{' '}
+                {activity.title}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section className={styles.detailSection}>

@@ -13,6 +13,7 @@ import type { Lead } from '../../domain/lead/lead';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
+import { SALES_WORKSPACE_PATH } from '../../utils/routes';
 import styles from './SalesWizardPage.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -122,11 +123,11 @@ export function SalesWizardPage() {
     if (sessionId) {
       const resumed = salesWizardService.resumeWizard(sessionId, userContext);
       if (!resumed.ok) {
-        showToast('Gespeicherter Wizard nicht gefunden', 'error');
+        showToast('Gespeicherter Vorgang nicht gefunden', 'error');
         active = salesWizardService.startWizard(userContext);
       } else {
         active = resumed.session;
-        showToast('Wizard fortgesetzt', 'info');
+        showToast('Vorgang fortgesetzt', 'info');
       }
     } else if (searchParams.get('new') === '1') {
       active = salesWizardService.startWizard(userContext);
@@ -167,7 +168,7 @@ export function SalesWizardPage() {
   }
 
   if (!session) {
-    return <p className={styles.hint}>Vertriebs-Wizard wird geladen…</p>;
+    return <p className={styles.hint}>Vertriebsprozess wird geladen…</p>;
   }
 
   const step = session.wizard.currentStep;
@@ -327,21 +328,21 @@ export function SalesWizardPage() {
       return;
     }
     setSession(result.session);
-    showToast('Wizard abgeschlossen', 'success');
+    showToast('Vertriebsprozess abgeschlossen', 'success');
   };
 
   return (
     <section>
       <PageHeader
-        title="BestPay Vertriebs-Wizard"
-        subtitle="Vom Interessenten bis zum Angebotsentwurf – ein durchgängiger Arbeitsablauf"
+        title="BestPay Vertriebsprozess"
+        subtitle="Vom Interessenten bis zum Angebotsentwurf – ein durchgängiger Vertriebsprozess"
         actions={
           <div className={styles.headerActions}>
             <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
               Berechnungen
             </Link>
-            <Link className={styles.secondaryAction} to="/calculator">
-              Zum Rechner
+            <Link className={styles.secondaryAction} to={SALES_WORKSPACE_PATH}>
+              Zum Vertriebsarbeitsplatz
             </Link>
           </div>
         }
@@ -356,7 +357,7 @@ export function SalesWizardPage() {
       </div>
 
       <div className={styles.layout}>
-        <nav className={styles.nav} aria-label="Wizard-Schritte">
+        <nav className={styles.nav} aria-label="Prozessschritte">
           {SALES_WIZARD_STEPS.map((entry, index) => {
             const isActive = entry.id === step;
             const isDone = index < stepIndex;
@@ -1188,7 +1189,7 @@ export function SalesWizardPage() {
                 <div className={styles.actions}>
                   {!session.wizard.wizardCompletedAt ? (
                     <button type="button" className={styles.primaryAction} onClick={handleComplete}>
-                      Wizard abschließen
+                      Vertriebsprozess abschließen
                     </button>
                   ) : null}
                   {session.offerId ? (
@@ -1234,9 +1235,9 @@ export function SalesWizardPage() {
               <button
                 type="button"
                 className={styles.secondaryAction}
-                onClick={() => navigate('/calculator')}
+                onClick={() => navigate(SALES_WORKSPACE_PATH)}
               >
-                Zum Rechner-Hub
+                Zum Vertriebsarbeitsplatz
               </button>
             )}
           </div>

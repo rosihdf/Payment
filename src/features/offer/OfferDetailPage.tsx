@@ -209,6 +209,12 @@ export function OfferDetailPage() {
         subtitle={`${offer.offerNumber} · ${offer.customerSnapshot.companyName}`}
         actions={
           <div className={styles.headerActions}>
+            <Link className={styles.secondaryAction} to="/sales">
+              Vertrieb
+            </Link>
+            <Link className={styles.secondaryAction} to={`/leads/${offer.leadId}`}>
+              Lead öffnen
+            </Link>
             {canEdit ? (
               <Link className={styles.secondaryAction} to={`/offers/${offer.id}/edit`}>
                 Bearbeiten

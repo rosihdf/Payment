@@ -10,6 +10,8 @@ import { LocalCommissionCatalogRepository } from '../../repositories/local/Local
 import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPricingCatalogRepository';
 import { LocalPricingEvaluationRepository } from '../../repositories/local/LocalPricingEvaluationRepository';
 import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
+import { LocalSalesActivityRepository } from '../../repositories/local/LocalSalesActivityRepository';
+import { LocalSalesTaskRepository } from '../../repositories/local/LocalSalesTaskRepository';
 import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
 import { LocalUserRepository } from '../../repositories/local/LocalUserRepository';
 import { createServices } from '../../services';
@@ -38,6 +40,8 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       commissionCatalogRepository: new LocalCommissionCatalogRepository(),
       commissionCalculationRepository: new LocalCommissionCalculationRepository(),
       recommendationRepository: new LocalRecommendationRepository(),
+      salesTaskRepository: new LocalSalesTaskRepository(),
+      salesActivityRepository: new LocalSalesActivityRepository(),
     });
   }, []);
 

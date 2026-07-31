@@ -1,15 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { filterNavItemsByRole, SIDEBAR_NAV_ITEMS } from '../../utils/navigation';
+import { useLocation } from 'react-router-dom';
+import {
+  filterNavItemsByRole,
+  isSidebarNavItemActive,
+  SIDEBAR_NAV_ITEMS,
+} from '../../utils/navigation';
 import styles from './SidebarNavigation.module.css';
 
 function NavIcon({ icon }: { icon: string }) {
   const icons: Record<string, string> = {
     home: '⌂',
+    sales: '◎',
     leads: '☰',
     add: '+',
     offers: '◈',
     calculator: '∑',
+    wizard: '⇢',
     tariffs: '€',
     products: '▣',
     profile: '◉',
@@ -20,6 +27,7 @@ function NavIcon({ icon }: { icon: string }) {
 
 export function SidebarNavigation() {
   const { currentUser } = useCurrentUser();
+  const { pathname } = useLocation();
   const role = currentUser?.role ?? 'field_service';
   const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, role);
 
@@ -31,9 +39,12 @@ export function SidebarNavigation() {
           <li key={item.to}>
             <NavLink
               to={item.to}
-              className={({ isActive }) =>
-                isActive ? `${styles.link} ${styles.active}` : styles.link
+              className={() =>
+                isSidebarNavItemActive(pathname, item)
+                  ? `${styles.link} ${styles.active}`
+                  : styles.link
               }
+              aria-current={isSidebarNavItemActive(pathname, item) ? 'page' : undefined}
               end={item.to === '/'}
             >
               <NavIcon icon={item.icon} />
