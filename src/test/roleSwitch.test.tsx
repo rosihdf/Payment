@@ -27,28 +27,33 @@ describe('Role switching', () => {
     resetDemoDataForTests();
   });
 
-  it('updates role label on dashboard after switching to admin', async () => {
+  it('updates navigation after switching to admin', async () => {
     const user = userEvent.setup();
     renderApp();
 
-    expect(await screen.findByText('Außendienst')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Laura Berger (Außendienst)' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /\(Vertriebsleitung\)$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /\(Prüfer\)$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /\(Nur Lesen\)$/ })).not.toBeInTheDocument();
 
-    const roleSelect = await screen.findByLabelText('Demo-Benutzer');
+    const roleSelect = await screen.findByLabelText('Demo-Benutzer wechseln');
     await waitFor(() => {
       expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
     });
 
     await user.selectOptions(roleSelect, 'user_004');
 
-    expect(await screen.findByText('Demo-Benutzer: Michael Weber (Administrator)')).toBeInTheDocument();
-    expect(screen.getAllByText('Administrator').length).toBeGreaterThan(0);
+    expect(await screen.findByRole('option', { name: 'Michael Weber (Administrator)' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Verwaltung', hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profil' })).toHaveAttribute('href', '/profile');
   });
 
   it('persists selected admin user in role switcher', async () => {
     const user = userEvent.setup();
     renderApp();
 
-    const roleSelect = await screen.findByLabelText('Demo-Benutzer');
+    const roleSelect = await screen.findByLabelText('Demo-Benutzer wechseln');
     await waitFor(() => {
       expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
     });

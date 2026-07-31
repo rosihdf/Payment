@@ -43,11 +43,11 @@ export function LeadsPage() {
   return (
     <section>
       <PageHeader
-        title="Leads"
-        subtitle="Übersicht aller erfassten Payment-Leads"
+        title="Kunden"
+        subtitle="Kunden und Interessenten – Ausgangspunkt für Beratung, Angebot und Onboarding"
         actions={
           <Link className={styles.primaryAction} to="/leads/new">
-            Neuer Lead
+            Neuer Kunde
           </Link>
         }
       />
@@ -57,22 +57,22 @@ export function LeadsPage() {
           value={query}
           onChange={setQuery}
           placeholder="Firma, Kontakt, Ort, Anbieter oder E-Mail suchen…"
-          label="Lead-Suche"
+          label="Kunden-Suche"
         />
       </div>
 
       {isLoading ? (
         <EmptyState
-          title="Leads werden geladen"
-          description="Die Lead-Liste wird vorbereitet."
+          title="Kunden werden geladen"
+          description="Die Kundenliste wird vorbereitet."
         />
       ) : leads.length === 0 ? (
         <EmptyState
-          title="Keine Leads gefunden"
-          description="Passen Sie die Suche an oder legen Sie einen neuen Lead an."
+          title="Keine Kunden gefunden"
+          description="Passen Sie die Suche an oder legen Sie einen neuen Kunden an."
           action={
             <Link className={styles.primaryAction} to="/leads/new">
-              Neuer Lead
+              Neuer Kunde
             </Link>
           }
         />

@@ -46,16 +46,15 @@ describe('Lead offer integration UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Angebote' })).toBeInTheDocument();
     expect(await screen.findByText('Lead Angebot Alpha')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Neues Angebot' })).toHaveAttribute(
-      'href',
-      `/offers/new?leadId=${DEMO_LEAD_ID}`,
-    );
+    expect(screen.getByRole('link', { name: 'Über Beratung erstellen' })).toBeInTheDocument();
   });
 
   it('shows empty state when lead has no offers', async () => {
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`);
 
-    expect(await screen.findByText('Für diesen Lead liegen noch keine Angebote vor.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Für diesen Kunden liegen noch keine Angebote vor.'),
+    ).toBeInTheDocument();
   });
 
   it('links offer detail from lead page', async () => {

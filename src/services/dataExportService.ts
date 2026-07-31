@@ -11,6 +11,7 @@ import { CURRENT_TARIFF_CATALOG_VERSION } from './tariffCatalogMigration';
 import { CURRENT_PRODUCT_CATALOG_VERSION } from './productCatalogMigration';
 import { CURRENT_OFFER_STORAGE_VERSION } from './offerStorageMigration';
 import { CURRENT_CONTRACT_STORAGE_VERSION } from './contractStorageMigration';
+import { CURRENT_ACTIVATION_STORAGE_VERSION } from './activationStorageMigration';
 
 const EXPORTABLE_AREAS = [
   'users',
@@ -26,6 +27,11 @@ const EXPORTABLE_AREAS = [
   'contracts',
   'contractVersions',
   'contractTerminations',
+  'activationCases',
+  'activationChecklists',
+  'activationApplications',
+  'activationHardware',
+  'activationBlockers',
 ] as const;
 
 export type ExportArea = (typeof EXPORTABLE_AREAS)[number];
@@ -44,6 +50,11 @@ const AREA_STORAGE_MAP: Record<ExportArea, string> = {
   contracts: STORAGE_KEYS.contracts,
   contractVersions: STORAGE_KEYS.contractVersions,
   contractTerminations: STORAGE_KEYS.contractTerminations,
+  activationCases: STORAGE_KEYS.activationCases,
+  activationChecklists: STORAGE_KEYS.activationChecklists,
+  activationApplications: STORAGE_KEYS.activationApplications,
+  activationHardware: STORAGE_KEYS.activationHardware,
+  activationBlockers: STORAGE_KEYS.activationBlockers,
 };
 
 const FULL_BACKUP_KEYS = Object.values(STORAGE_KEYS).filter(
@@ -144,6 +155,7 @@ export class DataExportService {
         products: CURRENT_PRODUCT_CATALOG_VERSION,
         offers: CURRENT_OFFER_STORAGE_VERSION,
         contracts: CURRENT_CONTRACT_STORAGE_VERSION,
+        activations: CURRENT_ACTIVATION_STORAGE_VERSION,
       },
       recordCounts,
       checksum: null as string | null,

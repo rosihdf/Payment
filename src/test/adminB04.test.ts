@@ -28,6 +28,11 @@ import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesAc
 import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
 import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
 import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
+import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
+import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
+import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
+import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
+import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
 import { migrateAdminStorageIfNeeded } from '../services/adminStorageMigration';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
@@ -57,6 +62,11 @@ function createTestServices() {
     contractRepository: new LocalContractRepository(),
     contractVersionRepository: new LocalContractVersionRepository(),
     contractTerminationRepository: new LocalContractTerminationRepository(),
+    activationCaseRepository: new LocalActivationCaseRepository(),
+    activationChecklistRepository: new LocalActivationChecklistRepository(),
+    activationApplicationRepository: new LocalActivationApplicationRepository(),
+    activationHardwareRepository: new LocalActivationHardwareRepository(),
+    activationBlockerRepository: new LocalActivationBlockerRepository(),
   });
 }
 
@@ -98,6 +108,11 @@ describe('B04 Administration', () => {
         status: 'active',
       });
 
+      for (const otherAdminId of ['user_003', 'user_005']) {
+        const deactivated = await services.adminUserService.deactivateUser(admin, otherAdminId);
+        expect(deactivated.ok).toBe(true);
+      }
+
       const result = await services.adminUserService.deactivateUser(admin, 'user_004');
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -107,23 +122,27 @@ describe('B04 Administration', () => {
   });
 
   describe('Rollen und Rechte', () => {
-    it('prüft zentrale Permissions je Rolle', () => {
+    it('prüft zentrale Permissions für Administrator und Außendienst', () => {
       expect(hasPermission('admin', 'admin.users')).toBe(true);
+      expect(hasPermission('admin', 'offers.approve')).toBe(true);
+      expect(hasPermission('admin', 'leads.view_team')).toBe(true);
       expect(hasPermission('field_service', 'admin.users')).toBe(false);
-      expect(hasPermission('readonly', 'offers.create')).toBe(false);
-      expect(hasPermission('reviewer', 'offers.approve')).toBe(true);
+      expect(hasPermission('field_service', 'admin.access')).toBe(false);
+      expect(hasPermission('field_service', 'offers.approve')).toBe(false);
+      expect(hasPermission('field_service', 'leads.view_team')).toBe(false);
+      expect(hasPermission('field_service', 'offers.create')).toBe(true);
     });
 
-    it('blockiert Admin-Mutationen für Read-only', async () => {
+    it('blockiert Admin-Mutationen für Außendienst', async () => {
       const services = createTestServices();
-      const readonly = createUserContext({
-        id: 'user_006',
-        role: 'readonly',
-        name: 'Read Only',
+      const field = createUserContext({
+        id: 'user_001',
+        role: 'field_service',
+        name: 'Laura Berger',
         status: 'active',
       });
 
-      const users = await services.adminUserService.getUsers(readonly);
+      const users = await services.adminUserService.getUsers(field);
       expect(users).toEqual({ error: 'forbidden' });
     });
   });

@@ -17,7 +17,7 @@ describe('AccessDenied', () => {
 
     expect(screen.getByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
     expect(screen.getByText(/Sie haben keine Berechtigung/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zurück zur Startseite' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Zum Arbeitsplatz' })).toHaveAttribute('href', '/sales');
   });
 
   it('renders custom messages', () => {

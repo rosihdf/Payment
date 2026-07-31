@@ -141,7 +141,7 @@ describe('Lead edit UI', () => {
     seedCustomLeads([ownLead]);
     renderAtRoute('/leads/lead_own_detail', 'user_001', false);
 
-    expect(await screen.findByRole('link', { name: 'Lead bearbeiten' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Bearbeiten' })).toBeInTheDocument();
   });
 
   it('hides edit action for foreign leads on detail page', async () => {
@@ -154,7 +154,7 @@ describe('Lead edit UI', () => {
     renderAtRoute('/leads/lead_foreign_detail', 'user_001', false);
 
     await screen.findByRole('heading', { name: 'Repository Test' });
-    expect(screen.queryByRole('link', { name: 'Lead bearbeiten' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Bearbeiten' })).not.toBeInTheDocument();
   });
 
   it('opens unsaved changes dialog on cancel', async () => {
@@ -198,8 +198,8 @@ describe('Lead edit UI', () => {
   it('shows not found state for unknown lead id', async () => {
     renderAtRoute('/leads/lead_unknown/edit');
 
-    expect(await screen.findByRole('heading', { name: 'Lead nicht gefunden' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zur Leadliste' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kunde nicht gefunden' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zur Kundenliste' })).toBeInTheDocument();
   });
 
   it('validates changes before saving', async () => {

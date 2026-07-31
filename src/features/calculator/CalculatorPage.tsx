@@ -93,8 +93,8 @@ export function CalculatorPage() {
   return (
     <section>
       <PageHeader
-        title="Rechner"
-        subtitle="BestPay-Einzelberechnung und Konditionsvergleich für den Außendienst"
+        title="Beratung"
+        subtitle="Kostenvergleich und Angebotsweg – ein Einstieg für den Außendienst"
         actions={
           <button type="button" className={styles.resetButton} onClick={handleReset}>
             Eingaben zurücksetzen
@@ -104,37 +104,29 @@ export function CalculatorPage() {
 
       <div className={styles.hubGrid}>
         <article className={styles.hubCard}>
-          <h2 className={styles.hubTitle}>BestPay</h2>
+          <h2 className={styles.hubTitle}>Beratungsweg</h2>
           <p className={styles.hubText}>
-            Freie oder schnelle Einzelberechnungen, Abrechnung einlesen, manuelle Eingabe und
-            gespeicherte Berechnungen.
+            Starten Sie den Vergleich mit Abrechnung oder manuellen Angaben und führen Sie den
+            Kunden bis zum Angebot. Bevorzugter Einstieg über den Kunden.
           </p>
           <div className={styles.hubActions}>
-            <Link className={styles.hubPrimary} to="/calculator/bestpay?mode=billing&new=1">
-              Neue Berechnung
-            </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=billing&new=1">
-              Abrechnung einlesen
-            </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay?mode=manual&new=1">
-              Manuell eingeben
+            <Link className={styles.hubPrimary} to={SALES_WIZARD_PATH}>
+              Beratung starten
             </Link>
             <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
-              Gespeicherte Berechnungen
+              Gespeicherte Vergleiche
+            </Link>
+            <Link className={styles.hubSecondary} to="/leads">
+              Zum Kunden
             </Link>
           </div>
-          <p className={styles.wizardHint}>
-            Kompletter Vertriebsfall?{' '}
-            <Link className={styles.wizardHintLink} to={SALES_WIZARD_PATH}>
-              Zum Vertriebsprozess
-            </Link>
-          </p>
         </article>
       </div>
 
-      <h2 className={styles.sectionHeading}>Konditionsvergleich</h2>
+      <h2 className={styles.sectionHeading}>Schnellvergleich</h2>
       <p className={styles.sectionHint}>
-        Bisherige Payment-Kosten manuell mit einem aktiven BestPay-Tarif vergleichen.
+        Optionaler Tarifvergleich ohne vollständigen Beratungsweg. Für den normalen Fall bitte
+        „Beratung starten“ verwenden.
       </p>
       {tariffUnavailableMessage ? (
         <p className={styles.notice} role="status">

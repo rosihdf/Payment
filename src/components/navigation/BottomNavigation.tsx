@@ -1,6 +1,10 @@
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { filterNavItemsByRole, MOBILE_NAV_ITEMS } from '../../utils/navigation';
+import {
+  filterNavItemsByRole,
+  isSidebarNavItemActive,
+  MOBILE_NAV_ITEMS,
+} from '../../utils/navigation';
 import styles from './BottomNavigation.module.css';
 
 function NavIcon({ icon }: { icon: string }) {
@@ -20,26 +24,28 @@ function NavIcon({ icon }: { icon: string }) {
 
 export function BottomNavigation() {
   const { currentUser } = useCurrentUser();
+  const { pathname } = useLocation();
   const role = currentUser?.role ?? 'field_service';
   const items = filterNavItemsByRole(MOBILE_NAV_ITEMS, role);
 
   return (
     <nav className={styles.nav} aria-label="Hauptnavigation">
       <ul className={styles.list}>
-        {items.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              className={({ isActive }) =>
-                isActive ? `${styles.link} ${styles.active}` : styles.link
-              }
-              end={item.to === '/'}
-            >
-              <NavIcon icon={item.icon} />
-              <span>{item.label}</span>
-            </NavLink>
-          </li>
-        ))}
+        {items.map((item) => {
+          const active = isSidebarNavItemActive(pathname, item);
+          return (
+            <li key={item.to}>
+              <Link
+                to={item.to}
+                className={active ? `${styles.link} ${styles.active}` : styles.link}
+                aria-current={active ? 'page' : undefined}
+              >
+                <NavIcon icon={item.icon} />
+                <span>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

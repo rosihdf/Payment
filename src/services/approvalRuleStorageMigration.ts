@@ -37,7 +37,7 @@ function createDefaultApprovalRules(): ApprovalRule[] {
       thresholdValue: 1000,
       thresholdUnit: 'percent_tenths',
       tariffId: null,
-      requiredReviewerRole: 'reviewer',
+      requiredReviewerRole: 'admin',
       fourEyesRequired: true,
       validFrom: null,
       validUntil: null,

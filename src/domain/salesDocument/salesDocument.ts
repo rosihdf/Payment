@@ -14,7 +14,14 @@ export type SalesDocumentType =
   | 'renewal'
   | 'tariff_change'
   | 'hardware_change'
-  | 'other';
+  | 'other'
+  | 'activation_identification'
+  | 'activation_merchant_application'
+  | 'activation_acquiring_application'
+  | 'activation_hardware_delivery'
+  | 'activation_setup_confirmation'
+  | 'activation_test_confirmation'
+  | 'activation_completion';
 
 export const SALES_DOCUMENT_TYPE_LABELS: Record<SalesDocumentType, string> = {
   offer_pdf: 'Angebot',
@@ -31,6 +38,13 @@ export const SALES_DOCUMENT_TYPE_LABELS: Record<SalesDocumentType, string> = {
   tariff_change: 'Tarifwechsel',
   hardware_change: 'Hardwareänderung',
   other: 'Sonstiges',
+  activation_identification: 'Legitimation (Aktivierung)',
+  activation_merchant_application: 'Händlerantrag',
+  activation_acquiring_application: 'Acquiring-Antrag',
+  activation_hardware_delivery: 'Hardware-Lieferschein',
+  activation_setup_confirmation: 'Einrichtungsbestätigung',
+  activation_test_confirmation: 'Testzahlungsbestätigung',
+  activation_completion: 'Abschlussdokumentation',
 };
 
 /** Metadaten only: binary contents are intentionally never persisted locally. */
@@ -42,6 +56,7 @@ export interface SalesDocument {
   contractId: string | null;
   contractVersionId: string | null;
   terminationId: string | null;
+  activationId: string | null;
   type: SalesDocumentType;
   fileName: string;
   mimeType: string;

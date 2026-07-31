@@ -1133,13 +1133,6 @@ export class ContractService {
   ): Promise<Result<ContractTermination>> {
     const permission = guard(context, 'contracts.terminate');
     if (!permission.ok) return permission;
-    if (!hasPermission(context.role, 'contracts.change_approve') && context.role !== 'admin' && context.role !== 'sales_lead') {
-      // sales_lead and admin have terminate; field_service can record but confirm needs stronger right
-      if (!hasPermission(context.role, 'contracts.extend')) {
-        // allow sales_lead via terminate; field_service blocked unless sales_lead permissions
-      }
-    }
-
     const termination = await this.terminationRepository.getById(terminationId);
     if (!termination) return { ok: false, error: 'not_found' };
     if (termination.status === 'withdrawn' || termination.status === 'completed') {
@@ -1445,6 +1438,7 @@ export class ContractService {
       contractId,
       contractVersionId: input.contractVersionId,
       terminationId: input.terminationId,
+      activationId: null,
       type: input.type,
       fileName: input.fileName,
       mimeType: input.mimeType,

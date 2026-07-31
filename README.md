@@ -31,7 +31,32 @@ Fachlicher Umfang:
 - Dokumentmetadaten mit Contract-/Version-Bezug (keine Binärdaten in `localStorage`)
 - Integration mit Angebot, Aktivierung, Provision (Referenz), Admin-Export/Backup/Diagnose/Audit
 
-Abgrenzung D: Kein vollständiges Händler-Onboarding, keine Terminal-Lager-/Seriennummernverwaltung, keine BestPay-Aktivierungs-API.
+Operatives Onboarding inkl. Hardwarezuordnung und Go-live liegt in Bereich D (`/activations`). Keine BestPay-Aktivierungs-API im Vertragsbereich.
+
+## D: Aktivierung & Onboarding
+
+Unter `/activations` bildet die Anwendung die operative Umsetzung eines Vertrags bis zum Go-live ab. `ActivationCase` ist die führende operative Wahrheit für das Onboarding aus einem `Contract`; `Contract`/`ContractVersion` bleiben die Wahrheit für vereinbarte Konditionen und Hardware-Positionen. Das bestehende `OfferActivation` (B03) bleibt unverändert bestehen.
+
+Eine Aktivierung entsteht idempotent (`sourceKey` = `contract:{contractId}:initial-activation`) aus einem Vertrag in Status Vorbereitung oder Aktivierung. Beim Start wird eine versionsgebundene Checkliste aus der aktuellen `ContractVersion` abgeleitet (Stammdaten, Vertragsprüfung, Unterlagen, Händlerantrag, Acquiring, Hardware, Versand, Einrichtung, Test, Go-live, Abschluss, Übergabe) sowie je Hardware-Zeile eine Einheit pro Stückzahl angelegt.
+
+Fachlicher Umfang:
+
+- Aktivierungsübersicht mit Suche (Nummer/Vertrag/Firma/Kontakt/Angebot/Referenz/Seriennummer/Modell), vollständigen Statusfiltern, Zuständigkeit, Priorität, Go-live-Zeitraum (7/14/30/überfällig/ohne Datum), Arbeitszuständen, kombinierbaren Filtern inkl. Reset, stabiler Sortierung und Kennzahlen
+- Aktivierungsdetail mit Übersicht, Checkliste, Unterlagen, Anträgen, Hardware, Einrichtung/Test, Blockern und verknüpften Aufgaben
+- Geführtes, service-seitig geprüftes Statusmodell inkl. Rückkehr aus einem blockierten Zustand
+- Checkliste mit Pflicht-/Kann-Punkten, Abhängigkeiten und Beleg-Anforderung (Dokument als Metadaten, kein Binärinhalt)
+- Anträge (Händlereinrichtung, Acquiring, Terminal-Bereitstellung, Zusatzleistungen) rein manuell dokumentiert – keine externen API-Aufrufe
+- Hardware je Einheit mit Bestellung, Zuordnung, Versand, Zustellung, Einrichtung, Test und Übergabe; Datumsreihenfolge wird geprüft, doppelte Seriennummern über aktive Aktivierungen hinweg werden gewarnt (nicht blockiert)
+- Hardwareabweichungen erzeugen einen harten Blocker und eine Aufgabe, ohne die `ContractVersion` zu verändern
+- Testzahlungen ausschließlich mit optionalem Betrag, anonymisierter Referenz und Ergebnis – keine Kartendaten, kein PAN/CVV
+- Blocker (Hinweis/Warnung/hart) mit Pflichtlösung beim Schließen; harte Blocker verhindern Go-live und versetzen die Aktivierung in den Status „Blockiert“
+- Go-live-Bestätigung nur bei erfüllter Checkliste, getesteter Hardware, entschiedenen Anträgen und ohne offene harte Blocker; überführt den Vertrag nach `active`. Die Provision wird dabei **nicht** automatisch auf „bezahlt“ gesetzt – es wird ausschließlich ein Audit-Eintrag erzeugt
+- Rücknahme des Go-live mit Pflichtbegründung, Abschluss und Übergabevorbereitung an die Kundenbetreuung (Kundenportfolio E folgt separat)
+- Automatische Folgeaufgaben und Aktivitäten je Schritt/Ereignis, idempotent über `sourceKey`
+- Integration mit Vertrag, Aufgaben/Aktivitäten, Dokumenten, Audit sowie Admin-Export/Diagnose/Systemstatus
+- Performance-Abnahme mit 1.000 Aktivierungen und zugehörigen Maximalmengen (20.000 Checklistenpunkte, 3.000 Anträge, 5.000 Hardware, 2.000 Blocker, 5.000 Aufgaben, 10.000 Aktivitäten, 5.000 Dokumentmetadaten); Listenaggregation ohne N+1 und ohne Pricing-/Commission-/Recommendation-Engines
+
+Abgrenzung E: Keine laufende Kundenbetreuung/Vertragspflege nach Übergabe, kein Kundenportfolio, keine BestPay-/Acquirer-/Carrier-/Zahlungs-API, keine Kartendaten (PAN/CVV/Passwörter) in Stores.
 
 Weitere Betriebshinweise: `docs/OPERATIONS.md`
 

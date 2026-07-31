@@ -1,7 +1,13 @@
 import type { Permission } from '../domain/permission/permission';
 import { hasPermission } from '../domain/permission/permission';
 import { CURRENT_USER_SCHEMA_VERSION } from '../domain/user/normalizeUser';
-import type { User, UserContext, UserRole, UserStatus } from '../domain/user/user';
+import {
+  isAssignableUserRole,
+  type User,
+  type UserContext,
+  type UserRole,
+  type UserStatus,
+} from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
 import type { AuditService } from './auditService';
@@ -87,6 +93,9 @@ export class AdminUserService {
     if (!name || !email.includes('@')) {
       return { ok: false, error: 'validation', message: 'Name und gültige E-Mail sind erforderlich.' };
     }
+    if (!isAssignableUserRole(input.role)) {
+      return { ok: false, error: 'validation', message: 'Nur Administrator oder Außendienst sind zulässig.' };
+    }
 
     const timestamp = nowIso();
     const user: User = {
@@ -129,6 +138,10 @@ export class AdminUserService {
     const existing = await this.userRepository.getById(userId);
     if (!existing) {
       return { ok: false, error: 'not_found' };
+    }
+
+    if (input.role !== undefined && !isAssignableUserRole(input.role)) {
+      return { ok: false, error: 'validation', message: 'Nur Administrator oder Außendienst sind zulässig.' };
     }
 
     if (input.role && input.role !== 'admin' && existing.role === 'admin') {

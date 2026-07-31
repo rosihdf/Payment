@@ -15,7 +15,12 @@ export type DiagnosticArea =
   | 'storage'
   | 'contract'
   | 'contract_version'
-  | 'contract_termination';
+  | 'contract_termination'
+  | 'activation_case'
+  | 'activation_checklist'
+  | 'activation_application'
+  | 'activation_hardware'
+  | 'activation_blocker';
 
 export interface DiagnosticFinding {
   id: string;

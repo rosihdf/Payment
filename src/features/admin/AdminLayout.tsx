@@ -12,7 +12,7 @@ import styles from './AdminLayout.module.css';
 const ADMIN_NAV = [
   { to: '/admin', label: 'Übersicht', end: true },
   { to: '/admin/users', label: 'Benutzer' },
-  { to: '/admin/roles', label: 'Rollen & Rechte' },
+  { to: '/admin/roles', label: 'Rollen' },
   { to: '/admin/pricing', label: 'Tarife & Preise' },
   { to: '/admin/products', label: 'Produkte & Hardware' },
   { to: '/admin/commission', label: 'Provision' },

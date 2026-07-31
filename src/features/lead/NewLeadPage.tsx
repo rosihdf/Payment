@@ -70,14 +70,14 @@ export function NewLeadPage() {
           showToast('Bitte prüfen Sie die markierten Felder.', 'error');
           focusFirstError();
         } else {
-          showToast('Lead konnte nicht gespeichert werden', 'error');
+          showToast('Kunde konnte nicht gespeichert werden', 'error');
         }
         setIsSubmitting(false);
         return;
       }
 
       await leadDraftService.clearDraft(currentUser.id);
-      showToast('Lead wurde gespeichert', 'success');
+      showToast('Kunde wurde gespeichert', 'success');
       setCreatedLeadId(result.lead.id);
     })();
   };
@@ -114,11 +114,11 @@ export function NewLeadPage() {
   return (
     <section>
       <PageHeader
-        title="Neuen Lead aufnehmen"
+        title="Neuen Kunden aufnehmen"
         subtitle="Interessent und aktuelle Payment-Situation erfassen"
         actions={
           <Link className={styles.backLink} to="/leads">
-            Zur Leadliste
+            Zur Kundenliste
           </Link>
         }
       />

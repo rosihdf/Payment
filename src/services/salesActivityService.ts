@@ -22,6 +22,7 @@ export interface SalesActivityFilters {
   leadId?: string | null;
   offerId?: string | null;
   contractId?: string | null;
+  activationId?: string | null;
   comparisonSessionId?: string | null;
   from?: string | null;
   to?: string | null;
@@ -77,6 +78,9 @@ export class SalesActivityService {
           return false;
         }
         if (filters.contractId !== undefined && activity.contractId !== filters.contractId) {
+          return false;
+        }
+        if (filters.activationId !== undefined && activity.activationId !== filters.activationId) {
           return false;
         }
         if (
@@ -135,6 +139,7 @@ export class SalesActivityService {
       offerId: input.offerId ?? null,
       contractId: input.contractId ?? null,
       contractVersionId: input.contractVersionId ?? null,
+      activationId: input.activationId ?? null,
       taskId: input.taskId ?? null,
       isSystem: false,
       editable: true,
@@ -173,6 +178,7 @@ export class SalesActivityService {
       offerId: input.offerId ?? null,
       contractId: input.contractId ?? null,
       contractVersionId: input.contractVersionId ?? null,
+      activationId: input.activationId ?? null,
       taskId: input.taskId ?? null,
       isSystem: true,
       editable: false,

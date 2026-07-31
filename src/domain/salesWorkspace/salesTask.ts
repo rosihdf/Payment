@@ -20,7 +20,20 @@ export type SalesTaskType =
   | 'process_termination'
   | 'winback'
   | 'close_contract'
-  | 'request_contract_document';
+  | 'request_contract_document'
+  | 'start_activation'
+  | 'review_activation_checklist'
+  | 'request_activation_document'
+  | 'submit_activation_application'
+  | 'follow_up_activation_application'
+  | 'process_hardware_deviation'
+  | 'ship_hardware'
+  | 'setup_hardware'
+  | 'record_test_payment'
+  | 'confirm_go_live'
+  | 'resolve_activation_blocker'
+  | 'complete_activation'
+  | 'handover_activation';
 
 export type SalesTaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
 
@@ -49,6 +62,19 @@ export const SALES_TASK_TYPE_LABELS: Record<SalesTaskType, string> = {
   winback: 'Rückgewinnung',
   close_contract: 'Vertragsende abschließen',
   request_contract_document: 'Dokument nachfordern',
+  start_activation: 'Aktivierung starten',
+  review_activation_checklist: 'Checkliste prüfen',
+  request_activation_document: 'Unterlage nachfordern',
+  submit_activation_application: 'Antrag einreichen',
+  follow_up_activation_application: 'Antrag nachfassen',
+  process_hardware_deviation: 'Hardwareabweichung bearbeiten',
+  ship_hardware: 'Hardware versenden',
+  setup_hardware: 'Hardware einrichten',
+  record_test_payment: 'Testzahlung durchführen',
+  confirm_go_live: 'Go-live bestätigen',
+  resolve_activation_blocker: 'Blocker lösen',
+  complete_activation: 'Aktivierung abschließen',
+  handover_activation: 'Übergabe vorbereiten',
 };
 
 export const SALES_TASK_STATUS_LABELS: Record<SalesTaskStatus, string> = {
@@ -84,6 +110,7 @@ export interface SalesTask {
   offerId: string | null;
   contractId: string | null;
   contractVersionId: string | null;
+  activationId: string | null;
   wizardEnabled: boolean;
   origin: SalesTaskOrigin;
   /** Stable key for automatic/idempotent tasks, e.g. auto:continue_calculation:session_xyz */
@@ -105,6 +132,7 @@ export interface CreateSalesTaskInput {
   offerId?: string | null;
   contractId?: string | null;
   contractVersionId?: string | null;
+  activationId?: string | null;
   wizardEnabled?: boolean;
   origin?: SalesTaskOrigin;
   sourceKey?: string | null;
@@ -124,5 +152,6 @@ export interface UpdateSalesTaskInput {
   offerId?: string | null;
   contractId?: string | null;
   contractVersionId?: string | null;
+  activationId?: string | null;
   completionNote?: string;
 }

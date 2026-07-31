@@ -33,12 +33,12 @@ describe('A11.5 BestPay history navigation', () => {
     expect(
       await screen.findByRole('heading', { name: 'Gespeicherte BestPay-Berechnungen' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Neue Berechnung' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Neuer Vergleich' })).toBeInTheDocument();
     expect(screen.getByLabelText('Berechnungen durchsuchen')).toBeInTheDocument();
   });
 
-  it('zeigt Einstieg auf dem Rechner-Hub', async () => {
+  it('zeigt Einstieg auf dem Beratungshub', async () => {
     renderAtRoute('/calculator');
-    expect(await screen.findByRole('link', { name: 'Gespeicherte Berechnungen' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Gespeicherte Vergleiche' })).toBeInTheDocument();
   });
 });

@@ -193,15 +193,15 @@ export function SalesWorkspacePage() {
   return (
     <section>
       <PageHeader
-        title="Vertrieb"
-        subtitle="Offene Vorgänge, nächste Aufgaben und laufende Abschlüsse im Blick behalten."
+        title="Arbeitsplatz"
+        subtitle="Offene Vorgänge und nächste Schritte – Einstieg über den Kunden."
         actions={
           <div className={styles.headerActions}>
-            <Link className={styles.primaryAction} to={SALES_WIZARD_NEW_PATH}>
-              Neuen Vertriebsfall starten
+            <Link className={styles.primaryAction} to="/leads/new">
+              Neuer Kunde
             </Link>
-            <Link className={styles.secondaryAction} to="/leads/new">
-              Neuer Lead
+            <Link className={styles.secondaryAction} to={SALES_WIZARD_NEW_PATH}>
+              Beratung starten
             </Link>
             <button
               type="button"
@@ -215,13 +215,12 @@ export function SalesWorkspacePage() {
       />
 
       <p className={styles.intro}>
-        Handlungsorientierter Vertriebsarbeitsplatz. Der Rechner bleibt für freie
-        Einzelberechnungen verfügbar.
+        Ihr Tagesüberblick. Beratung, Angebot und Onboarding öffnen Sie vom jeweiligen Kunden aus.
       </p>
 
       <div className={styles.toolbar}>
         <SearchField
-          label="Vertrieb durchsuchen"
+          label="Arbeitsplatz durchsuchen"
           value={query}
           onChange={setQuery}
           placeholder="Firma, Lead, Angebot, Aufgabe…"
@@ -327,7 +326,7 @@ export function SalesWorkspacePage() {
 
       {isLoading || !view || !metrics ? (
         <EmptyState
-          title="Vertriebsarbeitsplatz wird geladen"
+          title="Arbeitsplatz wird geladen"
           description="Kennzahlen und offene Vorgänge werden vorbereitet."
         />
       ) : (
@@ -341,9 +340,9 @@ export function SalesWorkspacePage() {
                 [
                   ['Überfällig', metrics.overdueTasks],
                   ['Heute fällig', metrics.todayTasks],
-                  ['Offene Leads', metrics.openLeads],
-                  ['Vertriebsprozesse offen', metrics.openWizardSessions],
-                  ['Berechnungen', metrics.openCalculations],
+                  ['Offene Kunden', metrics.openLeads],
+                  ['Beratungen offen', metrics.openWizardSessions],
+                  ['Vergleiche offen', metrics.openCalculations],
                   ['In Freigabe', metrics.offersInApproval],
                   ['Nachfassen', metrics.openFollowUps],
                   ['Erwartete Abschlüsse', metrics.expectedClosings],
@@ -453,7 +452,7 @@ export function SalesWorkspacePage() {
               {view.pipeline[mobilePhase].length === 0 ? (
                 <EmptyState
                   title="Keine Fälle in dieser Phase"
-                  description="Wechseln Sie die Phase oder starten Sie einen neuen Vertriebsfall über den Vertriebsprozess."
+                  description="Wechseln Sie die Phase oder starten Sie eine Beratung über den Kunden."
                 />
               ) : (
                 <ul className={styles.list}>
@@ -507,7 +506,7 @@ export function SalesWorkspacePage() {
             </h2>
             <ul className={styles.list}>
               <li className={styles.cardMeta}>
-                Unvollständige Vertriebsprozesse: {view.openItems.incompleteWizards.length}
+                Unvollständige Beratungen: {view.openItems.incompleteWizards.length}
               </li>
               <li className={styles.cardMeta}>
                 Veraltete Berechnungen: {view.openItems.staleCalculations.length}
@@ -528,7 +527,7 @@ export function SalesWorkspacePage() {
             {view.openItems.incompleteWizards.length === 0 ? (
               <EmptyState
                 title="Keine laufenden Vorgänge"
-                description="Starten Sie einen neuen Vertriebsfall über den Vertriebsprozess."
+                description="Starten Sie eine Beratung über den Kunden oder „Beratung starten“."
               />
             ) : (
               <ul className={styles.list}>

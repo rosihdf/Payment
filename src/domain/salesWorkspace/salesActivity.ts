@@ -32,7 +32,29 @@ export type SalesActivityType =
   | 'contract_suspended'
   | 'contract_reactivated'
   | 'contract_ended'
-  | 'contract_document_created';
+  | 'contract_document_created'
+  | 'activation_started'
+  | 'activation_status_changed'
+  | 'activation_checklist_updated'
+  | 'activation_document_requested'
+  | 'activation_document_reviewed'
+  | 'activation_application_created'
+  | 'activation_application_submitted'
+  | 'activation_application_inquiry'
+  | 'activation_application_approved'
+  | 'activation_application_rejected'
+  | 'activation_hardware_updated'
+  | 'activation_hardware_deviation'
+  | 'activation_setup_updated'
+  | 'activation_test_recorded'
+  | 'activation_blocker_created'
+  | 'activation_blocker_resolved'
+  | 'activation_go_live_confirmed'
+  | 'activation_go_live_revoked'
+  | 'activation_completed'
+  | 'activation_cancelled'
+  | 'activation_handover_ready'
+  | 'activation_handover_confirmed';
 
 export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   note: 'Notiz',
@@ -67,6 +89,28 @@ export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   contract_reactivated: 'Vertrag reaktiviert',
   contract_ended: 'Vertrag beendet',
   contract_document_created: 'Vertragsdokument erzeugt',
+  activation_started: 'Aktivierung gestartet',
+  activation_status_changed: 'Aktivierungsstatus geändert',
+  activation_checklist_updated: 'Checkliste aktualisiert',
+  activation_document_requested: 'Unterlage angefordert',
+  activation_document_reviewed: 'Unterlage geprüft',
+  activation_application_created: 'Antrag angelegt',
+  activation_application_submitted: 'Antrag eingereicht',
+  activation_application_inquiry: 'Rückfrage zum Antrag',
+  activation_application_approved: 'Antrag genehmigt',
+  activation_application_rejected: 'Antrag abgelehnt',
+  activation_hardware_updated: 'Hardware aktualisiert',
+  activation_hardware_deviation: 'Hardwareabweichung erfasst',
+  activation_setup_updated: 'Einrichtung aktualisiert',
+  activation_test_recorded: 'Testzahlung erfasst',
+  activation_blocker_created: 'Blocker erfasst',
+  activation_blocker_resolved: 'Blocker gelöst',
+  activation_go_live_confirmed: 'Go-live bestätigt',
+  activation_go_live_revoked: 'Go-live zurückgenommen',
+  activation_completed: 'Aktivierung abgeschlossen',
+  activation_cancelled: 'Aktivierung abgebrochen',
+  activation_handover_ready: 'Übergabe vorbereitet',
+  activation_handover_confirmed: 'Übergabe bestätigt',
 };
 
 export interface SalesActivity {
@@ -82,6 +126,7 @@ export interface SalesActivity {
   offerId: string | null;
   contractId: string | null;
   contractVersionId: string | null;
+  activationId: string | null;
   taskId: string | null;
   isSystem: boolean;
   editable: boolean;
@@ -101,6 +146,7 @@ export interface CreateSalesActivityInput {
   offerId?: string | null;
   contractId?: string | null;
   contractVersionId?: string | null;
+  activationId?: string | null;
   taskId?: string | null;
   isSystem?: boolean;
   editable?: boolean;

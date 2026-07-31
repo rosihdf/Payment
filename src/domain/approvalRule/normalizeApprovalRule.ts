@@ -15,12 +15,6 @@ export function normalizeApprovalRule(raw: unknown): ApprovalRule | null {
     return null;
   }
 
-  const reviewerRole = entry.requiredReviewerRole;
-  const normalizedReviewerRole =
-    reviewerRole === 'admin' || reviewerRole === 'reviewer' || reviewerRole === 'sales_lead'
-      ? reviewerRole
-      : 'admin';
-
   const thresholdUnit = entry.thresholdUnit;
   const normalizedThresholdUnit =
     thresholdUnit === 'cents' ||
@@ -42,7 +36,8 @@ export function normalizeApprovalRule(raw: unknown): ApprovalRule | null {
     thresholdValue: typeof entry.thresholdValue === 'number' ? entry.thresholdValue : null,
     thresholdUnit: normalizedThresholdUnit,
     tariffId: typeof entry.tariffId === 'string' ? entry.tariffId : null,
-    requiredReviewerRole: normalizedReviewerRole,
+    // Historische reviewer/sales_lead-Werte werden auf Administrator normalisiert.
+    requiredReviewerRole: 'admin',
     fourEyesRequired: entry.fourEyesRequired === true,
     validFrom: typeof entry.validFrom === 'string' ? entry.validFrom : null,
     validUntil: typeof entry.validUntil === 'string' ? entry.validUntil : null,

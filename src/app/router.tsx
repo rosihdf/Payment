@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { CalculatorPage } from '../features/calculator/CalculatorPage';
 import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
@@ -6,13 +7,14 @@ import { BestPayComparisonHistoryPage } from '../features/calculator/BestPayComp
 import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
 import { SalesWizardPage } from '../features/calculator/SalesWizardPage';
 import { SalesWorkspacePage } from '../features/sales/SalesWorkspacePage';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
 import { OfferDetailPage } from '../features/offer/OfferDetailPage';
 import { OffersPage } from '../features/offer/OffersPage';
 import { ContractDetailPage } from '../features/contract/ContractDetailPage';
 import { ContractsPage } from '../features/contract/ContractsPage';
+import { ActivationDetailPage } from '../features/activation/ActivationDetailPage';
+import { ActivationsPage } from '../features/activation/ActivationsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
@@ -44,7 +46,7 @@ export const appRoutes: RouteObject[] = [
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <Navigate to="/sales" replace /> },
       { path: 'leads', element: <LeadsPage /> },
       { path: 'leads/new', element: <NewLeadPage /> },
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
@@ -63,6 +65,8 @@ export const appRoutes: RouteObject[] = [
       { path: 'offers/:id', element: <OfferDetailPage /> },
       { path: 'contracts', element: <ContractsPage /> },
       { path: 'contracts/:contractId', element: <ContractDetailPage /> },
+      { path: 'activations', element: <ActivationsPage /> },
+      { path: 'activations/:activationId', element: <ActivationDetailPage /> },
       { path: 'products', element: <ProductsPage /> },
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },

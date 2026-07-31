@@ -4,6 +4,11 @@ import { LocalApprovalRuleRepository } from '../repositories/local/LocalApproval
 import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
 import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
 import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
+import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
+import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
+import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
+import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
+import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
 import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
 import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
 import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
@@ -60,6 +65,11 @@ function createTestServices() {
     contractRepository: new LocalContractRepository(),
     contractVersionRepository: new LocalContractVersionRepository(),
     contractTerminationRepository: new LocalContractTerminationRepository(),
+    activationCaseRepository: new LocalActivationCaseRepository(),
+    activationChecklistRepository: new LocalActivationChecklistRepository(),
+    activationApplicationRepository: new LocalActivationApplicationRepository(),
+    activationHardwareRepository: new LocalActivationHardwareRepository(),
+    activationBlockerRepository: new LocalActivationBlockerRepository(),
   });
 }
 
@@ -303,6 +313,7 @@ function seedLargeContractSet() {
       contractId,
       contractVersionId: `${contractId}_v5`,
       terminationId: null,
+      activationId: null,
       type: 'contract',
       fileName: `doc_${index}.pdf`,
       mimeType: 'application/pdf',

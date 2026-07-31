@@ -36,16 +36,13 @@ describe('Calculator page', () => {
 
   it('loads the calculator page', async () => {
     renderAtRoute('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'BestPay' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Vertriebs-Wizard' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Vertriebsprozess' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Neue Berechnung' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Gespeicherte Berechnungen' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zum Vertriebsprozess' })).toBeInTheDocument();
-    expect(
-      screen.getByText('Bisherige Payment-Kosten manuell mit einem aktiven BestPay-Tarif vergleichen.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gespeicherte Vergleiche' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Schnellvergleich' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('BestPay-Tarif')).toBeInTheDocument();
   });
 
   it('shows active tariffs in the select', async () => {

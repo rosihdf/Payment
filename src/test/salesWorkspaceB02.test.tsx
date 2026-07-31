@@ -39,8 +39,8 @@ describe('B02 Sales Workspace', () => {
 
   it('öffnet /sales über die Hauptnavigation', async () => {
     renderAtRoute('/sales');
-    expect(await screen.findByRole('heading', { name: 'Vertrieb' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Neuen Vertriebsfall starten' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
     expect(screen.getByText(/Meine Vorgänge/)).toBeInTheDocument();
   });
 

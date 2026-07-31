@@ -24,21 +24,21 @@ function renderApp(initialRoute = '/', currentUserId = 'user_001') {
 }
 
 describe('Routing', () => {
-  it('renders the dashboard on /', async () => {
+  it('leitet / auf den Arbeitsplatz um', async () => {
     renderApp('/');
-    expect(await screen.findByRole('heading', { name: /Willkommen/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
   });
 
-  it('renders the leads page on /leads', async () => {
+  it('renders the customers page on /leads', async () => {
     renderApp('/leads');
-    expect(await screen.findByRole('heading', { name: 'Leads' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kunden' })).toBeInTheDocument();
   });
 
-  it('renders the new lead page with functional form on /leads/new', async () => {
+  it('renders the new customer page with functional form on /leads/new', async () => {
     renderApp('/leads/new');
-    expect(await screen.findByRole('heading', { name: 'Neuen Lead aufnehmen' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Neuen Kunden aufnehmen' })).toBeInTheDocument();
     expect(screen.getByLabelText('Firmenname')).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Lead speichern' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Kunde speichern' })).toBeEnabled();
   });
 
   it('renders lead detail on /leads/:id', async () => {
@@ -48,13 +48,13 @@ describe('Routing', () => {
 
   it('renders the edit lead page on /leads/:id/edit', async () => {
     renderApp('/leads/lead_001/edit');
-    expect(await screen.findByRole('heading', { name: 'Lead bearbeiten' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kunde bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Änderungen speichern' })).toBeEnabled();
   });
 
   it('renders the calculator page with comparison layout on /calculator', async () => {
     renderApp('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Rechner' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Angebot von BestPay' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vergleichsergebnis' })).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('Routing', () => {
   it('shows access denied for non-admin on /admin/tariffs', async () => {
     renderApp('/admin/tariffs', 'user_001');
     expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zurück zur Startseite' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zum Arbeitsplatz' })).toBeInTheDocument();
   });
 
   it('renders the profile page on /profile', async () => {

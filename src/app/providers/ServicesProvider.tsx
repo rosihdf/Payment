@@ -23,6 +23,11 @@ import { LocalDocumentTemplateRepository } from '../../repositories/local/LocalD
 import { LocalContractRepository } from '../../repositories/local/LocalContractRepository';
 import { LocalContractVersionRepository } from '../../repositories/local/LocalContractVersionRepository';
 import { LocalContractTerminationRepository } from '../../repositories/local/LocalContractTerminationRepository';
+import { LocalActivationCaseRepository } from '../../repositories/local/LocalActivationCaseRepository';
+import { LocalActivationChecklistRepository } from '../../repositories/local/LocalActivationChecklistRepository';
+import { LocalActivationApplicationRepository } from '../../repositories/local/LocalActivationApplicationRepository';
+import { LocalActivationHardwareRepository } from '../../repositories/local/LocalActivationHardwareRepository';
+import { LocalActivationBlockerRepository } from '../../repositories/local/LocalActivationBlockerRepository';
 import { createServices } from '../../services';
 import { seedDemoData } from '../../services/demoDataService';
 import { ServicesContext } from '../../hooks/useServices';
@@ -60,6 +65,11 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
       contractRepository: new LocalContractRepository(),
       contractVersionRepository: new LocalContractVersionRepository(),
       contractTerminationRepository: new LocalContractTerminationRepository(),
+      activationCaseRepository: new LocalActivationCaseRepository(),
+      activationChecklistRepository: new LocalActivationChecklistRepository(),
+      activationApplicationRepository: new LocalActivationApplicationRepository(),
+      activationHardwareRepository: new LocalActivationHardwareRepository(),
+      activationBlockerRepository: new LocalActivationBlockerRepository(),
     });
   }, []);
 

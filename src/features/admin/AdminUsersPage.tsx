@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { USER_ROLE_LABELS, USER_STATUS_LABELS, type User, type UserRole } from '../../domain/user/user';
+import {
+  ASSIGNABLE_USER_ROLES,
+  USER_ROLE_DESCRIPTIONS,
+  USER_ROLE_LABELS,
+  USER_STATUS_LABELS,
+  type User,
+  type UserRole,
+} from '../../domain/user/user';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { SearchField } from '../../components/common/SearchField';
 import { AdminLayout, useAdminContext } from './AdminLayout';
@@ -79,7 +86,7 @@ export function AdminUsersPage() {
     }
   };
 
-  const roleOptions: UserRole[] = ['admin', 'sales_lead', 'field_service', 'reviewer', 'readonly'];
+  const roleOptions: UserRole[] = [...ASSIGNABLE_USER_ROLES];
 
   return (
     <AdminLayout
@@ -151,10 +158,8 @@ export function AdminUsersPage() {
 }
 
 export function AdminRolesPage() {
-  const roles: UserRole[] = ['admin', 'sales_lead', 'field_service', 'reviewer', 'readonly'];
-
   return (
-    <AdminLayout title="Rollen und Rechte">
+    <AdminLayout title="Rollen">
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
@@ -164,10 +169,10 @@ export function AdminRolesPage() {
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => (
+            {ASSIGNABLE_USER_ROLES.map((role) => (
               <tr key={role}>
                 <td>{USER_ROLE_LABELS[role]}</td>
-                <td>Zentrale Rechte werden service-seitig über das Permission-Modell geprüft.</td>
+                <td>{USER_ROLE_DESCRIPTIONS[role]}</td>
               </tr>
             ))}
           </tbody>

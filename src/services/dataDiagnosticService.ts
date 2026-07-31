@@ -6,6 +6,13 @@ import {
 } from '../domain/contract/normalizeContract';
 import { normalizeOffers } from '../domain/offer/normalizeOffer';
 import { normalizeOfferVersions } from '../domain/offer/normalizeOfferVersion';
+import {
+  normalizeActivationApplications,
+  normalizeActivationBlockers,
+  normalizeActivationCases,
+  normalizeActivationChecklistItems,
+  normalizeActivationHardwareList,
+} from '../domain/activation/normalizeActivation';
 import type { UserContext } from '../domain/user/user';
 import { generateId } from '../utils/id';
 import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
@@ -367,6 +374,178 @@ export class DataDiagnosticService {
           entityId: String(row.id ?? 'unknown'),
           description: 'Task mit fehlendem Contract',
           recommendedAction: 'Contract-Bezug prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const activationCases = normalizeActivationCases(readStorageItem(STORAGE_KEYS.activationCases) ?? []);
+    const activationChecklists = normalizeActivationChecklistItems(
+      readStorageItem(STORAGE_KEYS.activationChecklists) ?? [],
+    );
+    const activationApplications = normalizeActivationApplications(
+      readStorageItem(STORAGE_KEYS.activationApplications) ?? [],
+    );
+    const activationHardware = normalizeActivationHardwareList(
+      readStorageItem(STORAGE_KEYS.activationHardware) ?? [],
+    );
+    const activationBlockers = normalizeActivationBlockers(
+      readStorageItem(STORAGE_KEYS.activationBlockers) ?? [],
+    );
+    const activationIds = new Set(activationCases.map((activation) => activation.id));
+    const activationNumbers = new Map<string, string>();
+    const activationsByContract = new Map<string, string[]>();
+
+    for (const activation of activationCases) {
+      if (activationNumbers.has(activation.activationNumber)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'critical',
+          area: 'activation_case',
+          entityId: activation.id,
+          description: `Doppelte Aktivierungsnummer ${activation.activationNumber}`,
+          recommendedAction: 'Aktivierungsnummer prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      } else {
+        activationNumbers.set(activation.activationNumber, activation.id);
+      }
+
+      if (!contractIds.has(activation.contractId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_case',
+          entityId: activation.id,
+          description: 'Aktivierung ohne gültigen Vertrag',
+          recommendedAction: 'Vertragsbezug prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      } else {
+        const list = activationsByContract.get(activation.contractId) ?? [];
+        list.push(activation.id);
+        activationsByContract.set(activation.contractId, list);
+      }
+
+      if (
+        activation.contractVersionId &&
+        !contractVersions.some((version) => version.id === activation.contractVersionId)
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'activation_case',
+          entityId: activation.id,
+          description: 'Aktivierung mit fehlender Vertragsversion',
+          recommendedAction: 'Vertragsversion prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const [contractId, linked] of activationsByContract) {
+      if (linked.length > 1) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'critical',
+          area: 'activation_case',
+          entityId: contractId,
+          description: 'Mehrere Aktivierungen für denselben Vertrag',
+          recommendedAction: 'Doppelte Aktivierungserzeugung prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const item of activationChecklists) {
+      if (!activationIds.has(item.activationId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_checklist',
+          entityId: item.id,
+          description: 'Checklistenpunkt ohne Aktivierung',
+          recommendedAction: 'Verwaisten Eintrag isolieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const application of activationApplications) {
+      if (!activationIds.has(application.activationId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_application',
+          entityId: application.id,
+          description: 'Antrag ohne Aktivierung',
+          recommendedAction: 'Verwaisten Eintrag isolieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const hardwareSerials = new Map<string, string>();
+    for (const hardware of activationHardware) {
+      if (!activationIds.has(hardware.activationId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_hardware',
+          entityId: hardware.id,
+          description: 'Hardwareeinheit ohne Aktivierung',
+          recommendedAction: 'Verwaisten Eintrag isolieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+      if (hardware.serialNumber) {
+        const existing = hardwareSerials.get(hardware.serialNumber);
+        if (existing && existing !== hardware.id) {
+          findings.push({
+            id: generateId('diagnostic'),
+            severity: 'warning',
+            area: 'activation_hardware',
+            entityId: hardware.id,
+            description: `Seriennummer ${hardware.serialNumber} mehrfach vergeben`,
+            recommendedAction: 'Seriennummern prüfen',
+            autoRepairable: false,
+            repairKey: null,
+          });
+        } else {
+          hardwareSerials.set(hardware.serialNumber, hardware.id);
+        }
+      }
+    }
+
+    for (const blocker of activationBlockers) {
+      if (!activationIds.has(blocker.activationId)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_blocker',
+          entityId: blocker.id,
+          description: 'Blocker ohne Aktivierung',
+          recommendedAction: 'Verwaisten Eintrag isolieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+      if (blocker.status === 'resolved' && !blocker.resolutionNote) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'activation_blocker',
+          entityId: blocker.id,
+          description: 'Gelöster Blocker ohne Lösungsvermerk',
+          recommendedAction: 'Lösung dokumentieren',
           autoRepairable: false,
           repairKey: null,
         });

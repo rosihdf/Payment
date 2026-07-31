@@ -76,7 +76,7 @@ export function ContractsPage() {
     <section>
       <PageHeader
         title="Verträge"
-        subtitle="Laufende Vertragsbeziehungen aus angenommenen Angeboten"
+        subtitle="Vertragsbeziehung zum Kunden – Einstieg bevorzugt über die Kundenakte"
       />
 
       {metrics ? (

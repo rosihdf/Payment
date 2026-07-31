@@ -1,12 +1,16 @@
-import { normalizeUsers } from '../domain/user/normalizeUser';
-import { CURRENT_USER_SCHEMA_VERSION } from '../domain/user/normalizeUser';
+import {
+  CURRENT_USER_SCHEMA_VERSION,
+  normalizeUsers,
+  rawUsersContainLegacyRoles,
+} from '../domain/user/normalizeUser';
 import type { User } from '../domain/user/user';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import { migrateApprovalRulesIfNeeded } from './approvalRuleStorageMigration';
 import { migrateAuditStorageIfNeeded } from './auditStorageMigration';
 import { migrateDocumentTemplatesIfNeeded } from './documentTemplateStorageMigration';
 
-export const CURRENT_USER_STORAGE_VERSION = 2;
+/** v3: Altrollen sales_lead/reviewer/readonly → admin/field_service */
+export const CURRENT_USER_STORAGE_VERSION = 3;
 export const CURRENT_ADMIN_STORAGE_VERSION = 1;
 
 const LEGACY_DEMO_EMAILS: Record<string, string> = {
@@ -14,6 +18,8 @@ const LEGACY_DEMO_EMAILS: Record<string, string> = {
   user_002: 'thomas.klein@demo.local',
   user_003: 'sarah.hoffmann@demo.local',
   user_004: 'michael.weber@demo.local',
+  user_005: 'eva.pruefer@demo.local',
+  user_006: 'readonly@demo.local',
 };
 
 export function migrateUserStorageIfNeeded(): void {
@@ -21,7 +27,11 @@ export function migrateUserStorageIfNeeded(): void {
   const rawUsers = readStorageItem<unknown[]>(STORAGE_KEYS.users) ?? [];
   const normalized = normalizeUsers(rawUsers);
 
-  if (currentVersion < CURRENT_USER_STORAGE_VERSION || normalized.length !== rawUsers.length) {
+  if (
+    currentVersion < CURRENT_USER_STORAGE_VERSION ||
+    normalized.length !== rawUsers.length ||
+    rawUsersContainLegacyRoles(rawUsers)
+  ) {
     const migrated = normalized.map((user) => ({
       ...user,
       email: user.email.includes('@') ? user.email : LEGACY_DEMO_EMAILS[user.id] ?? `${user.id}@demo.local`,
@@ -101,7 +111,7 @@ export function createDemoUserSeed(): User[] {
       id: 'user_003',
       name: 'Sarah Hoffmann',
       email: 'sarah.hoffmann@demo.local',
-      role: 'sales_lead',
+      role: 'admin',
       status: 'active',
       salesTeamId: 'team_001',
       createdAt: timestamp,
@@ -127,7 +137,7 @@ export function createDemoUserSeed(): User[] {
       id: 'user_005',
       name: 'Eva Prüfer',
       email: 'eva.pruefer@demo.local',
-      role: 'reviewer',
+      role: 'admin',
       status: 'active',
       salesTeamId: null,
       createdAt: timestamp,
@@ -140,7 +150,7 @@ export function createDemoUserSeed(): User[] {
       id: 'user_006',
       name: 'Read Only',
       email: 'readonly@demo.local',
-      role: 'readonly',
+      role: 'field_service',
       status: 'active',
       salesTeamId: null,
       createdAt: timestamp,

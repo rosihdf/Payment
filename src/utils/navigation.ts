@@ -10,37 +10,25 @@ export interface NavItem {
   permission?: import('../domain/permission/permission').Permission;
 }
 
+/**
+ * Vereinfachte operative Navigation.
+ * Fachrouten (/offers, /contracts, /activations, Wizard) bleiben erreichbar,
+ * erscheinen aber nicht mehr als parallele Hauptmenüpunkte.
+ */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Start', icon: 'home' },
-  { to: '/sales', label: 'Vertrieb', icon: 'sales' },
-  { to: '/leads', label: 'Leads', icon: 'leads' },
-  { to: '/offers', label: 'Angebote', icon: 'offers' },
-  { to: '/profile', label: 'Profil', icon: 'profile' },
+  { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
+  { to: '/leads', label: 'Kunden', icon: 'leads' },
+  { to: '/calculator', label: 'Beratung', icon: 'calculator' },
 ];
 
-/** Operative Sidebar-Reihenfolge, gefolgt von Verwaltung und Profil. */
 export const SIDEBAR_NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Start', icon: 'home' },
-  { to: '/sales', label: 'Vertrieb', icon: 'sales' },
-  { to: SALES_WIZARD_PATH, label: 'Vertriebsprozess', icon: 'wizard' },
-  { to: '/leads', label: 'Leads', icon: 'leads' },
-  { to: '/offers', label: 'Angebote', icon: 'offers' },
-  { to: '/contracts', label: 'Verträge', icon: 'contracts', permission: 'contracts.view_own' },
-  { to: '/calculator', label: 'Rechner', icon: 'calculator' },
-  { to: '/products', label: 'Produkte', icon: 'products' },
-  { to: '/admin', label: 'Administration', icon: 'admin', permission: 'admin.access' },
-  { to: '/profile', label: 'Profil', icon: 'profile' },
+  { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
+  { to: '/leads', label: 'Kunden', icon: 'leads' },
+  { to: '/calculator', label: 'Beratung', icon: 'calculator' },
+  { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
 ];
 
-export const OPERATIVE_SIDEBAR_NAV_LABELS = [
-  'Start',
-  'Vertrieb',
-  'Vertriebsprozess',
-  'Leads',
-  'Angebote',
-  'Verträge',
-  'Rechner',
-] as const;
+export const OPERATIVE_SIDEBAR_NAV_LABELS = ['Arbeitsplatz', 'Kunden', 'Beratung'] as const;
 
 export function filterNavItemsByRole(items: NavItem[], role: UserRole): NavItem[] {
   return items.filter((item) => {
@@ -52,23 +40,38 @@ export function filterNavItemsByRole(items: NavItem[], role: UserRole): NavItem[
 }
 
 export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean {
-  if (item.to === '/') {
-    return pathname === '/';
-  }
-  if (item.to === SALES_WIZARD_PATH) {
-    return pathname === SALES_WIZARD_PATH || pathname.startsWith(`${SALES_WIZARD_PATH}/`);
-  }
   if (item.to === '/sales') {
     return (
       pathname === '/sales' ||
+      pathname === '/' ||
       (pathname.startsWith('/sales/') && !pathname.startsWith(SALES_WIZARD_PATH))
     );
   }
+  if (item.to === '/leads') {
+    return (
+      pathname === '/leads' ||
+      pathname.startsWith('/leads/') ||
+      pathname === '/offers' ||
+      pathname.startsWith('/offers/') ||
+      pathname === '/contracts' ||
+      pathname.startsWith('/contracts/') ||
+      pathname === '/activations' ||
+      pathname.startsWith('/activations/')
+    );
+  }
   if (item.to === '/calculator') {
-    return pathname === '/calculator' || pathname.startsWith('/calculator/');
+    return (
+      pathname === '/calculator' ||
+      pathname.startsWith('/calculator/') ||
+      pathname === SALES_WIZARD_PATH ||
+      pathname.startsWith(`${SALES_WIZARD_PATH}/`)
+    );
   }
   if (item.to === '/admin') {
     return pathname === '/admin' || pathname.startsWith('/admin/');
+  }
+  if (item.to === '/profile') {
+    return pathname === '/profile' || pathname.startsWith('/profile/');
   }
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }

@@ -4,6 +4,23 @@
   gap: var(--space-1);
 }
 
+.profileLink {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.profileLink:hover {
+  color: var(--color-text);
+}
+
+.demoHint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
 .label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);

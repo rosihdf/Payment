@@ -95,7 +95,7 @@ export function OffersPage() {
     <section>
       <PageHeader
         title="Angebote"
-        subtitle="BestPay-Angebote für Leads erstellen und verwalten"
+        subtitle="Angebote zum Kunden – bevorzugt über Beratung und Kundenakte öffnen"
         actions={
           <Link className={styles.primaryAction} to="/offers/new">
             Neues Angebot

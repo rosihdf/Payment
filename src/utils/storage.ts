@@ -69,6 +69,12 @@ export const STORAGE_KEYS = {
   contractVersions: 'amrtech.contractVersions',
   contractTerminations: 'amrtech.contractTerminations',
   contractStorageVersion: 'amrtech.contractStorageVersion',
+  activationCases: 'amrtech.activationCases',
+  activationChecklists: 'amrtech.activationChecklists',
+  activationApplications: 'amrtech.activationApplications',
+  activationHardware: 'amrtech.activationHardware',
+  activationBlockers: 'amrtech.activationBlockers',
+  activationStorageVersion: 'amrtech.activationStorageVersion',
 } as const;
 
 export function readStorageItem<T>(key: string): T | null {

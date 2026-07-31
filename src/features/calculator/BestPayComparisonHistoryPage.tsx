@@ -222,10 +222,10 @@ export function BestPayComparisonHistoryPage() {
         actions={
           <div className={styles.actions}>
             <Link className={styles.secondaryAction} to="/calculator">
-              Zum Rechner
+              Zur Beratung
             </Link>
             <Link className={styles.primaryAction} to="/calculator/bestpay?new=1">
-              Neue Berechnung
+              Neuer Vergleich
             </Link>
           </div>
         }

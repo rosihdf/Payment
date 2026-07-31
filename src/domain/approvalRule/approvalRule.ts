@@ -23,7 +23,7 @@ export interface ApprovalRule {
   thresholdValue: number | null;
   thresholdUnit: 'cents' | 'percent_tenths' | 'months' | 'none';
   tariffId: string | null;
-  requiredReviewerRole: 'admin' | 'reviewer' | 'sales_lead';
+  requiredReviewerRole: 'admin';
   fourEyesRequired: boolean;
   validFrom: string | null;
   validUntil: string | null;

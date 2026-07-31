@@ -248,7 +248,7 @@ export function BestPayComparisonPage() {
               Entwurf verwerfen
             </button>
             <Link className={styles.secondaryAction} to="/calculator">
-              Zurück zum Rechner
+              Zur Beratung
             </Link>
           </div>
         }

@@ -24,8 +24,8 @@ describe('Repositories', () => {
     const users = await repository.getAll();
 
     expect(users).toHaveLength(6);
-    expect(users.filter((user) => user.role === 'field_service')).toHaveLength(2);
-    expect(users.filter((user) => user.role === 'admin')).toHaveLength(1);
+    expect(users.filter((user) => user.role === 'field_service')).toHaveLength(3);
+    expect(users.filter((user) => user.role === 'admin')).toHaveLength(3);
   });
 
   it('returns current user and allows switching', async () => {

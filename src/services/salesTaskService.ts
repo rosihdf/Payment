@@ -33,6 +33,7 @@ export interface SalesTaskFilters {
   leadId?: string | null;
   offerId?: string | null;
   contractId?: string | null;
+  activationId?: string | null;
   comparisonSessionId?: string | null;
   dueBucket?: 'overdue' | 'today' | 'upcoming' | 'undated' | 'all';
   query?: string;
@@ -147,6 +148,9 @@ export class SalesTaskService {
         if (filters.contractId !== undefined && task.contractId !== filters.contractId) {
           return false;
         }
+        if (filters.activationId !== undefined && task.activationId !== filters.activationId) {
+          return false;
+        }
         if (
           filters.comparisonSessionId !== undefined &&
           task.comparisonSessionId !== filters.comparisonSessionId
@@ -234,6 +238,7 @@ export class SalesTaskService {
       offerId: input.offerId ?? null,
       contractId: input.contractId ?? null,
       contractVersionId: input.contractVersionId ?? null,
+      activationId: input.activationId ?? null,
       wizardEnabled: Boolean(input.wizardEnabled),
       origin: input.origin ?? 'manual',
       sourceKey: input.sourceKey ?? null,
@@ -312,6 +317,10 @@ export class SalesTaskService {
           ? patch.comparisonSessionId
           : task.comparisonSessionId,
       offerId: patch.offerId !== undefined ? patch.offerId : task.offerId,
+      contractId: patch.contractId !== undefined ? patch.contractId : task.contractId,
+      contractVersionId:
+        patch.contractVersionId !== undefined ? patch.contractVersionId : task.contractVersionId,
+      activationId: patch.activationId !== undefined ? patch.activationId : task.activationId,
       completionNote:
         patch.completionNote !== undefined ? patch.completionNote.trim() : task.completionNote,
       updatedAt: nowIso(),

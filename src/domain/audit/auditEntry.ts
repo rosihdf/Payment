@@ -24,7 +24,18 @@ export type AuditAction =
   | 'contract_version_created'
   | 'contract_version_activated'
   | 'contract_termination_recorded'
-  | 'contract_termination_confirmed';
+  | 'contract_termination_confirmed'
+  | 'activation_started'
+  | 'activation_status_changed'
+  | 'activation_application_submitted'
+  | 'activation_application_decided'
+  | 'activation_hardware_deviation'
+  | 'activation_blocker_created'
+  | 'activation_blocker_resolved'
+  | 'activation_go_live_confirmed'
+  | 'activation_go_live_revoked'
+  | 'activation_completed'
+  | 'activation_cancelled';
 
 export type AuditEntityType =
   | 'user'
@@ -38,7 +49,11 @@ export type AuditEntityType =
   | 'system'
   | 'contract'
   | 'contract_version'
-  | 'contract_termination';
+  | 'contract_termination'
+  | 'activation_case'
+  | 'activation_application'
+  | 'activation_hardware'
+  | 'activation_blocker';
 
 export interface AuditChangeField {
   field: string;
@@ -90,4 +105,15 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   contract_version_activated: 'Vertragsversion aktiviert',
   contract_termination_recorded: 'Kündigung erfasst',
   contract_termination_confirmed: 'Kündigung bestätigt',
+  activation_started: 'Aktivierung gestartet',
+  activation_status_changed: 'Aktivierungsstatus geändert',
+  activation_application_submitted: 'Antrag eingereicht',
+  activation_application_decided: 'Antrag entschieden',
+  activation_hardware_deviation: 'Hardwareabweichung erfasst',
+  activation_blocker_created: 'Blocker erfasst',
+  activation_blocker_resolved: 'Blocker gelöst',
+  activation_go_live_confirmed: 'Go-live bestätigt',
+  activation_go_live_revoked: 'Go-live zurückgenommen',
+  activation_completed: 'Aktivierung abgeschlossen',
+  activation_cancelled: 'Aktivierung abgebrochen',
 };

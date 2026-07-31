@@ -253,10 +253,10 @@ export function OfferDetailPage() {
         actions={
           <div className={styles.headerActions}>
             <Link className={styles.secondaryAction} to="/sales">
-              Vertrieb
+              Arbeitsplatz
             </Link>
             <Link className={styles.secondaryAction} to={`/leads/${offer.leadId}`}>
-              Lead öffnen
+              Kunde öffnen
             </Link>
             {canEdit ? (
               <Link className={styles.secondaryAction} to={`/offers/${offer.id}/edit`}>
@@ -370,10 +370,10 @@ export function OfferDetailPage() {
             )}
           />
           <div className={styles.row}>
-            <dt>Lead</dt>
+            <dt>Kunde</dt>
             <dd>
               <Link className={styles.inlineLink} to={`/leads/${offer.leadId}`}>
-                Lead anzeigen
+                Kunde anzeigen
               </Link>
             </dd>
           </div>

@@ -1,6 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { useLocation } from 'react-router-dom';
 import {
   filterNavItemsByRole,
   isSidebarNavItemActive,
@@ -16,6 +15,7 @@ function NavIcon({ icon }: { icon: string }) {
     add: '+',
     offers: '◈',
     contracts: '▤',
+    activations: '⚡',
     calculator: '∑',
     wizard: '⇢',
     tariffs: '€',
@@ -37,23 +37,21 @@ export function SidebarNavigation() {
     <nav className={styles.nav} aria-label="Seitenleiste">
       <p className={styles.heading}>Navigation</p>
       <ul className={styles.list}>
-        {items.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              className={() =>
-                isSidebarNavItemActive(pathname, item)
-                  ? `${styles.link} ${styles.active}`
-                  : styles.link
-              }
-              aria-current={isSidebarNavItemActive(pathname, item) ? 'page' : undefined}
-              end={item.to === '/'}
-            >
-              <NavIcon icon={item.icon} />
-              <span>{item.label}</span>
-            </NavLink>
-          </li>
-        ))}
+        {items.map((item) => {
+          const active = isSidebarNavItemActive(pathname, item);
+          return (
+            <li key={item.to}>
+              <Link
+                to={item.to}
+                className={active ? `${styles.link} ${styles.active}` : styles.link}
+                aria-current={active ? 'page' : undefined}
+              >
+                <NavIcon icon={item.icon} />
+                <span>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

@@ -1,9 +1,4 @@
-export type UserRole =
-  | 'field_service'
-  | 'sales_lead'
-  | 'reviewer'
-  | 'readonly'
-  | 'admin';
+export type UserRole = 'admin' | 'field_service';
 
 export type UserStatus = 'active' | 'deactivated' | 'invited';
 
@@ -21,12 +16,19 @@ export interface User {
   schemaVersion: number;
 }
 
+/** Sichtbare und auswählbare Rollen (keine Altrollen). */
+export const ASSIGNABLE_USER_ROLES: UserRole[] = ['admin', 'field_service'];
+
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
-  field_service: 'Außendienst',
-  sales_lead: 'Vertriebsleitung',
-  reviewer: 'Prüfer',
-  readonly: 'Nur Lesen',
   admin: 'Administrator',
+  field_service: 'Außendienst',
+};
+
+export const USER_ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  admin:
+    'Verwaltet Benutzer, Tarife, Produkte, Regeln und Systemeinstellungen. Kann alle Kundenfälle einsehen und notwendige Freigaben durchführen.',
+  field_service:
+    'Bearbeitet eigene Kunden, Beratungen, Angebote und Nachfassaktionen. Hat keinen Zugriff auf Verwaltung und interne Provisionsregeln.',
 };
 
 export const USER_STATUS_LABELS: Record<UserStatus, string> = {
@@ -40,4 +42,8 @@ export interface UserContext {
   role: UserRole;
   displayName: string;
   status: UserStatus;
+}
+
+export function isAssignableUserRole(value: unknown): value is UserRole {
+  return value === 'admin' || value === 'field_service';
 }

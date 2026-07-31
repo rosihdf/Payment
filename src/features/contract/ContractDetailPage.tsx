@@ -19,6 +19,8 @@ import {
 } from '../../domain/contract/contractVersion';
 import { OFFER_CONTRACT_MODEL_LABELS } from '../../domain/offer/offerContractModel';
 import { hasPermission } from '../../domain/permission/permission';
+import type { ActivationCase } from '../../domain/activation/activationCase';
+import { ActivationStatusBadge } from '../activation/ActivationStatusBadge';
 import type { SalesDocument } from '../../domain/salesDocument/salesDocument';
 import { SALES_DOCUMENT_TYPE_LABELS } from '../../domain/salesDocument/salesDocument';
 import type { SalesActivity } from '../../domain/salesWorkspace/salesActivity';
@@ -35,8 +37,9 @@ type TabId = 'overview' | 'versions' | 'changes' | 'termination' | 'documents' |
 export function ContractDetailPage() {
   const { contractId = '' } = useParams();
   const { currentUser } = useCurrentUser();
-  const { contractService, salesTaskService, salesActivityService } = useServices();
+  const { contractService, activationService, salesTaskService, salesActivityService } = useServices();
   const [contract, setContract] = useState<Contract | null>(null);
+  const [activation, setActivation] = useState<ActivationCase | null>(null);
   const [versions, setVersions] = useState<ContractVersion[]>([]);
   const [terminations, setTerminations] = useState<ContractTermination[]>([]);
   const [documents, setDocuments] = useState<SalesDocument[]>([]);
@@ -82,19 +85,21 @@ export function ContractDetailPage() {
     }
     setContract(result.value);
     setError(null);
-    const [versionResult, terminationResult, documentResult, taskList, activityList] =
+    const [versionResult, terminationResult, documentResult, taskList, activityList, activationCase] =
       await Promise.all([
         contractService.listVersions(contractId, context),
         contractService.listTerminations(contractId, context),
         contractService.listDocuments(contractId, context),
         salesTaskService.listVisible(context),
         salesActivityService.listVisible(context),
+        activationService.getByContractId(contractId, context),
       ]);
     if (versionResult.ok) setVersions(versionResult.value);
     if (terminationResult.ok) setTerminations(terminationResult.value);
     if (documentResult.ok) setDocuments(documentResult.value);
     setTasks(taskList.filter((task) => task.contractId === contractId));
     setActivities(activityList.filter((activity) => activity.contractId === contractId));
+    setActivation(activationCase);
     setIsLoading(false);
   };
 
@@ -202,6 +207,36 @@ export function ContractDetailPage() {
       </div>
 
       {message ? <p role="status">{message}</p> : null}
+
+      <div className={styles.section}>
+        <h2>Aktivierung</h2>
+        {activation ? (
+          <div className={styles.row}>
+            <Link className={styles.linkButton} to={`/activations/${activation.id}`}>
+              {activation.activationNumber} öffnen
+            </Link>
+            <ActivationStatusBadge status={activation.status} />
+            <span>Fortschritt: {activation.progressPercent}%</span>
+            <span>Nächster Schritt: {activation.nextStep ?? '–'}</span>
+          </div>
+        ) : hasPermission(currentUser.role, 'activations.create') &&
+          ['preparation', 'activation'].includes(contract.status) ? (
+          <button
+            type="button"
+            onClick={() =>
+              askConfirm('Aktivierung starten?', async () => {
+                const result = await activationService.startFromContract(contract.id, context);
+                setMessage(result.ok ? `Aktivierung ${result.value.activationNumber} gestartet` : result.message ?? result.error);
+                await reload();
+              })
+            }
+          >
+            Aktivierung starten
+          </button>
+        ) : (
+          <p>Für diesen Vertrag liegt noch keine Aktivierung vor.</p>
+        )}
+      </div>
 
       <div className={styles.actions}>
         {hasPermission(currentUser.role, 'contracts.suspend') && contract.status === 'active' ? (

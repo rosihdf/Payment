@@ -9,6 +9,8 @@ import { CURRENT_ADMIN_STORAGE_VERSION } from './adminStorageMigration';
 import { CURRENT_TARIFF_CATALOG_VERSION } from './tariffCatalogMigration';
 import { CURRENT_PRODUCT_CATALOG_VERSION } from './productCatalogMigration';
 import { CURRENT_OFFER_STORAGE_VERSION } from './offerStorageMigration';
+import { CURRENT_CONTRACT_STORAGE_VERSION } from './contractStorageMigration';
+import { CURRENT_ACTIVATION_STORAGE_VERSION } from './activationStorageMigration';
 
 export interface MigrationStatusEntry {
   store: string;
@@ -116,6 +118,24 @@ export class SystemStatusService {
         expectedVersion: CURRENT_OFFER_STORAGE_VERSION,
         status:
           (readStorageItem<number>(STORAGE_KEYS.offerStorageVersion) ?? 0) >= CURRENT_OFFER_STORAGE_VERSION
+            ? 'ok'
+            : 'pending',
+      },
+      {
+        store: 'contracts',
+        currentVersion: readStorageItem<number>(STORAGE_KEYS.contractStorageVersion) ?? 0,
+        expectedVersion: CURRENT_CONTRACT_STORAGE_VERSION,
+        status:
+          (readStorageItem<number>(STORAGE_KEYS.contractStorageVersion) ?? 0) >= CURRENT_CONTRACT_STORAGE_VERSION
+            ? 'ok'
+            : 'pending',
+      },
+      {
+        store: 'activations',
+        currentVersion: readStorageItem<number>(STORAGE_KEYS.activationStorageVersion) ?? 0,
+        expectedVersion: CURRENT_ACTIVATION_STORAGE_VERSION,
+        status:
+          (readStorageItem<number>(STORAGE_KEYS.activationStorageVersion) ?? 0) >= CURRENT_ACTIVATION_STORAGE_VERSION
             ? 'ok'
             : 'pending',
       },

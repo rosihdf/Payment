@@ -328,6 +328,7 @@ export class OfferWorkflowService {
       contractId: input.contractId ?? null,
       contractVersionId: input.contractVersionId ?? null,
       terminationId: input.terminationId ?? null,
+      activationId: input.activationId ?? null,
       type: input.type,
       fileName: input.fileName,
       mimeType: input.mimeType,

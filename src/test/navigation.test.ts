@@ -9,66 +9,58 @@ import {
 import { SALES_WIZARD_PATH } from '../utils/routes';
 
 describe('Navigation role filtering', () => {
+  it('enthält nur die vereinfachte Hauptnavigation ohne Profil', () => {
+    expect(SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
+      'Arbeitsplatz',
+      'Kunden',
+      'Beratung',
+      'Verwaltung',
+    ]);
+    expect(MOBILE_NAV_ITEMS.map((item) => item.label)).toEqual([
+      'Arbeitsplatz',
+      'Kunden',
+      'Beratung',
+    ]);
+    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(false);
+    expect(MOBILE_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(false);
+  });
+
   it('hides admin items for field service role', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
     expect(items.some((item) => item.to === '/admin')).toBe(false);
+    expect(items.map((item) => item.label)).toEqual(['Arbeitsplatz', 'Kunden', 'Beratung']);
   });
 
   it('shows admin items for admin role', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
-    expect(items.some((item) => item.to === '/admin')).toBe(true);
+    expect(items.some((item) => item.to === '/admin' && item.label === 'Verwaltung')).toBe(true);
   });
 
-  it('shows product overview for all roles', () => {
-    const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    const adminItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
+  it('entfernt parallele Einstiege aus der Hauptnavigation', () => {
+    const labels = SIDEBAR_NAV_ITEMS.map((item) => item.label);
+    const routes = SIDEBAR_NAV_ITEMS.map((item) => item.to);
 
-    expect(fieldServiceItems.some((item) => item.to === '/products')).toBe(true);
-    expect(adminItems.some((item) => item.to === '/products')).toBe(true);
-  });
-
-  it('shows contracts nav entry for roles with contracts.view_own', () => {
-    const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    const reviewerItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'reviewer');
-
-    expect(fieldServiceItems.some((item) => item.to === '/contracts' && item.label === 'Verträge')).toBe(
-      true,
-    );
-    expect(reviewerItems.some((item) => item.to === '/contracts')).toBe(false);
-  });
-
-  it('shows offers nav entry for all roles', () => {
-    const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    const adminItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
-    const mobileItems = filterNavItemsByRole(MOBILE_NAV_ITEMS, 'field_service');
-
-    expect(fieldServiceItems.some((item) => item.to === '/offers' && item.label === 'Angebote')).toBe(
-      true,
-    );
-    expect(adminItems.some((item) => item.to === '/offers' && item.label === 'Angebote')).toBe(true);
-    expect(mobileItems.some((item) => item.to === '/offers' && item.label === 'Angebote')).toBe(true);
-  });
-
-  it('zeigt Vertriebsprozess und nicht Vertriebs-Wizard in der Sidebar', () => {
-    const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    const adminItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
-
-    expect(
-      fieldServiceItems.some((item) => item.to === SALES_WIZARD_PATH && item.label === 'Vertriebsprozess'),
-    ).toBe(true);
-    expect(
-      adminItems.some((item) => item.to === SALES_WIZARD_PATH && item.label === 'Vertriebsprozess'),
-    ).toBe(true);
-    expect(fieldServiceItems.some((item) => item.label === 'Vertriebs-Wizard')).toBe(false);
-    expect(adminItems.some((item) => item.label === 'Vertriebs-Wizard')).toBe(false);
+    expect(labels).not.toContain('Start');
+    expect(labels).not.toContain('Vertrieb');
+    expect(labels).not.toContain('Vertriebsprozess');
+    expect(labels).not.toContain('Leads');
+    expect(labels).not.toContain('Angebote');
+    expect(labels).not.toContain('Verträge');
+    expect(labels).not.toContain('Aktivierungen');
+    expect(labels).not.toContain('Rechner');
+    expect(labels).not.toContain('Produkte');
+    expect(labels).not.toContain('Profil');
+    expect(routes).not.toContain('/offers');
+    expect(routes).not.toContain('/contracts');
+    expect(routes).not.toContain('/activations');
+    expect(routes).not.toContain('/products');
+    expect(routes).not.toContain('/profile');
+    expect(routes).not.toContain(SALES_WIZARD_PATH);
   });
 
   it('enthält keinen Hauptmenüpunkt Neuer Lead', () => {
     const fieldServiceItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    const adminItems = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
-
     expect(fieldServiceItems.some((item) => item.to === '/leads/new')).toBe(false);
-    expect(adminItems.some((item) => item.to === '/leads/new')).toBe(false);
   });
 
   it('sortiert operative Navigation in der vorgesehenen Reihenfolge', () => {
@@ -80,21 +72,22 @@ describe('Navigation role filtering', () => {
     expect(operativeLabels).toEqual([...OPERATIVE_SIDEBAR_NAV_LABELS]);
   });
 
-  it('markiert Vertriebsprozess bei Wizard-Routen als aktiv', () => {
-    const processItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === SALES_WIZARD_PATH)!;
-    const calculatorItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/calculator')!;
-    const salesItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/sales')!;
+  it('markiert Beratung bei Wizard- und Rechner-Routen als aktiv', () => {
+    const beratungItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/calculator')!;
+    const arbeitsplatzItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/sales')!;
 
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, processItem)).toBe(true);
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, calculatorItem)).toBe(false);
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, salesItem)).toBe(false);
-    expect(isSidebarNavItemActive('/sales', salesItem)).toBe(true);
+    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, beratungItem)).toBe(true);
+    expect(isSidebarNavItemActive('/calculator/bestpay', beratungItem)).toBe(true);
+    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, arbeitsplatzItem)).toBe(false);
+    expect(isSidebarNavItemActive('/sales', arbeitsplatzItem)).toBe(true);
   });
 
-  it('markiert Rechner bei Wizard-Routen nicht als aktiv', () => {
-    const calculatorItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/calculator')!;
+  it('markiert Kunden bei Angebots-, Vertrags- und Onboarding-Routen als aktiv', () => {
+    const kundenItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/leads')!;
 
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, calculatorItem)).toBe(false);
-    expect(isSidebarNavItemActive('/calculator/bestpay', calculatorItem)).toBe(true);
+    expect(isSidebarNavItemActive('/leads/lead_001', kundenItem)).toBe(true);
+    expect(isSidebarNavItemActive('/offers/offer_001', kundenItem)).toBe(true);
+    expect(isSidebarNavItemActive('/contracts/contract_001', kundenItem)).toBe(true);
+    expect(isSidebarNavItemActive('/activations/activation_001', kundenItem)).toBe(true);
   });
 });

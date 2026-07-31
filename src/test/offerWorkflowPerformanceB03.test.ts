@@ -145,6 +145,7 @@ function seedPerformanceDataset(): { offers: Offer[]; versions: OfferVersion[]; 
         contractId: null,
         contractVersionId: null,
         terminationId: null,
+        activationId: null,
         type: 'offer_pdf',
         fileName: `angebot-${index}-${docIndex}.pdf`,
         mimeType: 'application/pdf',

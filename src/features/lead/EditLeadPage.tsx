@@ -195,8 +195,8 @@ export function EditLeadPage() {
   if (isLoading) {
     return (
       <section>
-        <PageHeader title="Lead bearbeiten" subtitle="Daten werden geladen…" />
-        <EmptyState title="Lead wird geladen" description="Die Lead-Informationen werden abgerufen." />
+        <PageHeader title="Kunde bearbeiten" subtitle="Daten werden geladen…" />
+        <EmptyState title="Kunde wird geladen" description="Die Kundendaten werden abgerufen." />
       </section>
     );
   }
@@ -204,13 +204,13 @@ export function EditLeadPage() {
   if (loadError) {
     return (
       <section>
-        <PageHeader title="Lead bearbeiten" />
+        <PageHeader title="Kunde bearbeiten" />
         <EmptyState
-          title="Lead konnte nicht geladen werden"
-          description="Bitte versuchen Sie es erneut oder kehren Sie zur Leadliste zurück."
+          title="Kunde konnte nicht geladen werden"
+          description="Bitte versuchen Sie es erneut oder kehren Sie zur Kundenliste zurück."
           action={
             <Link className={styles.listLink} to="/leads">
-              Zur Leadliste
+              Zur Kundenliste
             </Link>
           }
         />
@@ -222,11 +222,11 @@ export function EditLeadPage() {
     return (
       <section>
         <EmptyState
-          title="Lead nicht gefunden"
-          description="Der angeforderte Lead existiert nicht."
+          title="Kunde nicht gefunden"
+          description="Der angeforderte Kunde existiert nicht."
           action={
             <Link className={styles.listLink} to="/leads">
-              Zur Leadliste
+              Zur Kundenliste
             </Link>
           }
         />
@@ -241,8 +241,8 @@ export function EditLeadPage() {
   return (
     <section>
       <PageHeader
-        title="Lead bearbeiten"
-        subtitle="Kontakt-, Payment- und Vertriebsdaten aktualisieren"
+        title="Kunde bearbeiten"
+        subtitle="Kontakt-, Payment- und Beratungsdaten aktualisieren"
         actions={
           <Link className={styles.backLink} to={`/leads/${lead.id}`}>
             Zur Detailseite

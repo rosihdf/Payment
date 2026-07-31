@@ -1,0 +1,163 @@
+.headerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.tab {
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.tabActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.categoryBlock {
+  margin-bottom: var(--space-5);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.note {
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.inlineActions input,
+.inlineActions select {
+  min-height: var(--touch-target);
+}
+
+.entityList {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entityCard {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.cardMeta {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 32rem;
+}
+
+.form label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+@media (max-width: 720px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+  }
+}

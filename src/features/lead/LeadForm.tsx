@@ -74,7 +74,7 @@ export function LeadForm(props: LeadFormProps) {
     onSubmit();
   };
 
-  const submitLabel = mode === 'create' ? 'Lead speichern' : 'Änderungen speichern';
+  const submitLabel = mode === 'create' ? 'Kunde speichern' : 'Änderungen speichern';
   const submittingLabel = mode === 'create' ? 'Wird gespeichert…' : 'Wird gespeichert…';
 
   return (

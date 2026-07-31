@@ -13,6 +13,11 @@ import { LocalApprovalRuleRepository } from '../repositories/local/LocalApproval
 import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
 import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
 import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
+import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
+import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
+import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
+import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
+import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
 import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
 import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
 import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
@@ -68,6 +73,11 @@ function createTestServices() {
     contractRepository: new LocalContractRepository(),
     contractVersionRepository: new LocalContractVersionRepository(),
     contractTerminationRepository: new LocalContractTerminationRepository(),
+    activationCaseRepository: new LocalActivationCaseRepository(),
+    activationChecklistRepository: new LocalActivationChecklistRepository(),
+    activationApplicationRepository: new LocalActivationApplicationRepository(),
+    activationHardwareRepository: new LocalActivationHardwareRepository(),
+    activationBlockerRepository: new LocalActivationBlockerRepository(),
   });
 }
 
@@ -85,10 +95,10 @@ const field = createUserContext({
   status: 'active',
 });
 
-const readonly = createUserContext({
-  id: 'user_ro',
-  name: 'Readonly',
-  role: 'readonly',
+const foreignField = createUserContext({
+  id: 'user_002',
+  name: 'Thomas',
+  role: 'field_service',
   status: 'active',
 });
 
@@ -330,18 +340,19 @@ describe('C Vertragsmanagement', () => {
       },
     ]);
 
-    const forbidden = await services.contractService.createFromAcceptedOffer(offer.id, readonly);
-    expect(forbidden.ok).toBe(false);
-
     const created = await services.contractService.createFromAcceptedOffer(offer.id, field);
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    const change = await services.contractService.startChange(
+
+    const foreignChange = await services.contractService.startChange(
       created.value.id,
       { changeReason: 'contact_change', patch: { customerContactLastName: 'Neu' } },
-      readonly,
+      foreignField,
     );
-    expect(change.ok).toBe(false);
+    expect(foreignChange.ok).toBe(false);
+    if (!foreignChange.ok) {
+      expect(foreignChange.error).toBe('forbidden');
+    }
   });
 
   it('erzeugt Fristaufgaben idempotent', async () => {

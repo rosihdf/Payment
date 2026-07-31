@@ -53,7 +53,7 @@ describe('Lead creation UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/leads/new');
 
-    await user.click(await screen.findByRole('button', { name: 'Lead speichern' }));
+    await user.click(await screen.findByRole('button', { name: 'Kunde speichern' }));
 
     expect(await screen.findByText('Bitte geben Sie einen Firmennamen ein.')).toBeInTheDocument();
     expect(screen.getByText('Bitte geben Sie einen Vornamen ein.')).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('Lead creation UI', () => {
     await fillRequiredFields(user);
     await user.clear(screen.getByLabelText('Girocard in Prozent'));
     await user.type(screen.getByLabelText('Girocard in Prozent'), '50');
-    await user.click(screen.getByRole('button', { name: 'Lead speichern' }));
+    await user.click(screen.getByRole('button', { name: 'Kunde speichern' }));
 
     expect(
       await screen.findByText('Die Kartenanteile müssen zusammen 100 % ergeben.'),
@@ -81,7 +81,7 @@ describe('Lead creation UI', () => {
 
     await fillRequiredFields(user);
     await user.type(screen.getByLabelText('E-Mail'), 'jonas@payment-shop.de');
-    await user.click(screen.getByRole('button', { name: 'Lead speichern' }));
+    await user.click(screen.getByRole('button', { name: 'Kunde speichern' }));
 
     await waitFor(() => {
       expect(getStoredLeads().some((lead) => lead.companyName === 'Neuer Payment Shop')).toBe(true);
@@ -104,7 +104,7 @@ describe('Lead creation UI', () => {
     await fillRequiredFields(user);
     await user.clear(screen.getByLabelText('Firmenname'));
     await user.type(screen.getByLabelText('Firmenname'), 'Liste Test GmbH');
-    await user.click(screen.getByRole('button', { name: 'Lead speichern' }));
+    await user.click(screen.getByRole('button', { name: 'Kunde speichern' }));
 
     await waitFor(() => {
       expect(getStoredLeads().some((lead) => lead.companyName === 'Liste Test GmbH')).toBe(true);
@@ -160,7 +160,7 @@ describe('Lead creation UI', () => {
 
     await fillRequiredFields(user);
 
-    const saveButton = screen.getByRole('button', { name: 'Lead speichern' });
+    const saveButton = screen.getByRole('button', { name: 'Kunde speichern' });
     await user.click(saveButton);
 
     await waitFor(() => {

@@ -1,27 +1,51 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { loadAppRuntimeConfig } from '../../config/appRuntimeConfig';
-import { USER_ROLE_LABELS } from '../../domain/user/user';
+import { ASSIGNABLE_USER_ROLES, USER_ROLE_LABELS, type User } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import styles from './RoleSwitcher.module.css';
+
+function sortDemoUsers(users: User[]): User[] {
+  const preferredOrder = ['user_004', 'user_001'];
+  return [...users].sort((left, right) => {
+    const leftIndex = preferredOrder.indexOf(left.id);
+    const rightIndex = preferredOrder.indexOf(right.id);
+    if (leftIndex === -1 && rightIndex === -1) {
+      return left.name.localeCompare(right.name, 'de');
+    }
+    if (leftIndex === -1) return 1;
+    if (rightIndex === -1) return -1;
+    return leftIndex - rightIndex;
+  });
+}
 
 export function RoleSwitcher() {
   const config = loadAppRuntimeConfig();
   const { userService } = useServices();
   const { currentUser, switchUser } = useCurrentUser();
   const { showToast } = useToast();
-  const [users, setUsers] = useState<Awaited<ReturnType<typeof userService.getAllUsers>>>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     void userService.getAllUsers().then(setUsers);
   }, [userService]);
+
+  const visibleUsers = sortDemoUsers(
+    users.filter(
+      (user) => user.status === 'active' && ASSIGNABLE_USER_ROLES.includes(user.role),
+    ),
+  );
 
   if (!config.demoMode) {
     return (
       <div className={styles.switcher}>
         <span className={styles.label}>Benutzer</span>
         <span className={styles.demoHint}>{currentUser?.name ?? '—'}</span>
+        <Link className={styles.profileLink} to="/profile">
+          Profil
+        </Link>
       </div>
     );
   }
@@ -45,14 +69,15 @@ export function RoleSwitcher() {
         onChange={(event) => void handleChange(event)}
         aria-label="Demo-Benutzer wechseln"
       >
-        {users
-          .filter((user) => user.status === 'active')
-          .map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name} ({USER_ROLE_LABELS[user.role]})
-            </option>
-          ))}
+        {visibleUsers.map((user) => (
+          <option key={user.id} value={user.id}>
+            {user.name} ({USER_ROLE_LABELS[user.role]})
+          </option>
+        ))}
       </select>
+      <Link className={styles.profileLink} to="/profile">
+        Profil
+      </Link>
     </div>
   );
 }

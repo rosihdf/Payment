@@ -178,7 +178,7 @@ export function SalesWizardPage() {
   }
 
   if (!session) {
-    return <p className={styles.hint}>Vertriebsprozess wird geladen…</p>;
+    return <p className={styles.hint}>Beratung wird geladen…</p>;
   }
 
   const step = session.wizard.currentStep;
@@ -354,22 +354,22 @@ export function SalesWizardPage() {
         return;
       }
       setSession(result.session);
-      showToast('Vertriebsprozess abgeschlossen', 'success');
+      showToast('Beratung abgeschlossen', 'success');
     })();
   };
 
   return (
     <section>
       <PageHeader
-        title="BestPay Vertriebsprozess"
-        subtitle="Vom Interessenten bis zum Angebotsentwurf – ein durchgängiger Vertriebsprozess"
+        title="Beratung"
+        subtitle="Vom Kunden über den Kostenvergleich bis zum Angebot – ein durchgängiger Beratungsweg"
         actions={
           <div className={styles.headerActions}>
             <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
               Berechnungen
             </Link>
             <Link className={styles.secondaryAction} to={SALES_WORKSPACE_PATH}>
-              Zum Vertriebsarbeitsplatz
+              Zum Arbeitsplatz
             </Link>
           </div>
         }
@@ -1252,7 +1252,7 @@ export function SalesWizardPage() {
                 <div className={styles.actions}>
                   {!session.wizard.wizardCompletedAt ? (
                     <button type="button" className={styles.primaryAction} onClick={handleComplete}>
-                      Vertriebsprozess abschließen
+                      Beratung abschließen
                     </button>
                   ) : null}
                   {session.offerId ? (
@@ -1300,7 +1300,7 @@ export function SalesWizardPage() {
                 className={styles.secondaryAction}
                 onClick={() => navigate(SALES_WORKSPACE_PATH)}
               >
-                Zum Vertriebsarbeitsplatz
+                Zum Arbeitsplatz
               </button>
             )}
           </div>
