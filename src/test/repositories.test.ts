@@ -23,8 +23,8 @@ describe('Repositories', () => {
     const repository = new LocalUserRepository();
     const users = await repository.getAll();
 
-    expect(users).toHaveLength(4);
-    expect(users.filter((user) => user.role === 'field_service')).toHaveLength(3);
+    expect(users).toHaveLength(6);
+    expect(users.filter((user) => user.role === 'field_service')).toHaveLength(2);
     expect(users.filter((user) => user.role === 'admin')).toHaveLength(1);
   });
 
@@ -91,7 +91,7 @@ describe('Demo data', () => {
 
   it('provides expected demo users', () => {
     const users = getDemoUsers();
-    expect(users).toHaveLength(4);
+    expect(users).toHaveLength(6);
   });
 
   it('provides at least eight demo leads', () => {

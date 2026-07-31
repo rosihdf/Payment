@@ -43,35 +43,35 @@ describe('Product navigation and protection', () => {
   });
 
   it('shows not found for unknown product id', async () => {
-    renderAtRoute('/admin/products/product_unknown/edit');
+    renderAtRoute('/admin/products/manage/product_unknown/edit');
 
     expect(await screen.findByText('Produkt nicht gefunden')).toBeInTheDocument();
   });
 
   it('shows access denied for field service on admin overview', async () => {
-    renderAtRoute('/admin/products', 'user_001');
+    renderAtRoute('/admin/products/manage', 'user_001');
 
     expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
   });
 
   it('shows access denied for field service on new route', async () => {
-    renderAtRoute('/admin/products/new', 'user_001');
+    renderAtRoute('/admin/products/manage/new', 'user_001');
 
     expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
   });
 
   it('shows create action for admin on overview', async () => {
-    renderAtRoute('/admin/products');
+    renderAtRoute('/admin/products/manage');
 
     expect(await screen.findByRole('link', { name: 'Produkt anlegen' })).toHaveAttribute(
       'href',
-      '/admin/products/new',
+      '/admin/products/manage/new',
     );
   });
 
   it('closes leave dialog on continue editing', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.type(await screen.findByLabelText('Produktname'), 'Dialog Test');
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
@@ -83,12 +83,12 @@ describe('Product navigation and protection', () => {
 
   it('discards changes from leave dialog', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.type(await screen.findByLabelText('Produktname'), 'Verwerfen Test');
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
     await user.click(await screen.findByRole('button', { name: 'Änderungen verwerfen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/products', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/products/manage', { replace: true });
   });
 });

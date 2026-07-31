@@ -5,4 +5,6 @@ export interface UserRepository {
   getById(id: string): Promise<User | null>;
   getCurrentUser(): Promise<User | null>;
   setCurrentUser(id: string): Promise<User | null>;
+  save(user: User): Promise<User>;
+  saveAll(users: User[]): Promise<User[]>;
 }

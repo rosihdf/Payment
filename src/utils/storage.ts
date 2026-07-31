@@ -54,6 +54,17 @@ export const STORAGE_KEYS = {
   salesTaskStorageVersion: 'amrtech.salesTaskStorageVersion',
   salesActivities: 'amrtech.salesActivities',
   salesActivityStorageVersion: 'amrtech.salesActivityStorageVersion',
+  auditEntries: 'amrtech.auditEntries',
+  auditStorageVersion: 'amrtech.auditStorageVersion',
+  approvalRules: 'amrtech.approvalRules',
+  approvalRuleStorageVersion: 'amrtech.approvalRuleStorageVersion',
+  documentTemplates: 'amrtech.documentTemplates',
+  documentTemplateStorageVersion: 'amrtech.documentTemplateStorageVersion',
+  backupHistory: 'amrtech.backupHistory',
+  exportHistory: 'amrtech.exportHistory',
+  diagnosticEvents: 'amrtech.diagnosticEvents',
+  userStorageVersion: 'amrtech.userStorageVersion',
+  adminStorageVersion: 'amrtech.adminStorageVersion',
 } as const;
 
 export function readStorageItem<T>(key: string): T | null {

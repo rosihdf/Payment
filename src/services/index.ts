@@ -13,10 +13,21 @@ import type { SalesActivityRepository } from '../repositories/interfaces/SalesAc
 import type { SalesTaskRepository } from '../repositories/interfaces/SalesTaskRepository';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
+import type { AuditRepository } from '../repositories/interfaces/AuditRepository';
+import type { ApprovalRuleRepository } from '../repositories/interfaces/ApprovalRuleRepository';
+import type { DocumentTemplateRepository } from '../repositories/interfaces/DocumentTemplateRepository';
 import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
 import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
+import { AdminOverviewService } from './adminOverviewService';
+import { AdminUserService } from './adminUserService';
+import { ApprovalRuleService } from './approvalRuleService';
+import { AuditService } from './auditService';
 import { CommissionCalculationService } from './commissionCalculationService';
+import { CommissionCatalogAdminService } from './commissionCatalogAdminService';
+import { DataDiagnosticService } from './dataDiagnosticService';
+import { DataExportService, DataRestoreService } from './dataExportService';
+import { DocumentTemplateService } from './documentTemplateService';
 import { RecommendationService } from './recommendationService';
 import { BillingImportService } from './billingImportService';
 import { BestPayComparisonService } from './bestPayComparisonService';
@@ -32,11 +43,22 @@ import { SalesActivityService } from './salesActivityService';
 import { SalesTaskService } from './salesTaskService';
 import { SalesWizardService } from './salesWizardService';
 import { SalesWorkspaceService } from './salesWorkspaceService';
+import { SystemStatusService } from './systemStatusService';
 import { TariffService } from './tariffService';
 import { UserService } from './userService';
 
 export interface AppServices {
   userService: UserService;
+  adminUserService: AdminUserService;
+  auditService: AuditService;
+  approvalRuleService: ApprovalRuleService;
+  documentTemplateService: DocumentTemplateService;
+  dataExportService: DataExportService;
+  dataRestoreService: DataRestoreService;
+  dataDiagnosticService: DataDiagnosticService;
+  systemStatusService: SystemStatusService;
+  adminOverviewService: AdminOverviewService;
+  commissionCatalogAdminService: CommissionCatalogAdminService;
   leadService: LeadService;
   leadDraftService: LeadDraftService;
   leadEditDraftService: LeadEditDraftService;
@@ -58,6 +80,9 @@ export interface AppServices {
 
 export interface AppRepositories {
   userRepository: UserRepository;
+  auditRepository: AuditRepository;
+  approvalRuleRepository: ApprovalRuleRepository;
+  documentTemplateRepository: DocumentTemplateRepository;
   leadRepository: LeadRepository;
   leadDraftRepository: LeadDraftRepository;
   leadEditDraftRepository: LeadEditDraftRepository;
@@ -78,6 +103,31 @@ export interface AppRepositories {
 }
 
 export function createServices(repositories: AppRepositories): AppServices {
+  const auditService = new AuditService(repositories.auditRepository);
+  const adminUserService = new AdminUserService(repositories.userRepository, auditService);
+  const approvalRuleService = new ApprovalRuleService(repositories.approvalRuleRepository, auditService);
+  const documentTemplateService = new DocumentTemplateService(
+    repositories.documentTemplateRepository,
+    auditService,
+  );
+  const dataExportService = new DataExportService(auditService);
+  const dataRestoreService = new DataRestoreService(auditService);
+  const dataDiagnosticService = new DataDiagnosticService(auditService);
+  const systemStatusService = new SystemStatusService(dataExportService, dataDiagnosticService);
+  const commissionCatalogAdminService = new CommissionCatalogAdminService(
+    repositories.commissionCatalogRepository,
+    auditService,
+  );
+  const adminOverviewService = new AdminOverviewService(
+    adminUserService,
+    repositories.tariffRepository,
+    repositories.productRepository,
+    repositories.commissionCatalogRepository,
+    approvalRuleService,
+    dataDiagnosticService,
+    dataExportService,
+  );
+
   const offerService = new OfferService(
     repositories.offerRepository,
     repositories.leadRepository,
@@ -134,6 +184,16 @@ export function createServices(repositories: AppRepositories): AppServices {
 
   return {
     userService: new UserService(repositories.userRepository),
+    adminUserService,
+    auditService,
+    approvalRuleService,
+    documentTemplateService,
+    dataExportService,
+    dataRestoreService,
+    dataDiagnosticService,
+    systemStatusService,
+    adminOverviewService,
+    commissionCatalogAdminService,
     leadService,
     leadDraftService: new LeadDraftService(repositories.leadDraftRepository),
     leadEditDraftService: new LeadEditDraftService(repositories.leadEditDraftRepository),

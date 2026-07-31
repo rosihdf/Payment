@@ -48,7 +48,7 @@ export function EditProductPage() {
 
   const leaveToOverview = () => {
     setAllowLeave(true);
-    navigate('/admin/products', { replace: true });
+    navigate('/admin/products/manage', { replace: true });
   };
 
   const handleSubmit = () => {

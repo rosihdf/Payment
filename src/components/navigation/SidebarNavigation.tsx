@@ -19,6 +19,7 @@ function NavIcon({ icon }: { icon: string }) {
     wizard: '⇢',
     tariffs: '€',
     products: '▣',
+    admin: '⚙',
     profile: '◉',
   };
 

@@ -60,7 +60,7 @@ describe('Product form UI', () => {
 
   it('validates required fields on create', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.click(await screen.findByRole('button', { name: 'Produkt speichern' }));
 
@@ -71,7 +71,7 @@ describe('Product form UI', () => {
   });
 
   it('prefills existing product on edit', async () => {
-    renderAtRoute('/admin/products/product_bestpay_premium_line_register/edit');
+    renderAtRoute('/admin/products/manage/product_bestpay_premium_line_register/edit');
 
     expect(await screen.findByLabelText('Produktname')).toHaveValue(
       'BestPay Premium Line Kassensystem',
@@ -82,7 +82,7 @@ describe('Product form UI', () => {
 
   it('creates product and navigates to overview', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await fillRequiredProductFields(user);
     await user.click(screen.getByRole('button', { name: 'Produkt speichern' }));
@@ -93,13 +93,13 @@ describe('Product form UI', () => {
       );
     });
 
-    renderAtRoute('/admin/products', false);
+    renderAtRoute('/admin/products/manage', false);
     expect(await screen.findByText('Neues Demo Produkt')).toBeInTheDocument();
   });
 
   it('prevents duplicate internal product code', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.type(await screen.findByLabelText('Produktname'), 'Duplikat Produkt');
     await user.type(screen.getByLabelText('Interner Produktcode'), 'bp-cash-premium-line');
@@ -112,7 +112,7 @@ describe('Product form UI', () => {
 
   it('updates product and navigates to overview', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/product_bestpay_premium_line_register/edit');
+    renderAtRoute('/admin/products/manage/product_bestpay_premium_line_register/edit');
 
     const nameField = await screen.findByLabelText('Produktname');
     await user.clear(nameField);
@@ -125,13 +125,13 @@ describe('Product form UI', () => {
       ).toBe(true);
     });
 
-    renderAtRoute('/admin/products', false);
+    renderAtRoute('/admin/products/manage', false);
     expect(await screen.findByText('BestPay Premium Line Plus')).toBeInTheDocument();
   });
 
   it('shows cancel dialog when form is dirty', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.type(await screen.findByLabelText('Produktname'), 'Abbruch Test');
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
@@ -142,17 +142,17 @@ describe('Product form UI', () => {
 
   it('navigates back on cancel without changes', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await user.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/products', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/products/manage', { replace: true });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('keeps form data on storage error', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await fillRequiredProductFields(user);
 
@@ -180,7 +180,7 @@ describe('Product form UI', () => {
 
   it('prevents double submit while saving', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
 
     await fillRequiredProductFields(user);
     const submitButton = screen.getByRole('button', { name: 'Produkt speichern' });
@@ -192,7 +192,7 @@ describe('Product form UI', () => {
 
 describe('Product form mapping', () => {
   it('detects unchanged default input', async () => {
-    renderAtRoute('/admin/products/new');
+    renderAtRoute('/admin/products/manage/new');
     expect(await screen.findByLabelText('Anbieter')).toHaveValue(
       DEFAULT_CREATE_PRODUCT_INPUT.providerName,
     );

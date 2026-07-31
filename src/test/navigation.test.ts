@@ -11,14 +11,12 @@ import { SALES_WIZARD_PATH } from '../utils/routes';
 describe('Navigation role filtering', () => {
   it('hides admin items for field service role', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
-    expect(items.some((item) => item.to === '/admin/tariffs')).toBe(false);
-    expect(items.some((item) => item.to === '/admin/products')).toBe(false);
+    expect(items.some((item) => item.to === '/admin')).toBe(false);
   });
 
   it('shows admin items for admin role', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'admin');
-    expect(items.some((item) => item.to === '/admin/tariffs')).toBe(true);
-    expect(items.some((item) => item.to === '/admin/products')).toBe(true);
+    expect(items.some((item) => item.to === '/admin')).toBe(true);
   });
 
   it('shows product overview for all roles', () => {

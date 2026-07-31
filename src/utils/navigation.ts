@@ -1,10 +1,13 @@
 import { SALES_WIZARD_PATH } from './routes';
+import type { UserRole } from '../domain/user/user';
+import { hasPermission } from '../domain/permission/permission';
 
 export interface NavItem {
   to: string;
   label: string;
   icon: string;
-  roles?: Array<'field_service' | 'admin'>;
+  roles?: UserRole[];
+  permission?: import('../domain/permission/permission').Permission;
 }
 
 export const MOBILE_NAV_ITEMS: NavItem[] = [
@@ -24,8 +27,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/offers', label: 'Angebote', icon: 'offers' },
   { to: '/calculator', label: 'Rechner', icon: 'calculator' },
   { to: '/products', label: 'Produkte', icon: 'products' },
-  { to: '/admin/tariffs', label: 'Tarife', icon: 'tariffs', roles: ['admin'] },
-  { to: '/admin/products', label: 'Produkte verwalten', icon: 'products', roles: ['admin'] },
+  { to: '/admin', label: 'Administration', icon: 'admin', permission: 'admin.access' },
   { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
 
@@ -38,11 +40,13 @@ export const OPERATIVE_SIDEBAR_NAV_LABELS = [
   'Rechner',
 ] as const;
 
-export function filterNavItemsByRole(
-  items: NavItem[],
-  role: 'field_service' | 'admin',
-): NavItem[] {
-  return items.filter((item) => !item.roles || item.roles.includes(role));
+export function filterNavItemsByRole(items: NavItem[], role: UserRole): NavItem[] {
+  return items.filter((item) => {
+    if (item.permission) {
+      return hasPermission(role, item.permission);
+    }
+    return !item.roles || item.roles.includes(role);
+  });
 }
 
 export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean {
@@ -60,6 +64,9 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
   }
   if (item.to === '/calculator') {
     return pathname === '/calculator' || pathname.startsWith('/calculator/');
+  }
+  if (item.to === '/admin') {
+    return pathname === '/admin' || pathname.startsWith('/admin/');
   }
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }

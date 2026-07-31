@@ -33,22 +33,22 @@ describe('Role switching', () => {
 
     expect(await screen.findByText('Außendienst')).toBeInTheDocument();
 
-    const roleSelect = await screen.findByLabelText('Rolle');
+    const roleSelect = await screen.findByLabelText('Demo-Benutzer');
     await waitFor(() => {
       expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
     });
 
     await user.selectOptions(roleSelect, 'user_004');
 
-    expect(await screen.findByText('Rolle gewechselt: Michael Weber (Admin)')).toBeInTheDocument();
-    expect(screen.getAllByText('Admin').length).toBeGreaterThan(0);
+    expect(await screen.findByText('Demo-Benutzer: Michael Weber (Administrator)')).toBeInTheDocument();
+    expect(screen.getAllByText('Administrator').length).toBeGreaterThan(0);
   });
 
   it('persists selected admin user in role switcher', async () => {
     const user = userEvent.setup();
     renderApp();
 
-    const roleSelect = await screen.findByLabelText('Rolle');
+    const roleSelect = await screen.findByLabelText('Demo-Benutzer');
     await waitFor(() => {
       expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
     });
@@ -56,6 +56,6 @@ describe('Role switching', () => {
     await user.selectOptions(roleSelect, 'user_004');
 
     expect(roleSelect).toHaveValue('user_004');
-    expect(screen.getByRole('option', { name: 'Michael Weber (Admin)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Michael Weber (Administrator)' })).toBeInTheDocument();
   });
 });

@@ -28,14 +28,10 @@ import {
   migrateRecommendationStorageIfNeeded,
 } from './recommendationStorageMigration';
 import { migrateBillingImportStorageIfNeeded } from './billingImportStorageMigration';
+import { migrateAdminStorageIfNeeded, createDemoUserSeed } from './adminStorageMigration';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
-const DEMO_USERS: User[] = [
-  { id: 'user_001', name: 'Laura Berger', role: 'field_service' },
-  { id: 'user_002', name: 'Thomas Klein', role: 'field_service' },
-  { id: 'user_003', name: 'Sarah Hoffmann', role: 'field_service' },
-  { id: 'user_004', name: 'Michael Weber', role: 'admin' },
-];
+const DEMO_USERS = createDemoUserSeed();
 
 const DEMO_LEADS = [
   {
@@ -149,6 +145,8 @@ export function isDemoDataSeeded(): boolean {
 }
 
 export function seedDemoData(): void {
+  migrateAdminStorageIfNeeded();
+
   if (isDemoDataSeeded()) {
     migrateTariffCatalogIfNeeded();
     migrateProductCatalogIfNeeded();

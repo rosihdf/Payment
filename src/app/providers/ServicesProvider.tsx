@@ -17,6 +17,9 @@ import { LocalSalesActivityRepository } from '../../repositories/local/LocalSale
 import { LocalSalesTaskRepository } from '../../repositories/local/LocalSalesTaskRepository';
 import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
 import { LocalUserRepository } from '../../repositories/local/LocalUserRepository';
+import { LocalAuditRepository } from '../../repositories/local/LocalAuditRepository';
+import { LocalApprovalRuleRepository } from '../../repositories/local/LocalApprovalRuleRepository';
+import { LocalDocumentTemplateRepository } from '../../repositories/local/LocalDocumentTemplateRepository';
 import { createServices } from '../../services';
 import { seedDemoData } from '../../services/demoDataService';
 import { ServicesContext } from '../../hooks/useServices';
@@ -31,6 +34,9 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
 
     return createServices({
       userRepository: new LocalUserRepository(),
+      auditRepository: new LocalAuditRepository(),
+      approvalRuleRepository: new LocalApprovalRuleRepository(),
+      documentTemplateRepository: new LocalDocumentTemplateRepository(),
       leadRepository: new LocalLeadRepository(),
       leadDraftRepository: new LocalLeadDraftRepository(),
       leadEditDraftRepository: new LocalLeadEditDraftRepository(),

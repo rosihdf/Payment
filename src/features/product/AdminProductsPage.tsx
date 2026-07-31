@@ -128,7 +128,7 @@ export function AdminProductsPage() {
       title="Produktverwaltung"
       subtitle="BestPay-Hardware und Produkte verwalten"
       actions={
-        <Link className={styles.primaryAction} to="/admin/products/new">
+        <Link className={styles.primaryAction} to="/admin/products/manage/new">
           Produkt anlegen
         </Link>
       }
@@ -210,7 +210,7 @@ export function AdminProductsPage() {
           title="Keine Produkte gefunden"
           description="Für die aktuelle Suche oder Filterkombination liegen keine Produkte vor."
           action={
-            <Link className={styles.primaryAction} to="/admin/products/new">
+            <Link className={styles.primaryAction} to="/admin/products/manage/new">
               Produkt anlegen
             </Link>
           }
@@ -225,7 +225,7 @@ export function AdminProductsPage() {
                 actions={
                   <>
                     <ProductStatusBadge status={product.status} />
-                    <Link className={styles.secondaryAction} to={`/admin/products/${product.id}/edit`}>
+                    <Link className={styles.secondaryAction} to={`/admin/products/manage/${product.id}/edit`}>
                       Bearbeiten
                     </Link>
                     <button

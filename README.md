@@ -10,6 +10,14 @@ Freigabe, Versand, Annahme, Ablehnung und Aktivierung werden als nachvollziehbar
 
 Workflow-Mutationen erfolgen über `OfferWorkflowService`. Versionen werden bei relevanten Snapshot-Änderungen erzeugt, Ablauf wird ausschließlich explizit geprüft, und BestPay-Angebote erhalten ihre Vergleichs- und Szenario-Herkunft. Der Wizard kann den aktuellen Workflow-Kontext einschließlich Version und Freigabebedarf abrufen; `approvalAcknowledgedAt` bleibt ausschließlich ein veralteter UI-Wiederaufnahmehinweis.
 
+## B04: Administration und Produktivbetrieb
+
+Unter `/admin` bündelt die Anwendung zentrale Stammdaten- und Betriebsfunktionen: Benutzer, Rollen/Rechte, Tarife/Preise, Produkte/Hardware, Provision, Freigaberegeln, Vorlagen, Export/Sicherung, Audit und Systemstatus. Rechte werden zentral über das Permission-Modell geprüft; der Demo-Benutzerwechsel ist nur im Demo-Modus verfügbar.
+
+Die Anwendung läuft im **lokalen Datenmodus** (Browser-`localStorage`). Es gibt keine Cloud-Synchronisation. Gesamtsicherungen exportieren strukturierte JSON-Daten ohne Binärdateien, Secrets oder OCR-Bilder. Restore-Vorprüfungen mutieren keine Daten vor expliziter Bestätigung. Provisionsvorschau und Freigabesimulation nutzen die bestehenden Engines.
+
+Weitere Betriebshinweise: `docs/OPERATIONS.md`
+
 ## Technologie
 
 - React + TypeScript
@@ -108,17 +116,26 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/offers/:id/edit` | Angebot bearbeiten (nur Entwürfe) |
 | `/offers/:id/preview` | PDF-Vorschau |
 | `/offers/:offerId/documents/:documentId` | PDF-Dokumentdetail |
-| `/admin/products` | Produktverwaltung (Admin) |
-| `/admin/products/new` | Neues Produkt (Admin) |
-| `/admin/products/:id/edit` | Produkt bearbeiten (Admin) |
+| `/admin` | Administration (Übersicht, Benutzer, Stammdaten, Betrieb) |
+| `/admin/users` | Benutzerverwaltung |
+| `/admin/roles` | Rollen und Rechte |
+| `/admin/pricing` | Tarife und Preise |
+| `/admin/products` | Produkte und Hardware (Hub) |
+| `/admin/products/manage` | Produktverwaltung (Admin) |
 | `/admin/tariffs` | Tarifverwaltung (Admin) |
+| `/admin/commission` | Provisionsverwaltung |
+| `/admin/approvals` | Freigaberegeln |
+| `/admin/templates` | Vorlagen |
+| `/admin/data` | Export und Sicherung |
+| `/admin/audit` | Audit |
+| `/admin/system` | Systemstatus |
 | `/profile` | Profil |
 
 ## Produktkatalog
 
 Unter `/products` zeigt die Anwendung den BestPay-Hardware- und Produktkatalog für Admin und Außendienst. Nur aktive Produkte sind sichtbar; der Außendienst kann Produkte ansehen, aber nicht bearbeiten.
 
-Unter `/admin/products` verwaltet der Admin alle Produkte inklusive inaktiver Einträge.
+Unter `/admin/products/manage` verwaltet der Admin alle Produkte inklusive inaktiver Einträge.
 
 ### Abgrenzung zu Payment-Tarifen
 

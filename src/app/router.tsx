@@ -19,7 +19,16 @@ import { LeadDetailPage } from '../features/lead/LeadDetailPage';
 import { EditLeadPage } from '../features/lead/EditLeadPage';
 import { LeadsPage } from '../features/lead/LeadsPage';
 import { NewLeadPage } from '../features/lead/NewLeadPage';
-import { AdminProductsPage } from '../features/product/AdminProductsPage';
+import { AdminOverviewPage } from '../features/admin/AdminOverviewPage';
+import { AdminUsersPage, AdminRolesPage } from '../features/admin/AdminUsersPage';
+import { AdminPricingPage, AdminProductsPage } from '../features/admin/AdminCatalogPages';
+import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
+import { AdminApprovalsPage } from '../features/admin/AdminApprovalsPage';
+import { AdminTemplatesPage } from '../features/admin/AdminTemplatesPage';
+import { AdminDataPage } from '../features/admin/AdminDataPage';
+import { AdminAuditPage } from '../features/admin/AdminAuditPage';
+import { AdminSystemPage } from '../features/admin/AdminSystemPage';
+import { AdminProductsPage as LegacyAdminProductsPage } from '../features/product/AdminProductsPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
 import { ProductsPage } from '../features/product/ProductsPage';
@@ -51,12 +60,23 @@ export const appRoutes: RouteObject[] = [
       { path: 'offers/:offerId/documents/:documentId', element: <OfferDocumentDetailPage /> },
       { path: 'offers/:id', element: <OfferDetailPage /> },
       { path: 'products', element: <ProductsPage /> },
+      { path: 'admin', element: <AdminOverviewPage /> },
+      { path: 'admin/users', element: <AdminUsersPage /> },
+      { path: 'admin/roles', element: <AdminRolesPage /> },
+      { path: 'admin/pricing', element: <AdminPricingPage /> },
+      { path: 'admin/products', element: <AdminProductsPage /> },
+      { path: 'admin/products/manage', element: <LegacyAdminProductsPage /> },
+      { path: 'admin/products/manage/new', element: <NewProductPage /> },
+      { path: 'admin/products/manage/:id/edit', element: <EditProductPage /> },
+      { path: 'admin/commission', element: <AdminCommissionPage /> },
+      { path: 'admin/approvals', element: <AdminApprovalsPage /> },
+      { path: 'admin/templates', element: <AdminTemplatesPage /> },
+      { path: 'admin/data', element: <AdminDataPage /> },
+      { path: 'admin/audit', element: <AdminAuditPage /> },
+      { path: 'admin/system', element: <AdminSystemPage /> },
       { path: 'admin/tariffs', element: <AdminTariffsPage /> },
       { path: 'admin/tariffs/new', element: <NewTariffPage /> },
       { path: 'admin/tariffs/:id/edit', element: <EditTariffPage /> },
-      { path: 'admin/products', element: <AdminProductsPage /> },
-      { path: 'admin/products/new', element: <NewProductPage /> },
-      { path: 'admin/products/:id/edit', element: <EditProductPage /> },
       { path: 'profile', element: <ProfilePage /> },
     ],
   },

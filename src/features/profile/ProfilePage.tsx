@@ -68,13 +68,19 @@ export function ProfilePage() {
           <h2 id="admin-section-title" className={styles.adminTitle}>
             Administration
           </h2>
+          <Link className={styles.adminLink} to="/admin">
+            Administration
+            <span className={styles.adminLinkHint} aria-hidden="true">
+              →
+            </span>
+          </Link>
           <Link className={styles.adminLink} to="/admin/tariffs">
             <span>Tarifverwaltung</span>
             <span className={styles.adminLinkHint} aria-hidden="true">
               →
             </span>
           </Link>
-          <Link className={styles.adminLink} to="/admin/products">
+          <Link className={styles.adminLink} to="/admin/products/manage">
             <span>Produktverwaltung</span>
             <span className={styles.adminLinkHint} aria-hidden="true">
               →
