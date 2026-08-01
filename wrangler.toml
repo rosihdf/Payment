@@ -1,0 +1,19 @@
+name = "amrtech-payment"
+main = "workers/amrtech-payment/src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[triggers]
+crons = ["17 3 * * *"]
+
+# Secrets via `wrangler secret put` (niemals committen):
+# - SUPABASE_URL
+# - SUPABASE_PUBLISHABLE_KEY
+# - SUPABASE_SERVICE_ROLE_KEY  (nur Worker, nie Vite/Client)
+# - KEEPALIVE_TOKEN (optional, wenn app.keepalive_token gesetzt ist)

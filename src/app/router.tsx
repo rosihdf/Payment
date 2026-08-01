@@ -46,11 +46,21 @@ import { ProductsPage } from '../features/product/ProductsPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { EditTariffPage } from '../features/tariff/EditTariffPage';
 import { NewTariffPage } from '../features/tariff/NewTariffPage';
+import { LoginPage } from '../features/auth/LoginPage';
+import { AuthCallbackPage } from '../features/auth/AuthCallbackPage';
+import { RequireAuth } from '../features/auth/RequireAuth';
 
 export const appRoutes: RouteObject[] = [
+  { path: '/login', element: <LoginPage /> },
+  { path: '/auth/callback', element: <AuthCallbackPage /> },
+  { path: '/set-password', element: <AuthCallbackPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/sales" replace /> },
       { path: 'leads', element: <LeadsPage /> },

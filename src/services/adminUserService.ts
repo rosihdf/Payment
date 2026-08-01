@@ -1,3 +1,5 @@
+import { isSupabaseDataMode } from '../config/dataMode';
+import type { AuditAction } from '../domain/audit/auditEntry';
 import type { Permission } from '../domain/permission/permission';
 import { hasPermission } from '../domain/permission/permission';
 import { CURRENT_USER_SCHEMA_VERSION } from '../domain/user/normalizeUser';
@@ -10,6 +12,13 @@ import {
 } from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
+import {
+  deactivateUserViaApi,
+  inviteUserViaApi,
+  reactivateUserViaApi,
+  resendInviteViaApi,
+  updateUserViaApi,
+} from './adminUserApiClient';
 import type { AuditService } from './auditService';
 import { requirePermission } from './auditService';
 
@@ -79,10 +88,40 @@ export class AdminUserService {
     ).length;
   }
 
+  private async auditFromRemote(
+    context: UserContext,
+    action: AuditAction,
+    user: User,
+    summary: string,
+    changes?: { field: string; before: string | null; after: string | null }[],
+  ): Promise<void> {
+    await this.auditService.logChange({
+      context,
+      action,
+      entityType: 'user',
+      entityId: user.id,
+      summary,
+      changes,
+    });
+  }
+
+  /** Lokaler Demo-Pfad: legt nur ein Profil-ähnliches Record an (kein Auth). */
   async createUser(
     context: UserContext,
     input: CreateUserInput,
   ): Promise<{ ok: true; user: User } | { ok: false; error: 'forbidden' | 'validation'; message?: string }> {
+    if (isSupabaseDataMode()) {
+      const invited = await this.inviteUser(context, input);
+      if (!invited.ok) {
+        return {
+          ok: false,
+          error: invited.error === 'forbidden' ? 'forbidden' : 'validation',
+          message: invited.message,
+        };
+      }
+      return invited;
+    }
+
     const guard = requirePermission(context, 'admin.users');
     if (!guard.ok) {
       return { ok: false, error: 'forbidden' };
@@ -125,14 +164,100 @@ export class AdminUserService {
     return { ok: true, user };
   }
 
+  async inviteUser(
+    context: UserContext,
+    input: CreateUserInput,
+  ): Promise<
+    | { ok: true; user: User }
+    | { ok: false; error: string; message?: string }
+  > {
+    const guard = requirePermission(context, 'admin.users');
+    if (!guard.ok) {
+      return { ok: false, error: 'forbidden' };
+    }
+
+    const name = input.name.trim();
+    const email = input.email.trim();
+    if (!name || !email.includes('@')) {
+      return { ok: false, error: 'validation', message: 'Name und gültige E-Mail sind erforderlich.' };
+    }
+    if (!isAssignableUserRole(input.role)) {
+      return { ok: false, error: 'validation', message: 'Nur Administrator oder Außendienst sind zulässig.' };
+    }
+
+    if (!isSupabaseDataMode()) {
+      return this.createUser(context, input);
+    }
+
+    const result = await inviteUserViaApi({
+      email,
+      displayName: name,
+      role: input.role,
+    });
+    if (!result.ok) {
+      return { ok: false, error: result.error, message: result.message };
+    }
+
+    await this.auditFromRemote(
+      context,
+      'user_invited',
+      result.user,
+      `Benutzer ${result.user.name} eingeladen`,
+      [{ field: 'role', before: null, after: result.user.role }],
+    );
+    return { ok: true, user: result.user };
+  }
+
   async updateUser(
     context: UserContext,
     userId: string,
     input: UpdateUserInput,
-  ): Promise<{ ok: true; user: User } | { ok: false; error: 'forbidden' | 'not_found' | 'protected' | 'validation'; message?: string }> {
+  ): Promise<
+    | { ok: true; user: User }
+    | {
+        ok: false;
+        error: 'forbidden' | 'not_found' | 'protected' | 'validation' | string;
+        message?: string;
+      }
+  > {
     const guard = requirePermission(context, 'admin.users');
     if (!guard.ok) {
       return { ok: false, error: 'forbidden' };
+    }
+
+    if (input.role !== undefined && !isAssignableUserRole(input.role)) {
+      return { ok: false, error: 'validation', message: 'Nur Administrator oder Außendienst sind zulässig.' };
+    }
+
+    if (isSupabaseDataMode()) {
+      if (input.email !== undefined) {
+        return {
+          ok: false,
+          error: 'validation',
+          message: 'E-Mail-Änderungen erfolgen nicht über die Benutzerverwaltung.',
+        };
+      }
+      const result = await updateUserViaApi(userId, {
+        displayName: input.name,
+        role: input.role,
+      });
+      if (!result.ok) {
+        return { ok: false, error: result.error, message: result.message };
+      }
+      const action: AuditAction =
+        result.auditAction === 'role_changed' ? 'role_changed' : 'user_updated';
+      await this.auditFromRemote(
+        context,
+        action,
+        result.user,
+        action === 'role_changed'
+          ? `Rolle geändert: ${result.previousRole ?? '?'} → ${result.user.role}`
+          : `Benutzer ${result.user.name} geändert`,
+        action === 'role_changed'
+          ? [{ field: 'role', before: result.previousRole ?? null, after: result.user.role }]
+          : undefined,
+      );
+      return { ok: true, user: result.user };
     }
 
     const existing = await this.userRepository.getById(userId);
@@ -140,21 +265,10 @@ export class AdminUserService {
       return { ok: false, error: 'not_found' };
     }
 
-    if (input.role !== undefined && !isAssignableUserRole(input.role)) {
-      return { ok: false, error: 'validation', message: 'Nur Administrator oder Außendienst sind zulässig.' };
-    }
-
     if (input.role && input.role !== 'admin' && existing.role === 'admin') {
       const remainingAdmins = await this.countActiveAdmins(userId);
       if (remainingAdmins === 0) {
         return { ok: false, error: 'protected', message: 'Der letzte aktive Administrator kann nicht entzogen werden.' };
-      }
-    }
-
-    if (context.userId === userId && input.role && input.role !== 'admin' && existing.role === 'admin') {
-      const remainingAdmins = await this.countActiveAdmins(userId);
-      if (remainingAdmins === 0) {
-        return { ok: false, error: 'protected', message: 'Sie können sich nicht das letzte Adminrecht entziehen.' };
       }
     }
 
@@ -193,10 +307,27 @@ export class AdminUserService {
   async deactivateUser(
     context: UserContext,
     userId: string,
-  ): Promise<{ ok: true; user: User } | { ok: false; error: 'forbidden' | 'not_found' | 'protected'; message?: string }> {
+  ): Promise<
+    | { ok: true; user: User }
+    | { ok: false; error: 'forbidden' | 'not_found' | 'protected' | string; message?: string }
+  > {
     const guard = requirePermission(context, 'admin.users');
     if (!guard.ok) {
       return { ok: false, error: 'forbidden' };
+    }
+
+    if (isSupabaseDataMode()) {
+      const result = await deactivateUserViaApi(userId);
+      if (!result.ok) {
+        return { ok: false, error: result.error, message: result.message };
+      }
+      await this.auditFromRemote(
+        context,
+        'user_deactivated',
+        result.user,
+        `Benutzer ${result.user.name} deaktiviert`,
+      );
+      return { ok: true, user: result.user };
     }
 
     const existing = await this.userRepository.getById(userId);
@@ -234,10 +365,27 @@ export class AdminUserService {
   async reactivateUser(
     context: UserContext,
     userId: string,
-  ): Promise<{ ok: true; user: User } | { ok: false; error: 'forbidden' | 'not_found' }> {
+  ): Promise<
+    | { ok: true; user: User }
+    | { ok: false; error: 'forbidden' | 'not_found' | string; message?: string }
+  > {
     const guard = requirePermission(context, 'admin.users');
     if (!guard.ok) {
       return { ok: false, error: 'forbidden' };
+    }
+
+    if (isSupabaseDataMode()) {
+      const result = await reactivateUserViaApi(userId);
+      if (!result.ok) {
+        return { ok: false, error: result.error, message: result.message };
+      }
+      await this.auditFromRemote(
+        context,
+        'user_reactivated',
+        result.user,
+        `Benutzer ${result.user.name} reaktiviert`,
+      );
+      return { ok: true, user: result.user };
     }
 
     const existing = await this.userRepository.getById(userId);
@@ -262,6 +410,40 @@ export class AdminUserService {
     });
 
     return { ok: true, user: updated };
+  }
+
+  async resendInvite(
+    context: UserContext,
+    userId: string,
+  ): Promise<
+    | { ok: true; user: User }
+    | { ok: false; error: string; message?: string }
+  > {
+    const guard = requirePermission(context, 'admin.users');
+    if (!guard.ok) {
+      return { ok: false, error: 'forbidden' };
+    }
+
+    if (!isSupabaseDataMode()) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Einladungen sind nur im Supabase-Modus verfügbar.',
+      };
+    }
+
+    const result = await resendInviteViaApi(userId);
+    if (!result.ok) {
+      return { ok: false, error: result.error, message: result.message };
+    }
+
+    await this.auditFromRemote(
+      context,
+      'user_invite_resent',
+      result.user,
+      `Einladung erneut gesendet: ${result.user.email}`,
+    );
+    return { ok: true, user: result.user };
   }
 }
 

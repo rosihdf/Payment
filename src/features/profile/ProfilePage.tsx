@@ -1,16 +1,22 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { OnlineIndicator } from '../../components/feedback/OnlineIndicator';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { isSupabaseDataMode } from '../../config/dataMode';
 import { USER_ROLE_LABELS } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { createSupabaseAuthService } from '../../services/supabaseAuthService';
 import { APP_DISPLAY_NAME, APP_VERSION } from '../../utils/appInfo';
 import styles from './ProfilePage.module.css';
 
 export function ProfilePage() {
-  const { currentUser, isLoading } = useCurrentUser();
+  const navigate = useNavigate();
+  const { currentUser, isLoading, refresh } = useCurrentUser();
   const isOnline = useOnlineStatus();
+  const [signingOut, setSigningOut] = useState(false);
+  const supabaseMode = isSupabaseDataMode();
 
   if (isLoading) {
     return (
@@ -28,7 +34,11 @@ export function ProfilePage() {
     <section>
       <PageHeader
         title="Profil"
-        subtitle="Angemeldeter Demo-Benutzer und App-Informationen"
+        subtitle={
+          supabaseMode
+            ? 'Angemeldeter Benutzer'
+            : 'Angemeldeter Demo-Benutzer und App-Informationen'
+        }
         actions={<OnlineIndicator isOnline={isOnline} />}
       />
 
@@ -41,6 +51,10 @@ export function ProfilePage() {
           <div className={styles.row}>
             <dt>Rolle</dt>
             <dd>{currentUser ? USER_ROLE_LABELS[currentUser.role] : '—'}</dd>
+          </div>
+          <div className={styles.row}>
+            <dt>E-Mail</dt>
+            <dd>{currentUser?.email ?? '—'}</dd>
           </div>
           <div className={styles.row}>
             <dt>Benutzer-ID</dt>
@@ -81,6 +95,30 @@ export function ProfilePage() {
             </span>
           </Link>
         </section>
+      ) : null}
+
+      {supabaseMode ? (
+        <div className={styles.adminSection}>
+          <button
+            type="button"
+            className={styles.adminLink}
+            disabled={signingOut}
+            onClick={() => {
+              void (async () => {
+                setSigningOut(true);
+                try {
+                  await createSupabaseAuthService().signOut();
+                  await refresh();
+                  navigate('/login', { replace: true });
+                } finally {
+                  setSigningOut(false);
+                }
+              })();
+            }}
+          >
+            {signingOut ? 'Abmelden…' : 'Abmelden'}
+          </button>
+        </div>
       ) : null}
     </section>
   );

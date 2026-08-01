@@ -1,5 +1,7 @@
 export type AuditAction =
   | 'user_created'
+  | 'user_invited'
+  | 'user_invite_resent'
   | 'user_updated'
   | 'user_deactivated'
   | 'user_reactivated'
@@ -80,6 +82,8 @@ export const AUDIT_ENTRY_SCHEMA_VERSION = 1;
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   user_created: 'Benutzer angelegt',
+  user_invited: 'Benutzer eingeladen',
+  user_invite_resent: 'Einladung erneut gesendet',
   user_updated: 'Benutzer geändert',
   user_deactivated: 'Benutzer deaktiviert',
   user_reactivated: 'Benutzer reaktiviert',

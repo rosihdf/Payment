@@ -14,7 +14,7 @@ Workflow-Mutationen erfolgen über `OfferWorkflowService`. Versionen werden bei 
 
 Unter `/admin` bündelt die Anwendung zentrale Stammdaten- und Betriebsfunktionen: Benutzer, Rollen/Rechte, Tarife/Preise, Produkte/Hardware, Provision, Freigaberegeln, Vorlagen, Export/Sicherung, Audit und Systemstatus. Rechte werden zentral über das Permission-Modell geprüft; der Demo-Benutzerwechsel ist nur im Demo-Modus verfügbar.
 
-Die Anwendung läuft im **lokalen Datenmodus** (Browser-`localStorage`). Es gibt keine Cloud-Synchronisation. Gesamtsicherungen exportieren strukturierte JSON-Daten ohne Binärdateien, Secrets oder OCR-Bilder. Restore-Vorprüfungen mutieren keine Daten vor expliziter Bestätigung. Provisionsvorschau und Freigabesimulation nutzen die bestehenden Engines.
+Standard ist der **lokale Datenmodus** (Browser-`localStorage`). Optional aktiviert `VITE_DATA_MODE=supabase` den ersten produktiven Cloud-Block: Supabase Auth sowie Repositories für `profiles`, `leads`, `tariffs` und `products` (finale Instanz `vohnqrftkuefkugabcob`). Alle übrigen Fachbereiche bleiben lokal. Es gibt keinen stillen LocalStorage-Fallback für die vier Kernbereiche. Deployment: Cloudflare Worker `amrtech-payment` (SPA-Assets + täglicher Keepalive). Gesamtsicherungen exportieren strukturierte JSON-Daten ohne Binärdateien, Secrets oder OCR-Bilder.
 
 ## C: Vertragsmanagement
 

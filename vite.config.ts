@@ -38,6 +38,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // autoUpdate: neuer Deploy ersetzt die alte App-Shell ohne manuelles Cache-Löschen
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',

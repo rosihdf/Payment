@@ -18,10 +18,48 @@ npm run verify:ocr-build
 
 ## Konfiguration
 
-- **Persistenzmodus:** `local` (Browser-`localStorage`)
-- **Demo-Modus:** aktiv in Development, deaktiviert in Production-Konfiguration
-- **Auth:** Demo-Benutzerwechsel nur im Demo-Modus; Produktion erfordert spätere Backend-Auth
-- Keine Secrets im Frontend committen
+- **Persistenzmodus:** `VITE_DATA_MODE=local` (Standard) oder `supabase`
+- **Supabase (final):** `VITE_SUPABASE_URL=https://vohnqrftkuefkugabcob.supabase.co`, `VITE_SUPABASE_PUBLISHABLE_KEY=…`
+- **Supabase-Kernbereiche:** `profiles`, `leads`, `tariffs`, `products` inkl. RLS; übrige Domains bleiben lokal
+- **Demo-Modus:** aktiv nur in Development im lokalen Modus; im Supabase-Modus deaktiviert
+- **Auth:** Demo-Benutzerwechsel nur lokal/Demo; Supabase-Modus nutzt E-Mail/Passwort für `admin` und `field_service`
+- Keine Secrets im Frontend committen (kein DB-Passwort, kein `sb_secret_*`, kein Service-Role-Key)
+
+## Cloudflare Deployment
+
+Vite-Buildvariablen (`VITE_*`) werden **beim Build** eingebettet. Worker-Secrets ersetzen sie nicht.
+
+Lokal für Production (gitignored): `.env.production.local` mit
+
+```bash
+VITE_DATA_MODE=supabase
+VITE_SUPABASE_URL=https://vohnqrftkuefkugabcob.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=…
+```
+
+```bash
+npm run deploy
+# = build:production (assert + OCR-Assets + tsc + vite --mode production) + wrangler deploy
+```
+
+- Worker-Name: `amrtech-payment` (kein zweiter Worker)
+- SPA-Assets aus `dist`, Cron Keepalive `17 3 * * *` UTC → RPC `touch_system_keepalive`
+- Manuell: `POST /__keepalive`
+- Smoke: `PRODUCTION_URL=https://amrtech-payment.amrtech.workers.dev npm run smoke:production`
+- Production ohne `VITE_DATA_MODE=supabase` bricht fail-fast ab (kein Demo-Fallback)
+
+## Benutzerverwaltung (Admin)
+
+- UI: `/admin/users` → „Benutzer einladen“ (keine Passwortfelder)
+- Worker-API (nur mit Admin-JWT + Service-Role-Secret):
+  - `POST /api/admin/users/invite`
+  - `PATCH /api/admin/users/:userId`
+  - `POST /api/admin/users/:userId/deactivate|reactivate|resend-invite`
+- Secret nur im Worker: `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY`
+- Einladungs-Redirect: `https://amrtech-payment.amrtech.workers.dev/auth/callback`
+- In Supabase Auth URL Configuration setzen:
+  - Site URL: `https://amrtech-payment.amrtech.workers.dev`
+  - Redirect URLs: `https://amrtech-payment.amrtech.workers.dev/auth/callback`
 
 ## Administration
 

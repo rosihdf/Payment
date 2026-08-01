@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo } from 'react';
+import { getDataMode } from '../../config/dataMode';
 import { LocalLeadDraftRepository } from '../../repositories/local/LocalLeadDraftRepository';
 import { LocalLeadEditDraftRepository } from '../../repositories/local/LocalLeadEditDraftRepository';
-import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
 import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
 import { LocalOfferVersionRepository } from '../../repositories/local/LocalOfferVersionRepository';
@@ -12,11 +12,8 @@ import { LocalCommissionCalculationRepository } from '../../repositories/local/L
 import { LocalCommissionCatalogRepository } from '../../repositories/local/LocalCommissionCatalogRepository';
 import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPricingCatalogRepository';
 import { LocalPricingEvaluationRepository } from '../../repositories/local/LocalPricingEvaluationRepository';
-import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
 import { LocalSalesActivityRepository } from '../../repositories/local/LocalSalesActivityRepository';
 import { LocalSalesTaskRepository } from '../../repositories/local/LocalSalesTaskRepository';
-import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
-import { LocalUserRepository } from '../../repositories/local/LocalUserRepository';
 import { LocalAuditRepository } from '../../repositories/local/LocalAuditRepository';
 import { LocalApprovalRuleRepository } from '../../repositories/local/LocalApprovalRuleRepository';
 import { LocalDocumentTemplateRepository } from '../../repositories/local/LocalDocumentTemplateRepository';
@@ -31,6 +28,7 @@ import { LocalActivationBlockerRepository } from '../../repositories/local/Local
 import { createServices } from '../../services';
 import { seedDemoData } from '../../services/demoDataService';
 import { ServicesContext } from '../../hooks/useServices';
+import { createCoreRepositories } from './createCoreRepositories';
 
 interface ServicesProviderProps {
   children: ReactNode;
@@ -38,18 +36,23 @@ interface ServicesProviderProps {
 
 export function ServicesProvider({ children }: ServicesProviderProps) {
   const services = useMemo(() => {
-    seedDemoData();
+    const dataMode = getDataMode();
+    if (dataMode === 'local') {
+      seedDemoData();
+    }
+
+    const core = createCoreRepositories();
 
     return createServices({
-      userRepository: new LocalUserRepository(),
+      userRepository: core.userRepository,
       auditRepository: new LocalAuditRepository(),
       approvalRuleRepository: new LocalApprovalRuleRepository(),
       documentTemplateRepository: new LocalDocumentTemplateRepository(),
-      leadRepository: new LocalLeadRepository(),
+      leadRepository: core.leadRepository,
       leadDraftRepository: new LocalLeadDraftRepository(),
       leadEditDraftRepository: new LocalLeadEditDraftRepository(),
-      tariffRepository: new LocalTariffRepository(),
-      productRepository: new LocalProductRepository(),
+      tariffRepository: core.tariffRepository,
+      productRepository: core.productRepository,
       offerRepository: new LocalOfferRepository(),
       offerVersionRepository: new LocalOfferVersionRepository(),
       offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),

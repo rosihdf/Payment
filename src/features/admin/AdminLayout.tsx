@@ -81,7 +81,11 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
         actions={actions}
       />
       <p className={styles.modeBanner}>
-        Lokaler Datenmodus · {config.demoMode ? 'Demo-Modus aktiv' : 'Produktionskonfiguration'} · nicht cloud-synchronisiert
+        {config.persistenceMode === 'supabase'
+          ? 'Supabase-Kernbereiche · übrige Domains lokal · '
+          : 'Lokaler Datenmodus · '}
+        {config.demoMode ? 'Demo-Modus aktiv' : 'Produktionskonfiguration'}
+        {config.persistenceMode === 'local' ? ' · nicht cloud-synchronisiert' : ''}
       </p>
       <nav className={styles.subnav} aria-label="Administration">
         {ADMIN_NAV.map((item) => (

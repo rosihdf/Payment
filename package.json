@@ -9,15 +9,22 @@
     "predev": "node scripts/copy-ocr-assets.mjs",
     "prebuild": "node scripts/copy-ocr-assets.mjs",
     "build": "tsc -b && vite build",
+    "build:production": "node scripts/assert-production-env.mjs && node scripts/copy-ocr-assets.mjs && tsc -b && vite build --mode production",
     "verify:ocr-build": "node scripts/verify-ocr-build-assets.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy": "npm run build:production && npm run deploy:cloudflare",
+    "deploy:cloudflare": "wrangler deploy",
+    "keepalive:test": "wrangler deploy --dry-run && curl -sS -X POST \"${KEEPALIVE_TEST_URL:-http://127.0.0.1:8787/__keepalive}\"",
+    "smoke:production": "node scripts/smoke-production.mjs",
+    "secretscan:dist": "node scripts/secretscan-dist.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
+    "@supabase/supabase-js": "^2.111.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "pdfjs-dist": "^4.10.38",
@@ -40,8 +47,10 @@
     "@vitejs/plugin-react": "^6.0.3",
     "jsdom": "^26.1.0",
     "oxlint": "^1.71.0",
+    "supabase": "^2.111.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.118.0"
   }
 }

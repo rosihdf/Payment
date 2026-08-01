@@ -146,8 +146,11 @@ export class SystemStatusService {
       { name: 'localStorage schreibbar', ok: storageWritable, message: storageWritable ? 'OK' : 'Fehler' },
       {
         name: 'Persistenzmodus',
-        ok: config.persistenceMode === 'local',
-        message: 'Lokaler Datenmodus',
+        ok: config.persistenceMode === 'local' || config.persistenceMode === 'supabase',
+        message:
+          config.persistenceMode === 'supabase'
+            ? 'Supabase-Kernbereiche (profiles/leads/tariffs/products)'
+            : 'Lokaler Datenmodus',
       },
       {
         name: 'Konfiguration',
