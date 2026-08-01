@@ -8,77 +8,20 @@ import {
   validateContractDateRange,
 } from '../domain/contract/contractDates';
 import { compareContractVersions } from '../domain/contract/compareContractVersions';
-import { LocalAuditRepository } from '../repositories/local/LocalAuditRepository';
-import { LocalApprovalRuleRepository } from '../repositories/local/LocalApprovalRuleRepository';
-import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
-import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
-import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
-import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
-import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
-import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
-import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
-import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
-import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
-import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
-import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferDocumentRepository } from '../repositories/local/LocalOfferDocumentRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { createUserContext } from '../services/auditService';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import {
+  confirmCounselingAndDocumentSent,
   createTestOffer,
   FIELD_SERVICE_CONTEXT,
   resetOfferTestSequence,
 } from './helpers/offerTestHelpers';
 
 function createTestServices() {
-  return createServices({
-    userRepository: new LocalUserRepository(),
-    auditRepository: new LocalAuditRepository(),
-    approvalRuleRepository: new LocalApprovalRuleRepository(),
-    documentTemplateRepository: new LocalDocumentTemplateRepository(),
-    leadRepository: new LocalLeadRepository(),
-    leadDraftRepository: new LocalLeadDraftRepository(),
-    leadEditDraftRepository: new LocalLeadEditDraftRepository(),
-    tariffRepository: new LocalTariffRepository(),
-    productRepository: new LocalProductRepository(),
-    offerRepository: new LocalOfferRepository(),
-    offerVersionRepository: new LocalOfferVersionRepository(),
-    offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
-    salesDocumentRepository: new LocalSalesDocumentRepository(),
-    offerDocumentRepository: new LocalOfferDocumentRepository(),
-    pricingCatalogRepository: new LocalPricingCatalogRepository(),
-    pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
-    commissionCatalogRepository: new LocalCommissionCatalogRepository(),
-    commissionCalculationRepository: new LocalCommissionCalculationRepository(),
-    recommendationRepository: new LocalRecommendationRepository(),
-    salesTaskRepository: new LocalSalesTaskRepository(),
-    salesActivityRepository: new LocalSalesActivityRepository(),
-    contractRepository: new LocalContractRepository(),
-    contractVersionRepository: new LocalContractVersionRepository(),
-    contractTerminationRepository: new LocalContractTerminationRepository(),
-    activationCaseRepository: new LocalActivationCaseRepository(),
-    activationChecklistRepository: new LocalActivationChecklistRepository(),
-    activationApplicationRepository: new LocalActivationApplicationRepository(),
-    activationHardwareRepository: new LocalActivationHardwareRepository(),
-    activationBlockerRepository: new LocalActivationBlockerRepository(),
-  });
+  return createServices(createTestRepositories());
 }
 
 const admin = createUserContext({
@@ -106,7 +49,7 @@ const owner = { userId: 'user_001', role: 'field_service' as const, displayName:
 const reviewer = { userId: 'user_004', role: 'admin' as const, displayName: 'Admin' };
 
 async function createAcceptedOffer(services: ReturnType<typeof createTestServices>) {
-  const offerRepository = new LocalOfferRepository();
+  const offerRepository = createTestRepositories().offerRepository;
   const workflow = services.offerWorkflowService;
   let offer = await offerRepository.create(
     createTestOffer({ workflowStatus: 'approval_required' }),
@@ -114,7 +57,7 @@ async function createAcceptedOffer(services: ReturnType<typeof createTestService
   offer = await workflow.ensureInitialVersion(offer);
   await workflow.approve(offer.id, reviewer);
   await workflow.markReadyToSend(offer.id, owner);
-  await workflow.documentSent(offer.id, owner, 'kunde@example.test');
+  await confirmCounselingAndDocumentSent(workflow, offer.id, owner);
   const accepted = await workflow.acceptOffer(offer.id, owner, {
     acceptedByName: 'Kunde',
     acceptanceType: 'email_confirmation',
@@ -163,7 +106,7 @@ describe('C Vertragsmanagement', () => {
 
   it('blockiert Vertrag aus nicht angenommenem Offer', async () => {
     const services = createTestServices();
-    const offerRepository = new LocalOfferRepository();
+    const offerRepository = createTestRepositories().offerRepository;
     const offer = await offerRepository.create(createTestOffer({ workflowStatus: 'draft' }));
     const result = await services.contractService.createFromAcceptedOffer(offer.id, field);
     expect(result.ok).toBe(false);
@@ -274,7 +217,7 @@ describe('C Vertragsmanagement', () => {
 
   it('prüft Rechte service-seitig', async () => {
     const services = createTestServices();
-    const offerRepository = new LocalOfferRepository();
+    const offerRepository = createTestRepositories().offerRepository;
     const offer = await offerRepository.create(
       createTestOffer({ workflowStatus: 'accepted', currentVersionId: 'ver_x' }),
     );
@@ -457,7 +400,7 @@ describe('C Vertragsmanagement', () => {
 
   it('erweitert Diagnose und Export um Verträge', async () => {
     const services = createTestServices();
-    const offerRepository = new LocalOfferRepository();
+    const offerRepository = createTestRepositories().offerRepository;
     await offerRepository.create(
       createTestOffer({
         id: 'offer_diag_accepted',

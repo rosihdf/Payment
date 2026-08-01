@@ -1,5 +1,10 @@
 import { buildOfferVersionSnapshot } from '../domain/offer/buildOfferVersionSnapshot';
+import {
+  type CounselingPrincipleFlags,
+  emptyCounselingPrincipleFlags,
+} from '../domain/offer/counselingConfirmation';
 import { compareOfferVersions } from '../domain/offer/compareOfferVersions';
+import type { OfferFollowUpPreferences } from '../domain/offer/offerFollowUpPreferences';
 import type { Offer } from '../domain/offer/offer';
 import type { OfferVersion, OfferVersionDiffEntry } from '../domain/offer/offerVersion';
 import {
@@ -20,6 +25,7 @@ import {
   SALES_DOCUMENT_SCHEMA_VERSION,
   type SalesDocument,
 } from '../domain/salesDocument/salesDocument';
+import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
 import type { OfferVersionRepository } from '../repositories/interfaces/OfferVersionRepository';
 import type { OfferWorkflowEventRepository } from '../repositories/interfaces/OfferWorkflowEventRepository';
@@ -28,6 +34,8 @@ import type { PricingEvaluationRepository } from '../repositories/interfaces/Pri
 import {
   validateActivationChecklist,
   validateActivationDeviations,
+  validateCounselingPrinciples,
+  validateOfferFollowUpPreferences,
   validateStructuredAcceptance,
   validateStructuredDecline,
 } from '../domain/offer/offerWorkflowValidation';
@@ -47,6 +55,7 @@ export class OfferWorkflowService {
   private readonly eventRepository: OfferWorkflowEventRepository;
   private readonly documentRepository: SalesDocumentRepository;
   private readonly pricingEvaluationRepository: PricingEvaluationRepository;
+  private readonly commissionCalculationRepository: CommissionCalculationRepository;
 
   constructor(
     offerRepository: OfferRepository,
@@ -54,12 +63,14 @@ export class OfferWorkflowService {
     eventRepository: OfferWorkflowEventRepository,
     documentRepository: SalesDocumentRepository,
     pricingEvaluationRepository: PricingEvaluationRepository,
+    commissionCalculationRepository: CommissionCalculationRepository,
   ) {
     this.offerRepository = offerRepository;
     this.versionRepository = versionRepository;
     this.eventRepository = eventRepository;
     this.documentRepository = documentRepository;
     this.pricingEvaluationRepository = pricingEvaluationRepository;
+    this.commissionCalculationRepository = commissionCalculationRepository;
   }
 
   setSalesTaskService(service: SalesTaskService): void { this.taskService = service; }
@@ -119,6 +130,16 @@ export class OfferWorkflowService {
   async hasApprovalForVersion(offerId: string, versionId: string): Promise<boolean> {
     const events = await this.eventRepository.getByOfferId(offerId);
     return events.some((event) => event.type === 'approval' && event.offerVersionId === versionId && event.status === 'approved');
+  }
+
+  async hasCounselingConfirmationForVersion(offerId: string, versionId: string): Promise<boolean> {
+    const events = await this.eventRepository.getByOfferId(offerId);
+    return events.some(
+      (event) =>
+        event.type === 'counseling_confirmation' &&
+        event.offerVersionId === versionId &&
+        validateCounselingPrinciples(event.principles) === undefined,
+    );
   }
 
   async getWizardWorkflowView(offerId: string): Promise<{ offer: Offer | null; version: OfferVersion | null; approvalRequired: boolean; approved: boolean; workflowStatus: Offer['workflowStatus'] | null }> {
@@ -227,12 +248,132 @@ export class OfferWorkflowService {
     return result;
   }
   async markReadyToSend(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'mark_ready_to_send', context); }
-  async documentSent(offerId: string, context: OfferUserContext, recipient = '', channel: 'email' | 'portal' | 'manual' = 'email'): Promise<Result> {
+
+  async confirmCounselingPrinciples(
+    offerId: string,
+    versionId: string,
+    context: OfferUserContext,
+    flags: CounselingPrincipleFlags = emptyCounselingPrincipleFlags(),
+  ): Promise<Result> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) {
+      return { ok: false, error: 'not_found' };
+    }
+    if (offer.currentVersionId !== versionId) {
+      return { ok: false, error: 'validation' };
+    }
+    const validationError = validateCounselingPrinciples(flags);
+    if (validationError) {
+      return { ok: false, error: 'validation' };
+    }
+    const existing = await this.eventRepository.getByOfferId(offerId);
+    const duplicate = existing.find(
+      (event) => event.type === 'counseling_confirmation' && event.offerVersionId === versionId,
+    );
+    if (duplicate) {
+      return { ok: true, offer };
+    }
+    await this.event({
+      id: generateId('offer_counseling'),
+      schemaVersion: OFFER_WORKFLOW_EVENT_SCHEMA_VERSION,
+      type: 'counseling_confirmation',
+      offerId,
+      offerVersionId: versionId,
+      createdAt: nowIso(),
+      createdByUserId: context.userId,
+      createdByDisplayName: context.displayName,
+      note: '',
+      confirmedAt: nowIso(),
+      principles: flags,
+    });
+    return { ok: true, offer };
+  }
+
+  async recordFollowUpPreferences(
+    offerId: string,
+    versionId: string,
+    context: OfferUserContext,
+    preferences: OfferFollowUpPreferences,
+  ): Promise<Result> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) {
+      return { ok: false, error: 'not_found' };
+    }
+    const validationError = validateOfferFollowUpPreferences(preferences);
+    if (validationError) {
+      return { ok: false, error: 'validation' };
+    }
+    const existing = await this.eventRepository.getByOfferId(offerId);
+    const duplicate = existing.find(
+      (event) => event.type === 'follow_up_preferences' && event.offerVersionId === versionId,
+    );
+    if (duplicate) {
+      return { ok: true, offer };
+    }
+    await this.event({
+      id: generateId('offer_follow_up'),
+      schemaVersion: OFFER_WORKFLOW_EVENT_SCHEMA_VERSION,
+      type: 'follow_up_preferences',
+      offerId,
+      offerVersionId: versionId,
+      createdAt: nowIso(),
+      createdByUserId: context.userId,
+      createdByDisplayName: context.displayName,
+      note: '',
+      preferences,
+    });
+    return { ok: true, offer };
+  }
+
+  async documentSent(
+    offerId: string,
+    context: OfferUserContext,
+    recipient = '',
+    channel: 'email' | 'portal' | 'manual' = 'email',
+    followUpPreferences?: OfferFollowUpPreferences,
+  ): Promise<Result> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer?.currentVersionId) {
+      return { ok: false, error: 'not_found' };
+    }
+    const confirmed = await this.hasCounselingConfirmationForVersion(offerId, offer.currentVersionId);
+    if (!confirmed) {
+      return { ok: false, error: 'validation' };
+    }
+    if (followUpPreferences) {
+      const followUpResult = await this.recordFollowUpPreferences(
+        offerId,
+        offer.currentVersionId,
+        context,
+        followUpPreferences,
+      );
+      if (!followUpResult.ok) {
+        return followUpResult;
+      }
+    }
     const result = await this.transition(offerId, 'document_sent', context);
     if (!result.ok) return result;
-    await this.event({ id: generateId('offer_dispatch'), schemaVersion: 1, type: 'dispatch', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', channel, recipient, sentAt: nowIso() });
+    const sentAt = nowIso();
+    await this.event({ id: generateId('offer_dispatch'), schemaVersion: 1, type: 'dispatch', offerId, offerVersionId: result.offer.currentVersionId, createdAt: sentAt, createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', channel, recipient, sentAt });
+    const version = await this.getCurrentVersion(offerId);
+    if (version) {
+      await this.versionRepository.update({ ...version, workflowStatus: 'sent', sentAt });
+    }
     await this.record('offer_sent', 'Angebot versendet', recipient, result.offer, context, `offer_sent:${offerId}:${result.offer.currentVersionId}`);
-    if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Angebot nachfassen', type: 'follow_up_offer', priority: 'normal', dueAt: endOfDayIso(new Date(Date.now() + 7 * 86400000)), leadId: result.offer.leadId, offerId, sourceKey: `auto:follow_up_offer:${offerId}` }, context);
+    const followUpDue = followUpPreferences?.followUpDate
+      ? endOfDayIso(new Date(followUpPreferences.followUpDate))
+      : endOfDayIso(new Date(Date.now() + 7 * 86400000));
+    if (this.taskService && !followUpPreferences?.noFollowUpDesired) {
+      await this.taskService.ensureAutomaticTask({
+        title: 'Angebot nachfassen',
+        type: 'follow_up_offer',
+        priority: 'normal',
+        dueAt: followUpDue,
+        leadId: result.offer.leadId,
+        offerId,
+        sourceKey: `auto:follow_up_offer:${offerId}`,
+      }, context);
+    }
     return result;
   }
   async acceptOffer(offerId: string, context: OfferUserContext, input: Pick<OfferAcceptance, 'acceptedByName' | 'acceptanceType' | 'otherText' | 'note'> | string = ''): Promise<Result> {
@@ -312,10 +453,20 @@ export class OfferWorkflowService {
     return result;
   }
   async syncFromCommissionCase(offerId: string, context: OfferUserContext): Promise<Result> {
-    const offer = await this.offerRepository.getById(offerId); if (!offer) return { ok: false, error: 'not_found' };
-    const cases = JSON.parse(localStorage.getItem('amrtech.commissionCases') ?? '[]') as Array<{ offerId: string; status: string }>;
-    const status = cases.find((entry) => entry.offerId === offerId)?.status;
-    const action = status === 'released' ? 'mark_released' : status === 'settled' ? 'mark_accounted' : status === 'paid' ? 'mark_paid' : null;
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) {
+      return { ok: false, error: 'not_found' };
+    }
+    const cases = await this.commissionCalculationRepository.getCasesByOfferId(offerId);
+    const status = cases[0]?.status;
+    const action =
+      status === 'released'
+        ? 'mark_released'
+        : status === 'settled'
+          ? 'mark_accounted'
+          : status === 'paid'
+            ? 'mark_paid'
+            : null;
     return action ? this.transition(offerId, action, context) : { ok: true, offer };
   }
   async cancelWorkflow(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'cancel', context); }

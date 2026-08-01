@@ -4,24 +4,13 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { BestPayComparisonService } from '../services/bestPayComparisonService';
-import { BillingImportService } from '../services/billingImportService';
+import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import {
   getActiveBestPayComparisonSessionId,
   readBestPayComparisonSessions,
 } from '../services/bestPayComparisonStorageMigration';
-import { LeadService } from '../services/leadService';
-import { OfferService } from '../services/offerService';
-import { RecommendationService } from '../services/recommendationService';
-import { SalesWizardService } from '../services/salesWizardService';
 import { ADVICE_NEW_PATH, ADVICE_PATH } from '../utils/routes';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
@@ -137,46 +126,16 @@ describe('Beratungsentwurf Persistenz', () => {
     expect(discarded?.status).toBe('discarded');
   });
 
-  it('verweigert Löschen nicht leerer Entwürfe im Service', () => {
+  it('verweigert Löschen nicht leerer Entwürfe im Service', async () => {
     clearDemoDataForTests();
     resetDemoDataForTests();
-    const leadRepository = new LocalLeadRepository();
-    const offerRepository = new LocalOfferRepository();
-    const billingImportService = new BillingImportService(offerRepository);
-    const recommendationService = new RecommendationService(
-      new LocalRecommendationRepository(),
-      offerRepository,
-      leadRepository,
-      new LocalTariffRepository(),
-      new LocalProductRepository(),
-      new LocalPricingCatalogRepository(),
-      new LocalCommissionCatalogRepository(),
-      billingImportService,
-    );
-    const offerService = new OfferService(
-      offerRepository,
-      leadRepository,
-      new LocalTariffRepository(),
-      new LocalProductRepository(),
-    );
-    const bestPay = new BestPayComparisonService(
-      billingImportService,
-      recommendationService,
-      offerService,
-      leadRepository,
-      offerRepository,
-    );
-    const wizard = new SalesWizardService(
-      bestPay,
-      recommendationService,
-      new LeadService(leadRepository),
-      null,
-      offerService,
-    );
+    const services = createServices(createTestRepositories());
+    const wizard = services.salesWizardService;
+    const bestPay = services.bestPayComparisonService;
     const context = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura' };
-    const filled = wizard.startWizard(context);
-    wizard.updateProspectDraft(filled.id, { companyName: 'Geschützt GmbH' }, context);
-    expect(wizard.discardEmptyWizard(filled.id, context)).toEqual({ ok: false, error: 'not_empty' });
-    expect(bestPay.getSession(filled.id, context)?.status).not.toBe('discarded');
+    const filled = await wizard.startWizard(context);
+    await wizard.updateProspectDraft(filled.id, { companyName: 'Geschützt GmbH' }, context);
+    expect(await wizard.discardEmptyWizard(filled.id, context)).toEqual({ ok: false, error: 'not_empty' });
+    expect((await bestPay.getSession(filled.id, context))?.status).not.toBe('discarded');
   });
 });

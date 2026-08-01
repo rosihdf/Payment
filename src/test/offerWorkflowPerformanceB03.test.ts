@@ -16,6 +16,7 @@ import { OfferService } from '../services/offerService';
 import { SalesActivityService } from '../services/salesActivityService';
 import { SalesTaskService } from '../services/salesTaskService';
 import { SalesWorkspaceService } from '../services/salesWorkspaceService';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { generateId } from '../utils/id';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import {
@@ -197,13 +198,20 @@ describe('B03 Angebotsworkflow Performance', () => {
       const taskService = new SalesTaskService(new LocalSalesTaskRepository());
       const activityService = new SalesActivityService(new LocalSalesActivityRepository());
       taskService.setActivityService(activityService);
+      const repos = createTestRepositories();
       const workspace = new SalesWorkspaceService(
-        new LocalLeadRepository(),
+        repos.leadRepository,
         offerRepository,
-        new LocalSalesTaskRepository(),
-        new LocalSalesActivityRepository(),
+        repos.salesTaskRepository,
+        repos.salesActivityRepository,
         taskService,
         activityService,
+        repos.bestPayComparisonRepository,
+        repos.commissionCalculationRepository,
+        repos.pricingEvaluationRepository,
+        repos.contractRepository,
+        repos.activationCaseRepository,
+        repos.activationBlockerRepository,
       );
 
       const allOffers = await offerRepository.getAll();

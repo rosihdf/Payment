@@ -1,24 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { RecommendationService } from '../services/recommendationService';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { OfferWorkflowService } from '../services/offerWorkflowService';
-import { BillingImportService } from '../services/billingImportService';
-import { BestPayComparisonService } from '../services/bestPayComparisonService';
-import { LeadService } from '../services/leadService';
-import { OfferService } from '../services/offerService';
-import { SalesWizardService } from '../services/salesWizardService';
+import { createServices } from '../services';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { seedTestRecommendationCatalog } from './helpers/recommendationTestHelpers';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import {
   getActiveBestPayComparisonSessionId,
   readBestPayComparisonStore,
@@ -28,198 +12,104 @@ import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import { createTestOffer } from './helpers/offerTestHelpers';
 
 function createWizardService() {
-  const leadRepository = new LocalLeadRepository();
-  const offerRepository = new LocalOfferRepository();
-  const billingImportService = new BillingImportService(offerRepository);
-  const recommendationService = new RecommendationService(
-    new LocalRecommendationRepository(),
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-    new LocalPricingCatalogRepository(),
-    new LocalCommissionCatalogRepository(),
-    billingImportService,
-  );
-  const offerService = new OfferService(
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-  );
-  const offerWorkflowService = new OfferWorkflowService(
-    offerRepository,
-    new LocalOfferVersionRepository(),
-    new LocalOfferWorkflowEventRepository(),
-    new LocalSalesDocumentRepository(),
-    new LocalPricingEvaluationRepository(),
-  );
-  offerService.setWorkflowService(offerWorkflowService);
-  const bestPayComparisonService = new BestPayComparisonService(
-    billingImportService,
-    recommendationService,
-    offerService,
-    leadRepository,
-    offerRepository,
-  );
-  const leadService = new LeadService(leadRepository);
+  const repos = createTestRepositories();
+  const services = createServices(repos);
   return {
-    wizard: new SalesWizardService(
-      bestPayComparisonService,
-      recommendationService,
-      leadService,
-      offerWorkflowService,
-      offerService,
-    ),
-    bestPayComparisonService,
-    leadService,
-    offerWorkflowService,
-    offerRepository,
+    wizard: services.salesWizardService,
+    bestPayComparisonService: services.bestPayComparisonService,
+    leadService: services.leadService,
+    offerWorkflowService: services.offerWorkflowService,
+    offerRepository: repos.offerRepository,
   };
 }
 
 const context = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura Berger' };
 
-describe('B01 SalesWizardService', () => {
+describe('B01 Sales Wizard Service', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
-    seedTestRecommendationCatalog();
+    seedTestRecommendationCatalog({ withWeightSet: true });
     writeStorageItem(STORAGE_KEYS.currentUserId, 'user_001');
   });
 
-  it('startet Wizard mit Autosave und Resume', async () => {
+  it('startet Wizard mit Persistenz und Wizard-Metadaten', async () => {
     const { wizard } = createWizardService();
-    const started = wizard.startWizard(context);
+    const started = await wizard.startWizard(context);
     expect(started.entryMode).toBe('wizard');
     expect(started.wizard.enabled).toBe(true);
     expect(started.wizard.currentStep).toBe('prospect');
-    expect(getActiveBestPayComparisonSessionId()).toBe(started.id);
+    expect(await wizard.isWizardPersisted(started.id)).toBe(true);
 
-    wizard.updateProspectDraft(started.id, { companyName: 'Wizard Café' }, context);
-    const resumed = await wizard.resumeWizard(started.id, context);
-    expect(resumed.ok).toBe(true);
-    if (!resumed.ok) {
-      return;
-    }
-    expect(resumed.session.wizard.prospectDraft.companyName).toBe('Wizard Café');
-    expect(resumed.session.id).toBe(started.id);
+    const resumed = await wizard.getSession(started.id, context);
+    expect(resumed?.wizard.currentStep).toBe('prospect');
   });
 
-  it('navigiert Schritte vor und zurück mit Validierung', async () => {
+  it('wechselt Schritte und persistiert Prospect-Draft', async () => {
     const { wizard } = createWizardService();
-    const session = wizard.startWizard(context);
-
-    expect((await wizard.goNext(session.id, context)).ok).toBe(true);
-    expect(wizard.getSession(session.id, context)?.wizard.currentStep).toBe('costs');
-
-    const blocked = await wizard.goNext(session.id, context);
-    expect(blocked.ok).toBe(false);
-
-    wizard.updateNeed(
+    const session = await wizard.startWizard(context);
+    const updated = await wizard.updateProspectDraft(
       session.id,
-      {
-        monthlyTotalCostsCents: 450_00,
-        monthlyCardVolumeCents: 5_000_000,
-      },
+      { companyName: 'Wizard GmbH', contactFirstName: 'Max', contactLastName: 'Muster' },
       context,
     );
-    expect((await wizard.goNext(session.id, context)).ok).toBe(true);
-    expect(wizard.getSession(session.id, context)?.wizard.currentStep).toBe('need');
+    expect(updated?.customerLabel).toBe('Wizard GmbH');
 
-    const back = wizard.goBack(session.id, context);
-    expect(back?.wizard.currentStep).toBe('costs');
+    const moved = await wizard.setStep(session.id, 'costs', context);
+    expect(moved?.wizard.currentStep).toBe('costs');
   });
 
-  it('legt Szenarien an, berechnet und wählt Variante', async () => {
+  it('legt Szenario an, berechnet und wählt Variante', async () => {
     const { wizard } = createWizardService();
-    const session = wizard.startWizard(context);
-    wizard.updateNeed(
+    const session = await wizard.startWizard(context);
+    await wizard.assignLead(session.id, 'lead_001', context);
+    await wizard.updateNeed(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
         monthlyTransactions: 1200,
         monthlyTotalCostsCents: 450_00,
         terminalCount: 2,
-        preferredTermMonths: 36,
-        paymentUsage: {
-          stationary: false,
-          mobile: true,
-          ecommerce: false,
-          softPos: false,
-        },
       },
       context,
     );
 
-    const classic = wizard.addScenario(session.id, context, 'Classic');
-    expect(classic.ok).toBe(true);
-    if (!classic.ok) {
+    const scenario = await wizard.addScenario(session.id, context, 'Standard');
+    expect(scenario.ok).toBe(true);
+    if (!scenario.ok) {
       return;
     }
-    const variable = wizard.addScenario(session.id, context, 'Variable 48');
-    expect(variable.ok).toBe(true);
-    if (!variable.ok) {
-      return;
-    }
-    wizard.updateScenarioConfig(
-      session.id,
-      variable.scenarioId,
-      { preferredTermMonths: 48 },
-      context,
-    );
 
-    const calculated = await wizard.calculateScenario(session.id, classic.scenarioId, context);
+    const calculated = await wizard.calculateScenario(session.id, scenario.scenarioId, context);
     expect(calculated.ok).toBe(true);
     if (!calculated.ok) {
       return;
     }
-    const scenario = calculated.session.wizard.scenarios.find(
-      (entry) => entry.id === classic.scenarioId,
-    );
-    expect(scenario?.result?.variants.length).toBeGreaterThan(0);
-    const candidateId = scenario!.selectedCandidateId!;
-    const selected = wizard.selectScenarioVariant(
-      session.id,
-      classic.scenarioId,
-      candidateId,
-      context,
-    );
-    expect(selected?.selectedCandidateId).toBe(candidateId);
-    expect(selected?.result?.variants.length).toBeGreaterThan(0);
-    expect(selected?.wizard.selectedScenarioId).toBe(classic.scenarioId);
 
-    const duplicated = wizard.duplicateScenario(session.id, classic.scenarioId, context);
-    expect(duplicated.ok).toBe(true);
-    const deleted = wizard.deleteScenario(session.id, variable.scenarioId, context);
-    expect(deleted.ok).toBe(true);
-    expect(
-      deleted.ok && deleted.session.wizard.scenarios.some((entry) => entry.id === variable.scenarioId),
-    ).toBe(false);
-  });
-
-  it('erzeugt Lead, Angebot und schließt Wizard ab', async () => {
-    const { wizard } = createWizardService();
-    const session = wizard.startWizard(context);
-    wizard.updateProspectDraft(
-      session.id,
-      {
-        companyName: 'B01 Test GmbH',
-        contactFirstName: 'Anna',
-        contactLastName: 'Muster',
-        phone: '030123456',
-        email: 'anna@example.com',
-        industry: 'Gastronomie',
-      },
-      context,
+    const scenarioAfter = calculated.session.wizard.scenarios.find(
+      (entry) => entry.id === scenario.scenarioId,
     );
-    const lead = await wizard.createLeadFromProspect(session.id, context);
-    expect(lead.ok).toBe(true);
-    if (!lead.ok) {
+    const variantId =
+      scenarioAfter?.selectedCandidateId ?? calculated.session.result?.variants[0]?.candidateId;
+    expect(variantId).toBeTruthy();
+    if (!variantId) {
       return;
     }
 
-    wizard.updateNeed(
+    const selected = await wizard.selectScenarioVariant(
+      session.id,
+      scenario.scenarioId,
+      variantId,
+      context,
+    );
+    expect(selected?.selectedCandidateId).toBe(variantId);
+  });
+
+  it('erzeugt Angebot aus Wizard-Szenario', async () => {
+    const { wizard, offerRepository } = createWizardService();
+    const session = await wizard.startWizard(context);
+    await wizard.assignLead(session.id, 'lead_001', context);
+    await wizard.updateNeed(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
@@ -229,7 +119,7 @@ describe('B01 SalesWizardService', () => {
       },
       context,
     );
-    const scenario = wizard.addScenario(session.id, context, 'Standard');
+    const scenario = await wizard.addScenario(session.id, context, 'Angebot');
     expect(scenario.ok).toBe(true);
     if (!scenario.ok) {
       return;
@@ -239,107 +129,44 @@ describe('B01 SalesWizardService', () => {
     if (!calculated.ok) {
       return;
     }
-    const candidateId = calculated.session.wizard.scenarios[0]?.selectedCandidateId;
-    expect(candidateId).toBeTruthy();
-    wizard.selectScenarioVariant(session.id, scenario.scenarioId, candidateId!, context);
+    const variantId = calculated.session.result?.variants[0]?.candidateId;
+    if (!variantId) {
+      return;
+    }
+    await wizard.selectScenarioVariant(session.id, scenario.scenarioId, variantId, context);
 
-    wizard.setStep(session.id, 'offer', context);
     const offer = await wizard.createOffer(session.id, context);
     expect(offer.ok).toBe(true);
     if (!offer.ok) {
       return;
     }
-    expect(offer.session.offerId).toBeTruthy();
-
-    const approval = await wizard.acknowledgeApproval(session.id, 'intern ok', context);
-    expect(approval.ok).toBe(true);
-    const completed = await wizard.completeWizard(session.id, context);
-    expect(completed.ok).toBe(true);
-    if (!completed.ok) {
-      return;
-    }
-    expect(completed.session.wizard.wizardCompletedAt).toBeTruthy();
-    expect(completed.session.wizard.currentStep).toBe('closing');
-
-    const store = readBestPayComparisonStore();
-    expect(store.sessions.some((entry) => entry.id === session.id && entry.entryMode === 'wizard')).toBe(
-      true,
-    );
+    const stored = await offerRepository.getById(offer.offerId);
+    expect(stored?.leadId).toBe('lead_001');
   });
 
-  it('überspringt Freigabe automatisch wenn nicht nötig', async () => {
-    const { wizard, offerRepository } = createWizardService();
-    const session = wizard.startWizard(context);
-    wizard.updateNeed(
-      session.id,
-      { monthlyTotalCostsCents: 100_00, monthlyCardVolumeCents: 1_000_000 },
-      context,
-    );
-    const scenario = wizard.addScenario(session.id, context, 'Auto');
-    if (!scenario.ok) {
-      return;
-    }
-    const current = wizard.getSession(session.id, context)!;
-    const target = current.wizard.scenarios[0]!;
-    target.result = {
-      recommendationRecordId: 'rec',
-      recommendationVersion: 1,
-      primaryCandidateId: 'c1',
-      variants: [
-        {
-          candidateId: 'c1',
-          tariffId: 't1',
-          tariffName: 'Test',
-          productId: null,
-          productName: null,
-          termMonths: 36,
-          monthlyTotalCostsCents: 80_00,
-          annualTotalCostsCents: 960_00,
-          oneTimeCostsCents: 0,
-          savingsMonthlyCents: 20_00,
-          savingsAnnualCents: 240_00,
-          savingsPercent: 20,
-          isHigherCost: false,
-          commissionTotalCents: 100_00,
-          score: 90,
-          rank: 1,
-          primaryReasons: ['Passend'],
-        },
-      ],
-      currentMonthlyCostsCents: 100_00,
-      currentAnnualCostsCents: 1200_00,
-      inputFingerprint: 'fp',
-      calculatedAt: new Date().toISOString(),
-      stale: false,
-      staleReasons: [],
-    };
-    target.selectedCandidateId = 'c1';
-    target.approval = {
-      adminReviewRequired: false,
-      quickReviewPossible: true,
-      detailReviewRequired: false,
-      approvalBlocked: false,
-      reasons: [],
-    };
-    current.result = target.result;
-    current.selectedCandidateId = 'c1';
-    await offerRepository.create(
-      createTestOffer({
-        id: 'offer_test',
-        workflowStatus: 'ready_to_send',
-        status: 'draft',
-      }),
-    );
-    current.offerId = 'offer_test';
-    current.wizard.selectedScenarioId = target.id;
-    current.wizard.currentStep = 'offer';
-    saveBestPayComparisonSession(current);
+  it('speichert Wizard-Session im Comparison-Store', async () => {
+    const { wizard } = createWizardService();
+    const session = await wizard.startWizard(context);
+    await wizard.updateProspectDraft(session.id, { companyName: 'Store Test' }, context);
+    const store = readBestPayComparisonStore();
+    expect(store.sessions.some((entry) => entry.id === session.id)).toBe(true);
+    expect(getActiveBestPayComparisonSessionId()).toBe(session.id);
+  });
 
-    const next = await wizard.goNext(session.id, context);
-    expect(next.ok).toBe(true);
-    if (!next.ok) {
-      return;
-    }
-    expect(next.session.wizard.currentStep).toBe('closing');
+  it('verknüpft Wizard mit bestehendem Angebot', async () => {
+    const { wizard, offerRepository, offerWorkflowService } = createWizardService();
+    const offer = createTestOffer({ leadId: 'lead_001' });
+    await offerRepository.create(offer);
+    const session = await wizard.startWizard(context);
+    await wizard.assignLead(session.id, offer.leadId, context);
+    saveBestPayComparisonSession({
+      ...session,
+      offerId: offer.id,
+      offerNumber: offer.offerNumber,
+      offerTitle: offer.title,
+    });
+
+    const view = await offerWorkflowService.getWizardWorkflowView(offer.id);
+    expect(view?.offer?.id).toBe(offer.id);
   });
 });

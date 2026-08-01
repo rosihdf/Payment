@@ -3,11 +3,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
+import { createTestRepositories, createTestWorkspace } from './helpers/createTestRepositories';
 import { SalesActivityService } from '../services/salesActivityService';
 import { SalesTaskService } from '../services/salesTaskService';
 import { SalesWorkspaceService } from '../services/salesWorkspaceService';
@@ -58,17 +55,7 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
   });
 
   it('Außendienst sieht nur eigene Fälle, Admin kann Team sehen', async () => {
-    const taskService = new SalesTaskService(new LocalSalesTaskRepository());
-    const activityService = new SalesActivityService(new LocalSalesActivityRepository());
-    taskService.setActivityService(activityService);
-    const workspace = new SalesWorkspaceService(
-      new LocalLeadRepository(),
-      new LocalOfferRepository(),
-      new LocalSalesTaskRepository(),
-      new LocalSalesActivityRepository(),
-      taskService,
-      activityService,
-    );
+    const workspace = createTestWorkspace();
 
     const field = await workspace.getWorkspaceView(
       { userId: 'user_001', role: 'field_service', displayName: 'Laura' },
@@ -90,8 +77,9 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
   });
 
   it('Rendern erzeugt keine zusätzlichen Aufgaben oder Aktivitäten jenseits der Sync-Baseline', async () => {
-    const taskRepo = new LocalSalesTaskRepository();
-    const activityRepo = new LocalSalesActivityRepository();
+    const repos = createTestRepositories();
+    const taskRepo = repos.salesTaskRepository;
+    const activityRepo = repos.salesActivityRepository;
     const beforeTasks = (await taskRepo.getAll()).length;
     const beforeActivities = (await activityRepo.getAll()).length;
 
@@ -109,12 +97,18 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     const activityService = new SalesActivityService(activityRepo);
     taskService.setActivityService(activityService);
     const workspace = new SalesWorkspaceService(
-      new LocalLeadRepository(),
-      new LocalOfferRepository(),
+      repos.leadRepository,
+      repos.offerRepository,
       taskRepo,
       activityRepo,
       taskService,
       activityService,
+      repos.bestPayComparisonRepository,
+      repos.commissionCalculationRepository,
+      repos.pricingEvaluationRepository,
+      repos.contractRepository,
+      repos.activationCaseRepository,
+      repos.activationBlockerRepository,
     );
     const view = await workspace.getWorkspaceView(
       { userId: 'user_001', role: 'field_service', displayName: 'Laura' },

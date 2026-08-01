@@ -1,4 +1,8 @@
 import type { Lead } from '../../domain/lead/lead';
+import {
+  COUNSELING_PRINCIPLE_KEYS,
+  emptyCounselingPrincipleFlags,
+} from '../../domain/offer/counselingConfirmation';
 import type {
   CreateOfferInput,
   CreateOfferItemInput,
@@ -22,6 +26,7 @@ import {
   resetDemoDataForTests,
 } from '../../services/demoDataService';
 import type { OfferService, OfferUserContext } from '../../services/offerService';
+import type { OfferWorkflowService } from '../../services/offerWorkflowService';
 import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../../domain/recommendation/recommendationRecord';
 import { generateId, nowIso } from '../../utils/id';
 import { STORAGE_KEYS, writeStorageItem } from '../../utils/storage';
@@ -251,4 +256,36 @@ export function setupOfferTestStorage(currentUserId = FIELD_SERVICE_USER_ID): vo
   resetDemoDataForTests();
   resetOfferTestSequence();
   writeStorageItem(STORAGE_KEYS.currentUserId, currentUserId);
+}
+
+export function allCounselingPrinciplesConfirmed() {
+  return Object.fromEntries(COUNSELING_PRINCIPLE_KEYS.map((key) => [key, true])) as ReturnType<
+    typeof emptyCounselingPrincipleFlags
+  >;
+}
+
+export async function confirmCounselingAndDocumentSent(
+  service: OfferWorkflowService,
+  offerId: string,
+  context: OfferUserContext,
+  recipient = 'kunde@example.test',
+) {
+  const version = await service.getCurrentVersion(offerId);
+  if (!version) {
+    throw new Error(`Keine Angebotsversion für ${offerId}`);
+  }
+  await service.confirmCounselingPrinciples(
+    offerId,
+    version.id,
+    context,
+    allCounselingPrinciplesConfirmed(),
+  );
+  return service.documentSent(offerId, context, recipient, 'email', {
+    providedAt: new Date().toISOString(),
+    followUpDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+    comparesOffers: false,
+    openQuestions: '',
+    customerContactsSelf: false,
+    noFollowUpDesired: false,
+  });
 }

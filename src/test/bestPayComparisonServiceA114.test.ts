@@ -1,48 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { RecommendationService } from '../services/recommendationService';
-import { OfferService } from '../services/offerService';
-import { BillingImportService } from '../services/billingImportService';
-import { BestPayComparisonService } from '../services/bestPayComparisonService';
+import { createServices } from '../services';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { seedTestRecommendationCatalog } from './helpers/recommendationTestHelpers';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { STORAGE_KEYS, readStorageItem, writeStorageItem } from '../utils/storage';
 
 function createService() {
-  const leadRepository = new LocalLeadRepository();
-  const offerRepository = new LocalOfferRepository();
-  const billingImportService = new BillingImportService(offerRepository);
-  const recommendationService = new RecommendationService(
-    new LocalRecommendationRepository(),
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-    new LocalPricingCatalogRepository(),
-    new LocalCommissionCatalogRepository(),
-    billingImportService,
-  );
-  const offerService = new OfferService(
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-  );
+  const repos = createTestRepositories();
+  const services = createServices(repos);
   return {
-    service: new BestPayComparisonService(
-      billingImportService,
-      recommendationService,
-      offerService,
-      leadRepository,
-      offerRepository,
-    ),
-    offerRepository,
+    service: services.bestPayComparisonService,
+    offerRepository: repos.offerRepository,
   };
 }
 
@@ -56,27 +24,27 @@ describe('A11.4 BestPayComparisonService', () => {
     writeStorageItem(STORAGE_KEYS.currentUserId, 'user_001');
   });
 
-  it('legt Session an, speichert Entwurf und verwirft ihn', () => {
+  it('legt Session an, speichert Entwurf und verwirft ihn', async () => {
     const { service } = createService();
-    const created = service.createSession(context);
+    const created = await service.createSession(context);
     expect(created.status).toBe('draft');
     expect(created.schemaVersion).toBe(3);
 
-    service.updateManualInput(
+    await service.updateManualInput(
       created.id,
       { monthlyCardVolumeCents: 100_000_00, monthlyTotalCostsCents: 250_00 },
       context,
     );
-    const draft = service.getActiveDraft(context);
+    const draft = await service.getActiveDraft(context);
     expect(draft?.id).toBe(created.id);
 
-    expect(service.discardSession(created.id, context)).toBe(true);
-    expect(service.getActiveDraft(context)).toBeNull();
+    expect(await service.discardSession(created.id, context)).toBe(true);
+    expect(await service.getActiveDraft(context)).toBeNull();
   });
 
   it('blockiert Berechnung ohne Mindestdaten', async () => {
     const { service } = createService();
-    const session = service.createSession(context);
+    const session = await service.createSession(context);
     const result = await service.calculate(session.id, context);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -86,8 +54,8 @@ describe('A11.4 BestPayComparisonService', () => {
 
   it('berechnet über Recommendation-Engine und erlaubt Alternativenwahl', async () => {
     const { service } = createService();
-    const session = service.createSession(context);
-    service.updateManualInput(
+    const session = await service.createSession(context);
+    await service.updateManualInput(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
@@ -116,7 +84,7 @@ describe('A11.4 BestPayComparisonService', () => {
 
     const alternative = calculated.session.result!.variants[1];
     if (alternative) {
-      const selected = service.selectVariant(session.id, alternative.candidateId, context);
+      const selected = await service.selectVariant(session.id, alternative.candidateId, context);
       expect(selected?.selectedCandidateId).toBe(alternative.candidateId);
       expect(selected?.status).toBe('recommendation_selected');
     }
@@ -124,8 +92,8 @@ describe('A11.4 BestPayComparisonService', () => {
 
   it('erzeugt Angebot idempotent und markiert Herkunft', async () => {
     const { service, offerRepository } = createService();
-    const session = service.createSession(context);
-    service.updateManualInput(
+    const session = await service.createSession(context);
+    await service.updateManualInput(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
@@ -168,8 +136,8 @@ describe('A11.4 BestPayComparisonService', () => {
 
   it('blockiert Angebot bei stale Ergebnis', async () => {
     const { service } = createService();
-    const session = service.createSession(context);
-    service.updateManualInput(
+    const session = await service.createSession(context);
+    await service.updateManualInput(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
@@ -184,7 +152,7 @@ describe('A11.4 BestPayComparisonService', () => {
       return;
     }
 
-    service.updateManualInput(session.id, { monthlyTotalCostsCents: 500_00 }, context);
+    await service.updateManualInput(session.id, { monthlyTotalCostsCents: 500_00 }, context);
     await service.assignLead(session.id, 'lead_001', context);
 
     const offer = await service.createOfferFromComparison(session.id, context);
@@ -194,9 +162,9 @@ describe('A11.4 BestPayComparisonService', () => {
     }
   });
 
-  it('speichert keine Originaldateien in Comparison-Sessions', () => {
+  it('speichert keine Originaldateien in Comparison-Sessions', async () => {
     const { service } = createService();
-    service.createSession(context);
+    await service.createSession(context);
     const raw = JSON.stringify(readStorageItem(STORAGE_KEYS.bestPayComparisonSessions) ?? []);
     expect(raw).not.toMatch(/data:image|application\/pdf|base64,/i);
   });

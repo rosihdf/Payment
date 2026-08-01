@@ -11,48 +11,14 @@ import {
   readBestPayComparisonStore,
   saveBestPayComparisonSession,
 } from '../services/bestPayComparisonStorageMigration';
-import { BestPayComparisonService } from '../services/bestPayComparisonService';
-import { BillingImportService } from '../services/billingImportService';
-import { RecommendationService } from '../services/recommendationService';
-import { OfferService } from '../services/offerService';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
+import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { seedTestRecommendationCatalog } from './helpers/recommendationTestHelpers';
 import { STORAGE_KEYS, readStorageItem, writeStorageItem } from '../utils/storage';
 
 function createService() {
-  const leadRepository = new LocalLeadRepository();
-  const offerRepository = new LocalOfferRepository();
-  const billingImportService = new BillingImportService(offerRepository);
-  const recommendationService = new RecommendationService(
-    new LocalRecommendationRepository(),
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-    new LocalPricingCatalogRepository(),
-    new LocalCommissionCatalogRepository(),
-    billingImportService,
-  );
-  const offerService = new OfferService(
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-  );
-  return new BestPayComparisonService(
-    billingImportService,
-    recommendationService,
-    offerService,
-    leadRepository,
-    offerRepository,
-  );
+  return createServices(createTestRepositories()).bestPayComparisonService;
 }
 
 const context = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura Berger' };
@@ -289,21 +255,25 @@ describe('A11.5 BestPayComparison History', () => {
     expect(toBestPayComparisonSummary(costly).isHigherCost).toBe(true);
   });
 
-  it('dupliziert, archiviert, stellt wieder her und löscht Entwürfe', () => {
+  it('dupliziert, archiviert, stellt wieder her und löscht Entwürfe', async () => {
     const service = createService();
-    const original = service.createSession(context);
-    service.updateManualInput(
+    const original = await service.createSession(context);
+    await service.updateManualInput(
       original.id,
       { monthlyCardVolumeCents: 5_000_000, monthlyTotalCostsCents: 200_00, terminalCount: 2 },
       context,
     );
+    const current = await service.getSession(original.id, context);
+    if (!current) {
+      throw new Error('session missing');
+    }
     saveBestPayComparisonSession({
-      ...service.getSession(original.id, context)!,
+      ...current,
       offerId: null,
       status: 'ready_for_calculation',
     });
 
-    const duplicated = service.duplicateComparison(original.id, context);
+    const duplicated = await service.duplicateComparison(original.id, context);
     expect(duplicated.ok).toBe(true);
     if (!duplicated.ok) {
       return;
@@ -315,33 +285,32 @@ describe('A11.5 BestPayComparison History', () => {
     expect(duplicated.session.result).toBeNull();
     expect(duplicated.session.duplicateOfSessionId).toBe(original.id);
 
-    const again = service.duplicateComparison(original.id, context);
-    // second call allowed sequentially; in-flight only blocks concurrent
+    const again = await service.duplicateComparison(original.id, context);
     expect(again.ok).toBe(true);
 
-    const archived = service.archiveComparison(original.id, context);
+    const archived = await service.archiveComparison(original.id, context);
     expect(archived.ok).toBe(true);
     if (!archived.ok) {
       return;
     }
     expect(archived.session.archivedAt).toBeTruthy();
-    const list = service.listComparisons(context);
+    const list = await service.listComparisons(context);
     expect(list?.some((entry) => entry.id === original.id)).toBe(false);
 
-    const restored = service.restoreComparison(original.id, context);
+    const restored = await service.restoreComparison(original.id, context);
     expect(restored.ok).toBe(true);
     expect(restored.ok && restored.session.archivedAt).toBeNull();
 
-    const deletable = service.createSession(context);
-    const deleted = service.deleteDraftComparison(deletable.id, context);
+    const deletable = await service.createSession(context);
+    const deleted = await service.deleteDraftComparison(deletable.id, context);
     expect(deleted.ok).toBe(true);
-    expect(service.getSession(deletable.id, context)).toBeNull();
+    expect(await service.getSession(deletable.id, context)).toBeNull();
   });
 
   it('schützt angebotsverknüpfte Sessions vor Löschen', async () => {
     const service = createService();
-    const session = service.createSession(context);
-    service.updateManualInput(
+    const session = await service.createSession(context);
+    await service.updateManualInput(
       session.id,
       {
         monthlyCardVolumeCents: 5_000_000,
@@ -357,17 +326,17 @@ describe('A11.5 BestPayComparison History', () => {
     const offer = await service.createOfferFromComparison(session.id, context);
     expect(offer.ok).toBe(true);
 
-    const deleted = service.deleteDraftComparison(session.id, context);
+    const deleted = await service.deleteDraftComparison(session.id, context);
     expect(deleted.ok).toBe(false);
     if (!deleted.ok) {
       expect(deleted.error).toBe('not_deletable');
     }
   });
 
-  it('nimmt Session mit gleicher ID wieder auf', () => {
+  it('nimmt Session mit gleicher ID wieder auf', async () => {
     const service = createService();
-    const created = service.createSession(context);
-    const resumed = service.resumeComparison(created.id, context);
+    const created = await service.createSession(context);
+    const resumed = await service.resumeComparison(created.id, context);
     expect(resumed.ok).toBe(true);
     if (!resumed.ok) {
       return;

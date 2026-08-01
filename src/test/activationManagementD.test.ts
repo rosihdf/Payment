@@ -8,97 +8,30 @@ import {
 import { canTransitionActivationStatus } from '../domain/activation/activationStatus';
 import { CURRENT_CONTRACT_SCHEMA_VERSION } from '../domain/contract/contract';
 import { CURRENT_CONTRACT_VERSION_SCHEMA_VERSION } from '../domain/contract/contractVersion';
-import { LocalAuditRepository } from '../repositories/local/LocalAuditRepository';
-import { LocalApprovalRuleRepository } from '../repositories/local/LocalApprovalRuleRepository';
-import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
-import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
-import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
-import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
-import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
-import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
-import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
-import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
-import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
-import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
-import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferDocumentRepository } from '../repositories/local/LocalOfferDocumentRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { createUserContext } from '../services/auditService';
 import {
   CURRENT_ACTIVATION_STORAGE_VERSION,
   migrateActivationStorageIfNeeded,
 } from '../services/activationStorageMigration';
 import { STORAGE_KEYS, readStorageItem, writeStorageItem } from '../utils/storage';
-import { createTestOffer, resetOfferTestSequence } from './helpers/offerTestHelpers';
+import { confirmCounselingAndDocumentSent, createTestOffer, resetOfferTestSequence } from './helpers/offerTestHelpers';
 
 function createTestServices() {
-  const contractRepository = new LocalContractRepository();
-  const contractVersionRepository = new LocalContractVersionRepository();
-  const salesTaskRepository = new LocalSalesTaskRepository();
-  const salesActivityRepository = new LocalSalesActivityRepository();
-  const salesDocumentRepository = new LocalSalesDocumentRepository();
-  const activationCaseRepository = new LocalActivationCaseRepository();
-  const activationChecklistRepository = new LocalActivationChecklistRepository();
-  const activationApplicationRepository = new LocalActivationApplicationRepository();
-  const activationHardwareRepository = new LocalActivationHardwareRepository();
-  const activationBlockerRepository = new LocalActivationBlockerRepository();
-
-  const services = createServices({
-    userRepository: new LocalUserRepository(),
-    auditRepository: new LocalAuditRepository(),
-    approvalRuleRepository: new LocalApprovalRuleRepository(),
-    documentTemplateRepository: new LocalDocumentTemplateRepository(),
-    leadRepository: new LocalLeadRepository(),
-    leadDraftRepository: new LocalLeadDraftRepository(),
-    leadEditDraftRepository: new LocalLeadEditDraftRepository(),
-    tariffRepository: new LocalTariffRepository(),
-    productRepository: new LocalProductRepository(),
-    offerRepository: new LocalOfferRepository(),
-    offerVersionRepository: new LocalOfferVersionRepository(),
-    offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
-    salesDocumentRepository,
-    offerDocumentRepository: new LocalOfferDocumentRepository(),
-    pricingCatalogRepository: new LocalPricingCatalogRepository(),
-    pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
-    commissionCatalogRepository: new LocalCommissionCatalogRepository(),
-    commissionCalculationRepository: new LocalCommissionCalculationRepository(),
-    recommendationRepository: new LocalRecommendationRepository(),
-    salesTaskRepository,
-    salesActivityRepository,
-    contractRepository,
-    contractVersionRepository,
-    contractTerminationRepository: new LocalContractTerminationRepository(),
-    activationCaseRepository,
-    activationChecklistRepository,
-    activationApplicationRepository,
-    activationHardwareRepository,
-    activationBlockerRepository,
-  });
+  const repos = createTestRepositories();
+  const services = createServices(repos);
 
   return {
     services,
-    contractRepository,
-    contractVersionRepository,
-    salesTaskRepository,
-    salesDocumentRepository,
-    activationCaseRepository,
-    activationHardwareRepository,
+    contractRepository: repos.contractRepository,
+    contractVersionRepository: repos.contractVersionRepository,
+    salesTaskRepository: repos.salesTaskRepository,
+    salesDocumentRepository: repos.salesDocumentRepository,
+    activationCaseRepository: repos.activationCaseRepository,
+    activationHardwareRepository: repos.activationHardwareRepository,
+    offerRepository: repos.offerRepository,
   };
 }
 
@@ -116,14 +49,13 @@ const foreignField = createUserContext({
 const owner = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura' };
 const reviewer = { userId: 'user_004', role: 'admin' as const, displayName: 'Admin' };
 
-async function createAcceptedOffer(services: TestServices['services']) {
-  const offerRepository = new LocalOfferRepository();
+async function createAcceptedOffer(services: TestServices['services'], offerRepository = createTestRepositories().offerRepository) {
   const workflow = services.offerWorkflowService;
   let offer = await offerRepository.create(createTestOffer({ workflowStatus: 'approval_required' }));
   offer = await workflow.ensureInitialVersion(offer);
   await workflow.approve(offer.id, reviewer);
   await workflow.markReadyToSend(offer.id, owner);
-  await workflow.documentSent(offer.id, owner, 'kunde@example.test');
+  await confirmCounselingAndDocumentSent(workflow, offer.id, owner);
   const accepted = await workflow.acceptOffer(offer.id, owner, {
     acceptedByName: 'Kunde',
     acceptanceType: 'email_confirmation',
@@ -150,8 +82,8 @@ interface SeedHardwareOptions {
 
 /** Seeds a Contract + ContractVersion directly (bypassing the offer flow) with a hardware line. */
 async function seedContractWithHardware(
-  contractRepository: LocalContractRepository,
-  contractVersionRepository: LocalContractVersionRepository,
+  contractRepository: TestServices['contractRepository'],
+  contractVersionRepository: TestServices['contractVersionRepository'],
   options: SeedHardwareOptions,
 ) {
   const versionId = `${options.contractId}_v1`;

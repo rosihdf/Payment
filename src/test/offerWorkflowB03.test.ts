@@ -15,34 +15,20 @@ import {
 } from '../domain/offer/offerWorkflowValidation';
 import { validateOfferVersionSnapshot } from '../domain/offer/offerVersionSnapshotValidation';
 import { deriveSalesPipelinePhase } from '../domain/salesWorkspace/salesPipeline';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
+import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { migrateOfferStorageIfNeeded } from '../services/offerStorageMigration';
-import { OfferService } from '../services/offerService';
 import {
   CURRENT_OFFER_WORKFLOW_STORAGE_VERSION,
   migrateOfferWorkflowStorageIfNeeded,
 } from '../services/offerWorkflowStorageMigration';
 import { OfferWorkflowService } from '../services/offerWorkflowService';
-import { SalesWizardService } from '../services/salesWizardService';
-import { BillingImportService } from '../services/billingImportService';
-import { BestPayComparisonService } from '../services/bestPayComparisonService';
-import { LeadService } from '../services/leadService';
-import { RecommendationService } from '../services/recommendationService';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import {
   createTestOffer,
   createValidOfferInput,
+  confirmCounselingAndDocumentSent,
   FIELD_SERVICE_CONTEXT,
   resetOfferTestSequence,
 } from './helpers/offerTestHelpers';
@@ -52,71 +38,28 @@ const owner = { userId: 'user_001', role: 'field_service' as const, displayName:
 const reviewer = { userId: 'user_002', role: 'field_service' as const, displayName: 'Thomas' };
 
 function createWorkflow() {
-  const offers = new LocalOfferRepository();
-  const service = new OfferWorkflowService(
-    offers,
-    new LocalOfferVersionRepository(),
-    new LocalOfferWorkflowEventRepository(),
-    new LocalSalesDocumentRepository(),
-    new LocalPricingEvaluationRepository(),
-  );
-  return { offers, service };
+  const repos = createTestRepositories();
+  return {
+    offers: repos.offerRepository,
+    service: createServices(repos).offerWorkflowService,
+  };
 }
 
 function createWizardService() {
-  const leadRepository = new LocalLeadRepository();
-  const offerRepository = new LocalOfferRepository();
-  const billingImportService = new BillingImportService(offerRepository);
-  const recommendationService = new RecommendationService(
-    new LocalRecommendationRepository(),
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-    new LocalPricingCatalogRepository(),
-    new LocalCommissionCatalogRepository(),
-    billingImportService,
-  );
-  const offerService = new OfferService(
-    offerRepository,
-    leadRepository,
-    new LocalTariffRepository(),
-    new LocalProductRepository(),
-  );
-  const offerWorkflowService = new OfferWorkflowService(
-    offerRepository,
-    new LocalOfferVersionRepository(),
-    new LocalOfferWorkflowEventRepository(),
-    new LocalSalesDocumentRepository(),
-    new LocalPricingEvaluationRepository(),
-  );
-  offerService.setWorkflowService(offerWorkflowService);
-  const bestPayComparisonService = new BestPayComparisonService(
-    billingImportService,
-    recommendationService,
-    offerService,
-    leadRepository,
-    offerRepository,
-  );
-  const leadService = new LeadService(leadRepository);
+  const repos = createTestRepositories();
+  const services = createServices(repos);
   return {
-    wizard: new SalesWizardService(
-      bestPayComparisonService,
-      recommendationService,
-      leadService,
-      offerWorkflowService,
-      offerService,
-    ),
-    offerWorkflowService,
-    offerRepository,
-    offerService,
+    wizard: services.salesWizardService,
+    offerWorkflowService: services.offerWorkflowService,
+    offerRepository: repos.offerRepository,
+    offerService: services.offerService,
   };
 }
 
 async function advanceToSent(service: OfferWorkflowService, offerId: string) {
   await service.approve(offerId, reviewer);
   await service.markReadyToSend(offerId, owner);
-  await service.documentSent(offerId, owner, 'kunde@example.test');
+  await confirmCounselingAndDocumentSent(service, offerId, owner);
 }
 
 describe('B03 Angebotsworkflow', () => {
@@ -463,7 +406,7 @@ describe('B03 Angebotsworkflow', () => {
       const view = await offerWorkflowService.getWizardWorkflowView(created.offer.id);
       expect(view.offer?.currentVersionNumber).toBe(1);
 
-      const session = wizard.startWizard(context);
+      const session = await wizard.startWizard(context);
       expect(session.wizard.enabled).toBe(true);
       expect(offerWorkflowService.resolveWizardStepFromWorkflow(view.workflowStatus ?? 'draft')).toBe('offer');
     });

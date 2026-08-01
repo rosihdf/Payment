@@ -4,70 +4,12 @@ import { validateTemplatePlaceholders } from '../domain/template/documentTemplat
 import { createUserContext } from '../services/auditService';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createServices } from '../services';
-import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
-import { LocalAuditRepository } from '../repositories/local/LocalAuditRepository';
-import { LocalApprovalRuleRepository } from '../repositories/local/LocalApprovalRuleRepository';
-import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
-import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { LocalOfferDocumentRepository } from '../repositories/local/LocalOfferDocumentRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
-import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
-import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
-import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
-import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
-import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
-import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
-import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { migrateAdminStorageIfNeeded } from '../services/adminStorageMigration';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
 function createTestServices() {
-  return createServices({
-    userRepository: new LocalUserRepository(),
-    auditRepository: new LocalAuditRepository(),
-    approvalRuleRepository: new LocalApprovalRuleRepository(),
-    documentTemplateRepository: new LocalDocumentTemplateRepository(),
-    leadRepository: new LocalLeadRepository(),
-    leadDraftRepository: new LocalLeadDraftRepository(),
-    leadEditDraftRepository: new LocalLeadEditDraftRepository(),
-    tariffRepository: new LocalTariffRepository(),
-    productRepository: new LocalProductRepository(),
-    offerRepository: new LocalOfferRepository(),
-    offerVersionRepository: new LocalOfferVersionRepository(),
-    offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
-    salesDocumentRepository: new LocalSalesDocumentRepository(),
-    offerDocumentRepository: new LocalOfferDocumentRepository(),
-    pricingCatalogRepository: new LocalPricingCatalogRepository(),
-    pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
-    commissionCatalogRepository: new LocalCommissionCatalogRepository(),
-    commissionCalculationRepository: new LocalCommissionCalculationRepository(),
-    recommendationRepository: new LocalRecommendationRepository(),
-    salesTaskRepository: new LocalSalesTaskRepository(),
-    salesActivityRepository: new LocalSalesActivityRepository(),
-    contractRepository: new LocalContractRepository(),
-    contractVersionRepository: new LocalContractVersionRepository(),
-    contractTerminationRepository: new LocalContractTerminationRepository(),
-    activationCaseRepository: new LocalActivationCaseRepository(),
-    activationChecklistRepository: new LocalActivationChecklistRepository(),
-    activationApplicationRepository: new LocalActivationApplicationRepository(),
-    activationHardwareRepository: new LocalActivationHardwareRepository(),
-    activationBlockerRepository: new LocalActivationBlockerRepository(),
-  });
+  return createServices(createTestRepositories());
 }
 
 describe('B04 Administration', () => {

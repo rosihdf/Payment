@@ -3,14 +3,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
-import { SalesActivityService } from '../services/salesActivityService';
-import { SalesTaskService } from '../services/salesTaskService';
-import { SalesWorkspaceService } from '../services/salesWorkspaceService';
+import { createTestWorkspace } from './helpers/createTestRepositories';
 import { ADVICE_NEW_PATH } from '../utils/routes';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
@@ -59,17 +53,7 @@ describe('B02 Sales Workspace', () => {
   });
 
   it('aggregiert Workspace-Daten und legt automatische Wizard-Aufgaben an', async () => {
-    const taskService = new SalesTaskService(new LocalSalesTaskRepository());
-    const activityService = new SalesActivityService(new LocalSalesActivityRepository());
-    taskService.setActivityService(activityService);
-    const workspace = new SalesWorkspaceService(
-      new LocalLeadRepository(),
-      new LocalOfferRepository(),
-      new LocalSalesTaskRepository(),
-      new LocalSalesActivityRepository(),
-      taskService,
-      activityService,
-    );
+    const workspace = createTestWorkspace();
 
     const context = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura' };
     const view = await workspace.getWorkspaceView(context, { scope: 'mine' });

@@ -10,6 +10,7 @@ import {
   createRecommendationInputFingerprint,
   hasRecommendationInputChanged,
 } from '../domain/recommendationEngine/recommendationFingerprint';
+import { isSupabaseDataMode } from '../config/dataMode';
 import type { Offer } from '../domain/offer/offer';
 import type { User } from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
@@ -38,6 +39,32 @@ import {
 import { compareBaselineWithCandidate } from '../domain/billingImportEngine/costBaselineComparison';
 import type { BillingImportService } from './billingImportService';
 import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
+
+function resolveCatalogVersions() {
+  if (isSupabaseDataMode()) {
+    return {
+      tariffCatalogVersion: CURRENT_TARIFF_CATALOG_VERSION,
+      productCatalogVersion: CURRENT_PRODUCT_CATALOG_VERSION,
+      pricingCatalogVersion: CURRENT_PRICING_CATALOG_VERSION,
+      commissionCatalogVersion: CURRENT_COMMISSION_CATALOG_VERSION,
+      recommendationCatalogVersion: CURRENT_RECOMMENDATION_CATALOG_VERSION,
+    };
+  }
+  return {
+    tariffCatalogVersion:
+      readStorageItem<number>(STORAGE_KEYS.tariffCatalogVersion) ?? CURRENT_TARIFF_CATALOG_VERSION,
+    productCatalogVersion:
+      readStorageItem<number>(STORAGE_KEYS.productCatalogVersion) ?? CURRENT_PRODUCT_CATALOG_VERSION,
+    pricingCatalogVersion:
+      readStorageItem<number>(STORAGE_KEYS.pricingCatalogVersion) ?? CURRENT_PRICING_CATALOG_VERSION,
+    commissionCatalogVersion:
+      readStorageItem<number>(STORAGE_KEYS.commissionCatalogVersion) ??
+      CURRENT_COMMISSION_CATALOG_VERSION,
+    recommendationCatalogVersion:
+      readStorageItem<number>(STORAGE_KEYS.recommendationCatalogVersion) ??
+      CURRENT_RECOMMENDATION_CATALOG_VERSION,
+  };
+}
 
 export interface RecommendationUserContext {
   userId: string;
@@ -136,23 +163,23 @@ export class RecommendationService {
     return offer;
   }
 
-  private resolveCostBaselineForOffer(
+  private async resolveCostBaselineForOffer(
     offer: Offer,
     context: RecommendationUserContext,
-  ): import('../domain/billingImport/customerCostBaseline').CustomerCostBaseline | null {
+  ): Promise<import('../domain/billingImport/customerCostBaseline').CustomerCostBaseline | null> {
     if (!this.billingImportService) {
       return null;
     }
     return this.billingImportService.getActiveBaselineForOffer(offer.id, context);
   }
 
-  private buildNeedWithBaseline(
+  private async buildNeedWithBaseline(
     offer: Offer,
     lead: import('../domain/lead/lead').Lead | null,
     context: RecommendationUserContext,
   ) {
     let need = buildCustomerNeedFromOffer(offer, lead, offer.createdByUserId);
-    const baseline = this.resolveCostBaselineForOffer(offer, context);
+    const baseline = await this.resolveCostBaselineForOffer(offer, context);
     if (baseline && baseline.status === 'confirmed') {
       need = applyCostBaselineToNeed(need, baseline);
     } else if (offer.recommendationLink.costBaselineId) {
@@ -196,23 +223,7 @@ export class RecommendationService {
         assignments: commissionCatalog.assignments,
       },
       weightSet,
-      catalogVersions: {
-        tariffCatalogVersion:
-          readStorageItem<number>(STORAGE_KEYS.tariffCatalogVersion) ??
-          CURRENT_TARIFF_CATALOG_VERSION,
-        productCatalogVersion:
-          readStorageItem<number>(STORAGE_KEYS.productCatalogVersion) ??
-          CURRENT_PRODUCT_CATALOG_VERSION,
-        pricingCatalogVersion:
-          readStorageItem<number>(STORAGE_KEYS.pricingCatalogVersion) ??
-          CURRENT_PRICING_CATALOG_VERSION,
-        commissionCatalogVersion:
-          readStorageItem<number>(STORAGE_KEYS.commissionCatalogVersion) ??
-          CURRENT_COMMISSION_CATALOG_VERSION,
-        recommendationCatalogVersion:
-          readStorageItem<number>(STORAGE_KEYS.recommendationCatalogVersion) ??
-          CURRENT_RECOMMENDATION_CATALOG_VERSION,
-      },
+      catalogVersions: resolveCatalogVersions(),
       costBaselineId: need.costBaselineId,
       costBaselineVersion: need.costBaselineVersion,
     };
@@ -232,7 +243,7 @@ export class RecommendationService {
     }
 
     const lead = offer.leadId ? await this.leadRepository.getById(offer.leadId) : null;
-    const need = this.buildNeedWithBaseline(offer, lead, context);
+    const need = await this.buildNeedWithBaseline(offer, lead, context);
     const weightSets = await this.recommendationRepository.getWeightSets();
     const weightSet = resolvePublishedWeightSet(weightSets, need.evaluationDate);
     const engineContext = await this.buildEngineContext(need, weightSet);
@@ -342,24 +353,13 @@ export class RecommendationService {
     context: RecommendationUserContext,
   ): Promise<boolean> {
     const lead = offer.leadId ? await this.leadRepository.getById(offer.leadId) : null;
-    const need = this.buildNeedWithBaseline(offer, lead, context);
+    const need = await this.buildNeedWithBaseline(offer, lead, context);
     const weightSets = await this.recommendationRepository.getWeightSets();
     const weightSet = resolvePublishedWeightSet(weightSets, need.evaluationDate);
 
     const fingerprint = createRecommendationInputFingerprint({
       need,
-      tariffCatalogVersion:
-        readStorageItem<number>(STORAGE_KEYS.tariffCatalogVersion) ??
-        CURRENT_TARIFF_CATALOG_VERSION,
-      productCatalogVersion:
-        readStorageItem<number>(STORAGE_KEYS.productCatalogVersion) ??
-        CURRENT_PRODUCT_CATALOG_VERSION,
-      pricingCatalogVersion:
-        readStorageItem<number>(STORAGE_KEYS.pricingCatalogVersion) ??
-        CURRENT_PRICING_CATALOG_VERSION,
-      commissionCatalogVersion:
-        readStorageItem<number>(STORAGE_KEYS.commissionCatalogVersion) ??
-        CURRENT_COMMISSION_CATALOG_VERSION,
+      ...resolveCatalogVersions(),
       weightSet,
       costBaselineId: need.costBaselineId,
       costBaselineVersion: need.costBaselineVersion,
@@ -396,7 +396,7 @@ export class RecommendationService {
     }
 
     const stale = await this.resolveStaleState(record, offer, context);
-    const baseline = this.resolveCostBaselineForOffer(offer, context);
+    const baseline = await this.resolveCostBaselineForOffer(offer, context);
     const result = this.recordToResult(record);
     let costBaselineComparison: CostBaselineComparisonView | null = null;
     if (baseline && result.primaryCandidate) {

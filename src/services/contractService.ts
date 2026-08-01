@@ -44,6 +44,7 @@ import {
   type SalesDocumentType,
 } from '../domain/salesDocument/salesDocument';
 import type { UserContext } from '../domain/user/user';
+import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
 import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
 import type { ContractTerminationRepository } from '../repositories/interfaces/ContractTerminationRepository';
 import type { ContractVersionRepository } from '../repositories/interfaces/ContractVersionRepository';
@@ -145,6 +146,7 @@ export class ContractService {
   private readonly offerVersionRepository: OfferVersionRepository;
   private readonly salesDocumentRepository: SalesDocumentRepository;
   private readonly salesTaskRepository: SalesTaskRepository;
+  private readonly commissionCalculationRepository: CommissionCalculationRepository;
   private readonly auditService: AuditService;
 
   constructor(
@@ -155,6 +157,7 @@ export class ContractService {
     offerVersionRepository: OfferVersionRepository,
     salesDocumentRepository: SalesDocumentRepository,
     salesTaskRepository: SalesTaskRepository,
+    commissionCalculationRepository: CommissionCalculationRepository,
     auditService: AuditService,
   ) {
     this.contractRepository = contractRepository;
@@ -164,6 +167,7 @@ export class ContractService {
     this.offerVersionRepository = offerVersionRepository;
     this.salesDocumentRepository = salesDocumentRepository;
     this.salesTaskRepository = salesTaskRepository;
+    this.commissionCalculationRepository = commissionCalculationRepository;
     this.auditService = auditService;
   }
 
@@ -214,13 +218,8 @@ export class ContractService {
     const timestamp = nowIso();
     const allContracts = await this.contractRepository.getAll();
     const contractNumber = generateNextContractNumber(allContracts, timestamp);
-    const commissionCases = JSON.parse(localStorage.getItem('amrtech.commissionCases') ?? '[]') as Array<{
-      id: string;
-      offerId: string;
-      expectedAmountCents?: number;
-      status?: string;
-    }>;
-    const commissionCase = commissionCases.find((entry) => entry.offerId === offerId) ?? null;
+    const commissionCases = await this.commissionCalculationRepository.getCasesByOfferId(offerId);
+    const commissionCase = commissionCases[0] ?? null;
 
     const snapshot = buildContractVersionSnapshotFromOfferVersion(offerVersion, {
       startDate: options.startDate ?? toIsoDateOnly(new Date()),

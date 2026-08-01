@@ -1,35 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LocalAuditRepository } from '../repositories/local/LocalAuditRepository';
-import { LocalApprovalRuleRepository } from '../repositories/local/LocalApprovalRuleRepository';
-import { LocalContractRepository } from '../repositories/local/LocalContractRepository';
-import { LocalContractTerminationRepository } from '../repositories/local/LocalContractTerminationRepository';
-import { LocalContractVersionRepository } from '../repositories/local/LocalContractVersionRepository';
-import { LocalActivationCaseRepository } from '../repositories/local/LocalActivationCaseRepository';
-import { LocalActivationChecklistRepository } from '../repositories/local/LocalActivationChecklistRepository';
-import { LocalActivationApplicationRepository } from '../repositories/local/LocalActivationApplicationRepository';
-import { LocalActivationHardwareRepository } from '../repositories/local/LocalActivationHardwareRepository';
-import { LocalActivationBlockerRepository } from '../repositories/local/LocalActivationBlockerRepository';
-import { LocalDocumentTemplateRepository } from '../repositories/local/LocalDocumentTemplateRepository';
-import { LocalLeadDraftRepository } from '../repositories/local/LocalLeadDraftRepository';
-import { LocalLeadEditDraftRepository } from '../repositories/local/LocalLeadEditDraftRepository';
-import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
-import { LocalOfferDocumentRepository } from '../repositories/local/LocalOfferDocumentRepository';
-import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { LocalOfferVersionRepository } from '../repositories/local/LocalOfferVersionRepository';
-import { LocalOfferWorkflowEventRepository } from '../repositories/local/LocalOfferWorkflowEventRepository';
-import { LocalPricingCatalogRepository } from '../repositories/local/LocalPricingCatalogRepository';
-import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
-import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
-import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
-import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
-import { LocalSalesDocumentRepository } from '../repositories/local/LocalSalesDocumentRepository';
-import { LocalSalesTaskRepository } from '../repositories/local/LocalSalesTaskRepository';
-import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
-import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createServices } from '../services';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { createUserContext } from '../services/auditService';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import { CURRENT_CONTRACT_SCHEMA_VERSION } from '../domain/contract/contract';
@@ -40,37 +12,7 @@ import { SALES_TASK_SCHEMA_VERSION } from '../domain/salesWorkspace/salesTask';
 import { SALES_DOCUMENT_SCHEMA_VERSION } from '../domain/salesDocument/salesDocument';
 
 function createTestServices() {
-  return createServices({
-    userRepository: new LocalUserRepository(),
-    auditRepository: new LocalAuditRepository(),
-    approvalRuleRepository: new LocalApprovalRuleRepository(),
-    documentTemplateRepository: new LocalDocumentTemplateRepository(),
-    leadRepository: new LocalLeadRepository(),
-    leadDraftRepository: new LocalLeadDraftRepository(),
-    leadEditDraftRepository: new LocalLeadEditDraftRepository(),
-    tariffRepository: new LocalTariffRepository(),
-    productRepository: new LocalProductRepository(),
-    offerRepository: new LocalOfferRepository(),
-    offerVersionRepository: new LocalOfferVersionRepository(),
-    offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
-    salesDocumentRepository: new LocalSalesDocumentRepository(),
-    offerDocumentRepository: new LocalOfferDocumentRepository(),
-    pricingCatalogRepository: new LocalPricingCatalogRepository(),
-    pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
-    commissionCatalogRepository: new LocalCommissionCatalogRepository(),
-    commissionCalculationRepository: new LocalCommissionCalculationRepository(),
-    recommendationRepository: new LocalRecommendationRepository(),
-    salesTaskRepository: new LocalSalesTaskRepository(),
-    salesActivityRepository: new LocalSalesActivityRepository(),
-    contractRepository: new LocalContractRepository(),
-    contractVersionRepository: new LocalContractVersionRepository(),
-    contractTerminationRepository: new LocalContractTerminationRepository(),
-    activationCaseRepository: new LocalActivationCaseRepository(),
-    activationChecklistRepository: new LocalActivationChecklistRepository(),
-    activationApplicationRepository: new LocalActivationApplicationRepository(),
-    activationHardwareRepository: new LocalActivationHardwareRepository(),
-    activationBlockerRepository: new LocalActivationBlockerRepository(),
-  });
+  return createServices(createTestRepositories());
 }
 
 const admin = createUserContext({

@@ -1,5 +1,4 @@
 import type { BestPayComparisonSession } from '../domain/bestPayComparison/bestPayComparisonSession';
-import type { CommissionCase } from '../domain/commission/commissionCase';
 import type { Lead } from '../domain/lead/lead';
 import type { Offer } from '../domain/offer/offer';
 import type { SalesActivity } from '../domain/salesWorkspace/salesActivity';
@@ -21,12 +20,14 @@ import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
 import type { SalesActivityRepository } from '../repositories/interfaces/SalesActivityRepository';
 import type { SalesTaskRepository } from '../repositories/interfaces/SalesTaskRepository';
-import { normalizeActivationBlockers, normalizeActivationCases } from '../domain/activation/normalizeActivation';
-import { normalizeContracts } from '../domain/contract/normalizeContract';
+import type { ActivationBlockerRepository } from '../repositories/interfaces/ActivationBlockerRepository';
+import type { ActivationCaseRepository } from '../repositories/interfaces/ActivationCaseRepository';
+import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
+import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
+import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
+import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { CustomerPrimaryAction } from '../domain/salesWorkspace/customerRecordView';
 import { salesWizardSessionPath } from '../utils/routes';
-import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
-import { readBestPayComparisonSessions } from './bestPayComparisonStorageMigration';
 import type { SalesActivityService } from './salesActivityService';
 import {
   buildSalesDayWorkspaceSections,
@@ -125,6 +126,12 @@ export class SalesWorkspaceService {
   private readonly taskRepository: SalesTaskRepository;
   private readonly activityRepository: SalesActivityRepository;
   private readonly taskService: SalesTaskService;
+  private readonly bestPayComparisonRepository: BestPayComparisonRepository;
+  private readonly commissionCalculationRepository: CommissionCalculationRepository;
+  private readonly pricingEvaluationRepository: PricingEvaluationRepository;
+  private readonly contractRepository: ContractRepository;
+  private readonly activationCaseRepository: ActivationCaseRepository;
+  private readonly activationBlockerRepository: ActivationBlockerRepository;
 
   constructor(
     leadRepository: LeadRepository,
@@ -133,12 +140,24 @@ export class SalesWorkspaceService {
     activityRepository: SalesActivityRepository,
     taskService: SalesTaskService,
     _activityService: SalesActivityService,
+    bestPayComparisonRepository: BestPayComparisonRepository,
+    commissionCalculationRepository: CommissionCalculationRepository,
+    pricingEvaluationRepository: PricingEvaluationRepository,
+    contractRepository: ContractRepository,
+    activationCaseRepository: ActivationCaseRepository,
+    activationBlockerRepository: ActivationBlockerRepository,
   ) {
     this.leadRepository = leadRepository;
     this.offerRepository = offerRepository;
     this.taskRepository = taskRepository;
     this.activityRepository = activityRepository;
     this.taskService = taskService;
+    this.bestPayComparisonRepository = bestPayComparisonRepository;
+    this.commissionCalculationRepository = commissionCalculationRepository;
+    this.pricingEvaluationRepository = pricingEvaluationRepository;
+    this.contractRepository = contractRepository;
+    this.activationCaseRepository = activationCaseRepository;
+    this.activationBlockerRepository = activationBlockerRepository;
   }
 
   canUseTeamScope(context: SalesWorkspaceUserContext): boolean {
@@ -174,25 +193,12 @@ export class SalesWorkspaceService {
     return session.createdByUserId === context.userId;
   }
 
-  private readCommissionCases(): CommissionCase[] {
-    const raw = readStorageItem<CommissionCase[]>(STORAGE_KEYS.commissionCases);
-    return Array.isArray(raw) ? raw : [];
-  }
-
-  private approvalRequiredForOffer(offer: Offer): boolean {
-    // Lightweight signal: draft offers with recommendation link are treated as needing review
-    // when pricing evaluation storage marks admin review. Avoid running pricing engine here.
-    const evaluations = readStorageItem<Array<Record<string, unknown>>>(
-      STORAGE_KEYS.pricingEvaluations,
+  private async approvalRequiredForOffer(offer: Offer): Promise<boolean> {
+    const evaluations = await this.pricingEvaluationRepository.getByOfferId(offer.id);
+    return evaluations.some(
+      (entry) =>
+        entry.result.approval.adminReviewRequired || entry.result.approval.approvalBlocked,
     );
-    if (!Array.isArray(evaluations)) {
-      return false;
-    }
-    const related = evaluations.filter((entry) => entry.offerId === offer.id);
-    return related.some((entry) => {
-      const approval = entry.approval as Record<string, unknown> | undefined;
-      return Boolean(approval?.adminReviewRequired || approval?.approvalBlocked);
-    });
   }
 
   private approvalRequiredForSession(session: BestPayComparisonSession): boolean {
@@ -207,7 +213,7 @@ export class SalesWorkspaceService {
   }
 
   async syncAutomaticTasks(context: SalesWorkspaceUserContext): Promise<void> {
-    const sessions = readBestPayComparisonSessions().filter((session) =>
+    const sessions = (await this.bestPayComparisonRepository.getAll()).filter((session) =>
       this.isSessionVisible(session, context, 'mine'),
     );
     const offers = (await this.offerRepository.getAll()).filter((offer) =>
@@ -240,8 +246,10 @@ export class SalesWorkspaceService {
       }
     }
 
-    const contracts = normalizeContracts(readStorageItem(STORAGE_KEYS.contracts) ?? []);
-    const activations = normalizeActivationCases(readStorageItem(STORAGE_KEYS.activationCases) ?? []);
+    const [contracts, activations] = await Promise.all([
+      this.contractRepository.getAll(),
+      this.activationCaseRepository.getAll(),
+    ]);
     const activatedContractIds = new Set(activations.map((entry) => entry.contractId));
 
     for (const offer of offers) {
@@ -281,17 +289,31 @@ export class SalesWorkspaceService {
 
     await this.syncAutomaticTasks(context);
 
-    const [allLeads, allOffers, allTasks, allActivities] = await Promise.all([
-      this.leadRepository.getAll(),
-      this.offerRepository.getAll(),
-      this.taskRepository.getAll(),
-      this.activityRepository.getAll(),
-    ]);
-    const allSessions = readBestPayComparisonSessions();
-    const commissionCases = this.readCommissionCases();
+    const [allLeads, allOffers, allTasks, allActivities, allSessions, commissionCases, allContracts, allActivations, allBlockers] =
+      await Promise.all([
+        this.leadRepository.getAll(),
+        this.offerRepository.getAll(),
+        this.taskRepository.getAll(),
+        this.activityRepository.getAll(),
+        this.bestPayComparisonRepository.getAll(),
+        this.commissionCalculationRepository.getAllCases(),
+        this.contractRepository.getAll(),
+        this.activationCaseRepository.getAll(),
+        this.activationBlockerRepository.getAll(),
+      ]);
 
     const leads = allLeads.filter((lead) => this.isLeadVisible(lead, context, scope));
     const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context, scope));
+
+    const draftApprovalFlags = new Map<string, boolean>();
+    await Promise.all(
+      offers
+        .filter((offer) => offer.workflowStatus === 'draft')
+        .map(async (offer) => {
+          draftApprovalFlags.set(offer.id, await this.approvalRequiredForOffer(offer));
+        }),
+    );
+
     const sessions = allSessions.filter((session) => this.isSessionVisible(session, context, scope));
     const visibleLeadIds = new Set(leads.map((lead) => lead.id));
     const visibleOfferIds = new Set(offers.map((offer) => offer.id));
@@ -326,13 +348,6 @@ export class SalesWorkspaceService {
     ) as Record<SalesPipelinePhase, SalesCaseCard[]>;
 
     const cards: SalesCaseCard[] = [];
-    const allContracts = normalizeContracts(readStorageItem(STORAGE_KEYS.contracts) ?? []);
-    const allActivations = normalizeActivationCases(
-      readStorageItem(STORAGE_KEYS.activationCases) ?? [],
-    );
-    const allBlockers = normalizeActivationBlockers(
-      readStorageItem(STORAGE_KEYS.activationBlockers) ?? [],
-    );
     const hardBlockedActivationIds = new Set(
       allBlockers
         .filter((blocker) => blocker.status === 'open' && blocker.severity === 'hard')
@@ -352,7 +367,7 @@ export class SalesWorkspaceService {
       const approvalRequired =
         leadOffers.some((offer) =>
           ['approval_required', 'in_approval', 'changes_requested'].includes(offer.workflowStatus) ||
-          (offer.workflowStatus === 'draft' && this.approvalRequiredForOffer(offer)),
+          (offer.workflowStatus === 'draft' && draftApprovalFlags.get(offer.id)),
         ) ||
         leadSessions.some((session) => this.approvalRequiredForSession(session));
 
@@ -530,7 +545,7 @@ export class SalesWorkspaceService {
       .slice(0, 50);
     const offersInApproval = offers.filter(
       (offer) => ['approval_required', 'in_approval', 'changes_requested'].includes(offer.workflowStatus) ||
-        (offer.workflowStatus === 'draft' && this.approvalRequiredForOffer(offer)),
+        (offer.workflowStatus === 'draft' && draftApprovalFlags.get(offer.id)),
     );
     const followUpOfferIds = new Set(
       tasks
@@ -700,7 +715,7 @@ export class SalesWorkspaceService {
       .filter((activity) => activity.leadId === leadId)
       .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
       .slice(0, 30);
-    const sessions = readBestPayComparisonSessions().filter((session) => session.leadId === leadId);
+    const sessions = (await this.bestPayComparisonRepository.getAll()).filter((session) => session.leadId === leadId);
     const offers = (await this.offerRepository.getAll()).filter((offer) => offer.leadId === leadId);
     const phase = deriveSalesPipelinePhase({
       lead,
