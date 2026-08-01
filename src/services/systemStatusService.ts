@@ -149,8 +149,8 @@ export class SystemStatusService {
         ok: config.persistenceMode === 'local' || config.persistenceMode === 'supabase',
         message:
           config.persistenceMode === 'supabase'
-            ? 'Supabase-Kernbereiche (profiles/leads/tariffs/products)'
-            : 'Lokaler Datenmodus',
+            ? 'Supabase-Produktionsmodus (alle operativen Domänen)'
+            : 'Lokaler Entwicklungsmodus',
       },
       {
         name: 'Konfiguration',

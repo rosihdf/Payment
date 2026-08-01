@@ -75,17 +75,6 @@ export async function requireAdmin(
   | { ok: true; admin: ProfileRow; service: SupabaseClient }
   | { ok: false; response: Response }
 > {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
-    return {
-      ok: false,
-      response: errorResponse(
-        503,
-        'misconfigured',
-        'Benutzerverwaltung ist noch nicht vollständig konfiguriert.',
-      ),
-    };
-  }
-
   const header = request.headers.get('Authorization') ?? '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
   if (!match) {
@@ -100,6 +89,17 @@ export async function requireAdmin(
     return {
       ok: false,
       response: errorResponse(401, 'unauthorized', 'Anmeldung erforderlich.'),
+    };
+  }
+
+  if (!env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    return {
+      ok: false,
+      response: errorResponse(
+        503,
+        'misconfigured',
+        'Benutzerverwaltung ist noch nicht vollständig konfiguriert.',
+      ),
     };
   }
   let service: SupabaseClient;

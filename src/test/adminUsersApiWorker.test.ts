@@ -171,6 +171,25 @@ describe('admin users worker API', () => {
     expect(response.status).toBe(401);
   });
 
+  it('returns 503 when service role is missing but JWT is present', async () => {
+    const response = await handleInviteUser(
+      new Request('https://example.com/api/admin/users/invite', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer admin-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'a@example.com',
+          displayName: 'A',
+          role: 'field_service',
+        }),
+      }),
+      {
+        SUPABASE_URL: 'https://vohnqrftkuefkugabcob.supabase.co',
+        SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+      },
+    );
+    expect(response.status).toBe(503);
+  });
+
   it('returns 403 for field_service JWT', async () => {
     const { client } = buildClient({
       caller: adminProfile({ user_id: 'fs-1', role: 'field_service', email: 'fs@example.com' }),
