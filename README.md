@@ -130,8 +130,9 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 - Lokale Berechnung ohne Backend
 - Keine Angebots- oder PDF-Erstellung in A05
 
-## Tarifverwaltung
+## Tarife
 
+- Pflege unter `/admin/catalog` (Tab „Tarife“)
 - Echte BestPay A920-Tarife aus Flyer-Unterlagen (Classic und Flat)
 - Produktcodes sind interne App-Codes, nicht als offizielle BestPay-Produktcodes ausgewiesen
 - Unbekannte Vertragslaufzeiten, Kündigungsfristen und Inklusivtransaktionen bleiben offen (`null` / „Keine Angabe“)
@@ -165,10 +166,11 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 | `/admin` | Administration (Übersicht, Benutzer, Stammdaten, Betrieb) |
 | `/admin/users` | Benutzerverwaltung |
 | `/admin/roles` | Rollen und Rechte |
-| `/admin/pricing` | Tarife und Preise |
-| `/admin/products` | Produkte und Hardware (Hub) |
-| `/admin/products/manage` | Produktverwaltung (Admin) |
-| `/admin/tariffs` | Tarifverwaltung (Admin) |
+| `/admin/catalog` | Produkte & Konditionen (Tarife, Produkte, Preisregeln) |
+| `/admin/pricing` | Legacy-Redirect → Katalog (Preisregeln) |
+| `/admin/products` | Legacy-Redirect → Katalog (Produkte) |
+| `/admin/products/manage` | Legacy-Redirect → Katalog (Produkte); Deep Links `…/new`, `…/:id/edit` bleiben |
+| `/admin/tariffs` | Legacy-Redirect → Katalog (Tarife); Deep Links `…/new`, `…/:id/edit` bleiben |
 | `/admin/commission` | Provisionsverwaltung |
 | `/admin/approvals` | Freigaberegeln |
 | `/admin/templates` | Vorlagen |
@@ -181,7 +183,7 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 
 Unter `/products` zeigt die Anwendung den BestPay-Hardware- und Produktkatalog für Admin und Außendienst. Nur aktive Produkte sind sichtbar; der Außendienst kann Produkte ansehen, aber nicht bearbeiten.
 
-Unter `/admin/products/manage` verwaltet der Admin alle Produkte inklusive inaktiver Einträge.
+Unter `/admin/catalog` (Tab „Produkte“) verwaltet der Admin alle Produkte inklusive inaktiver Einträge.
 
 ### Abgrenzung zu Payment-Tarifen
 

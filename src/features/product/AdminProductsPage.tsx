@@ -44,7 +44,12 @@ const TERMINAL_FILTER_OPTIONS: Array<{ value: ProductTerminalTypeFilter; label: 
   { value: 'ecommerce', label: TERMINAL_TYPE_LABELS.ecommerce },
 ];
 
-export function AdminProductsPage() {
+interface AdminProductsPageProps {
+  /** In den zentralen Katalog eingebettet (ohne eigene Seitenhülle). */
+  embedded?: boolean;
+}
+
+export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) {
   const { currentUser } = useCurrentUser();
   const { productService } = useServices();
   const { showToast } = useToast();
@@ -123,16 +128,15 @@ export function AdminProductsPage() {
     })();
   };
 
-  return (
-    <AdminProductLayout
-      title="Produktverwaltung"
-      subtitle="BestPay-Hardware und Produkte verwalten"
-      actions={
-        <Link className={styles.primaryAction} to="/admin/products/manage/new">
-          Produkt anlegen
-        </Link>
-      }
-    >
+  const createAction = (
+    <Link className={styles.primaryAction} to="/admin/products/manage/new">
+      Produkt anlegen
+    </Link>
+  );
+
+  const content = (
+    <>
+      {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
         <SearchField
           value={filters.search}
@@ -257,6 +261,20 @@ export function AdminProductsPage() {
         onCancel={() => setDeactivateTarget(null)}
         onConfirm={handleDeactivateConfirmed}
       />
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <AdminProductLayout
+      title="Produkte"
+      subtitle="BestPay-Hardware und Produkte verwalten"
+      actions={createAction}
+    >
+      {content}
     </AdminProductLayout>
   );
 }

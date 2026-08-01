@@ -74,14 +74,8 @@ export function ProfilePage() {
               →
             </span>
           </Link>
-          <Link className={styles.adminLink} to="/admin/tariffs">
-            <span>Tarifverwaltung</span>
-            <span className={styles.adminLinkHint} aria-hidden="true">
-              →
-            </span>
-          </Link>
-          <Link className={styles.adminLink} to="/admin/products/manage">
-            <span>Produktverwaltung</span>
+          <Link className={styles.adminLink} to="/admin/catalog">
+            <span>Produkte & Konditionen</span>
             <span className={styles.adminLinkHint} aria-hidden="true">
               →
             </span>

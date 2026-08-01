@@ -150,9 +150,9 @@ describe('Calculator page', () => {
     );
 
     expect(await screen.findByText('Keine aktiven Tarife verfügbar')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zur Tarifverwaltung' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Zu Tarifen' })).toHaveAttribute(
       'href',
-      '/admin/tariffs',
+      '/admin/catalog?tab=tariffs',
     );
   });
 });

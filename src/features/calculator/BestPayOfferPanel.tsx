@@ -31,8 +31,8 @@ export function BestPayOfferPanel({
           title="Keine aktiven Tarife verfügbar"
           description="Für den Vergleich werden aktive BestPay-Tarife benötigt."
           action={
-            <Link className={styles.adminLink} to="/admin/tariffs">
-              Zur Tarifverwaltung
+            <Link className={styles.adminLink} to="/admin/catalog?tab=tariffs">
+              Zu Tarifen
             </Link>
           }
         />

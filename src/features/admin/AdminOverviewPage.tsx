@@ -75,7 +75,7 @@ export function AdminOverviewPage() {
               <Link to="/admin/users">Benutzer verwalten</Link>
               <Link to="/admin/data">Daten sichern</Link>
               <Link to="/admin/system">Systemstatus prüfen</Link>
-              <Link to="/admin/pricing">Tarife & Preise</Link>
+              <Link to="/admin/catalog">Produkte & Konditionen</Link>
             </div>
           </section>
         </>

@@ -70,7 +70,7 @@ export function EditTariffPage() {
 
   const leaveToOverview = () => {
     setAllowLeave(true);
-    navigate('/admin/tariffs', { replace: true });
+    navigate('/admin/catalog?tab=tariffs', { replace: true });
   };
 
   const handleSubmit = () => {
@@ -120,8 +120,8 @@ export function EditTariffPage() {
           title="Tarif nicht gefunden"
           description="Der angeforderte Tarif existiert nicht oder wurde entfernt."
           action={
-            <Link className={styles.backLink} to="/admin/tariffs">
-              Zur Tarifverwaltung
+            <Link className={styles.backLink} to="/admin/catalog?tab=tariffs">
+              Zu Tarifen
             </Link>
           }
         />

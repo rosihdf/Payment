@@ -27,19 +27,23 @@ import { LeadsPage } from '../features/lead/LeadsPage';
 import { NewLeadPage } from '../features/lead/NewLeadPage';
 import { AdminOverviewPage } from '../features/admin/AdminOverviewPage';
 import { AdminUsersPage, AdminRolesPage } from '../features/admin/AdminUsersPage';
-import { AdminPricingPage, AdminProductsPage } from '../features/admin/AdminCatalogPages';
+import { AdminCatalogPage } from '../features/admin/AdminCatalogPage';
+import {
+  AdminPricingPage,
+  AdminProductsPage,
+  AdminProductsManageRedirect,
+  AdminTariffsListRedirect,
+} from '../features/admin/AdminCatalogPages';
 import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
 import { AdminApprovalsPage } from '../features/admin/AdminApprovalsPage';
 import { AdminTemplatesPage } from '../features/admin/AdminTemplatesPage';
 import { AdminDataPage } from '../features/admin/AdminDataPage';
 import { AdminAuditPage } from '../features/admin/AdminAuditPage';
 import { AdminSystemPage } from '../features/admin/AdminSystemPage';
-import { AdminProductsPage as LegacyAdminProductsPage } from '../features/product/AdminProductsPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
 import { ProductsPage } from '../features/product/ProductsPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
-import { AdminTariffsPage } from '../features/tariff/AdminTariffsPage';
 import { EditTariffPage } from '../features/tariff/EditTariffPage';
 import { NewTariffPage } from '../features/tariff/NewTariffPage';
 
@@ -81,9 +85,10 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },
       { path: 'admin/roles', element: <AdminRolesPage /> },
+      { path: 'admin/catalog', element: <AdminCatalogPage /> },
       { path: 'admin/pricing', element: <AdminPricingPage /> },
       { path: 'admin/products', element: <AdminProductsPage /> },
-      { path: 'admin/products/manage', element: <LegacyAdminProductsPage /> },
+      { path: 'admin/products/manage', element: <AdminProductsManageRedirect /> },
       { path: 'admin/products/manage/new', element: <NewProductPage /> },
       { path: 'admin/products/manage/:id/edit', element: <EditProductPage /> },
       { path: 'admin/commission', element: <AdminCommissionPage /> },
@@ -92,7 +97,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/data', element: <AdminDataPage /> },
       { path: 'admin/audit', element: <AdminAuditPage /> },
       { path: 'admin/system', element: <AdminSystemPage /> },
-      { path: 'admin/tariffs', element: <AdminTariffsPage /> },
+      { path: 'admin/tariffs', element: <AdminTariffsListRedirect /> },
       { path: 'admin/tariffs/new', element: <NewTariffPage /> },
       { path: 'admin/tariffs/:id/edit', element: <EditTariffPage /> },
       { path: 'profile', element: <ProfilePage /> },

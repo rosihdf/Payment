@@ -68,10 +68,12 @@ describe('Routing', () => {
     expect(router.state.location.pathname).toBe('/advice');
   });
 
-  it('renders admin tariffs for admin role on /admin/tariffs', async () => {
-    renderApp('/admin/tariffs', 'user_004');
-    expect(await screen.findByRole('heading', { name: 'Tarifverwaltung' })).toBeInTheDocument();
+  it('redirects /admin/tariffs to the catalog tariffs tab for admin', async () => {
+    const router = renderApp('/admin/tariffs', 'user_004');
+    expect(await screen.findByRole('heading', { name: 'Produkte & Konditionen' })).toBeInTheDocument();
     expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/admin/catalog');
+    expect(router.state.location.search).toBe('?tab=tariffs');
   });
 
   it('shows access denied for non-admin on /admin/tariffs', async () => {
@@ -88,9 +90,9 @@ describe('Routing', () => {
   it('shows admin section on profile for admin users', async () => {
     renderApp('/profile', 'user_004');
     expect(await screen.findByRole('heading', { name: 'Administration' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Tarifverwaltung/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Produkte & Konditionen/i })).toHaveAttribute(
       'href',
-      '/admin/tariffs',
+      '/admin/catalog',
     );
   });
 });

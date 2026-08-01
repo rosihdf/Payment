@@ -91,7 +91,7 @@ describe('Tariff form UI', () => {
       expect(getStoredTariffs().some((tariff) => tariff.name === 'Neuer Demo Tarif')).toBe(true);
     });
 
-    renderAtRoute('/admin/tariffs', false);
+    renderAtRoute('/admin/catalog?tab=tariffs', false);
     expect(await screen.findByText('Neuer Demo Tarif')).toBeInTheDocument();
   });
 
@@ -124,7 +124,7 @@ describe('Tariff form UI', () => {
       ).toBe(true);
     });
 
-    renderAtRoute('/admin/tariffs', false);
+    renderAtRoute('/admin/catalog?tab=tariffs', false);
     expect(await screen.findByText('BestPay Mobile A920 Classic Plus')).toBeInTheDocument();
   });
 
@@ -145,7 +145,7 @@ describe('Tariff form UI', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/tariffs', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/catalog?tab=tariffs', { replace: true });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

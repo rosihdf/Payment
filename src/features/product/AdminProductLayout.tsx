@@ -30,7 +30,7 @@ export function AdminProductLayout({
       <section>
         <PageHeader title={title} subtitle="Berechtigungen werden geprüft…" />
         <EmptyState
-          title="Produktverwaltung wird geladen"
+          title="Produkte werden geladen"
           description="Benutzerberechtigungen werden geprüft."
         />
       </section>
@@ -42,7 +42,7 @@ export function AdminProductLayout({
       <section>
         <PageHeader title={title} />
         <AccessDenied
-          description="Die Produktverwaltung ist nur für Benutzer mit der Rolle Admin zugänglich."
+          description="Produkte sind nur für Benutzer mit der Rolle Admin zugänglich."
         />
       </section>
     );

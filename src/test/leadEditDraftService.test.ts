@@ -54,9 +54,9 @@ describe('LeadEditDraftService', () => {
 
     await service.saveDraft('lead_old', changed, baseline);
 
-    expect(
-      await service.getDraft('lead_old', '2026-08-01T08:00:00.000Z', baseline),
-    ).toBeNull();
+    // Lead-Update muss zeitlich nach dem Draft liegen (festes Datum ist flaky).
+    const leadUpdatedAfterDraft = new Date(Date.now() + 60_000).toISOString();
+    expect(await service.getDraft('lead_old', leadUpdatedAfterDraft, baseline)).toBeNull();
   });
 
   it('clears drafts after successful save flow', async () => {

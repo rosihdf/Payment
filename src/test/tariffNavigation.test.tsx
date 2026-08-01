@@ -46,9 +46,9 @@ describe('Tariff navigation and protection', () => {
     renderAtRoute('/admin/tariffs/tariff_unknown/edit');
 
     expect(await screen.findByText('Tarif nicht gefunden')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zur Tarifverwaltung' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Zu Tarifen' })).toHaveAttribute(
       'href',
-      '/admin/tariffs',
+      '/admin/catalog?tab=tariffs',
     );
   });
 
@@ -78,6 +78,6 @@ describe('Tariff navigation and protection', () => {
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
     await user.click(await screen.findByRole('button', { name: 'Änderungen verwerfen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/tariffs', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/catalog?tab=tariffs', { replace: true });
   });
 });

@@ -54,7 +54,12 @@ function formatUpdatedAt(value: string): string {
   });
 }
 
-export function AdminTariffsPage() {
+interface AdminTariffsPageProps {
+  /** In den zentralen Katalog eingebettet (ohne eigene Seitenhülle). */
+  embedded?: boolean;
+}
+
+export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
   const { currentUser } = useCurrentUser();
   const { tariffService } = useServices();
   const { showToast } = useToast();
@@ -132,16 +137,15 @@ export function AdminTariffsPage() {
     })();
   };
 
-  return (
-    <AdminTariffLayout
-      title="Tarifverwaltung"
-      subtitle="BestPay-Tarife für Vergleich und Beratung verwalten"
-      actions={
-        <Link className={styles.primaryAction} to="/admin/tariffs/new">
-          Tarif anlegen
-        </Link>
-      }
-    >
+  const createAction = (
+    <Link className={styles.primaryAction} to="/admin/tariffs/new">
+      Tarif anlegen
+    </Link>
+  );
+
+  const content = (
+    <>
+      {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
         <SearchField
           value={query}
@@ -317,6 +321,20 @@ export function AdminTariffsPage() {
         onCancel={() => setDeactivateTarget(null)}
         onConfirm={handleDeactivateConfirmed}
       />
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <AdminTariffLayout
+      title="Tarife"
+      subtitle="BestPay-Tarife für Vergleich und Beratung verwalten"
+      actions={createAction}
+    >
+      {content}
     </AdminTariffLayout>
   );
 }

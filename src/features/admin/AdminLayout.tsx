@@ -13,8 +13,7 @@ const ADMIN_NAV = [
   { to: '/admin', label: 'Übersicht', end: true },
   { to: '/admin/users', label: 'Benutzer' },
   { to: '/admin/roles', label: 'Rollen' },
-  { to: '/admin/pricing', label: 'Tarife & Preise' },
-  { to: '/admin/products', label: 'Produkte & Hardware' },
+  { to: '/admin/catalog', label: 'Produkte & Konditionen' },
   { to: '/admin/commission', label: 'Provision' },
   { to: '/admin/approvals', label: 'Freigaberegeln' },
   { to: '/admin/templates', label: 'Vorlagen' },
@@ -22,6 +21,15 @@ const ADMIN_NAV = [
   { to: '/admin/audit', label: 'Audit' },
   { to: '/admin/system', label: 'Systemstatus' },
 ] as const;
+
+function isCatalogRelatedPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/admin/catalog') ||
+    pathname.startsWith('/admin/pricing') ||
+    pathname.startsWith('/admin/tariffs') ||
+    pathname.startsWith('/admin/products')
+  );
+}
 
 interface AdminLayoutProps {
   title: string;
@@ -81,11 +89,15 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
             key={item.to}
             to={item.to}
             end={'end' in item ? item.end : false}
-            className={({ isActive }) =>
-              isActive || (item.to !== '/admin' && location.pathname.startsWith(item.to))
+            className={({ isActive }) => {
+              const active =
+                item.to === '/admin/catalog'
+                  ? isCatalogRelatedPath(location.pathname)
+                  : isActive || (item.to !== '/admin' && location.pathname.startsWith(item.to));
+              return active
                 ? `${styles.subnavLink} ${styles.subnavLinkActive}`
-                : styles.subnavLink
-            }
+                : styles.subnavLink;
+            }}
           >
             {item.label}
           </NavLink>

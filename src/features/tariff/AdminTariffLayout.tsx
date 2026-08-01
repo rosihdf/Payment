@@ -30,7 +30,7 @@ export function AdminTariffLayout({
       <section>
         <PageHeader title={title} subtitle="Berechtigungen werden geprüft…" />
         <EmptyState
-          title="Tarifverwaltung wird geladen"
+          title="Tarife werden geladen"
           description="Benutzerberechtigungen werden geprüft."
         />
       </section>
@@ -42,7 +42,7 @@ export function AdminTariffLayout({
       <section>
         <PageHeader title={title} />
         <AccessDenied
-          description="Die Tarifverwaltung ist nur für Benutzer mit der Rolle Admin zugänglich."
+          description="Tarife sind nur für Benutzer mit der Rolle Admin zugänglich."
         />
       </section>
     );

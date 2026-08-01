@@ -93,7 +93,7 @@ describe('Product form UI', () => {
       );
     });
 
-    renderAtRoute('/admin/products/manage', false);
+    renderAtRoute('/admin/catalog?tab=products', false);
     expect(await screen.findByText('Neues Demo Produkt')).toBeInTheDocument();
   });
 
@@ -125,7 +125,7 @@ describe('Product form UI', () => {
       ).toBe(true);
     });
 
-    renderAtRoute('/admin/products/manage', false);
+    renderAtRoute('/admin/catalog?tab=products', false);
     expect(await screen.findByText('BestPay Premium Line Plus')).toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe('Product form UI', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Abbrechen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/products/manage', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/catalog?tab=products', { replace: true });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

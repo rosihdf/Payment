@@ -32,16 +32,16 @@ describe('Tariff overview UI', () => {
   });
 
   it('shows A920 tariffs for admin', async () => {
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
-    expect(await screen.findByRole('heading', { name: 'Tarifverwaltung' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Produkte & Konditionen' })).toBeInTheDocument();
     expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
     expect(screen.getByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
     expect(screen.queryByText('BestPay Start')).not.toBeInTheDocument();
   });
 
   it('shows create action for admin', async () => {
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     expect(await screen.findByRole('link', { name: 'Tarif anlegen' })).toHaveAttribute(
       'href',
@@ -50,14 +50,14 @@ describe('Tariff overview UI', () => {
   });
 
   it('shows access denied for field service', async () => {
-    renderAtRoute('/admin/tariffs', 'user_001');
+    renderAtRoute('/admin/catalog?tab=tariffs', 'user_001');
 
     expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
   });
 
   it('filters by name search', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     await user.type(await screen.findByLabelText('Suche'), 'Flat');
 
@@ -69,7 +69,7 @@ describe('Tariff overview UI', () => {
 
   it('filters by product code search', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     await user.type(await screen.findByLabelText('Suche'), 'BP-A920-CLASSIC');
 
@@ -80,7 +80,7 @@ describe('Tariff overview UI', () => {
   });
 
   it('shows Classic values correctly', async () => {
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     expect(await screen.findByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
     expect(screen.getByText('0,249 %')).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe('Tariff overview UI', () => {
   });
 
   it('shows Flat clearing as inklusive', async () => {
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     expect(await screen.findByText('BestPay Mobile A920 Flat')).toBeInTheDocument();
     expect(screen.getAllByText('inklusive').length).toBeGreaterThan(0);
@@ -97,7 +97,7 @@ describe('Tariff overview UI', () => {
 
   it('filters by terminal type mobile', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     await user.click(await screen.findByRole('button', { name: 'Mobil' }));
 
@@ -109,7 +109,7 @@ describe('Tariff overview UI', () => {
 
   it('shows empty state when no matches', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/admin/tariffs');
+    renderAtRoute('/admin/catalog?tab=tariffs');
 
     await user.type(await screen.findByLabelText('Suche'), 'NichtVorhanden123');
 

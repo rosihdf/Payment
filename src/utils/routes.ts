@@ -9,6 +9,13 @@ export const SALES_WIZARD_NEW_PATH = ADVICE_NEW_PATH;
 export const CALCULATOR_WIZARD_LEGACY_PATH = '/calculator/wizard';
 export const LEGACY_SALES_WIZARD_PATH = '/sales/wizard';
 
+export const ADMIN_CATALOG_PATH = '/admin/catalog';
+export type AdminCatalogTab = 'tariffs' | 'products' | 'rules';
+
+export function adminCatalogPath(tab: AdminCatalogTab = 'tariffs'): string {
+  return `${ADMIN_CATALOG_PATH}?tab=${tab}`;
+}
+
 export function salesWizardSessionPath(sessionId: string): string {
   return `${ADVICE_PATH}?session=${encodeURIComponent(sessionId)}`;
 }

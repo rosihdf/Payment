@@ -49,7 +49,7 @@ describe('Product navigation and protection', () => {
   });
 
   it('shows access denied for field service on admin overview', async () => {
-    renderAtRoute('/admin/products/manage', 'user_001');
+    renderAtRoute('/admin/catalog?tab=products', 'user_001');
 
     expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
   });
@@ -61,7 +61,7 @@ describe('Product navigation and protection', () => {
   });
 
   it('shows create action for admin on overview', async () => {
-    renderAtRoute('/admin/products/manage');
+    renderAtRoute('/admin/catalog?tab=products');
 
     expect(await screen.findByRole('link', { name: 'Produkt anlegen' })).toHaveAttribute(
       'href',
@@ -89,6 +89,6 @@ describe('Product navigation and protection', () => {
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
     await user.click(await screen.findByRole('button', { name: 'Änderungen verwerfen' }));
 
-    expect(navigateMock).toHaveBeenCalledWith('/admin/products/manage', { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith('/admin/catalog?tab=products', { replace: true });
   });
 });

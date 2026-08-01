@@ -39,7 +39,7 @@ export function NewTariffPage() {
 
   const leaveToOverview = () => {
     setAllowLeave(true);
-    navigate('/admin/tariffs', { replace: true });
+    navigate('/admin/catalog?tab=tariffs', { replace: true });
   };
 
   const handleSubmit = () => {
