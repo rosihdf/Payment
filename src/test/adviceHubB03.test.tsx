@@ -122,7 +122,7 @@ describe('Aufräumblock 3 – Beratungshub', () => {
     renderAtRoute(`${ADVICE_PATH}?leadId=lead_001`);
     expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
     const select = await screen.findByLabelText('Kunde auswählen');
-    expect((select as HTMLSelectElement).value).toBe('lead_001');
+    expect(select).toHaveAttribute('data-value', 'lead_001');
   });
 
   it('ermöglicht Beratung ohne Kundenbezug', async () => {

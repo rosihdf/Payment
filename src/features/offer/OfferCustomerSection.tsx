@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FormField } from '../../components/common/FormField';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import type { Lead } from '../../domain/lead/lead';
 import { formatContactName } from '../../utils/format';
 import formStyles from './OfferForm.module.css';
@@ -49,31 +48,32 @@ export function OfferCustomerSection({
     <section className={formStyles.section}>
       <h2 className={formStyles.sectionTitle}>Kunde</h2>
 
-      <SearchField
-        value={search}
-        onChange={setSearch}
+      <FormControl
+        type="search"
         label="Lead suchen"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
         placeholder="Firma, Kontakt, Ort oder E-Mail…"
       />
 
-      <FormField id="leadId" label="Lead" required error={error}>
-        <select
-          id="leadId"
-          className={`${formStyles.select} ${error ? formStyles.inputError : ''}`}
-          value={leadId}
-          disabled={disabled}
-          aria-invalid={Boolean(error)}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">Lead auswählen…</option>
-          {filteredLeads.map((lead) => (
-            <option key={lead.id} value={lead.id}>
-              {lead.companyName} – {formatContactName(lead.contactFirstName, lead.contactLastName)}
-              {lead.city ? ` (${lead.city})` : ''}
-            </option>
-          ))}
-        </select>
-      </FormField>
+      <FormControl
+        type="select"
+        id="leadId"
+        label="Lead"
+        required
+        error={error}
+        value={leadId}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Lead auswählen…</option>
+        {filteredLeads.map((lead) => (
+          <option key={lead.id} value={lead.id}>
+            {lead.companyName} – {formatContactName(lead.contactFirstName, lead.contactLastName)}
+            {lead.city ? ` (${lead.city})` : ''}
+          </option>
+        ))}
+      </FormControl>
 
       {selectedLead ? (
         <dl className={formStyles.preview}>

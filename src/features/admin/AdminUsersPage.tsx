@@ -9,9 +9,7 @@ import {
   type UserStatus,
 } from '../../domain/user/user';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormField } from '../../components/common/FormField';
-import { SearchField } from '../../components/common/SearchField';
-import inputStyles from '../../components/common/inputs.module.css';
+import { FormControl } from '../../components/common/FormControl';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { AdminLayout, useAdminContext } from './AdminLayout';
 import { useServices } from '../../hooks/useServices';
@@ -155,21 +153,26 @@ export function AdminUsersPage() {
       }
     >
       <div className={styles.toolbar}>
-        <SearchField value={query} onChange={setQuery} placeholder="Name oder E-Mail suchen" />
-        <FormField label="Status" id="admin-users-status">
-          <select
-            id="admin-users-status"
-            className={inputStyles.select}
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as UserStatus | 'all')}
-            aria-label="Statusfilter"
-          >
-            <option value="all">Alle</option>
-            <option value="invited">Eingeladen</option>
-            <option value="active">Aktiv</option>
-            <option value="deactivated">Deaktiviert</option>
-          </select>
-        </FormField>
+        <FormControl
+          type="search"
+          label="Suche"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Name oder E-Mail suchen"
+        />
+        <FormControl
+          type="select"
+          id="admin-users-status"
+          label="Status"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as UserStatus | 'all')}
+          aria-label="Statusfilter"
+        >
+          <option value="all">Alle</option>
+          <option value="invited">Eingeladen</option>
+          <option value="active">Aktiv</option>
+          <option value="deactivated">Deaktiviert</option>
+        </FormControl>
       </div>
 
       {showInvite ? (
@@ -180,39 +183,38 @@ export function AdminUsersPage() {
               Der Benutzer erhält eine Einladungs-Mail. Das Passwort wird nicht durch den
               Administrator gesehen.
             </p>
-            <label>
-              Anzeigename
-              <input
-                value={inviteName}
-                onChange={(event) => setInviteName(event.target.value)}
-                required
-                autoComplete="name"
-              />
-            </label>
-            <label>
-              E-Mail
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                required
-                autoComplete="email"
-              />
-            </label>
-            <label>
-              Rolle
-              <select
-                value={inviteRole}
-                onChange={(event) => setInviteRole(event.target.value as UserRole)}
-                aria-label="Rolle für Einladung"
-              >
-                {roleOptions.map((role) => (
-                  <option key={role} value={role}>
-                    {USER_ROLE_LABELS[role]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <FormControl
+              id="invite-name"
+              type="text"
+              label="Anzeigename"
+              value={inviteName}
+              onChange={(event) => setInviteName(event.target.value)}
+              required
+              autoComplete="name"
+            />
+            <FormControl
+              id="invite-email"
+              type="email"
+              label="E-Mail"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              required
+              autoComplete="email"
+            />
+            <FormControl
+              type="select"
+              label="Rolle"
+              id="admin-invite-role"
+              value={inviteRole}
+              onChange={(event) => setInviteRole(event.target.value as UserRole)}
+              aria-label="Rolle für Einladung"
+            >
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>
+                  {USER_ROLE_LABELS[role]}
+                </option>
+              ))}
+            </FormControl>
             <button type="submit" disabled={submitting}>
               {submitting ? 'Einladung wird gesendet…' : 'Einladung senden'}
             </button>
@@ -249,7 +251,9 @@ export function AdminUsersPage() {
                   <tr key={user.id}>
                     <td>
                       {isEditing ? (
-                        <input
+                        <FormControl
+                          type="text"
+                          hideLabel
                           value={editName}
                           onChange={(event) => setEditName(event.target.value)}
                           aria-label={`Anzeigename für ${user.email}`}
@@ -261,7 +265,9 @@ export function AdminUsersPage() {
                     <td>{user.email}</td>
                     <td>
                       {isEditing ? (
-                        <select
+                        <FormControl
+                          type="select"
+                          hideLabel
                           value={editRole}
                           onChange={(event) => setEditRole(event.target.value as UserRole)}
                           aria-label={`Rolle für ${user.name}`}
@@ -271,7 +277,7 @@ export function AdminUsersPage() {
                               {USER_ROLE_LABELS[role]}
                             </option>
                           ))}
-                        </select>
+                        </FormControl>
                       ) : (
                         USER_ROLE_LABELS[user.role]
                       )}

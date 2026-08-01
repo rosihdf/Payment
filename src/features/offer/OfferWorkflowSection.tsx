@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import {
   COUNSELING_PRINCIPLE_KEYS,
   COUNSELING_PRINCIPLE_LABELS,
@@ -300,7 +301,7 @@ export function OfferWorkflowSection({
           <FormField id="approval-note" label="Notiz zur Freigabe">
             <textarea
               id="approval-note"
-              className={styles.textarea}
+              className={textareaClassName()}
               value={note}
               onChange={(event) => setNote(event.target.value)}
             />
@@ -331,7 +332,7 @@ export function OfferWorkflowSection({
           <FormField id="approve-note" label="Freigabe-Kommentar">
             <textarea
               id="approve-note"
-              className={styles.textarea}
+              className={textareaClassName()}
               value={note}
               onChange={(event) => setNote(event.target.value)}
             />
@@ -360,7 +361,7 @@ export function OfferWorkflowSection({
           <FormField id="changes-note" label="Änderungsanforderung">
             <textarea
               id="changes-note"
-              className={styles.textarea}
+              className={textareaClassName()}
               value={note}
               onChange={(event) => setNote(event.target.value)}
             />
@@ -410,27 +411,24 @@ export function OfferWorkflowSection({
               ))}
             </ul>
           </fieldset>
-          <FormField id="dispatch-recipient" label="Empfänger">
-            <input
-              id="dispatch-recipient"
-              className={styles.input}
-              value={recipient}
-              onChange={(event) => setRecipient(event.target.value)}
-              placeholder="kunde@example.test"
-            />
-          </FormField>
+          <FormControl
+            id="dispatch-recipient"
+            type="email"
+            label="Empfänger"
+            value={recipient}
+            onChange={(event) => setRecipient(event.target.value)}
+            placeholder="kunde@example.test"
+          />
           <fieldset>
             <legend>Bedenkzeit / Nachfassen</legend>
-            <FormField id="follow-up-date" label="Nachfassdatum">
-              <input
-                id="follow-up-date"
-                type="date"
-                className={styles.input}
-                value={followUpDate}
-                disabled={noFollowUpDesired}
-                onChange={(event) => setFollowUpDate(event.target.value)}
-              />
-            </FormField>
+            <FormControl
+              id="follow-up-date"
+              type="date"
+              label="Nachfassdatum"
+              value={followUpDate}
+              disabled={noFollowUpDesired}
+              onChange={(event) => setFollowUpDate(event.target.value)}
+            />
             <label>
               <input
                 type="checkbox"
@@ -458,7 +456,7 @@ export function OfferWorkflowSection({
             <FormField id="open-questions" label="Offene Fragen">
               <textarea
                 id="open-questions"
-                className={styles.textarea}
+                className={textareaClassName()}
                 value={openQuestions}
                 onChange={(event) => setOpenQuestions(event.target.value)}
               />
@@ -511,14 +509,13 @@ export function OfferWorkflowSection({
 
       {showActions && dialog === 'accept' ? (
         <section className={styles.formPanel}>
-          <FormField id="accepted-by" label="Annehmende Person">
-            <input
-              id="accepted-by"
-              className={styles.input}
-              value={acceptedByName}
-              onChange={(event) => setAcceptedByName(event.target.value)}
-            />
-          </FormField>
+          <FormControl
+            id="accepted-by"
+            type="text"
+            label="Annehmende Person"
+            value={acceptedByName}
+            onChange={(event) => setAcceptedByName(event.target.value)}
+          />
           <div className={styles.formActions}>
             <button type="button" className={styles.secondaryAction} onClick={closeDialog}>
               Abbrechen
@@ -545,7 +542,7 @@ export function OfferWorkflowSection({
           <FormField id="decline-reason" label="Ablehnungsgrund">
             <textarea
               id="decline-reason"
-              className={styles.textarea}
+              className={textareaClassName()}
               value={declineReason}
               onChange={(event) => setDeclineReason(event.target.value)}
             />

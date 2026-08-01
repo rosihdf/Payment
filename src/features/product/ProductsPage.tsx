@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { PageHeader } from '../../components/layout/PageHeader';
 import {
   PRODUCT_CATEGORY_LABELS,
@@ -79,10 +79,13 @@ export function ProductsPage() {
       />
 
       <div className={styles.toolbar}>
-        <SearchField
-          value={filters.search}
-          onChange={(search) => setFilters((current) => ({ ...current, search }))}
+        <FormControl
+          type="search"
           label="Suche"
+          value={filters.search}
+          onChange={(event) =>
+            setFilters((current) => ({ ...current, search: event.target.value }))
+          }
           placeholder="Produktname, Code, Hersteller…"
         />
 

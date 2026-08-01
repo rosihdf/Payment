@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { formatCentsToCurrency, parseCurrencyToCents } from '../../utils/currency';
-import { FormField } from './FormField';
-import inputStyles from './inputs.module.css';
+import { FormControl } from './FormControl';
 
 interface CurrencyInputProps {
   id: string;
@@ -28,27 +27,29 @@ export function CurrencyInput({
     setDisplayValue(formatCentsToCurrency(value));
   }, [value]);
 
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    setDisplayValue(nextValue);
+    onChange(parseCurrencyToCents(nextValue));
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatCentsToCurrency(value));
+  };
+
   return (
-    <FormField id={id} label={label} required={required} error={error}>
-      <input
-        id={id}
-        className={`${inputStyles.input} ${error ? inputStyles.inputError : ''}`}
-        type="text"
-        inputMode="decimal"
-        value={displayValue}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        placeholder="0,00 €"
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setDisplayValue(nextValue);
-          onChange(parseCurrencyToCents(nextValue));
-        }}
-        onBlur={() => {
-          setDisplayValue(formatCentsToCurrency(value));
-        }}
-      />
-    </FormField>
+    <FormControl
+      id={id}
+      type="text"
+      label={label}
+      required={required}
+      error={error}
+      value={displayValue}
+      disabled={disabled}
+      placeholder="0,00 €"
+      inputMode="decimal"
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
   );
 }

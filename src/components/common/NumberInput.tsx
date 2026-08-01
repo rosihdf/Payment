@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { formatInteger, parseIntegerInput } from '../../utils/currency';
-import { FormField } from './FormField';
-import inputStyles from './inputs.module.css';
+import { FormControl } from './FormControl';
 
 interface NumberInputProps {
   id: string;
@@ -23,37 +22,39 @@ export function NumberInput({
   error,
   disabled = false,
   required = false,
-  min,
+  min: _min,
   placeholder,
 }: NumberInputProps) {
+  void _min;
   const [displayValue, setDisplayValue] = useState(formatInteger(value));
 
   useEffect(() => {
     setDisplayValue(formatInteger(value));
   }, [value]);
 
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    setDisplayValue(nextValue);
+    onChange(parseIntegerInput(nextValue));
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatInteger(value));
+  };
+
   return (
-    <FormField id={id} label={label} required={required} error={error}>
-      <input
-        id={id}
-        className={`${inputStyles.input} ${error ? inputStyles.inputError : ''}`}
-        type="text"
-        inputMode="numeric"
-        value={displayValue}
-        disabled={disabled}
-        min={min}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${id}-error` : undefined}
-        placeholder={placeholder}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setDisplayValue(nextValue);
-          onChange(parseIntegerInput(nextValue));
-        }}
-        onBlur={() => {
-          setDisplayValue(formatInteger(value));
-        }}
-      />
-    </FormField>
+    <FormControl
+      id={id}
+      type="text"
+      label={label}
+      required={required}
+      error={error}
+      value={displayValue}
+      disabled={disabled}
+      placeholder={placeholder}
+      inputMode="numeric"
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
   );
 }

@@ -9,6 +9,7 @@ import type { Lead } from '../domain/lead/lead';
 import { formatCentsToCurrency } from '../utils/currency';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
+import { selectFormOptionByValue } from './helpers/selectFormOption';
 import { createTestLead } from './helpers/leadTestHelpers';
 
 function seedCustomLeads(leads: Lead[], currentUserId = 'user_001') {
@@ -70,7 +71,7 @@ describe('Lead edit UI', () => {
     expect(screen.getByLabelText('Monatlicher Kartenumsatz')).toHaveValue(
       formatCentsToCurrency(150000),
     );
-    expect(screen.getByLabelText('Status')).toHaveValue('contacted');
+    expect(screen.getByLabelText('Status')).toHaveTextContent('Kontaktiert');
   });
 
   it('shows empty optional fields instead of placeholders', async () => {
@@ -105,7 +106,7 @@ describe('Lead edit UI', () => {
     const companyField = await screen.findByLabelText('Firmenname');
     await user.clear(companyField);
     await user.type(companyField, 'Neu GmbH');
-    await user.selectOptions(screen.getByLabelText('Status'), 'offer');
+    await selectFormOptionByValue(user, 'Status', 'offer');
     await user.click(screen.getByRole('button', { name: 'Änderungen speichern' }));
 
     await waitFor(() => {

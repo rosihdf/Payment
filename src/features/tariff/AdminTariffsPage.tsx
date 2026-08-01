@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import type { Tariff, TariffStatusFilter, TerminalTypeFilter } from '../../domain/tariff/tariff';
 import {
   monthlyFixedCostsForOneTerminalCents,
@@ -147,10 +147,11 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
     <>
       {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
-        <SearchField
-          value={query}
-          onChange={setQuery}
+        <FormControl
+          type="search"
           label="Suche"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Tarifname, Produktcode, Anbieter…"
         />
 

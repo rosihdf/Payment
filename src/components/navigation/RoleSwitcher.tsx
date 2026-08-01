@@ -5,6 +5,7 @@ import { ASSIGNABLE_USER_ROLES, USER_ROLE_LABELS, type User } from '../../domain
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
+import { FormControl } from '../common/FormControl';
 import styles from './RoleSwitcher.module.css';
 
 function sortDemoUsers(users: User[]): User[] {
@@ -66,9 +67,11 @@ export function RoleSwitcher() {
       <label className={styles.label} htmlFor="role-switcher">
         Demo-Benutzer
       </label>
-      <select
+      <FormControl
+        type="select"
         id="role-switcher"
-        className={styles.select}
+        hideLabel
+        className={styles.selectControl}
         value={currentUser?.id ?? ''}
         onChange={(event) => void handleChange(event)}
         aria-label="Demo-Benutzer wechseln"
@@ -78,7 +81,7 @@ export function RoleSwitcher() {
             {user.name} ({USER_ROLE_LABELS[user.role]})
           </option>
         ))}
-      </select>
+      </FormControl>
       <Link className={styles.profileLink} to="/profile">
         Profil
       </Link>

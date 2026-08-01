@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
@@ -327,18 +327,10 @@ export function BestPayComparisonPage() {
         <div className={styles.card}>
           <h2>Bedarf und manuelle Werte</h2>
           <div className={styles.formGrid}>
-            <FormField label="Monatlicher Kartenumsatz (EUR)" id="monthlyVolume">
-              <input id="monthlyVolume" value={monthlyVolume} onChange={(e) => setMonthlyVolume(e.target.value)} inputMode="decimal" />
-            </FormField>
-            <FormField label="Monatliche Transaktionen" id="monthlyTransactions">
-              <input id="monthlyTransactions" value={monthlyTransactions} onChange={(e) => setMonthlyTransactions(e.target.value)} inputMode="numeric" />
-            </FormField>
-            <FormField label="Monatliche Ist-Gesamtkosten (EUR)" id="monthlyTotal">
-              <input id="monthlyTotal" value={monthlyTotal} onChange={(e) => setMonthlyTotal(e.target.value)} inputMode="decimal" />
-            </FormField>
-            <FormField label="Terminalanzahl" id="terminalCount">
-              <input id="terminalCount" value={terminalCount} onChange={(e) => setTerminalCount(e.target.value)} inputMode="numeric" />
-            </FormField>
+            <FormControl type="text" id="monthlyVolume" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(e) => setMonthlyVolume(e.target.value)} />
+            <FormControl type="text" id="monthlyTransactions" label="Monatliche Transaktionen" inputMode="numeric" value={monthlyTransactions} onChange={(e) => setMonthlyTransactions(e.target.value)} />
+            <FormControl type="text" id="monthlyTotal" label="Monatliche Ist-Gesamtkosten (EUR)" inputMode="decimal" value={monthlyTotal} onChange={(e) => setMonthlyTotal(e.target.value)} />
+            <FormControl type="text" id="terminalCount" label="Terminalanzahl" inputMode="numeric" value={terminalCount} onChange={(e) => setTerminalCount(e.target.value)} />
           </div>
           <div className={styles.actions}>
             <button type="button" className={styles.secondaryAction} onClick={handleSaveManual}>
@@ -432,16 +424,14 @@ export function BestPayComparisonPage() {
 
           <article className={styles.card}>
             <h3>Lead zuordnen und Angebot erstellen</h3>
-            <FormField label="Lead" id="leadSelect">
-              <select id="leadSelect" value={selectedLeadId} onChange={(e) => setSelectedLeadId(e.target.value)}>
+            <FormControl type="select" id="leadSelect" label="Lead" value={selectedLeadId} onChange={(e) => setSelectedLeadId(e.target.value)}>
                 <option value="">— bitte wählen —</option>
                 {leads.map((lead) => (
                   <option key={lead.id} value={lead.id}>
                     {lead.companyName}
                   </option>
                 ))}
-              </select>
-            </FormField>
+              </FormControl>
             <div className={styles.actions}>
               <button type="button" className={styles.secondaryAction} onClick={() => void handleAssignLead()}>
                 Lead zuordnen

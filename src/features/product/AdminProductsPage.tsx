@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import {
   PRODUCT_CATEGORY_LABELS,
   PRODUCT_CATEGORY_ORDER,
@@ -138,10 +138,13 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
     <>
       {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
-        <SearchField
-          value={filters.search}
-          onChange={(search) => setFilters((current) => ({ ...current, search }))}
+        <FormControl
+          type="search"
           label="Suche"
+          value={filters.search}
+          onChange={(event) =>
+            setFilters((current) => ({ ...current, search: event.target.value }))
+          }
           placeholder="Produktname, Code, Hersteller…"
         />
 

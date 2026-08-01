@@ -12,6 +12,7 @@ import {
   FIELD_SERVICE_USER_ID,
   setupOfferTestStorage,
 } from './helpers/offerTestHelpers';
+import { selectFormOptionByValue } from './helpers/selectFormOption';
 
 function getStoredOffers() {
   const raw = localStorage.getItem(STORAGE_KEYS.offers);
@@ -45,7 +46,7 @@ describe('Offer form UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/offers/new');
 
-    await user.selectOptions(await screen.findByLabelText('Lead'), DEMO_LEAD_ID);
+    await selectFormOptionByValue(user, 'Lead', DEMO_LEAD_ID);
     await user.click(screen.getByRole('button', { name: 'Angebot speichern' }));
 
     expect(
@@ -57,8 +58,8 @@ describe('Offer form UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/offers/new');
 
-    await user.selectOptions(await screen.findByLabelText('Lead'), DEMO_LEAD_ID);
-    await user.selectOptions(screen.getByLabelText('Tarif'), DEMO_TARIFF_ID);
+    await selectFormOptionByValue(user, 'Lead', DEMO_LEAD_ID);
+    await selectFormOptionByValue(user, 'Tarif', DEMO_TARIFF_ID);
     await user.click(screen.getByRole('button', { name: 'Angebot speichern' }));
 
     await waitFor(() => {
@@ -77,14 +78,14 @@ describe('Offer form UI', () => {
   it('prefills lead from query parameter', async () => {
     renderAtRoute(`/offers/new?leadId=${DEMO_LEAD_ID}`);
 
-    expect(await screen.findByLabelText('Lead')).toHaveValue(DEMO_LEAD_ID);
+    expect(await screen.findByLabelText('Lead')).toHaveAttribute('data-value', DEMO_LEAD_ID);
   });
 
   it('adds product from catalog and saves offer', async () => {
     const user = userEvent.setup();
     renderAtRoute('/offers/new');
 
-    await user.selectOptions(await screen.findByLabelText('Lead'), DEMO_LEAD_ID);
+    await selectFormOptionByValue(user, 'Lead', DEMO_LEAD_ID);
     await user.click(
       await screen.findByRole('button', { name: /BestPay Premium Line Kassensystem/i }),
     );
@@ -101,7 +102,7 @@ describe('Offer form UI', () => {
     const user = userEvent.setup();
     renderAtRoute('/offers/new');
 
-    await user.selectOptions(await screen.findByLabelText('Lead'), DEMO_LEAD_ID);
+    await selectFormOptionByValue(user, 'Lead', DEMO_LEAD_ID);
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();

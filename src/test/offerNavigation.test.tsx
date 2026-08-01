@@ -20,6 +20,7 @@ import {
   seedOfferInStorage,
   setupOfferTestStorage,
 } from './helpers/offerTestHelpers';
+import { selectFormOptionByValue } from './helpers/selectFormOption';
 
 function renderAtRoute(initialRoute: string, resetData = true, currentUserId = FIELD_SERVICE_USER_ID) {
   if (resetData) {
@@ -89,7 +90,7 @@ describe('Offer navigation', () => {
     const user = userEvent.setup();
     renderAtRoute('/offers/new');
 
-    await user.selectOptions(await screen.findByLabelText('Lead'), 'lead_001');
+    await selectFormOptionByValue(user, 'Lead', 'lead_001');
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
     await user.click(await screen.findByRole('button', { name: 'Änderungen verwerfen' }));
 

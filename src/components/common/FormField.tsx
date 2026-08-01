@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react';
-import styles from './FormField.module.css';
+import styles from './FormControl.module.css';
 
 interface FormFieldProps {
   id: string;
@@ -34,7 +34,7 @@ export function FormField({
       <label className={`${styles.label} ${required ? styles.labelRequired : ''}`} htmlFor={id}>
         {label}
       </label>
-      <div className={styles.control}>{control}</div>
+      {control}
       {hint ? (
         <p id={`${id}-hint`} className={styles.hint}>
           {hint}
@@ -47,4 +47,12 @@ export function FormField({
       ) : null}
     </div>
   );
+}
+
+export function formControlClassName(error?: string | boolean): string {
+  return `${styles.control} ${error ? styles.controlError : ''}`.trim();
+}
+
+export function textareaClassName(error?: string | boolean): string {
+  return `${styles.textarea} ${error ? styles.textareaError : ''}`.trim();
 }

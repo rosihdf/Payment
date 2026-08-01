@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
-import { FormField } from './FormField';
-import inputStyles from './inputs.module.css';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import {
   formatTenthsOfCentToCurrency,
   parseCurrencyToTenthsOfCent,
 } from '../../utils/tenthsOfCent';
+import { FormControl } from './FormControl';
 
 interface TenthsCurrencyInputProps {
   id: string;
@@ -31,29 +30,32 @@ export function TenthsCurrencyInput({
     setDisplayValue(formatTenthsOfCentToCurrency(value));
   }, [value]);
 
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    setDisplayValue(nextValue);
+    const parsed = parseCurrencyToTenthsOfCent(nextValue);
+    if (parsed !== null) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatTenthsOfCentToCurrency(value));
+  };
+
   return (
-    <FormField id={id} label={label} required={required} error={error}>
-      <input
-        id={id}
-        className={`${inputStyles.input} ${error ? inputStyles.inputError : ''}`}
-        type="text"
-        inputMode="decimal"
-        value={displayValue}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        placeholder="0,000 €"
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setDisplayValue(nextValue);
-          const parsed = parseCurrencyToTenthsOfCent(nextValue);
-          if (parsed !== null) {
-            onChange(parsed);
-          }
-        }}
-        onBlur={() => {
-          setDisplayValue(formatTenthsOfCentToCurrency(value));
-        }}
-      />
-    </FormField>
+    <FormControl
+      id={id}
+      type="text"
+      label={label}
+      required={required}
+      error={error}
+      value={displayValue}
+      disabled={disabled}
+      placeholder="0,000 €"
+      inputMode="decimal"
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
   );
 }

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { FormControl } from '../../components/common/FormControl';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { createSupabaseAuthService } from '../../services/supabaseAuthService';
@@ -45,25 +46,19 @@ export function LoginPage() {
         </h1>
         <p className={styles.subtitle}>Anmeldung für Administration und Außendienst</p>
         <form className={styles.form} onSubmit={(event) => void handleSubmit(event)}>
-          <label className={styles.label} htmlFor="login-email">
-            E-Mail
-          </label>
-          <input
+          <FormControl
             id="login-email"
-            className={styles.input}
             type="email"
+            label="E-Mail"
             autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
           />
-          <label className={styles.label} htmlFor="login-password">
-            Passwort
-          </label>
-          <input
+          <FormControl
             id="login-password"
-            className={styles.input}
             type="password"
+            label="Passwort"
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

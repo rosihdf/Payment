@@ -4,6 +4,7 @@ import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { FormControl } from '../../components/common/FormControl';
 import type { ActivationApplication, ActivationApplicationType } from '../../domain/activation/activationApplication';
 import { ACTIVATION_APPLICATION_STATUS_LABELS, ACTIVATION_APPLICATION_TYPE_LABELS } from '../../domain/activation/activationApplication';
 import type { ActivationBlocker, ActivationBlockerCategory, ActivationBlockerSeverity } from '../../domain/activation/activationBlocker';
@@ -589,9 +590,7 @@ export function ActivationDetailPage() {
                 })();
               }}
             >
-              <label>
-                Checklistenpunkt
-                <select value={documentChecklistItemId} onChange={(event) => setDocumentChecklistItemId(event.target.value)}>
+              <FormControl type="select" label="Checklistenpunkt" value={documentChecklistItemId} onChange={(event) => setDocumentChecklistItemId(event.target.value)}>
                   <option value="">Bitte wählen</option>
                   {checklist
                     .filter((item) => item.evidenceRequired)
@@ -600,22 +599,15 @@ export function ActivationDetailPage() {
                         {item.title}
                       </option>
                     ))}
-                </select>
-              </label>
-              <label>
-                Dokumenttyp
-                <select value={documentType} onChange={(event) => setDocumentType(event.target.value as SalesDocumentType)}>
+                </FormControl>
+              <FormControl type="select" label="Dokumenttyp" value={documentType} onChange={(event) => setDocumentType(event.target.value as SalesDocumentType)}>
                   {ACTIVATION_DOCUMENT_TYPES.map((type) => (
                     <option key={type} value={type}>
                       {SALES_DOCUMENT_TYPE_LABELS[type]}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Dateiname
-                <input value={documentFileName} onChange={(event) => setDocumentFileName(event.target.value)} required />
-              </label>
+                </FormControl>
+              <FormControl type="text" label="Dateiname" required value={documentFileName} onChange={(event) => setDocumentFileName(event.target.value)} />
               <button type="submit">Dokument erfassen (Beleg geprüft)</button>
             </form>
           ) : null}
@@ -653,20 +645,14 @@ export function ActivationDetailPage() {
                 })();
               }}
             >
-              <label>
-                Typ
-                <select value={newApplicationType} onChange={(event) => setNewApplicationType(event.target.value as ActivationApplicationType)}>
+              <FormControl type="select" label="Typ" value={newApplicationType} onChange={(event) => setNewApplicationType(event.target.value as ActivationApplicationType)}>
                   {Object.entries(ACTIVATION_APPLICATION_TYPE_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Titel
-                <input value={newApplicationTitle} onChange={(event) => setNewApplicationTitle(event.target.value)} required />
-              </label>
+                </FormControl>
+              <FormControl type="text" label="Titel" required value={newApplicationTitle} onChange={(event) => setNewApplicationTitle(event.target.value)} />
               <button type="submit">Antrag anlegen</button>
             </form>
           ) : null}
@@ -698,7 +684,10 @@ export function ActivationDetailPage() {
                       ) : null}
                       {application.status === 'submitted' || application.status === 'in_review' ? (
                         <>
-                          <input
+                          <FormControl
+                            type="text"
+                            hideLabel
+                            aria-label="Rückfragehinweis"
                             placeholder="Rückfragehinweis"
                             value={applicationNoteDrafts[application.id] ?? ''}
                             onChange={(event) =>
@@ -795,7 +784,10 @@ export function ActivationDetailPage() {
                       ) : null}
                       {unit.status === 'ordered' ? (
                         <>
-                          <input
+                          <FormControl
+                            type="text"
+                            hideLabel
+                            aria-label="Seriennummer"
                             placeholder="Seriennummer"
                             value={serialDrafts[unit.id] ?? ''}
                             onChange={(event) => setSerialDrafts((prev) => ({ ...prev, [unit.id]: event.target.value }))}
@@ -867,7 +859,10 @@ export function ActivationDetailPage() {
                       ) : null}
                       {unit.status === 'tested' ? (
                         <>
-                          <input
+                          <FormControl
+                            type="text"
+                            hideLabel
+                            aria-label="Übergabe an"
                             placeholder="Übergabe an"
                             value={handoverDrafts[unit.id] ?? ''}
                             onChange={(event) => setHandoverDrafts((prev) => ({ ...prev, [unit.id]: event.target.value }))}
@@ -889,7 +884,10 @@ export function ActivationDetailPage() {
                           </button>
                         </>
                       ) : null}
-                      <input
+                      <FormControl
+                        type="text"
+                        hideLabel
+                        aria-label="Abweichung beschreiben"
                         placeholder="Abweichung beschreiben"
                         value={deviationDrafts[unit.id] ?? ''}
                         onChange={(event) => setDeviationDrafts((prev) => ({ ...prev, [unit.id]: event.target.value }))}
@@ -938,10 +936,7 @@ export function ActivationDetailPage() {
                 })();
               }}
             >
-              <label>
-                Notiz zur Einrichtung
-                <input value={setupNote} onChange={(event) => setSetupNote(event.target.value)} />
-              </label>
+              <FormControl type="text" label="Notiz zur Einrichtung" value={setupNote} onChange={(event) => setSetupNote(event.target.value)} />
               <button type="submit">Einrichtung dokumentieren</button>
             </form>
           ) : null}
@@ -966,26 +961,15 @@ export function ActivationDetailPage() {
                 })();
               }}
             >
-              <label>
-                Gerät (optional)
-                <select value={testHardwareId} onChange={(event) => setTestHardwareId(event.target.value)}>
+              <FormControl type="select" label="Gerät (optional)" value={testHardwareId} onChange={(event) => setTestHardwareId(event.target.value)}>
                   <option value="">Keine Auswahl</option>
                   {hardware.map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.model || unit.productName || unit.id}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Anonymisierte Referenz
-                <input
-                  value={testAnonymizedReference}
-                  onChange={(event) => setTestAnonymizedReference(event.target.value)}
-                  placeholder="z. B. TEST-0001 (keine Kartendaten)"
-                  required
-                />
-              </label>
+                </FormControl>
+              <FormControl type="text" label="Anonymisierte Referenz" required placeholder="z. B. TEST-0001 (keine Kartendaten)" value={testAnonymizedReference} onChange={(event) => setTestAnonymizedReference(event.target.value)} />
               <div className={styles.inlineActions}>
                 <button type="submit">Testzahlung erfolgreich</button>
                 <button
@@ -1040,34 +1024,22 @@ export function ActivationDetailPage() {
                 })();
               }}
             >
-              <label>
-                Kategorie
-                <select value={newBlockerCategory} onChange={(event) => setNewBlockerCategory(event.target.value as ActivationBlockerCategory)}>
+              <FormControl type="select" label="Kategorie" value={newBlockerCategory} onChange={(event) => setNewBlockerCategory(event.target.value as ActivationBlockerCategory)}>
                   {Object.entries(ACTIVATION_BLOCKER_CATEGORY_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Schweregrad
-                <select value={newBlockerSeverity} onChange={(event) => setNewBlockerSeverity(event.target.value as ActivationBlockerSeverity)}>
+                </FormControl>
+              <FormControl type="select" label="Schweregrad" value={newBlockerSeverity} onChange={(event) => setNewBlockerSeverity(event.target.value as ActivationBlockerSeverity)}>
                   {Object.entries(ACTIVATION_BLOCKER_SEVERITY_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Titel
-                <input value={newBlockerTitle} onChange={(event) => setNewBlockerTitle(event.target.value)} required />
-              </label>
-              <label>
-                Beschreibung
-                <input value={newBlockerDescription} onChange={(event) => setNewBlockerDescription(event.target.value)} required />
-              </label>
+                </FormControl>
+              <FormControl type="text" label="Titel" required value={newBlockerTitle} onChange={(event) => setNewBlockerTitle(event.target.value)} />
+              <FormControl type="text" label="Beschreibung" required value={newBlockerDescription} onChange={(event) => setNewBlockerDescription(event.target.value)} />
               <button type="submit">Blocker erfassen</button>
             </form>
           ) : null}
@@ -1089,7 +1061,10 @@ export function ActivationDetailPage() {
                   </div>
                   {blocker.status === 'open' && hasPermission(currentUser.role, 'activations.blockers') ? (
                     <div className={styles.inlineActions}>
-                      <input
+                      <FormControl
+                        type="text"
+                        hideLabel
+                        aria-label="Lösung"
                         placeholder="Lösung"
                         value={blockerResolutionDrafts[blocker.id] ?? ''}
                         onChange={(event) =>
@@ -1166,14 +1141,7 @@ export function ActivationDetailPage() {
       {reasonDialog ? (
         <div className={styles.section} role="dialog" aria-label="Begründung erforderlich">
           <h2>{reasonDialog === 'cancel' ? 'Aktivierung abbrechen' : 'Go-live zurücknehmen'}</h2>
-          <label>
-            Begründung
-            <input
-              value={reasonText}
-              onChange={(event) => setReasonText(event.target.value)}
-              placeholder="Grund eingeben"
-            />
-          </label>
+          <FormControl type="text" label="Begründung" placeholder="Grund eingeben" value={reasonText} onChange={(event) => setReasonText(event.target.value)} />
           <div className={styles.inlineActions}>
             <button
               type="button"

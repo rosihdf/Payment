@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { CurrencyInput } from '../../components/common/CurrencyInput';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import type {
   CreateProductInput,
   ProductFormMode,
@@ -46,9 +47,11 @@ function StringListEditor({
       <div className={styles.stringList}>
         {values.map((value, index) => (
           <div key={`${id}-${index}`} className={styles.stringListRow}>
-            <input
+            <FormControl
+              type="text"
               id={`${id}-${index}`}
-              className={styles.input}
+              hideLabel
+              aria-label={`${label} ${index + 1}`}
               value={value}
               disabled={disabled}
               onChange={(event) => {
@@ -146,42 +149,19 @@ export function ProductForm({
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Identität</h2>
         <div className={styles.grid}>
-          <FormField id="name" label="Produktname" required error={errors.name}>
-            <input
-              id="name"
-              className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
-              value={values.name}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('name', event.target.value)}
-            />
-          </FormField>
-          <FormField id="providerName" label="Anbieter" required error={errors.providerName}>
-            <input
-              id="providerName"
-              className={styles.input}
-              value={values.providerName}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('providerName', event.target.value)}
-            />
-          </FormField>
-          <FormField
+          <FormControl type="text" id="name" label="Produktname" required error={errors.name} value={values.name} disabled={isSubmitting} onChange={(event) => updateField('name', event.target.value)} />
+          <FormControl type="text" id="providerName" label="Anbieter" required error={errors.providerName} value={values.providerName} disabled={isSubmitting} onChange={(event) => updateField('providerName', event.target.value)} />
+          <FormControl
+            type="text"
             id="internalProductCode"
             label="Interner Produktcode"
             required
             error={errors.internalProductCode}
-          >
-            <input
-              id="internalProductCode"
-              className={styles.input}
-              value={values.internalProductCode}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('internalProductCode', event.target.value)}
-            />
-          </FormField>
-          <FormField id="status" label="Status" required>
-            <select
-              id="status"
-              className={styles.select}
+            value={values.internalProductCode}
+            disabled={isSubmitting}
+            onChange={(event) => updateField('internalProductCode', event.target.value)}
+          />
+          <FormControl type="select" id="status" label="Status" required
               value={values.status}
               disabled={isSubmitting}
               onChange={(event) =>
@@ -193,12 +173,8 @@ export function ProductForm({
                   {PRODUCT_STATUS_LABELS[status]}
                 </option>
               ))}
-            </select>
-          </FormField>
-          <FormField id="category" label="Kategorie" required>
-            <select
-              id="category"
-              className={styles.select}
+            </FormControl>
+          <FormControl type="select" id="category" label="Kategorie" required
               value={values.category}
               disabled={isSubmitting}
               onChange={(event) =>
@@ -210,13 +186,12 @@ export function ProductForm({
                   {PRODUCT_CATEGORY_LABELS[category]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
           <div className={styles.fullWidth}>
             <FormField id="description" label="Beschreibung" error={errors.description}>
               <textarea
                 id="description"
-                className={styles.textarea}
+                className={textareaClassName()}
                 value={values.description}
                 disabled={isSubmitting}
                 onChange={(event) => updateField('description', event.target.value)}
@@ -229,24 +204,8 @@ export function ProductForm({
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Gerät</h2>
         <div className={styles.grid}>
-          <FormField id="manufacturer" label="Hersteller">
-            <input
-              id="manufacturer"
-              className={styles.input}
-              value={values.manufacturer ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('manufacturer', event.target.value || null)}
-            />
-          </FormField>
-          <FormField id="modelName" label="Modell">
-            <input
-              id="modelName"
-              className={styles.input}
-              value={values.modelName ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('modelName', event.target.value || null)}
-            />
-          </FormField>
+          <FormControl type="text" id="manufacturer" label="Hersteller" value={values.manufacturer ?? ''} disabled={isSubmitting} onChange={(event) => updateField('manufacturer', event.target.value || null)} />
+          <FormControl type="text" id="modelName" label="Modell" value={values.modelName ?? ''} disabled={isSubmitting} onChange={(event) => updateField('modelName', event.target.value || null)} />
         </div>
         <TerminalTypeSelector
           value={values.supportedTerminalTypes}
@@ -260,10 +219,7 @@ export function ProductForm({
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Hauptpreis</h2>
         <div className={styles.grid}>
-          <FormField id="priceType" label="Preisart" required>
-            <select
-              id="priceType"
-              className={styles.select}
+          <FormControl type="select" id="priceType" label="Preisart" required
               value={values.priceType}
               disabled={isSubmitting}
               onChange={(event) => updatePriceType(event.target.value as ProductPriceType)}
@@ -273,8 +229,7 @@ export function ProductForm({
                   {PRODUCT_PRICE_TYPE_LABELS[priceType]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
           <CurrencyInput
             id="priceCents"
             label="Preis"
@@ -283,25 +238,14 @@ export function ProductForm({
             disabled={isSubmitting || isPriceInputDisabled(values.priceType)}
             onChange={(value) => updateField('priceCents', value)}
           />
-          <FormField id="unitLabel" label="Einheit">
-            <input
-              id="unitLabel"
-              className={styles.input}
-              value={values.unitLabel ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('unitLabel', event.target.value || null)}
-            />
-          </FormField>
+          <FormControl type="text" id="unitLabel" label="Einheit" value={values.unitLabel ?? ''} disabled={isSubmitting} onChange={(event) => updateField('unitLabel', event.target.value || null)} />
         </div>
       </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Zweiter Preis</h2>
         <div className={styles.grid}>
-          <FormField id="secondaryPriceType" label="Preisart">
-            <select
-              id="secondaryPriceType"
-              className={styles.select}
+          <FormControl type="select" id="secondaryPriceType" label="Preisart"
               value={values.secondaryPriceType ?? ''}
               disabled={isSubmitting}
               onChange={(event) =>
@@ -316,8 +260,7 @@ export function ProductForm({
                   {PRODUCT_PRICE_TYPE_LABELS[priceType]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
           <CurrencyInput
             id="secondaryPriceCents"
             label="Preis"
@@ -330,15 +273,7 @@ export function ProductForm({
             }
             onChange={(value) => updateField('secondaryPriceCents', value)}
           />
-          <FormField id="secondaryPriceLabel" label="Bezeichnung" error={errors.secondaryPriceLabel}>
-            <input
-              id="secondaryPriceLabel"
-              className={styles.input}
-              value={values.secondaryPriceLabel ?? ''}
-              disabled={isSubmitting || !values.secondaryPriceType}
-              onChange={(event) => updateField('secondaryPriceLabel', event.target.value || null)}
-            />
-          </FormField>
+          <FormControl type="text" id="secondaryPriceLabel" label="Bezeichnung" error={errors.secondaryPriceLabel} value={values.secondaryPriceLabel ?? ''} disabled={isSubmitting || !values.secondaryPriceType} onChange={(event) => updateField('secondaryPriceLabel', event.target.value || null)} />
         </div>
       </section>
 
@@ -363,40 +298,14 @@ export function ProductForm({
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Quelle und Hinweise</h2>
         <div className={styles.grid}>
-          <FormField id="sourceReference" label="Quellenreferenz">
-            <input
-              id="sourceReference"
-              className={styles.input}
-              value={values.sourceReference}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('sourceReference', event.target.value)}
-            />
-          </FormField>
-          <FormField id="validFrom" label="Gültig ab" error={errors.validFrom}>
-            <input
-              id="validFrom"
-              className={styles.input}
-              type="date"
-              value={values.validFrom ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('validFrom', event.target.value || null)}
-            />
-          </FormField>
-          <FormField id="validUntil" label="Gültig bis" error={errors.validUntil}>
-            <input
-              id="validUntil"
-              className={styles.input}
-              type="date"
-              value={values.validUntil ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('validUntil', event.target.value || null)}
-            />
-          </FormField>
+          <FormControl type="text" id="sourceReference" label="Quellenreferenz" value={values.sourceReference} disabled={isSubmitting} onChange={(event) => updateField('sourceReference', event.target.value)} />
+          <FormControl type="date" id="validFrom" label="Gültig ab" error={errors.validFrom} value={values.validFrom ?? ''} disabled={isSubmitting} onChange={(event) => updateField('validFrom', event.target.value || null)} />
+          <FormControl type="date" id="validUntil" label="Gültig bis" error={errors.validUntil} value={values.validUntil ?? ''} disabled={isSubmitting} onChange={(event) => updateField('validUntil', event.target.value || null)} />
           <div className={styles.fullWidth}>
             <FormField id="notes" label="Interne Hinweise">
               <textarea
                 id="notes"
-                className={styles.textarea}
+                className={textareaClassName()}
                 value={values.notes}
                 disabled={isSubmitting}
                 onChange={(event) => updateField('notes', event.target.value)}

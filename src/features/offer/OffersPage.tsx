@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { PageHeader } from '../../components/layout/PageHeader';
 import {
   OFFER_STATUS_LABELS,
@@ -104,10 +104,13 @@ export function OffersPage() {
       />
 
       <div className={styles.toolbar}>
-        <SearchField
-          value={filters.search}
-          onChange={(search) => setFilters((current) => ({ ...current, search }))}
+        <FormControl
+          type="search"
           label="Suche"
+          value={filters.search}
+          onChange={(event) =>
+            setFilters((current) => ({ ...current, search: event.target.value }))
+          }
           placeholder="Angebotsnummer, Titel, Kunde, Tarif…"
         />
 

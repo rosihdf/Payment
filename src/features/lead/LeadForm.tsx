@@ -1,7 +1,8 @@
 import type { FormEvent } from 'react';
 import { CheckboxField } from '../../components/common/CheckboxField';
 import { CurrencyInput } from '../../components/common/CurrencyInput';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import { NumberInput } from '../../components/common/NumberInput';
 import { PercentageInput } from '../../components/common/PercentageInput';
 import type { CreateLeadInput, EditLeadInput } from '../../domain/lead/lead';
@@ -82,111 +83,22 @@ export function LeadForm(props: LeadFormProps) {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Unternehmen und Ansprechpartner</h2>
         <div className={styles.grid}>
-          <FormField id="companyName" label="Firmenname" required error={errors.companyName}>
-            <input
-              id="companyName"
-              className={`${styles.input} ${errors.companyName ? styles.inputError : ''}`}
-              value={values.companyName}
-              aria-invalid={Boolean(errors.companyName)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('companyName', event.target.value)}
-            />
-          </FormField>
-          <FormField id="industry" label="Branche" error={errors.industry}>
-            <input
-              id="industry"
-              className={styles.input}
-              value={values.industry}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('industry', event.target.value)}
-            />
-          </FormField>
-          <FormField id="contactFirstName" label="Vorname" required error={errors.contactFirstName}>
-            <input
-              id="contactFirstName"
-              className={`${styles.input} ${errors.contactFirstName ? styles.inputError : ''}`}
-              value={values.contactFirstName}
-              aria-invalid={Boolean(errors.contactFirstName)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('contactFirstName', event.target.value)}
-            />
-          </FormField>
-          <FormField id="contactLastName" label="Nachname" required error={errors.contactLastName}>
-            <input
-              id="contactLastName"
-              className={`${styles.input} ${errors.contactLastName ? styles.inputError : ''}`}
-              value={values.contactLastName}
-              aria-invalid={Boolean(errors.contactLastName)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('contactLastName', event.target.value)}
-            />
-          </FormField>
-          <FormField id="phone" label="Telefonnummer" required error={errors.phone}>
-            <input
-              id="phone"
-              className={`${styles.input} ${errors.phone ? styles.inputError : ''}`}
-              type="tel"
-              value={values.phone}
-              aria-invalid={Boolean(errors.phone)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('phone', event.target.value)}
-            />
-          </FormField>
-          <FormField id="email" label="E-Mail" error={errors.email}>
-            <input
-              id="email"
-              className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
-              type="email"
-              value={values.email}
-              aria-invalid={Boolean(errors.email)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('email', event.target.value)}
-            />
-          </FormField>
-          <FormField id="street" label="Straße" error={errors.street}>
-            <input
-              id="street"
-              className={styles.input}
-              value={values.street}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('street', event.target.value)}
-            />
-          </FormField>
-          <FormField id="postalCode" label="PLZ" error={errors.postalCode}>
-            <input
-              id="postalCode"
-              className={`${styles.input} ${errors.postalCode ? styles.inputError : ''}`}
-              inputMode="numeric"
-              value={values.postalCode}
-              aria-invalid={Boolean(errors.postalCode)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('postalCode', event.target.value)}
-            />
-          </FormField>
-          <FormField id="city" label="Ort" error={errors.city}>
-            <input
-              id="city"
-              className={styles.input}
-              value={values.city}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('city', event.target.value)}
-            />
-          </FormField>
+          <FormControl type="text" id="companyName" label="Firmenname" required error={errors.companyName} value={values.companyName} disabled={isSubmitting} onChange={(event) => updateField('companyName', event.target.value)} />
+          <FormControl type="text" id="industry" label="Branche" error={errors.industry} value={values.industry} disabled={isSubmitting} onChange={(event) => updateField('industry', event.target.value)} />
+          <FormControl type="text" id="contactFirstName" label="Vorname" required error={errors.contactFirstName} value={values.contactFirstName} disabled={isSubmitting} onChange={(event) => updateField('contactFirstName', event.target.value)} />
+          <FormControl type="text" id="contactLastName" label="Nachname" required error={errors.contactLastName} value={values.contactLastName} disabled={isSubmitting} onChange={(event) => updateField('contactLastName', event.target.value)} />
+          <FormControl type="text" id="phone" label="Telefonnummer" required error={errors.phone} value={values.phone} disabled={isSubmitting} onChange={(event) => updateField('phone', event.target.value)} />
+          <FormControl type="email" id="email" label="E-Mail" error={errors.email} value={values.email} disabled={isSubmitting} onChange={(event) => updateField('email', event.target.value)} />
+          <FormControl type="text" id="street" label="Straße" error={errors.street} value={values.street} disabled={isSubmitting} onChange={(event) => updateField('street', event.target.value)} />
+          <FormControl type="text" id="postalCode" label="PLZ" error={errors.postalCode} inputMode="numeric" value={values.postalCode} disabled={isSubmitting} onChange={(event) => updateField('postalCode', event.target.value)} />
+          <FormControl type="text" id="city" label="Ort" error={errors.city} value={values.city} disabled={isSubmitting} onChange={(event) => updateField('city', event.target.value)} />
         </div>
       </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Aktuelle Payment-Situation</h2>
         <div className={styles.grid}>
-          <FormField id="currentProvider" label="Aktueller Payment-Anbieter" error={errors.currentProvider}>
-            <input
-              id="currentProvider"
-              className={styles.input}
-              value={values.currentProvider}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('currentProvider', event.target.value)}
-            />
-          </FormField>
+          <FormControl type="text" id="currentProvider" label="Aktueller Payment-Anbieter" error={errors.currentProvider} value={values.currentProvider} disabled={isSubmitting} onChange={(event) => updateField('currentProvider', event.target.value)} />
           <CurrencyInput
             id="monthlyCardTurnoverCents"
             label="Monatlicher Kartenumsatz"
@@ -219,36 +131,11 @@ export function LeadForm(props: LeadFormProps) {
             disabled={isSubmitting}
             onChange={(value) => updateField('currentTerminalCount', value)}
           />
-          <FormField id="currentTerminalModels" label="Vorhandene Terminalmodelle" error={errors.currentTerminalModels}>
-            <input
-              id="currentTerminalModels"
-              className={styles.input}
-              value={values.currentTerminalModels}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('currentTerminalModels', event.target.value)}
-            />
-          </FormField>
-          <FormField id="currentContractEndDate" label="Vertragsende" error={errors.currentContractEndDate}>
-            <input
-              id="currentContractEndDate"
-              className={styles.input}
-              type="date"
-              value={values.currentContractEndDate ?? ''}
-              disabled={isSubmitting}
-              onChange={(event) =>
+          <FormControl type="text" id="currentTerminalModels" label="Vorhandene Terminalmodelle" error={errors.currentTerminalModels} value={values.currentTerminalModels} disabled={isSubmitting} onChange={(event) => updateField('currentTerminalModels', event.target.value)} />
+          <FormControl type="date" id="currentContractEndDate" label="Vertragsende" error={errors.currentContractEndDate} value={values.currentContractEndDate ?? ''} disabled={isSubmitting} onChange={(event) =>
                 updateField('currentContractEndDate', event.target.value || null)
-              }
-            />
-          </FormField>
-          <FormField id="currentNoticePeriod" label="Kündigungsfrist" error={errors.currentNoticePeriod}>
-            <input
-              id="currentNoticePeriod"
-              className={styles.input}
-              value={values.currentNoticePeriod}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('currentNoticePeriod', event.target.value)}
-            />
-          </FormField>
+              } />
+          <FormControl type="text" id="currentNoticePeriod" label="Kündigungsfrist" error={errors.currentNoticePeriod} value={values.currentNoticePeriod} disabled={isSubmitting} onChange={(event) => updateField('currentNoticePeriod', event.target.value)} />
         </div>
         <CheckboxField
           label="Payment-Nutzung"
@@ -335,25 +222,10 @@ export function LeadForm(props: LeadFormProps) {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Bedarf und Vertrieb</h2>
         <div className={styles.grid}>
-          <FormField id="requiredTerminalCount" label="Benötigte Anzahl Terminals" required error={errors.requiredTerminalCount}>
-            <input
-              id="requiredTerminalCount"
-              className={`${styles.input} ${errors.requiredTerminalCount ? styles.inputError : ''}`}
-              type="number"
-              min={1}
-              step={1}
-              value={values.requiredTerminalCount}
-              aria-invalid={Boolean(errors.requiredTerminalCount)}
-              disabled={isSubmitting}
-              onChange={(event) =>
+          <FormControl type="number" id="requiredTerminalCount" label="Benötigte Anzahl Terminals" required error={errors.requiredTerminalCount} min={1} value={String(values.requiredTerminalCount)} disabled={isSubmitting} onChange={(event) =>
                 updateField('requiredTerminalCount', Number(event.target.value) || 1)
-              }
-            />
-          </FormField>
-          <FormField id="interest" label="Interesse" error={errors.interest}>
-            <select
-              id="interest"
-              className={styles.select}
+              } />
+          <FormControl type="select" id="interest" label="Interesse" error={errors.interest}
               value={values.interest}
               disabled={isSubmitting}
               onChange={(event) =>
@@ -365,13 +237,9 @@ export function LeadForm(props: LeadFormProps) {
                   {LEAD_INTEREST_LABELS[interest]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
           {mode === 'edit' ? (
-            <FormField id="status" label="Status">
-              <select
-                id="status"
-                className={styles.select}
+            <FormControl type="select" id="status" label="Status"
                 value={values.status}
                 disabled={isSubmitting}
                 onChange={(event) =>
@@ -386,29 +254,19 @@ export function LeadForm(props: LeadFormProps) {
                     {LEAD_STATUS_LABELS[status]}
                   </option>
                 ))}
-              </select>
-            </FormField>
+              </FormControl>
           ) : null}
-          <FormField id="nextFollowUpAt" label="Nächster Kontakt" error={errors.nextFollowUpAt}>
-            <input
-              id="nextFollowUpAt"
-              className={styles.input}
-              type="datetime-local"
-              value={values.nextFollowUpAt ? values.nextFollowUpAt.slice(0, 16) : ''}
-              disabled={isSubmitting}
-              onChange={(event) =>
+          <FormControl type="text" id="nextFollowUpAt" label="Nächster Kontakt" error={errors.nextFollowUpAt} value={values.nextFollowUpAt ? values.nextFollowUpAt.slice(0, 16) : ''} disabled={isSubmitting} onChange={(event) =>
                 updateField(
                   'nextFollowUpAt',
                   event.target.value ? new Date(event.target.value).toISOString() : null,
                 )
-              }
-            />
-          </FormField>
+              } />
           <div className={styles.fullWidth}>
             <FormField id="notes" label="Notizen" error={errors.notes}>
               <textarea
                 id="notes"
-                className={`${styles.textarea} ${errors.notes ? styles.textareaError : ''}`}
+                className={textareaClassName(errors.notes)}
                 value={values.notes}
                 disabled={isSubmitting}
                 onChange={(event) => updateField('notes', event.target.value)}

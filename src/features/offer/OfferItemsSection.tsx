@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CurrencyInput } from '../../components/common/CurrencyInput';
-import { FormField } from '../../components/common/FormField';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import type {
   CreateOfferItemInput,
   OfferItemPriceType,
@@ -177,10 +177,11 @@ export function OfferItemsSection({
       {!disabled ? (
         <>
           <div className={formStyles.catalog}>
-            <SearchField
-              value={productSearch}
-              onChange={setProductSearch}
+            <FormControl
+              type="search"
               label="Produktkatalog"
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
               placeholder="Produktname oder Code…"
             />
 
@@ -260,57 +261,49 @@ export function OfferItemsSection({
                 </div>
 
                 <div className={formStyles.grid}>
-                  <FormField
+                  <FormControl
                     id={`item-name-${index}`}
+                    type="text"
                     label="Bezeichnung"
                     required
                     error={itemErrors?.name}
+                    value={item.name}
+                    disabled={disabled || item.type === 'product'}
+                    onChange={(event) => updateItem(index, { name: event.target.value })}
+                  />
+
+                  <FormControl
+                    id={`item-quantity-${index}`}
+                    type="number"
+                    label="Menge"
+                    error={itemErrors?.quantity}
+                    min={1}
+                    max={999}
+                    value={String(item.quantity)}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      updateItem(index, { quantity: Number.parseInt(event.target.value, 10) || 1 })
+                    }
+                  />
+
+                  <FormControl
+                    type="select"
+                    id={`item-priceType-${index}`}
+                    label="Preisart"
+                    value={item.priceType}
+                    disabled={disabled || item.type === 'product'}
+                    onChange={(event) =>
+                      updatePriceType(index, event.target.value as OfferItemPriceType)
+                    }
                   >
-                    <input
-                      id={`item-name-${index}`}
-                      className={`${formStyles.input} ${itemErrors?.name ? formStyles.inputError : ''}`}
-                      value={item.name}
-                      disabled={disabled || item.type === 'product'}
-                      aria-invalid={Boolean(itemErrors?.name)}
-                      onChange={(event) => updateItem(index, { name: event.target.value })}
-                    />
-                  </FormField>
-
-                  <FormField id={`item-quantity-${index}`} label="Menge" error={itemErrors?.quantity}>
-                    <input
-                      id={`item-quantity-${index}`}
-                      className={formStyles.input}
-                      type="number"
-                      min={1}
-                      max={999}
-                      value={item.quantity}
-                      disabled={disabled}
-                      aria-invalid={Boolean(itemErrors?.quantity)}
-                      onChange={(event) =>
-                        updateItem(index, { quantity: Number.parseInt(event.target.value, 10) || 1 })
-                      }
-                    />
-                  </FormField>
-
-                  <FormField id={`item-priceType-${index}`} label="Preisart">
-                    <select
-                      id={`item-priceType-${index}`}
-                      className={formStyles.select}
-                      value={item.priceType}
-                      disabled={disabled || item.type === 'product'}
-                      onChange={(event) =>
-                        updatePriceType(index, event.target.value as OfferItemPriceType)
-                      }
-                    >
-                      {(Object.keys(OFFER_ITEM_PRICE_TYPE_LABELS) as OfferItemPriceType[]).map(
-                        (priceType) => (
-                          <option key={priceType} value={priceType}>
-                            {OFFER_ITEM_PRICE_TYPE_LABELS[priceType]}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </FormField>
+                    {(Object.keys(OFFER_ITEM_PRICE_TYPE_LABELS) as OfferItemPriceType[]).map(
+                      (priceType) => (
+                        <option key={priceType} value={priceType}>
+                          {OFFER_ITEM_PRICE_TYPE_LABELS[priceType]}
+                        </option>
+                      ),
+                    )}
+                  </FormControl>
 
                   <CurrencyInput
                     id={`item-price-${index}`}
@@ -321,23 +314,22 @@ export function OfferItemsSection({
                     onChange={(value) => updateItem(index, { unitPriceCents: value })}
                   />
 
-                  <FormField id={`item-unitLabel-${index}`} label="Einheit">
-                    <input
-                      id={`item-unitLabel-${index}`}
-                      className={formStyles.input}
-                      value={item.unitLabel ?? ''}
-                      disabled={disabled}
-                      onChange={(event) =>
-                        updateItem(index, { unitLabel: event.target.value || null })
-                      }
-                    />
-                  </FormField>
+                  <FormControl
+                    id={`item-unitLabel-${index}`}
+                    type="text"
+                    label="Einheit"
+                    value={item.unitLabel ?? ''}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      updateItem(index, { unitLabel: event.target.value || null })
+                    }
+                  />
 
                   <div className={formStyles.fullWidth}>
                     <FormField id={`item-description-${index}`} label="Beschreibung">
                       <textarea
                         id={`item-description-${index}`}
-                        className={formStyles.textarea}
+                        className={textareaClassName()}
                         value={item.description}
                         disabled={disabled}
                         onChange={(event) => updateItem(index, { description: event.target.value })}
@@ -355,12 +347,9 @@ export function OfferItemsSection({
                       >
                         <textarea
                           id={`item-overrideReason-${index}`}
-                          className={`${formStyles.textarea} ${
-                            itemErrors?.priceOverrideReason ? formStyles.inputError : ''
-                          }`}
+                          className={textareaClassName(itemErrors?.priceOverrideReason)}
                           value={item.priceOverrideReason}
                           disabled={disabled}
-                          aria-invalid={Boolean(itemErrors?.priceOverrideReason)}
                           onChange={(event) =>
                             updateItem(index, { priceOverrideReason: event.target.value })
                           }

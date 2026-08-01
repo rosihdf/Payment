@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -14,6 +15,7 @@ import { LocalUserRepository } from '../repositories/local/LocalUserRepository';
 import { LocalAuditRepository } from '../repositories/local/LocalAuditRepository';
 import { AdminUserService } from '../services/adminUserService';
 import { AuditService } from '../services/auditService';
+import { openFormSelect } from './helpers/selectFormOption';
 
 function renderApp(initialRoute = '/', currentUserId = 'user_001') {
   clearDemoDataForTests();
@@ -91,12 +93,24 @@ describe('Aufräumblock 2 – Rollen vereinfacht', () => {
   });
 
   it('Demo-Auswahl enthält keine Altrollen und Profil bleibt erreichbar', async () => {
+    const user = userEvent.setup();
     renderApp('/');
     expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
 
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveAttribute(
+        'data-value',
+        'user_001',
+      );
+    });
+
+    await openFormSelect(user, 'Demo-Benutzer wechseln');
+    await waitFor(() => {
+      const values = screen.getAllByRole('option').map((option) => option.getAttribute('data-value'));
+      expect(values).toContain('user_001');
+      expect(values).toContain('user_004');
+    });
     const options = screen.getAllByRole('option').map((option) => option.textContent ?? '');
-    expect(options.some((text) => text.includes('Michael Weber (Administrator)'))).toBe(true);
-    expect(options.some((text) => text.includes('Laura Berger (Außendienst)'))).toBe(true);
     expect(options.every((text) => !text.includes('(Vertriebsleitung)'))).toBe(true);
     expect(options.every((text) => !text.includes('(Prüfer)'))).toBe(true);
     expect(options.every((text) => !text.includes('(Nur Lesen)'))).toBe(true);

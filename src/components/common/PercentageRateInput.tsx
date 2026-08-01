@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { formatBasisPointsToPercent, parsePercentToBasisPoints } from '../../utils/percentage';
-import { FormField } from './FormField';
-import inputStyles from './inputs.module.css';
+import { FormControl } from './FormControl';
 
 interface PercentageRateInputProps {
   id: string;
@@ -28,29 +27,31 @@ export function PercentageRateInput({
     setDisplayValue(formatBasisPointsToPercent(value).replace(' %', ''));
   }, [value]);
 
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    setDisplayValue(nextValue);
+    const parsed = parsePercentToBasisPoints(nextValue);
+    if (parsed !== null) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    setDisplayValue(formatBasisPointsToPercent(value).replace(' %', ''));
+  };
+
   return (
-    <FormField id={id} label={label} error={error}>
-      <input
-        id={id}
-        className={`${inputStyles.input} ${error ? inputStyles.inputError : ''}`}
-        type="text"
-        inputMode="decimal"
-        value={displayValue}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        placeholder="0,00"
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setDisplayValue(nextValue);
-          const parsed = parsePercentToBasisPoints(nextValue);
-          if (parsed !== null) {
-            onChange(parsed);
-          }
-        }}
-        onBlur={() => {
-          setDisplayValue(formatBasisPointsToPercent(value).replace(' %', ''));
-        }}
-      />
-    </FormField>
+    <FormControl
+      id={id}
+      type="text"
+      label={label}
+      error={error}
+      value={displayValue}
+      disabled={disabled}
+      placeholder="0,00"
+      inputMode="decimal"
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
   );
 }

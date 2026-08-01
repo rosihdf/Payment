@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNo
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormField } from '../../components/common/FormField';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
@@ -436,7 +436,7 @@ export function OfferDetailPage() {
               >
                 <textarea
                   id="cancellationReason"
-                  className={styles.textarea}
+                  className={textareaClassName(cancellationError)}
                   value={cancellationReason}
                   disabled={isActionRunning}
                   aria-invalid={Boolean(cancellationError)}

@@ -1,4 +1,4 @@
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
 import type { Tariff } from '../../domain/tariff/tariff';
 import { TERMINAL_TYPE_LABELS } from '../../domain/tariff/tariff';
 import { formatCentsToCurrency } from '../../utils/currency';
@@ -29,23 +29,22 @@ export function OfferTariffSection({
         Optional. Der Tarif wird als Snapshot im Angebot gespeichert.
       </p>
 
-      <FormField id="tariffId" label="Tarif" error={error}>
-        <select
-          id="tariffId"
-          className={`${formStyles.select} ${error ? formStyles.inputError : ''}`}
-          value={tariffId ?? ''}
-          disabled={disabled}
-          aria-invalid={Boolean(error)}
-          onChange={(event) => onChange(event.target.value || null)}
-        >
-          <option value="">Kein Tarif</option>
-          {tariffs.map((tariff) => (
-            <option key={tariff.id} value={tariff.id}>
-              {tariff.name} ({tariff.productCode})
-            </option>
-          ))}
-        </select>
-      </FormField>
+      <FormControl
+        type="select"
+        id="tariffId"
+        label="Tarif"
+        error={error}
+        value={tariffId ?? ''}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value || null)}
+      >
+        <option value="">Kein Tarif</option>
+        {tariffs.map((tariff) => (
+          <option key={tariff.id} value={tariff.id}>
+            {tariff.name} ({tariff.productCode})
+          </option>
+        ))}
+      </FormControl>
 
       {selectedTariff ? (
         <dl className={formStyles.preview}>

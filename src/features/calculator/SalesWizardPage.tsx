@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
@@ -624,9 +625,7 @@ export function SalesWizardPage() {
 
               {prospectMode === 'existing' ? (
                 <article className={styles.card}>
-                  <FormField label="Kunde auswählen" id="wizardLead">
-                    <select
-                      id="wizardLead"
+                  <FormControl type="select" id="wizardLead" label="Kunde auswählen"
                       value={selectedLeadId}
                       onChange={(event) => setSelectedLeadId(event.target.value)}
                     >
@@ -636,8 +635,7 @@ export function SalesWizardPage() {
                           {lead.companyName} – {lead.contactFirstName} {lead.contactLastName}
                         </option>
                       ))}
-                    </select>
-                  </FormField>
+                    </FormControl>
                   <div className={styles.actions}>
                     <button
                       type="button"
@@ -654,65 +652,65 @@ export function SalesWizardPage() {
               {prospectMode === 'new' ? (
                 <article className={styles.card}>
                   <div className={styles.formGrid}>
-                    <FormField label="Firma" id="companyName">
-                      <input
-                        id="companyName"
-                        value={session.wizard.prospectDraft.companyName}
-                        onChange={(event) => {
+                    <FormControl
+                      type="text"
+                      id="companyName"
+                      label="Firma"
+                      value={session.wizard.prospectDraft.companyName}
+                      onChange={(event) => {
                         patchProspectDraft({ companyName: event.target.value });
                       }}
-                      />
-                    </FormField>
-                    <FormField label="Branche" id="industryProspect">
-                      <input
-                        id="industryProspect"
-                        value={session.wizard.prospectDraft.industry}
-                        onChange={(event) => {
+                    />
+                    <FormControl
+                      type="text"
+                      id="industryProspect"
+                      label="Branche"
+                      value={session.wizard.prospectDraft.industry}
+                      onChange={(event) => {
                         patchProspectDraft({ industry: event.target.value });
                       }}
-                      />
-                    </FormField>
-                    <FormField label="Vorname" id="contactFirstName">
-                      <input
-                        id="contactFirstName"
-                        value={session.wizard.prospectDraft.contactFirstName}
-                        onChange={(event) => {
+                    />
+                    <FormControl
+                      type="text"
+                      id="contactFirstName"
+                      label="Vorname"
+                      value={session.wizard.prospectDraft.contactFirstName}
+                      onChange={(event) => {
                         patchProspectDraft({ contactFirstName: event.target.value });
                       }}
-                      />
-                    </FormField>
-                    <FormField label="Nachname" id="contactLastName">
-                      <input
-                        id="contactLastName"
-                        value={session.wizard.prospectDraft.contactLastName}
-                        onChange={(event) => {
+                    />
+                    <FormControl
+                      type="text"
+                      id="contactLastName"
+                      label="Nachname"
+                      value={session.wizard.prospectDraft.contactLastName}
+                      onChange={(event) => {
                         patchProspectDraft({ contactLastName: event.target.value });
                       }}
-                      />
-                    </FormField>
-                    <FormField label="Telefon" id="phone">
-                      <input
-                        id="phone"
-                        value={session.wizard.prospectDraft.phone}
-                        onChange={(event) => {
+                    />
+                    <FormControl
+                      type="text"
+                      id="phone"
+                      label="Telefon"
+                      value={session.wizard.prospectDraft.phone}
+                      onChange={(event) => {
                         patchProspectDraft({ phone: event.target.value });
                       }}
-                      />
-                    </FormField>
-                    <FormField label="E-Mail" id="email">
-                      <input
-                        id="email"
-                        value={session.wizard.prospectDraft.email}
-                        onChange={(event) => {
+                    />
+                    <FormControl
+                      type="text"
+                      id="email"
+                      label="E-Mail"
+                      value={session.wizard.prospectDraft.email}
+                      onChange={(event) => {
                         patchProspectDraft({ email: event.target.value });
                       }}
-                      />
-                    </FormField>
+                    />
                   </div>
                   <FormField label="Notizen" id="notes">
                     <textarea
                       id="notes"
-                      className={styles.textarea}
+                      className={textareaClassName()}
                       value={session.wizard.prospectDraft.notes}
                       onChange={(event) => {
                         patchProspectDraft({ notes: event.target.value });
@@ -822,22 +820,8 @@ export function SalesWizardPage() {
               ) : (
                 <article className={styles.card}>
                   <div className={styles.formGrid}>
-                    <FormField label="Monatliche Ist-Gesamtkosten (EUR)" id="manualTotalCosts">
-                      <input
-                        id="manualTotalCosts"
-                        value={monthlyTotal}
-                        onChange={(event) => setMonthlyTotal(event.target.value)}
-                        inputMode="decimal"
-                      />
-                    </FormField>
-                    <FormField label="Monatlicher Kartenumsatz (EUR)" id="manualVolumeCosts">
-                      <input
-                        id="manualVolumeCosts"
-                        value={monthlyVolume}
-                        onChange={(event) => setMonthlyVolume(event.target.value)}
-                        inputMode="decimal"
-                      />
-                    </FormField>
+                    <FormControl type="text" id="manualTotalCosts" label="Monatliche Ist-Gesamtkosten (EUR)" inputMode="decimal" value={monthlyTotal} onChange={(event) => setMonthlyTotal(event.target.value)} />
+                    <FormControl type="text" id="manualVolumeCosts" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(event) => setMonthlyVolume(event.target.value)} />
                   </div>
                   <button
                     type="button"
@@ -864,80 +848,22 @@ export function SalesWizardPage() {
                 Terminals, Umsatz, Kartenmix, Laufzeit und Besonderheiten für die Empfehlung.
               </p>
               <div className={styles.formGrid}>
-                <FormField label="Monatlicher Kartenumsatz (EUR)" id="needVolume">
-                  <input
-                    id="needVolume"
-                    value={monthlyVolume}
-                    onChange={(event) => setMonthlyVolume(event.target.value)}
-                    inputMode="decimal"
-                  />
-                </FormField>
-                <FormField label="Monatliche Transaktionen" id="needTx">
-                  <input
-                    id="needTx"
-                    value={monthlyTransactions}
-                    onChange={(event) => setMonthlyTransactions(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
-                <FormField label="Terminalanzahl" id="needTerminals">
-                  <input
-                    id="needTerminals"
-                    value={terminalCount}
-                    onChange={(event) => setTerminalCount(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
-                <FormField label="Bevorzugte Laufzeit (Monate)" id="needTerm">
-                  <select
-                    id="needTerm"
+                <FormControl type="text" id="needVolume" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(event) => setMonthlyVolume(event.target.value)} />
+                <FormControl type="text" id="needTx" label="Monatliche Transaktionen" inputMode="numeric" value={monthlyTransactions} onChange={(event) => setMonthlyTransactions(event.target.value)} />
+                <FormControl type="text" id="needTerminals" label="Terminalanzahl" inputMode="numeric" value={terminalCount} onChange={(event) => setTerminalCount(event.target.value)} />
+                <FormControl type="select" id="needTerm" label="Bevorzugte Laufzeit (Monate)"
                     value={preferredTerm}
                     onChange={(event) => setPreferredTerm(event.target.value)}
                   >
                     <option value="36">36 Monate</option>
                     <option value="48">48 Monate</option>
                     <option value="60">60 Monate</option>
-                  </select>
-                </FormField>
-                <FormField label="Branche" id="needIndustry">
-                  <input
-                    id="needIndustry"
-                    value={industry}
-                    onChange={(event) => setIndustry(event.target.value)}
-                  />
-                </FormField>
-                <FormField label="girocard %" id="giro">
-                  <input
-                    id="giro"
-                    value={girocardPercent}
-                    onChange={(event) => setGirocardPercent(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
-                <FormField label="Debit %" id="debit">
-                  <input
-                    id="debit"
-                    value={debitPercent}
-                    onChange={(event) => setDebitPercent(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
-                <FormField label="Kreditkarte %" id="credit">
-                  <input
-                    id="credit"
-                    value={creditPercent}
-                    onChange={(event) => setCreditPercent(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
-                <FormField label="Sonstige %" id="other">
-                  <input
-                    id="other"
-                    value={otherPercent}
-                    onChange={(event) => setOtherPercent(event.target.value)}
-                    inputMode="numeric"
-                  />
-                </FormField>
+                  </FormControl>
+                <FormControl type="text" id="needIndustry" label="Branche" value={industry} onChange={(event) => setIndustry(event.target.value)} />
+                <FormControl type="text" id="giro" label="girocard %" inputMode="numeric" value={girocardPercent} onChange={(event) => setGirocardPercent(event.target.value)} />
+                <FormControl type="text" id="debit" label="Debit %" inputMode="numeric" value={debitPercent} onChange={(event) => setDebitPercent(event.target.value)} />
+                <FormControl type="text" id="credit" label="Kreditkarte %" inputMode="numeric" value={creditPercent} onChange={(event) => setCreditPercent(event.target.value)} />
+                <FormControl type="text" id="other" label="Sonstige %" inputMode="numeric" value={otherPercent} onChange={(event) => setOtherPercent(event.target.value)} />
               </div>
               <div className={styles.checkboxRow}>
                 {(
@@ -1007,14 +933,7 @@ export function SalesWizardPage() {
                   ausgewählt.
                 </p>
                 <div className={styles.actions}>
-                  <FormField label="Neues Szenario" id="scenarioLabel">
-                    <input
-                      id="scenarioLabel"
-                      value={scenarioLabel}
-                      onChange={(event) => setScenarioLabel(event.target.value)}
-                      placeholder="z. B. Classic 36 Monate"
-                    />
-                  </FormField>
+                  <FormControl type="text" id="scenarioLabel" label="Neues Szenario" value={scenarioLabel} onChange={(event) => setScenarioLabel(event.target.value)} />
                   <button type="button" className={styles.primaryAction} onClick={handleAddScenario}>
                     Szenario anlegen
                   </button>
@@ -1036,78 +955,78 @@ export function SalesWizardPage() {
                         className={isSelected ? styles.scenarioCardActive : styles.scenarioCard}
                       >
                         <div className={styles.formGrid}>
-                          <FormField label="Bezeichnung" id={`label-${scenario.id}`}>
-                            <input
-                              id={`label-${scenario.id}`}
-                              value={scenario.label}
-                              onChange={(event) => {
-                                void salesWizardService
-                                  .updateScenarioConfig(
-                                    session.id,
-                                    scenario.id,
-                                    { label: event.target.value },
-                                    userContext,
-                                  )
-                                  .then((updated) => {
-                                    if (updated) {
-                                      setSession(updated);
-                                    }
-                                  });
-                              }}
-                            />
-                          </FormField>
-                          <FormField label="Laufzeit" id={`term-${scenario.id}`}>
-                            <select
-                              id={`term-${scenario.id}`}
-                              value={String(scenario.config.preferredTermMonths ?? 36)}
-                              onChange={(event) => {
-                                void salesWizardService
-                                  .updateScenarioConfig(
-                                    session.id,
-                                    scenario.id,
-                                    {
-                                      preferredTermMonths: Number.parseInt(event.target.value, 10),
-                                    },
-                                    userContext,
-                                  )
-                                  .then((updated) => {
-                                    if (updated) {
-                                      setSession(updated);
-                                    }
-                                  });
-                              }}
-                            >
-                              <option value="36">36 Monate</option>
-                              <option value="48">48 Monate</option>
-                              <option value="60">60 Monate</option>
-                            </select>
-                          </FormField>
-                          <FormField label="Terminals" id={`termCount-${scenario.id}`}>
-                            <input
-                              id={`termCount-${scenario.id}`}
-                              value={String(scenario.config.terminalCount)}
-                              onChange={(event) => {
-                                void salesWizardService
-                                  .updateScenarioConfig(
-                                    session.id,
-                                    scenario.id,
-                                    {
-                                      terminalCount: Math.max(
-                                        1,
-                                        Number.parseInt(event.target.value, 10) || 1,
-                                      ),
-                                    },
-                                    userContext,
-                                  )
-                                  .then((updated) => {
-                                    if (updated) {
-                                      setSession(updated);
-                                    }
-                                  });
-                              }}
-                              inputMode="numeric"
-                            />
-                          </FormField>
+                          <FormControl
+                            type="text"
+                            id={`label-${scenario.id}`}
+                            label="Bezeichnung"
+                            value={scenario.label}
+                            onChange={(event) => {
+                              void salesWizardService
+                                .updateScenarioConfig(
+                                  session.id,
+                                  scenario.id,
+                                  { label: event.target.value },
+                                  userContext,
+                                )
+                                .then((updated) => {
+                                  if (updated) {
+                                    setSession(updated);
+                                  }
+                                });
+                            }}
+                          />
+                          <FormControl
+                            type="select"
+                            id={`term-${scenario.id}`}
+                            label="Laufzeit"
+                            value={String(scenario.config.preferredTermMonths ?? 36)}
+                            onChange={(event) => {
+                              void salesWizardService
+                                .updateScenarioConfig(
+                                  session.id,
+                                  scenario.id,
+                                  {
+                                    preferredTermMonths: Number.parseInt(event.target.value, 10),
+                                  },
+                                  userContext,
+                                )
+                                .then((updated) => {
+                                  if (updated) {
+                                    setSession(updated);
+                                  }
+                                });
+                            }}
+                          >
+                            <option value="36">36 Monate</option>
+                            <option value="48">48 Monate</option>
+                            <option value="60">60 Monate</option>
+                          </FormControl>
+                          <FormControl
+                            type="text"
+                            id={`termCount-${scenario.id}`}
+                            label="Terminals"
+                            inputMode="numeric"
+                            value={String(scenario.config.terminalCount)}
+                            onChange={(event) => {
+                              void salesWizardService
+                                .updateScenarioConfig(
+                                  session.id,
+                                  scenario.id,
+                                  {
+                                    terminalCount: Math.max(
+                                      1,
+                                      Number.parseInt(event.target.value, 10) || 1,
+                                    ),
+                                  },
+                                  userContext,
+                                )
+                                .then((updated) => {
+                                  if (updated) {
+                                    setSession(updated);
+                                  }
+                                });
+                            }}
+                          />
                         </div>
 
                         <div className={styles.actions}>
@@ -1348,7 +1267,7 @@ export function SalesWizardPage() {
               <FormField label="Interne Notiz / Begründung" id="approvalNotes">
                 <textarea
                   id="approvalNotes"
-                  className={styles.textarea}
+                  className={textareaClassName()}
                   value={approvalNotes}
                   onChange={(event) => setApprovalNotes(event.target.value)}
                 />

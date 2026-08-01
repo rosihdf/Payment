@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
+import { openFormSelect, selectFormOptionByValue } from './helpers/selectFormOption';
 
 function renderApp() {
   clearDemoDataForTests();
@@ -21,6 +22,15 @@ function renderApp() {
   );
 }
 
+async function waitForDemoUsersLoaded() {
+  await waitFor(() => {
+    expect(screen.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveAttribute(
+      'data-value',
+      'user_001',
+    );
+  });
+}
+
 describe('Role switching', () => {
   beforeEach(() => {
     clearDemoDataForTests();
@@ -32,19 +42,26 @@ describe('Role switching', () => {
     renderApp();
 
     expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Laura Berger (Außendienst)' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /\(Vertriebsleitung\)$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /\(Prüfer\)$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /\(Nur Lesen\)$/ })).not.toBeInTheDocument();
+    await waitForDemoUsersLoaded();
 
-    const roleSelect = await screen.findByLabelText('Demo-Benutzer wechseln');
+    await openFormSelect(user, 'Demo-Benutzer wechseln');
     await waitFor(() => {
-      expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
+      const values = screen.getAllByRole('option').map((option) => option.getAttribute('data-value'));
+      expect(values).toContain('user_001');
+      expect(values).toContain('user_004');
     });
+    const optionLabels = screen.getAllByRole('option').map((option) => option.textContent ?? '');
+    expect(optionLabels.every((text) => !text.includes('(Vertriebsleitung)'))).toBe(true);
+    expect(optionLabels.every((text) => !text.includes('(Prüfer)'))).toBe(true);
+    expect(optionLabels.every((text) => !text.includes('(Nur Lesen)'))).toBe(true);
+    await user.keyboard('{Escape}');
 
-    await user.selectOptions(roleSelect, 'user_004');
+    await selectFormOptionByValue(user, 'Demo-Benutzer wechseln', 'user_004');
 
-    expect(await screen.findByRole('option', { name: 'Michael Weber (Administrator)' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveAttribute(
+      'data-value',
+      'user_004',
+    );
     expect(screen.getAllByRole('link', { name: 'Verwaltung', hidden: true }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: 'Profil' })[0]).toHaveAttribute('href', '/profile');
   });
@@ -53,14 +70,12 @@ describe('Role switching', () => {
     const user = userEvent.setup();
     renderApp();
 
-    const roleSelect = await screen.findByLabelText('Demo-Benutzer wechseln');
-    await waitFor(() => {
-      expect(roleSelect.querySelectorAll('option').length).toBeGreaterThan(0);
-    });
+    await waitForDemoUsersLoaded();
+    await selectFormOptionByValue(user, 'Demo-Benutzer wechseln', 'user_004');
 
-    await user.selectOptions(roleSelect, 'user_004');
-
-    expect(roleSelect).toHaveValue('user_004');
-    expect(screen.getByRole('option', { name: 'Michael Weber (Administrator)' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveAttribute(
+      'data-value',
+      'user_004',
+    );
   });
 });

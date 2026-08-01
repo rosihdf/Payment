@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { ContractListItem, ContractMetrics } from '../../domain/contract/contract';
 import { CONTRACT_STATUS_LABELS } from '../../domain/contract/contractStatus';
@@ -101,9 +101,11 @@ export function ContractsPage() {
       ) : null}
 
       <div className={styles.toolbar}>
-        <SearchField
+        <FormControl
+          type="search"
+          label="Suche"
           value={query}
-          onChange={setQuery}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Vertragsnummer, Firma, Tarif, Angebot suchen"
         />
         <div className={styles.filters} role="group" aria-label="Statusfilter">

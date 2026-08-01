@@ -1,5 +1,5 @@
-import { FormField } from './FormField';
-import inputStyles from './inputs.module.css';
+import { type ChangeEvent } from 'react';
+import { FormControl } from './FormControl';
 
 interface PercentageInputProps {
   id: string;
@@ -16,19 +16,20 @@ export function PercentageInput({
   onChange,
   disabled = false,
 }: PercentageInputProps) {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onChange(Number(event.target.value) || 0);
+  };
+
   return (
-    <FormField id={id} label={label}>
-      <input
-        id={id}
-        className={inputStyles.input}
-        type="number"
-        min={0}
-        max={100}
-        step={1}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value) || 0)}
-      />
-    </FormField>
+    <FormControl
+      id={id}
+      type="number"
+      label={label}
+      value={String(value)}
+      disabled={disabled}
+      min={0}
+      max={100}
+      onChange={handleChange}
+    />
   );
 }

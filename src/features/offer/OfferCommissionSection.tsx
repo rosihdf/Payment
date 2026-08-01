@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import type { Offer } from '../../domain/offer/offer';
 import type { OfferUserContext } from '../../services/offerService';
 import type { CommissionCalculationService } from '../../services/commissionCalculationService';
@@ -234,21 +235,21 @@ export function OfferCommissionSection({
 
               {adminView.reductionReviewRequired ? (
                 <div className={styles.reductionForm}>
-                  <FormField id="reductionAmount" label="Kürzungsbetrag (EUR)" error={reductionError}>
-                    <input
-                      id="reductionAmount"
-                      className={styles.input}
-                      value={reductionAmount}
-                      onChange={(event) => {
-                        setReductionAmount(event.target.value);
-                        setReductionError(undefined);
-                      }}
-                    />
-                  </FormField>
+                  <FormControl
+                    id="reductionAmount"
+                    type="text"
+                    label="Kürzungsbetrag (EUR)"
+                    error={reductionError}
+                    value={reductionAmount}
+                    onChange={(event) => {
+                      setReductionAmount(event.target.value);
+                      setReductionError(undefined);
+                    }}
+                  />
                   <FormField id="reductionReason" label="Begründung" required>
                     <textarea
                       id="reductionReason"
-                      className={styles.textarea}
+                      className={textareaClassName()}
                       value={reductionReason}
                       onChange={(event) => setReductionReason(event.target.value)}
                     />

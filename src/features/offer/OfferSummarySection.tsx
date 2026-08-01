@@ -1,4 +1,5 @@
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import type { CreateOfferInput } from '../../domain/offer/offer';
 import type { OfferTotals } from '../../domain/offer/offer';
 import type { CreateOfferErrors } from '../../services/offerValidation';
@@ -35,34 +36,32 @@ export function OfferSummarySection({
       <h2 className={formStyles.sectionTitle}>Angebotsdetails</h2>
 
       <div className={formStyles.grid}>
-        <FormField id="title" label="Angebotstitel" required error={errors?.title}>
-          <input
-            id="title"
-            className={`${formStyles.input} ${errors?.title ? formStyles.inputError : ''}`}
-            value={values.title}
-            disabled={disabled}
-            aria-invalid={Boolean(errors?.title)}
-            onChange={(event) => onChange({ title: event.target.value })}
-          />
-        </FormField>
+        <FormControl
+          id="title"
+          type="text"
+          label="Angebotstitel"
+          required
+          error={errors?.title}
+          value={values.title}
+          disabled={disabled}
+          onChange={(event) => onChange({ title: event.target.value })}
+        />
 
-        <FormField id="validUntil" label="Gültig bis" error={errors?.validUntil}>
-          <input
-            id="validUntil"
-            className={`${formStyles.input} ${errors?.validUntil ? formStyles.inputError : ''}`}
-            type="date"
-            value={values.validUntil ?? ''}
-            disabled={disabled}
-            aria-invalid={Boolean(errors?.validUntil)}
-            onChange={(event) => onChange({ validUntil: event.target.value || null })}
-          />
-        </FormField>
+        <FormControl
+          id="validUntil"
+          type="date"
+          label="Gültig bis"
+          error={errors?.validUntil}
+          value={values.validUntil ?? ''}
+          disabled={disabled}
+          onChange={(event) => onChange({ validUntil: event.target.value || null })}
+        />
 
         <div className={formStyles.fullWidth}>
           <FormField id="introductionText" label="Einleitungstext">
             <textarea
               id="introductionText"
-              className={formStyles.textarea}
+              className={textareaClassName()}
               value={values.introductionText}
               disabled={disabled}
               onChange={(event) => onChange({ introductionText: event.target.value })}
@@ -74,7 +73,7 @@ export function OfferSummarySection({
           <FormField id="customerNotes" label="Hinweise für den Kunden">
             <textarea
               id="customerNotes"
-              className={formStyles.textarea}
+              className={textareaClassName()}
               value={values.customerNotes}
               disabled={disabled}
               onChange={(event) => onChange({ customerNotes: event.target.value })}
@@ -86,7 +85,7 @@ export function OfferSummarySection({
           <FormField id="internalNotes" label="Interne Hinweise">
             <textarea
               id="internalNotes"
-              className={formStyles.textarea}
+              className={textareaClassName()}
               value={values.internalNotes}
               disabled={disabled}
               onChange={(event) => onChange({ internalNotes: event.target.value })}

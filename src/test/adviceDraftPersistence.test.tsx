@@ -13,6 +13,7 @@ import {
 } from '../services/bestPayComparisonStorageMigration';
 import { ADVICE_NEW_PATH, ADVICE_PATH } from '../utils/routes';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
+import { selectFormOptionByValue } from './helpers/selectFormOption';
 
 function renderAt(route: string) {
   clearDemoDataForTests();
@@ -76,7 +77,7 @@ describe('Beratungsentwurf Persistenz', () => {
     const router = renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     await user.click(screen.getByRole('button', { name: 'Bestehender Kunde' }));
-    await user.selectOptions(screen.getByLabelText('Kunde auswählen'), 'lead_001');
+    await selectFormOptionByValue(user, 'Kunde auswählen', 'lead_001');
     await user.click(screen.getByRole('button', { name: 'Kunde zuordnen' }));
     await waitFor(() => {
       expect(wizardSessionCount()).toBe(before + 1);

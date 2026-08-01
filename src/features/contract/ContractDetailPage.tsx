@@ -4,6 +4,7 @@ import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { FormControl } from '../../components/common/FormControl';
 import type { Contract } from '../../domain/contract/contract';
 import type { ContractTermination } from '../../domain/contract/contractTermination';
 import {
@@ -497,10 +498,7 @@ export function ContractDetailPage() {
                     void startChange();
                   }}
                 >
-                  <label>
-                    Änderungsart
-                    <select
-                      value={changeReason}
+                  <FormControl type="select" label="Änderungsart" value={changeReason}
                       onChange={(event) => setChangeReason(event.target.value as ContractChangeReason)}
                     >
                       {Object.entries(CONTRACT_CHANGE_REASON_LABELS)
@@ -510,31 +508,12 @@ export function ContractDetailPage() {
                             {label}
                           </option>
                         ))}
-                    </select>
-                  </label>
-                  <label>
-                    Notiz
-                    <input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} />
-                  </label>
-                  <label>
-                    Gültig ab (optional)
-                    <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
-                  </label>
-                  <label>
-                    Neue Laufzeit (Monate)
-                    <input value={termMonths} onChange={(event) => setTermMonths(event.target.value)} />
-                  </label>
-                  <label>
-                    Monatliche Gebühr (€)
-                    <input value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} />
-                  </label>
-                  <label>
-                    Nachname Ansprechpartner
-                    <input
-                      value={contactLastName}
-                      onChange={(event) => setContactLastName(event.target.value)}
-                    />
-                  </label>
+                    </FormControl>
+                  <FormControl type="text" label="Notiz" value={changeNote} onChange={(event) => setChangeNote(event.target.value)} />
+                  <FormControl type="date" label="Gültig ab (optional)" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
+                  <FormControl type="text" label="Neue Laufzeit (Monate)" value={termMonths} onChange={(event) => setTermMonths(event.target.value)} />
+                  <FormControl type="text" label="Monatliche Gebühr (€)" value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} />
+                  <FormControl type="text" label="Nachname Ansprechpartner" value={contactLastName} onChange={(event) => setContactLastName(event.target.value)} />
                   <button type="submit">Änderung starten</button>
                 </form>
               ) : null}
@@ -638,10 +617,7 @@ export function ContractDetailPage() {
                 void recordTermination();
               }}
             >
-              <label>
-                Grund
-                <select
-                  value={terminationReason}
+              <FormControl type="select" label="Grund" value={terminationReason}
                   onChange={(event) =>
                     setTerminationReason(event.target.value as ContractTerminationReason)
                   }
@@ -651,26 +627,11 @@ export function ContractDetailPage() {
                       {label}
                     </option>
                   ))}
-                </select>
-              </label>
+                </FormControl>
               {terminationReason === 'other' ? (
-                <label>
-                  Erläuterung
-                  <input
-                    required
-                    value={terminationOther}
-                    onChange={(event) => setTerminationOther(event.target.value)}
-                  />
-                </label>
+                <FormControl type="text" label="Erläuterung" required value={terminationOther} onChange={(event) => setTerminationOther(event.target.value)} />
               ) : null}
-              <label>
-                Gewünschtes Ende
-                <input
-                  type="date"
-                  value={requestedEnd}
-                  onChange={(event) => setRequestedEnd(event.target.value)}
-                />
-              </label>
+              <FormControl type="date" label="Gewünschtes Ende" value={requestedEnd} onChange={(event) => setRequestedEnd(event.target.value)} />
               <button type="submit">Kündigung erfassen</button>
             </form>
           ) : (

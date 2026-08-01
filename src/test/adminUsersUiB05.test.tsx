@@ -7,6 +7,7 @@ import { CurrentUserContext } from '../app/providers/currentUserContext';
 import { ServicesContext } from '../hooks/useServices';
 import type { AppServices } from '../services';
 import { ASSIGNABLE_USER_ROLES } from '../domain/user/user';
+import { openFormSelect } from './helpers/selectFormOption';
 
 const adminUser = {
   id: 'admin-1',
@@ -102,9 +103,14 @@ describe('Admin Benutzerverwaltung UI', () => {
     ).toBeInTheDocument();
 
     const roleSelect = screen.getByLabelText('Rolle für Einladung');
-    const options = Array.from(roleSelect.querySelectorAll('option')).map((option) => option.value);
+    await openFormSelect(user, 'Rolle für Einladung');
+    const options = screen
+      .getAllByRole('option')
+      .map((option) => option.getAttribute('data-value'))
+      .filter(Boolean);
     expect(options).toEqual([...ASSIGNABLE_USER_ROLES]);
     expect(options).toHaveLength(2);
+    expect(roleSelect).toBeInTheDocument();
   });
 
   it('lädt im Supabase-Modus keine Demo-Benutzertexte in die Aktion', async () => {

@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { CurrencyInput } from '../../components/common/CurrencyInput';
-import { FormField } from '../../components/common/FormField';
+import { FormControl } from '../../components/common/FormControl';
+import { FormField, textareaClassName } from '../../components/common/FormField';
 import { NumberInput } from '../../components/common/NumberInput';
 import { PercentageTenthsRateInput } from '../../components/common/PercentageTenthsRateInput';
 import { TenthsCurrencyInput } from '../../components/common/TenthsCurrencyInput';
@@ -78,42 +79,11 @@ export function TariffForm({
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Tarifidentität</h2>
         <div className={styles.grid}>
-          <FormField id="name" label="Tarifname" required error={errors.name}>
-            <input
-              id="name"
-              className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
-              value={values.name}
-              aria-invalid={Boolean(errors.name)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('name', event.target.value)}
-            />
-          </FormField>
-          <FormField id="providerName" label="Anbietername" required error={errors.providerName}>
-            <input
-              id="providerName"
-              className={`${styles.input} ${errors.providerName ? styles.inputError : ''}`}
-              value={values.providerName}
-              aria-invalid={Boolean(errors.providerName)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('providerName', event.target.value)}
-            />
-          </FormField>
-          <FormField id="productCode" label="Produktcode (intern)" required error={errors.productCode}>
-            <input
-              id="productCode"
-              className={`${styles.input} ${errors.productCode ? styles.inputError : ''}`}
-              value={values.productCode}
-              aria-invalid={Boolean(errors.productCode)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('productCode', event.target.value)}
-            />
-          </FormField>
-          <FormField id="status" label="Status" required error={errors.status}>
-            <select
-              id="status"
-              className={`${styles.select} ${errors.status ? styles.selectError : ''}`}
+          <FormControl type="text" id="name" label="Tarifname" required error={errors.name} value={values.name} disabled={isSubmitting} onChange={(event) => updateField('name', event.target.value)} />
+          <FormControl type="text" id="providerName" label="Anbietername" required error={errors.providerName} value={values.providerName} disabled={isSubmitting} onChange={(event) => updateField('providerName', event.target.value)} />
+          <FormControl type="text" id="productCode" label="Produktcode (intern)" required error={errors.productCode} value={values.productCode} disabled={isSubmitting} onChange={(event) => updateField('productCode', event.target.value)} />
+          <FormControl type="select" id="status" label="Status" required error={errors.status}
               value={values.status}
-              aria-invalid={Boolean(errors.status)}
               disabled={isSubmitting}
               onChange={(event) => updateField('status', event.target.value as CreateTariffInput['status'])}
             >
@@ -122,13 +92,12 @@ export function TariffForm({
                   {TARIFF_STATUS_LABELS[status]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
           <div className={styles.fullWidth}>
             <FormField id="description" label="Beschreibung" error={errors.description}>
               <textarea
                 id="description"
-                className={`${styles.textarea} ${errors.description ? styles.textareaError : ''}`}
+                className={textareaClassName(errors.description)}
                 value={values.description}
                 aria-invalid={Boolean(errors.description)}
                 disabled={isSubmitting}
@@ -192,12 +161,8 @@ export function TariffForm({
             disabled={isSubmitting}
             onChange={(value) => updateField('minimumMonthlyFeeCents', value)}
           />
-          <FormField id="billingInterval" label="Abrechnungsintervall" error={errors.billingInterval}>
-            <select
-              id="billingInterval"
-              className={`${styles.select} ${errors.billingInterval ? styles.selectError : ''}`}
+          <FormControl type="select" id="billingInterval" label="Abrechnungsintervall" error={errors.billingInterval}
               value={values.billingInterval}
-              aria-invalid={Boolean(errors.billingInterval)}
               disabled={isSubmitting}
               onChange={(event) =>
                 updateField('billingInterval', event.target.value as CreateTariffInput['billingInterval'])
@@ -208,8 +173,7 @@ export function TariffForm({
                   {BILLING_INTERVAL_LABELS[interval]}
                 </option>
               ))}
-            </select>
-          </FormField>
+            </FormControl>
         </div>
       </section>
 
@@ -318,28 +282,8 @@ export function TariffForm({
             placeholder="Keine Angabe"
             onChange={(value) => updateField('noticePeriodMonths', value)}
           />
-          <FormField id="validFrom" label="Gültig ab" error={errors.validFrom}>
-            <input
-              id="validFrom"
-              className={`${styles.input} ${errors.validFrom ? styles.inputError : ''}`}
-              type="date"
-              value={values.validFrom ?? ''}
-              aria-invalid={Boolean(errors.validFrom)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('validFrom', event.target.value || null)}
-            />
-          </FormField>
-          <FormField id="validUntil" label="Gültig bis" error={errors.validUntil}>
-            <input
-              id="validUntil"
-              className={`${styles.input} ${errors.validUntil ? styles.inputError : ''}`}
-              type="date"
-              value={values.validUntil ?? ''}
-              aria-invalid={Boolean(errors.validUntil)}
-              disabled={isSubmitting}
-              onChange={(event) => updateField('validUntil', event.target.value || null)}
-            />
-          </FormField>
+          <FormControl type="date" id="validFrom" label="Gültig ab" error={errors.validFrom} value={values.validFrom ?? ''} disabled={isSubmitting} onChange={(event) => updateField('validFrom', event.target.value || null)} />
+          <FormControl type="date" id="validUntil" label="Gültig bis" error={errors.validUntil} value={values.validUntil ?? ''} disabled={isSubmitting} onChange={(event) => updateField('validUntil', event.target.value || null)} />
         </div>
       </section>
 
@@ -348,7 +292,7 @@ export function TariffForm({
         <FormField id="notes" label="Interne Notizen" error={errors.notes}>
           <textarea
             id="notes"
-            className={`${styles.textarea} ${errors.notes ? styles.textareaError : ''}`}
+            className={textareaClassName(errors.notes)}
             value={values.notes}
             aria-invalid={Boolean(errors.notes)}
             disabled={isSubmitting}

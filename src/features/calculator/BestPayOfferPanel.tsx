@@ -6,6 +6,7 @@ import { formatCardRate, formatGirocardClearing } from '../../utils/formatTariff
 import { formatTerminalTypes } from '../../utils/formatTerminalTypes';
 import { formatCentsToCurrency } from '../../utils/currency';
 import { formatTenthsOfCentToCurrency } from '../../utils/tenthsOfCent';
+import { FormControl } from '../../components/common/FormControl';
 import styles from './BestPayOfferPanel.module.css';
 
 interface BestPayOfferPanelProps {
@@ -49,29 +50,20 @@ export function BestPayOfferPanel({
         Konditionen aus einem aktiven BestPay-Tarif – nur zur Ansicht.
       </p>
 
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor="bestpay-tariff-select">
-          BestPay-Tarif
-        </label>
-        <select
-          id="bestpay-tariff-select"
-          className={`${styles.select} ${tariffError ? styles.selectError : ''}`}
-          value={selectedTariffId ?? ''}
-          aria-invalid={Boolean(tariffError)}
-          onChange={(event) => onTariffChange(event.target.value)}
-        >
-          {tariffs.map((tariff) => (
-            <option key={tariff.id} value={tariff.id}>
-              {tariff.name} ({tariff.productCode})
-            </option>
-          ))}
-        </select>
-        {tariffError ? (
-          <p className={styles.error} role="alert">
-            {tariffError}
-          </p>
-        ) : null}
-      </div>
+      <FormControl
+        type="select"
+        id="bestpay-tariff-select"
+        label="BestPay-Tarif"
+        error={tariffError}
+        value={selectedTariffId ?? ''}
+        onChange={(event) => onTariffChange(event.target.value)}
+      >
+        {tariffs.map((tariff) => (
+          <option key={tariff.id} value={tariff.id}>
+            {tariff.name} ({tariff.productCode})
+          </option>
+        ))}
+      </FormControl>
 
       {selectedTariff && bestPayConditions ? (
         <dl className={styles.summary}>

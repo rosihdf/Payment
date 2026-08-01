@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { Lead } from '../../domain/lead/lead';
@@ -53,11 +53,12 @@ export function LeadsPage() {
       />
 
       <div className={styles.search}>
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Firma, Kontakt, Ort, Anbieter oder E-Mail suchen…"
+        <FormControl
+          type="search"
           label="Kunden-Suche"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Firma, Kontakt, Ort, Anbieter oder E-Mail suchen…"
         />
       </div>
 

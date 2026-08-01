@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { ActivationListItem, ActivationMetrics } from '../../domain/activation/activationCase';
 import { ACTIVATION_PRIORITY_LABELS } from '../../domain/activation/activationCase';
@@ -185,9 +185,11 @@ export function ActivationsPage() {
       ) : null}
 
       <div className={styles.toolbar}>
-        <SearchField
+        <FormControl
+          type="search"
+          label="Suche"
           value={query}
-          onChange={setQuery}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Nummer, Vertrag, Firma, Kontakt, Angebot, Referenz, Seriennummer, Modell"
         />
 
@@ -215,112 +217,112 @@ export function ActivationsPage() {
         </div>
 
         <div className={styles.secondaryFilters}>
-          <label>
-            Status
-            <select
-              value={status}
-              onChange={(event) =>
-                setStatus(event.target.value as NonNullable<ActivationFilters['status']>)
-              }
-            >
-              <option value="open_group">Offene Vorgänge</option>
-              <option value="blocked_group">Blockiert (Gruppe)</option>
-              {listActivationStatusFilterOptions().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormControl
+            type="select"
+            id="activation-status-filter"
+            label="Status"
+            value={status}
+            onChange={(event) =>
+              setStatus(event.target.value as NonNullable<ActivationFilters['status']>)
+            }
+          >
+            <option value="open_group">Offene Vorgänge</option>
+            <option value="blocked_group">Blockiert (Gruppe)</option>
+            {listActivationStatusFilterOptions().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FormControl>
 
-          <label>
-            Priorität
-            <select
-              value={priority}
-              onChange={(event) =>
-                setPriority(event.target.value as NonNullable<ActivationFilters['priority']>)
-              }
-            >
-              {listActivationPriorityFilterOptions().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FormControl
+            type="select"
+            id="activation-priority-filter"
+            label="Priorität"
+            value={priority}
+            onChange={(event) =>
+              setPriority(event.target.value as NonNullable<ActivationFilters['priority']>)
+            }
+          >
+            {listActivationPriorityFilterOptions().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </FormControl>
 
-          <label>
-            Zuständigkeit
-            <select
-              value={ownerFilter}
-              onChange={(event) =>
-                setOwnerFilter(event.target.value as NonNullable<ActivationFilters['ownerUserId']>)
-              }
-            >
-              <option value="all">Alle</option>
-              <option value="mine">Eigene</option>
-              <option value="unassigned">Ohne Verantwortlichen</option>
-              {canViewTeam
-                ? users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))
-                : null}
-            </select>
-          </label>
-
-          <label>
-            Go-live-Zeitraum
-            <select
-              value={goLiveWindow}
-              onChange={(event) =>
-                setGoLiveWindow(event.target.value as ActivationGoLiveWindowFilter)
-              }
-            >
-              <option value="all">Alle</option>
-              {(Object.entries(ACTIVATION_GO_LIVE_WINDOW_LABELS) as Array<
-                [Exclude<ActivationGoLiveWindowFilter, 'all'>, string]
-              >).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Arbeitszustand
-            <select
-              value={workState}
-              onChange={(event) => setWorkState(event.target.value as ActivationWorkStateFilter)}
-            >
-              <option value="all">Alle</option>
-              {(Object.entries(ACTIVATION_WORK_STATE_LABELS) as Array<
-                [Exclude<ActivationWorkStateFilter, 'all'>, string]
-              >).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Sortierung
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as ActivationSortBy)}
-            >
-              {(Object.entries(ACTIVATION_SORT_LABELS) as Array<[ActivationSortBy, string]>).map(
-                ([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
+          <FormControl
+            type="select"
+            id="activation-owner-filter"
+            label="Zuständigkeit"
+            value={ownerFilter}
+            onChange={(event) =>
+              setOwnerFilter(event.target.value as NonNullable<ActivationFilters['ownerUserId']>)
+            }
+          >
+            <option value="all">Alle</option>
+            <option value="mine">Eigene</option>
+            <option value="unassigned">Ohne Verantwortlichen</option>
+            {canViewTeam
+              ? users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
                   </option>
-                ),
-              )}
-            </select>
-          </label>
+                ))
+              : null}
+          </FormControl>
+
+          <FormControl
+            type="select"
+            id="activation-golive-filter"
+            label="Go-live-Zeitraum"
+            value={goLiveWindow}
+            onChange={(event) =>
+              setGoLiveWindow(event.target.value as ActivationGoLiveWindowFilter)
+            }
+          >
+            <option value="all">Alle</option>
+            {(Object.entries(ACTIVATION_GO_LIVE_WINDOW_LABELS) as Array<
+              [Exclude<ActivationGoLiveWindowFilter, 'all'>, string]
+            >).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </FormControl>
+
+          <FormControl
+            type="select"
+            id="activation-workstate-filter"
+            label="Arbeitszustand"
+            value={workState}
+            onChange={(event) => setWorkState(event.target.value as ActivationWorkStateFilter)}
+          >
+            <option value="all">Alle</option>
+            {(Object.entries(ACTIVATION_WORK_STATE_LABELS) as Array<
+              [Exclude<ActivationWorkStateFilter, 'all'>, string]
+            >).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </FormControl>
+
+          <FormControl
+            type="select"
+            id="activation-sort-filter"
+            label="Sortierung"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as ActivationSortBy)}
+          >
+            {(Object.entries(ACTIVATION_SORT_LABELS) as Array<[ActivationSortBy, string]>).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ),
+            )}
+          </FormControl>
         </div>
 
         <div className={styles.filterMeta}>

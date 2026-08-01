@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { BillingCostLineCategory, BillingCostLineCostType } from '../../domain/billingImport/billingCostLineItem';
 import { BILLING_COST_LINE_CATEGORY_LABELS } from '../../domain/billingImport/billingCostLineItem';
 import type { Offer } from '../../domain/offer/offer';
@@ -6,6 +6,7 @@ import type { OfferUserContext } from '../../services/offerService';
 import type { BillingImportService } from '../../services/billingImportService';
 import type { SalesBillingImportView } from '../../services/billingImportViews';
 import { BILLING_FILE_LIMITS } from '../../domain/billingImportEngine/billingFileValidation';
+import { FormControl } from '../../components/common/FormControl';
 import styles from './OfferBillingImportSection.module.css';
 
 interface OfferBillingImportSectionProps {
@@ -389,14 +390,13 @@ export function OfferBillingImportSection({
                   <DetailRow label="Original" value={field.originalText || '—'} />
                   <DetailRow label="Konfidenz" value={field.confidenceClass} />
                   <DetailRow label="Status" value={field.status} />
-                  <label htmlFor={`field-${field.id}`}>{group.label} bearbeiten</label>
-                  <input
+                  <FormControl
                     id={`field-${field.id}`}
-                    className={styles.fieldInput}
-                    type={inputTypeForField(field.inputType)}
+                    type={inputTypeForField(field.inputType) === 'number' ? 'number' : inputTypeForField(field.inputType) === 'date' ? 'date' : 'text'}
+                    label={`${group.label} bearbeiten`}
                     inputMode={field.inputType === 'money' ? 'decimal' : undefined}
                     value={fieldEdits[field.id] ?? ''}
-                    onChange={(event) =>
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
                       setFieldEdits((current) => ({ ...current, [field.id]: event.target.value }))
                     }
                   />
@@ -426,33 +426,21 @@ export function OfferBillingImportSection({
           {showCostLineForm ? (
             <div className={`${styles.card} ${styles.manualForm}`}>
               <h3 className={styles.cardTitle}>Manuelle Gebührenposition</h3>
-              <label>
-                Kategorie
-                <select value={costLineCategory} onChange={(e) => setCostLineCategory(e.target.value as BillingCostLineCategory)}>
+              <FormControl type="select" label="Kategorie" value={costLineCategory} onChange={(e) => setCostLineCategory(e.target.value as BillingCostLineCategory)}>
                   {COST_CATEGORIES.map((category) => (
                     <option key={category} value={category}>
                       {BILLING_COST_LINE_CATEGORY_LABELS[category]}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                Bezeichnung
-                <input value={costLineLabel} onChange={(e) => setCostLineLabel(e.target.value)} />
-              </label>
-              <label>
-                Betrag (EUR)
-                <input value={costLineAmount} onChange={(e) => setCostLineAmount(e.target.value)} inputMode="decimal" />
-              </label>
-              <label>
-                Kostenart
-                <select value={costLineType} onChange={(e) => setCostLineType(e.target.value as BillingCostLineCostType)}>
+                </FormControl>
+              <FormControl type="text" label="Bezeichnung" value={costLineLabel} onChange={(e) => setCostLineLabel(e.target.value)} />
+              <FormControl type="text" label="Betrag (EUR)" inputMode="decimal" value={costLineAmount} onChange={(e) => setCostLineAmount(e.target.value)} />
+              <FormControl type="select" label="Kostenart" value={costLineType} onChange={(e) => setCostLineType(e.target.value as BillingCostLineCostType)}>
                   <option value="recurring">Laufend</option>
                   <option value="one_time">Einmalig</option>
                   <option value="credit">Gutschrift</option>
                   <option value="tax">Steuer</option>
-                </select>
-              </label>
+                </FormControl>
               <button type="button" className={styles.primaryAction} onClick={handleAddCostLine}>Position speichern</button>
             </div>
           ) : null}
@@ -472,14 +460,14 @@ export function OfferBillingImportSection({
           {showManualPeriod ? (
             <div className={`${styles.card} ${styles.manualForm}`}>
               <h3 className={styles.cardTitle}>Manuelle Periode</h3>
-              <label>Zeitraum von<input type="date" value={manualPeriodFrom} onChange={(e) => setManualPeriodFrom(e.target.value)} /></label>
-              <label>Zeitraum bis<input type="date" value={manualPeriodTo} onChange={(e) => setManualPeriodTo(e.target.value)} /></label>
-              <label>Kartenumsatz<input value={manualCardVolume} onChange={(e) => setManualCardVolume(e.target.value)} /></label>
-              <label>Transaktionen<input value={manualTransactions} onChange={(e) => setManualTransactions(e.target.value)} /></label>
-              <label>Fixkosten<input value={manualFixedCosts} onChange={(e) => setManualFixedCosts(e.target.value)} /></label>
-              <label>Terminalkosten<input value={manualTerminalCosts} onChange={(e) => setManualTerminalCosts(e.target.value)} /></label>
-              <label>Variable Gebühren<input value={manualTransactionCosts} onChange={(e) => setManualTransactionCosts(e.target.value)} /></label>
-              <label>Gesamtbetrag<input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} /></label>
+              <FormControl type="date" label="Zeitraum von" value={manualPeriodFrom} onChange={(e) => setManualPeriodFrom(e.target.value)} />
+              <FormControl type="date" label="Zeitraum bis" value={manualPeriodTo} onChange={(e) => setManualPeriodTo(e.target.value)} />
+              <FormControl type="text" label="Kartenumsatz" value={manualCardVolume} onChange={(e) => setManualCardVolume(e.target.value)} />
+              <FormControl type="text" label="Transaktionen" value={manualTransactions} onChange={(e) => setManualTransactions(e.target.value)} />
+              <FormControl type="text" label="Fixkosten" value={manualFixedCosts} onChange={(e) => setManualFixedCosts(e.target.value)} />
+              <FormControl type="text" label="Terminalkosten" value={manualTerminalCosts} onChange={(e) => setManualTerminalCosts(e.target.value)} />
+              <FormControl type="text" label="Variable Gebühren" value={manualTransactionCosts} onChange={(e) => setManualTransactionCosts(e.target.value)} />
+              <FormControl type="text" label="Gesamtbetrag" value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} />
               <button type="button" className={styles.primaryAction} onClick={handleManualPeriod}>Periode speichern</button>
             </div>
           ) : null}

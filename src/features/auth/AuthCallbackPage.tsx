@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { FormControl } from '../../components/common/FormControl';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -108,31 +109,25 @@ export function AuthCallbackPage() {
 
         {ready && needsPassword ? (
           <form className={styles.form} onSubmit={(event) => void handleSubmit(event)}>
-            <label className={styles.label} htmlFor="invite-password">
-              Neues Passwort
-            </label>
-            <input
+            <FormControl
               id="invite-password"
-              className={styles.input}
               type="password"
+              label="Neues Passwort"
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              minLength={8}
+              min={8}
             />
-            <label className={styles.label} htmlFor="invite-password-confirm">
-              Passwort bestätigen
-            </label>
-            <input
+            <FormControl
               id="invite-password-confirm"
-              className={styles.input}
               type="password"
+              label="Passwort bestätigen"
               autoComplete="new-password"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
               required
-              minLength={8}
+              min={8}
             />
             {error ? (
               <p className={styles.error} role="alert">

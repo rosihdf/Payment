@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SearchField } from '../../components/common/SearchField';
+import { FormControl } from '../../components/common/FormControl';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
@@ -238,113 +238,108 @@ export function BestPayComparisonHistoryPage() {
 
       <div className={styles.toolbar}>
         <div style={{ flex: '1 1 240px' }}>
-          <SearchField
-            value={filters.query}
-            onChange={(value) => updateFilter('query', value)}
-            placeholder="Berechnungen durchsuchen"
+          <FormControl
+            type="search"
             label="Berechnungen durchsuchen"
+            value={filters.query}
+            onChange={(event) => updateFilter('query', event.target.value)}
+            placeholder="Berechnungen durchsuchen"
           />
         </div>
         <div className={styles.filters}>
-          <div className={styles.filterField}>
-            <label htmlFor="statusFilter">Status</label>
-            <select
-              id="statusFilter"
-              value={filters.status}
-              onChange={(event) => {
-                const status = event.target.value as BestPayComparisonListFilters['status'];
-                setFilters((current) => ({
-                  ...current,
-                  status,
-                  includeArchived: status === 'archived' ? true : current.includeArchived,
-                }));
-              }}
-            >
-              <option value="all">Alle</option>
-              <option value="draft">Entwurf</option>
-              <option value="review_required">Prüfung erforderlich</option>
-              <option value="calculated">Berechnet</option>
-              <option value="offer_created">Angebot erstellt</option>
-              <option value="archived">Archiviert</option>
-            </select>
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="freshnessFilter">Aktualität</label>
-            <select
-              id="freshnessFilter"
-              value={filters.freshness}
-              onChange={(event) =>
-                updateFilter('freshness', event.target.value as BestPayComparisonListFilters['freshness'])
-              }
-            >
-              <option value="all">Alle</option>
-              <option value="current">Aktuell</option>
-              <option value="stale">Veraltet</option>
-            </select>
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="assignmentFilter">Zuordnung</label>
-            <select
-              id="assignmentFilter"
-              value={filters.assignment}
-              onChange={(event) =>
-                updateFilter('assignment', event.target.value as BestPayComparisonListFilters['assignment'])
-              }
-            >
-              <option value="all">Alle</option>
-              <option value="with_lead">Mit Lead</option>
-              <option value="without_lead">Ohne Lead</option>
-              <option value="with_offer">Mit Angebot</option>
-              <option value="without_offer">Ohne Angebot</option>
-            </select>
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="sourceFilter">Datenquelle</label>
-            <select
-              id="sourceFilter"
-              value={filters.source}
-              onChange={(event) =>
-                updateFilter('source', event.target.value as BestPayComparisonListFilters['source'])
-              }
-            >
-              <option value="all">Alle</option>
-              <option value="billing_import">Abrechnung</option>
-              <option value="manual">Manuelle Eingabe</option>
-              <option value="mixed">Gemischt</option>
-            </select>
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="timeFilter">Zeitraum</label>
-            <select
-              id="timeFilter"
-              value={filters.timeRange}
-              onChange={(event) =>
-                updateFilter('timeRange', event.target.value as BestPayComparisonListFilters['timeRange'])
-              }
-            >
-              <option value="all">Alle</option>
-              <option value="today">Heute</option>
-              <option value="last_7_days">Letzte 7 Tage</option>
-              <option value="last_30_days">Letzte 30 Tage</option>
-            </select>
-          </div>
-          <div className={styles.filterField}>
-            <label htmlFor="sortFilter">Sortierung</label>
-            <select
-              id="sortFilter"
-              value={filters.sort}
-              onChange={(event) =>
-                updateFilter('sort', event.target.value as BestPayComparisonListFilters['sort'])
-              }
-            >
-              <option value="updated_desc">Zuletzt geändert</option>
-              <option value="updated_asc">Älteste Änderung zuerst</option>
-              <option value="created_desc">Neueste Erstellung</option>
-              <option value="title_asc">Händler/Titel A–Z</option>
-              <option value="savings_desc">Höchste Ersparnis</option>
-              <option value="extra_cost_desc">Höchste Mehrkosten</option>
-            </select>
-          </div>
+          <FormControl
+            type="select"
+            id="statusFilter"
+            label="Status"
+            value={filters.status}
+            onChange={(event) => {
+              const status = event.target.value as BestPayComparisonListFilters['status'];
+              setFilters((current) => ({
+                ...current,
+                status,
+                includeArchived: status === 'archived' ? true : current.includeArchived,
+              }));
+            }}
+          >
+            <option value="all">Alle</option>
+            <option value="draft">Entwurf</option>
+            <option value="review_required">Prüfung erforderlich</option>
+            <option value="calculated">Berechnet</option>
+            <option value="offer_created">Angebot erstellt</option>
+            <option value="archived">Archiviert</option>
+          </FormControl>
+          <FormControl
+            type="select"
+            id="freshnessFilter"
+            label="Aktualität"
+            value={filters.freshness}
+            onChange={(event) =>
+              updateFilter('freshness', event.target.value as BestPayComparisonListFilters['freshness'])
+            }
+          >
+            <option value="all">Alle</option>
+            <option value="current">Aktuell</option>
+            <option value="stale">Veraltet</option>
+          </FormControl>
+          <FormControl
+            type="select"
+            id="assignmentFilter"
+            label="Zuordnung"
+            value={filters.assignment}
+            onChange={(event) =>
+              updateFilter('assignment', event.target.value as BestPayComparisonListFilters['assignment'])
+            }
+          >
+            <option value="all">Alle</option>
+            <option value="with_lead">Mit Lead</option>
+            <option value="without_lead">Ohne Lead</option>
+            <option value="with_offer">Mit Angebot</option>
+            <option value="without_offer">Ohne Angebot</option>
+          </FormControl>
+          <FormControl
+            type="select"
+            id="sourceFilter"
+            label="Datenquelle"
+            value={filters.source}
+            onChange={(event) =>
+              updateFilter('source', event.target.value as BestPayComparisonListFilters['source'])
+            }
+          >
+            <option value="all">Alle</option>
+            <option value="billing_import">Abrechnung</option>
+            <option value="manual">Manuelle Eingabe</option>
+            <option value="mixed">Gemischt</option>
+          </FormControl>
+          <FormControl
+            type="select"
+            id="timeFilter"
+            label="Zeitraum"
+            value={filters.timeRange}
+            onChange={(event) =>
+              updateFilter('timeRange', event.target.value as BestPayComparisonListFilters['timeRange'])
+            }
+          >
+            <option value="all">Alle</option>
+            <option value="today">Heute</option>
+            <option value="last_7_days">Letzte 7 Tage</option>
+            <option value="last_30_days">Letzte 30 Tage</option>
+          </FormControl>
+          <FormControl
+            type="select"
+            id="sortFilter"
+            label="Sortierung"
+            value={filters.sort}
+            onChange={(event) =>
+              updateFilter('sort', event.target.value as BestPayComparisonListFilters['sort'])
+            }
+          >
+            <option value="updated_desc">Zuletzt geändert</option>
+            <option value="updated_asc">Älteste Änderung zuerst</option>
+            <option value="created_desc">Neueste Erstellung</option>
+            <option value="title_asc">Händler/Titel A–Z</option>
+            <option value="savings_desc">Höchste Ersparnis</option>
+            <option value="extra_cost_desc">Höchste Mehrkosten</option>
+          </FormControl>
           <button
             type="button"
             className={styles.secondaryAction}
