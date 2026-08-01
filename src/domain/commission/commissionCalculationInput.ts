@@ -15,9 +15,12 @@ export interface CommissionCalculationInput {
   }>;
 }
 
+import type { CommissionRuleOverride } from './commissionRuleOverride';
+
 export interface CommissionCalculationContext {
   commissionPlanVersions: import('./commissionPlan').CommissionPlanVersion[];
   commissionPlans: import('./commissionPlan').CommissionPlan[];
   commissionRules: import('./commissionRule').CommissionRule[];
   assignments: import('./commissionAssignment').SalesRepresentativeCommissionAssignment[];
+  ruleOverrides?: CommissionRuleOverride[];
 }

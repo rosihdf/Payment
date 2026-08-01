@@ -17,13 +17,18 @@ import type { OfferRepository } from '../repositories/interfaces/OfferRepository
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import type { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import type { OfferUserContext } from './offerService';
+import type { CommissionWorkflowRepository } from '../repositories/interfaces/CommissionWorkflowRepository';
+import {
+  getActiveAssignmentForRepresentative,
+  getRuleOverridesForAssignment,
+} from '../domain/commission/commissionAssignmentHelpers';
 import {
   toAdminCommissionCalculationView,
   toSalesCommissionCalculationView,
   type AdminCommissionCalculationView,
   type SalesCommissionCalculationView,
 } from './commissionCalculationViews';
+import type { OfferUserContext } from './offerService';
 
 export interface CommissionCalculationUserContext {
   userId: string;
@@ -48,6 +53,7 @@ function getActivePreviewRecord(records: CommissionCalculationRecord[]): Commiss
 export class CommissionCalculationService {
   private readonly commissionCatalogRepository: LocalCommissionCatalogRepository;
   private readonly commissionCalculationRepository: LocalCommissionCalculationRepository;
+  private readonly commissionWorkflowRepository: CommissionWorkflowRepository | null;
   private readonly offerRepository: OfferRepository;
   private readonly pricingEvaluationRepository: PricingEvaluationRepository;
 
@@ -56,11 +62,34 @@ export class CommissionCalculationService {
     commissionCalculationRepository: LocalCommissionCalculationRepository,
     offerRepository: OfferRepository,
     pricingEvaluationRepository: PricingEvaluationRepository,
+    commissionWorkflowRepository: CommissionWorkflowRepository | null = null,
   ) {
     this.commissionCatalogRepository = commissionCatalogRepository;
     this.commissionCalculationRepository = commissionCalculationRepository;
+    this.commissionWorkflowRepository = commissionWorkflowRepository;
     this.offerRepository = offerRepository;
     this.pricingEvaluationRepository = pricingEvaluationRepository;
+  }
+
+  private async buildEvaluationContext(catalog: Awaited<
+    ReturnType<LocalCommissionCatalogRepository['getCatalog']>
+  >, salesRepresentativeId: string, evaluationDate: string) {
+    const assignment = getActiveAssignmentForRepresentative(
+      catalog.assignments,
+      salesRepresentativeId,
+      evaluationDate,
+    );
+    const versions = this.commissionWorkflowRepository
+      ? await this.commissionWorkflowRepository.getAssignmentVersions()
+      : [];
+    const ruleOverrides = getRuleOverridesForAssignment(assignment, versions);
+    return {
+      commissionPlans: catalog.commissionPlans,
+      commissionPlanVersions: catalog.commissionPlanVersions,
+      commissionRules: catalog.commissionRules,
+      assignments: catalog.assignments,
+      ruleOverrides,
+    };
   }
 
   private async getAccessibleOffer(
@@ -105,7 +134,7 @@ export class CommissionCalculationService {
     }
 
     const catalog = await this.commissionCatalogRepository.getCatalog();
-    const input = buildCommissionCalculationInput(
+    const calculationInput = buildCommissionCalculationInput(
       offer,
       activePricing.id,
       activePricing.result,
@@ -116,18 +145,19 @@ export class CommissionCalculationService {
     const existingReduction =
       getActivePreviewRecord(existingRecords)?.result.reductionDecision ?? null;
 
+    const evaluationContext = await this.buildEvaluationContext(
+      catalog,
+      calculationInput.salesRepresentativeId,
+      calculationInput.evaluationDate,
+    );
+
     const result = evaluateCommission(
-      input,
-      {
-        commissionPlans: catalog.commissionPlans,
-        commissionPlanVersions: catalog.commissionPlanVersions,
-        commissionRules: catalog.commissionRules,
-        assignments: catalog.assignments,
-      },
+      calculationInput,
+      evaluationContext,
       existingReduction?.status === 'approved' ? existingReduction : null,
     );
 
-    const fingerprint = createCommissionCalculationFingerprint(input, result.reductionDecision);
+    const fingerprint = createCommissionCalculationFingerprint(calculationInput, result.reductionDecision);
     const timestamp = nowIso();
     const activePreview = getActivePreviewRecord(existingRecords);
 
@@ -309,28 +339,29 @@ export class CommissionCalculationService {
     }
 
     const catalog = await this.commissionCatalogRepository.getCatalog();
-    const input = buildCommissionCalculationInput(
+    const calculationInput = buildCommissionCalculationInput(
       offer,
       activePricing.id,
       activePricing.result,
       record.result.snapshot.contractTypeCode,
     );
 
+    const evaluationContext = await this.buildEvaluationContext(
+      catalog,
+      calculationInput.salesRepresentativeId,
+      calculationInput.evaluationDate,
+    );
+
     const result = evaluateCommission(
-      input,
-      {
-        commissionPlans: catalog.commissionPlans,
-        commissionPlanVersions: catalog.commissionPlanVersions,
-        commissionRules: catalog.commissionRules,
-        assignments: catalog.assignments,
-      },
+      calculationInput,
+      evaluationContext,
       decision,
     );
 
     const timestamp = nowIso();
     const updated: CommissionCalculationRecord = {
       ...record,
-      inputFingerprint: createCommissionCalculationFingerprint(input, decision),
+      inputFingerprint: createCommissionCalculationFingerprint(calculationInput, decision),
       result,
       updatedAt: timestamp,
     };
@@ -396,12 +427,19 @@ export class CommissionCalculationService {
       commissionCalculationId: saved.id,
       offerId,
       salesRepresentativeId: saved.result.salesRepresentativeId,
+      contractId: null,
+      activationId: null,
       status: 'expected',
       expectedAmountCents: saved.result.finalExpectedCommissionAmountCents,
       approvedAmountCents: saved.result.finalExpectedCommissionAmountCents,
+      reductionAmountCents: 0,
+      reductionReason: null,
       settledAmountCents: 0,
       paidAmountCents: 0,
       clawedBackAmountCents: 0,
+      accountingReference: null,
+      paymentReference: null,
+      dueDate: null,
       currency: saved.result.currency,
       createdAt: timestamp,
       updatedAt: timestamp,

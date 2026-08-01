@@ -32,6 +32,16 @@ import {
   AdminTariffsListRedirect,
 } from '../features/admin/AdminCatalogPages';
 import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
+import {
+  AdminCommissionOverviewPage,
+} from '../features/admin/commission/AdminCommissionOverviewPage';
+import { AdminCommissionAssignmentsPage } from '../features/admin/commission/AdminCommissionAssignmentsPage';
+import { AdminCommissionCasesPage } from '../features/admin/commission/AdminCommissionCasesPage';
+import { AdminCommissionBonusPage } from '../features/admin/commission/AdminCommissionBonusPage';
+import { AdminCommissionPaymentsPage } from '../features/admin/commission/AdminCommissionPaymentsPage';
+import { AdminCommissionModelsPage } from '../features/admin/commission/AdminCommissionModelsPage';
+import { AdminCommissionHistoryPage } from '../features/admin/commission/AdminCommissionHistoryPage';
+import { SalesCommissionPage } from '../features/sales/SalesCommissionPage';
 import { AdminApprovalsPage } from '../features/admin/AdminApprovalsPage';
 import { AdminTemplatesPage } from '../features/admin/AdminTemplatesPage';
 import { AdminDataPage } from '../features/admin/AdminDataPage';
@@ -64,6 +74,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
       { path: 'leads/:id', element: <LeadDetailPage /> },
       { path: 'sales', element: <SalesWorkspacePage /> },
+      { path: 'sales/commission', element: <SalesCommissionPage /> },
       { path: 'advice', element: <AdviceEntry /> },
       { path: 'advice/quick', element: <Navigate to={ADVICE_PATH} replace /> },
       {
@@ -98,6 +109,13 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/products/manage/new', element: <NewProductPage /> },
       { path: 'admin/products/manage/:id/edit', element: <EditProductPage /> },
       { path: 'admin/commission', element: <AdminCommissionPage /> },
+      { path: 'admin/commission/overview', element: <AdminCommissionOverviewPage /> },
+      { path: 'admin/commission/assignments', element: <AdminCommissionAssignmentsPage /> },
+      { path: 'admin/commission/cases', element: <AdminCommissionCasesPage /> },
+      { path: 'admin/commission/bonus', element: <AdminCommissionBonusPage /> },
+      { path: 'admin/commission/payments', element: <AdminCommissionPaymentsPage /> },
+      { path: 'admin/commission/models', element: <AdminCommissionModelsPage /> },
+      { path: 'admin/commission/history', element: <AdminCommissionHistoryPage /> },
       { path: 'admin/approvals', element: <AdminApprovalsPage /> },
       { path: 'admin/templates', element: <AdminTemplatesPage /> },
       { path: 'admin/data', element: <AdminDataPage /> },

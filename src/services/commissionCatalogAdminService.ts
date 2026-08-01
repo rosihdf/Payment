@@ -144,6 +144,7 @@ export class CommissionCatalogAdminService {
           id: 'commission_assignment_default',
           salesRepresentativeId: context.userId,
           commissionPlanVersionId: seed.planVersions[0]!.id,
+          currentVersionId: null,
           validFrom: '2026-01-01',
           validUntil: null,
           isPrimary: true,

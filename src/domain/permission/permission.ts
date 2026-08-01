@@ -159,6 +159,7 @@ const FIELD_SERVICE_PERMISSIONS: Permission[] = [
   'offers.accept',
   'offers.decline',
   'offers.activate',
+  'commission.view',
   'contracts.view_own',
   'contracts.create',
   'contracts.change',

@@ -9,6 +9,8 @@ import type { AuditRepository } from '../interfaces/AuditRepository';
 import type { BestPayComparisonRepository } from '../interfaces/BestPayComparisonRepository';
 import type { BillingImportRepository, BillingImportStoreData } from '../interfaces/BillingImportRepository';
 import type { CommissionCalculationRepository } from '../interfaces/CommissionCalculationRepository';
+import type { CommissionWorkflowRepository } from '../interfaces/CommissionWorkflowRepository';
+import { LocalCommissionWorkflowRepository } from '../local/LocalCommissionWorkflowRepository';
 import type { ContractRepository } from '../interfaces/ContractRepository';
 import type { ContractTerminationRepository } from '../interfaces/ContractTerminationRepository';
 import type { ContractVersionRepository } from '../interfaces/ContractVersionRepository';
@@ -72,6 +74,7 @@ import { SupabaseAuditRepository } from './SupabaseAuditRepository';
 import { SupabaseBestPayComparisonRepository } from './SupabaseBestPayComparisonRepository';
 import { SupabaseBillingImportRepository } from './SupabaseBillingImportRepository';
 import { SupabaseCommissionCalculationRepository } from './SupabaseCommissionCalculationRepository';
+import { SupabaseCommissionWorkflowRepository } from './SupabaseCommissionWorkflowRepository';
 import { SupabaseCommissionCatalogRepository } from './SupabaseCommissionCatalogRepository';
 import { SupabaseContractRepository } from './SupabaseContractRepository';
 import { SupabaseContractTerminationRepository } from './SupabaseContractTerminationRepository';
@@ -137,6 +140,7 @@ export interface OperationalRepositories {
   pricingEvaluationRepository: PricingEvaluationRepository;
   commissionCatalogRepository: CommissionCatalogRepository;
   commissionCalculationRepository: CommissionCalculationRepository;
+  commissionWorkflowRepository: CommissionWorkflowRepository;
   recommendationRepository: RecommendationRepository;
   contractRepository: ContractRepository;
   contractVersionRepository: ContractVersionRepository;
@@ -168,6 +172,7 @@ export function createOperationalRepositories(): OperationalRepositories {
       pricingEvaluationRepository: new SupabasePricingEvaluationRepository(),
       commissionCatalogRepository: new SupabaseCommissionCatalogRepository(),
       commissionCalculationRepository: new SupabaseCommissionCalculationRepository(),
+      commissionWorkflowRepository: new SupabaseCommissionWorkflowRepository(),
       recommendationRepository: new SupabaseRecommendationRepository(),
       contractRepository: new SupabaseContractRepository(),
       contractVersionRepository: new SupabaseContractVersionRepository(),
@@ -197,6 +202,7 @@ export function createOperationalRepositories(): OperationalRepositories {
     pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
     commissionCatalogRepository: new LocalCommissionCatalogRepository(),
     commissionCalculationRepository: new LocalCommissionCalculationRepository(),
+    commissionWorkflowRepository: new LocalCommissionWorkflowRepository(),
     recommendationRepository: new LocalRecommendationRepository(),
     contractRepository: new LocalContractRepository(),
     contractVersionRepository: new LocalContractVersionRepository(),

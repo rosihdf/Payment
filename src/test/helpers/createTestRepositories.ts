@@ -6,6 +6,7 @@ import { LocalActivationHardwareRepository } from '../../repositories/local/Loca
 import { LocalApprovalRuleRepository } from '../../repositories/local/LocalApprovalRuleRepository';
 import { LocalAuditRepository } from '../../repositories/local/LocalAuditRepository';
 import { LocalCommissionCalculationRepository } from '../../repositories/local/LocalCommissionCalculationRepository';
+import { LocalCommissionWorkflowRepository } from '../../repositories/local/LocalCommissionWorkflowRepository';
 import { LocalCommissionCatalogRepository } from '../../repositories/local/LocalCommissionCatalogRepository';
 import { LocalContractRepository } from '../../repositories/local/LocalContractRepository';
 import { LocalContractTerminationRepository } from '../../repositories/local/LocalContractTerminationRepository';
@@ -107,6 +108,7 @@ export function createTestRepositories(): AppRepositories {
     pricingEvaluationRepository: new LocalPricingEvaluationRepository(),
     commissionCatalogRepository: new LocalCommissionCatalogRepository(),
     commissionCalculationRepository: new LocalCommissionCalculationRepository(),
+    commissionWorkflowRepository: new LocalCommissionWorkflowRepository(),
     recommendationRepository: new LocalRecommendationRepository(),
     contractRepository: new LocalContractRepository(),
     contractVersionRepository: new LocalContractVersionRepository(),

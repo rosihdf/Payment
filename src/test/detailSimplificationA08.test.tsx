@@ -82,13 +82,13 @@ describe('Aufräumblock 8 – Angebotsdetail UI', () => {
     expect(screen.getByRole('tab', { name: 'Positionen & Konditionen' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Freigabe & Versand' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Versionen & Dokumente' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Interne Provision' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Interne Provision' })).toBeInTheDocument();
     expect(screen.getAllByText('Entwurf').length).toBeGreaterThan(0);
     expect(screen.queryByRole('heading', { name: 'Angebotsworkflow' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abschließen' })).toBeInTheDocument();
   });
 
-  it('hides commission tab for field service and shows it for admin', async () => {
+  it('shows commission tab for field service with commission.view and for admin', async () => {
     clearDemoDataForTests();
     resetDemoDataForTests();
     writeStorageItem(STORAGE_KEYS.currentUserId, 'user_004');

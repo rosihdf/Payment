@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FormField } from '../../components/common/FormField';
-import { SearchField } from '../../components/common/SearchField';
-import inputStyles from '../../components/common/inputs.module.css';
+import { FormControl } from '../../components/common/FormControl';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -137,6 +135,9 @@ export function SalesWorkspacePage() {
             <Link className={styles.primaryAction} to={ADVICE_NEW_PATH}>
               Neue Beratung
             </Link>
+            <Link className={styles.secondaryAction} to="/sales/commission">
+              Meine Provision
+            </Link>
             <Link className={styles.secondaryAction} to="/leads">
               Kunden suchen
             </Link>
@@ -145,24 +146,24 @@ export function SalesWorkspacePage() {
       />
 
       <div className={styles.toolbar}>
-        <SearchField
+        <FormControl
+          type="search"
           label="Kunden filtern"
           value={query}
-          onChange={setQuery}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Firma, Ansprechpartner…"
         />
         {view?.canUseTeamScope ? (
-          <FormField label="Sicht" id="sales-scope">
-            <select
-              id="sales-scope"
-              className={inputStyles.select}
-              value={scope}
-              onChange={(event) => setScope(event.target.value as 'mine' | 'team')}
-            >
-              <option value="mine">Meine Fälle</option>
-              <option value="team">Team</option>
-            </select>
-          </FormField>
+          <FormControl
+            type="select"
+            id="sales-scope"
+            label="Sicht"
+            value={scope}
+            onChange={(event) => setScope(event.target.value as 'mine' | 'team')}
+          >
+            <option value="mine">Meine Fälle</option>
+            <option value="team">Team</option>
+          </FormControl>
         ) : null}
       </div>
 

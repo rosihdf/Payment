@@ -25,6 +25,7 @@ import {
 } from './componentCalculation';
 import { resolveCommissionPlanAssignment } from './planResolution';
 import { selectCommissionRules } from './ruleMatching';
+import { applyRuleOverrides } from './applyRuleOverrides';
 import { classifyTermMonths } from './termClassification';
 import {
   pricingEvaluationBlocksCommission,
@@ -156,8 +157,15 @@ export function evaluateCommission(
   let components: CommissionComponent[] = [];
 
   if (planResolution.planVersion && termClass !== 'exact_36') {
+    const planRules = applyRuleOverrides(
+      context.commissionRules.filter(
+        (rule) => rule.commissionPlanVersionId === planResolution.planVersion!.id,
+      ),
+      context.ruleOverrides,
+    );
+
     selectedRules = selectCommissionRules(
-      context.commissionRules,
+      planRules,
       planResolution.planVersion.id,
       input,
       termMonths,

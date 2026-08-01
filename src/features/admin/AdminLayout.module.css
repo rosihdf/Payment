@@ -122,6 +122,17 @@
   color: var(--color-text-muted);
 }
 
+.twoColumn {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.warningText {
+  color: var(--color-danger, #b42318);
+  font-weight: var(--font-weight-medium);
+}
+
 .section :global(button) {
   display: inline-flex;
   align-items: center;

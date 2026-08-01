@@ -14,12 +14,19 @@ export interface CommissionCase {
   commissionCalculationId: string;
   offerId: string;
   salesRepresentativeId: string;
+  contractId: string | null;
+  activationId: string | null;
   status: CommissionCaseStatus;
   expectedAmountCents: number;
   approvedAmountCents: number;
+  reductionAmountCents: number;
+  reductionReason: string | null;
   settledAmountCents: number;
   paidAmountCents: number;
   clawedBackAmountCents: number;
+  accountingReference: string | null;
+  paymentReference: string | null;
+  dueDate: string | null;
   currency: string;
   createdAt: string;
   updatedAt: string;
@@ -31,12 +38,27 @@ export type CommissionEventType =
   | 'preview_stale'
   | 'calculation_frozen'
   | 'assignment_created'
+  | 'assignment_changed'
+  | 'override_changed'
   | 'plan_version_published'
   | 'reduction_proposed'
   | 'reduction_approved'
   | 'reduction_rejected'
   | 'correction_added'
-  | 'case_expected_created';
+  | 'case_expected_created'
+  | 'commission_calculated'
+  | 'commission_expected'
+  | 'commission_reserved'
+  | 'commission_released'
+  | 'commission_bonus_created'
+  | 'commission_bonus_changed'
+  | 'commission_bonus_paid'
+  | 'commission_reduced'
+  | 'commission_accounted'
+  | 'commission_paid'
+  | 'commission_cancelled'
+  | 'commission_assignment_changed'
+  | 'commission_override_changed';
 
 export interface CommissionEvent {
   id: string;

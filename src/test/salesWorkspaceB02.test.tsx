@@ -49,7 +49,7 @@ describe('B02 Sales Workspace', () => {
     expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Erwartete Abschlüsse' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Aufgabe anlegen' })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Provision/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Meine Provision' })).toHaveAttribute('href', '/sales/commission');
   });
 
   it('aggregiert Workspace-Daten und legt automatische Wizard-Aufgaben an', async () => {

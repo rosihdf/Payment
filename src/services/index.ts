@@ -27,6 +27,7 @@ import type { ActivationBlockerRepository } from '../repositories/interfaces/Act
 import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import type { BillingImportRepository } from '../repositories/interfaces/BillingImportRepository';
 import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
+import type { CommissionWorkflowRepository } from '../repositories/interfaces/CommissionWorkflowRepository';
 import type { CommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import type { RecommendationRepository } from '../repositories/interfaces/RecommendationRepository';
 import { AdminOverviewService } from './adminOverviewService';
@@ -35,11 +36,13 @@ import { ApprovalRuleService } from './approvalRuleService';
 import { ActivationService } from './activationService';
 import { AuditService } from './auditService';
 import { CommissionCalculationService } from './commissionCalculationService';
+import { CommissionAdminService } from './commissionAdminService';
 import { CommissionCatalogAdminService } from './commissionCatalogAdminService';
 import { ContractService } from './contractService';
 import { DataDiagnosticService } from './dataDiagnosticService';
 import { DataExportService, DataRestoreService } from './dataExportService';
 import { SupabaseDataMigrationService } from './supabaseDataMigrationService';
+import { ProductionCatalogBootstrapService } from './productionCatalogBootstrapService';
 import { DocumentTemplateService } from './documentTemplateService';
 import { RecommendationService } from './recommendationService';
 import { BillingImportService } from './billingImportService';
@@ -69,10 +72,12 @@ export interface AppServices {
   dataExportService: DataExportService;
   dataRestoreService: DataRestoreService;
   supabaseDataMigrationService: SupabaseDataMigrationService;
+  productionCatalogBootstrapService: ProductionCatalogBootstrapService;
   dataDiagnosticService: DataDiagnosticService;
   systemStatusService: SystemStatusService;
   adminOverviewService: AdminOverviewService;
   commissionCatalogAdminService: CommissionCatalogAdminService;
+  commissionAdminService: CommissionAdminService;
   leadService: LeadService;
   leadDraftService: LeadDraftService;
   leadEditDraftService: LeadEditDraftService;
@@ -113,6 +118,7 @@ export interface AppRepositories {
   pricingEvaluationRepository: PricingEvaluationRepository;
   commissionCatalogRepository: CommissionCatalogRepository;
   commissionCalculationRepository: CommissionCalculationRepository;
+  commissionWorkflowRepository: CommissionWorkflowRepository;
   recommendationRepository: RecommendationRepository;
   billingImportRepository: BillingImportRepository;
   bestPayComparisonRepository: BestPayComparisonRepository;
@@ -139,6 +145,16 @@ export function createServices(repositories: AppRepositories): AppServices {
   const dataExportService = new DataExportService(auditService);
   const dataRestoreService = new DataRestoreService(auditService);
   const supabaseDataMigrationService = new SupabaseDataMigrationService(auditService);
+  const productionCatalogBootstrapService = new ProductionCatalogBootstrapService(
+    repositories.tariffRepository,
+    repositories.productRepository,
+    repositories.commissionCatalogRepository,
+    repositories.pricingCatalogRepository,
+    repositories.recommendationRepository,
+    repositories.approvalRuleRepository,
+    repositories.documentTemplateRepository,
+    auditService,
+  );
   const dataDiagnosticService = new DataDiagnosticService(auditService);
   const systemStatusService = new SystemStatusService(dataExportService, dataDiagnosticService);
   const commissionCatalogAdminService = new CommissionCatalogAdminService(
@@ -261,6 +277,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     dataExportService,
     dataRestoreService,
     supabaseDataMigrationService,
+    productionCatalogBootstrapService,
     dataDiagnosticService,
     systemStatusService,
     adminOverviewService,
@@ -287,6 +304,18 @@ export function createServices(repositories: AppRepositories): AppServices {
       repositories.commissionCalculationRepository,
       repositories.offerRepository,
       repositories.pricingEvaluationRepository,
+      repositories.commissionWorkflowRepository,
+    ),
+    commissionAdminService: new CommissionAdminService(
+      repositories.commissionCatalogRepository,
+      repositories.commissionCalculationRepository,
+      repositories.commissionWorkflowRepository,
+      repositories.userRepository,
+      repositories.offerRepository,
+      repositories.contractRepository,
+      repositories.activationCaseRepository,
+      repositories.activationBlockerRepository,
+      auditService,
     ),
     billingImportService,
     recommendationService,

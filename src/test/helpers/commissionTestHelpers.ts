@@ -192,6 +192,7 @@ export function seedDemoCommissionCatalog(planKind: 'classic' | 'variable' = 'cl
     id: DEMO_COMMISSION_ASSIGNMENT_ID,
     salesRepresentativeId: FIELD_SERVICE_USER_ID,
     commissionPlanVersionId: version.id,
+    currentVersionId: null,
     validFrom: '2026-01-01',
     validUntil: null,
     isPrimary: true,
