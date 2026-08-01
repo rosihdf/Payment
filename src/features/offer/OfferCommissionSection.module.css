@@ -78,8 +78,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.5rem;
-  padding: 0 var(--space-4);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -89,17 +89,17 @@
 .primaryAction {
   border: none;
   background: var(--color-primary);
-  color: var(--color-on-primary);
+  color: var(--color-text-inverse);
 }
 
 .secondaryAction {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .primaryAction:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -131,13 +131,35 @@
 .input,
 .textarea {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font: inherit;
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+.input {
+  height: var(--touch-target);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--touch-target) - 2px);
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--color-accent);
 }
 
 .textarea {
-  min-height: 4rem;
+  min-height: 6rem;
+  height: auto;
   resize: vertical;
+}
+
+.input:disabled,
+.textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }

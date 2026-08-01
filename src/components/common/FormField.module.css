@@ -15,8 +15,8 @@
   color: var(--color-danger);
 }
 
-.control {
-  min-height: var(--touch-target);
+.control > :is(input, select, textarea) {
+  width: 100%;
 }
 
 .error {

@@ -101,7 +101,7 @@
 .primaryAction {
   border: none;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-text-inverse);
 }
 
 .secondaryAction {

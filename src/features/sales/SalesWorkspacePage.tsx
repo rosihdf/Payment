@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FormField } from '../../components/common/FormField';
 import { SearchField } from '../../components/common/SearchField';
+import inputStyles from '../../components/common/inputs.module.css';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -154,6 +155,7 @@ export function SalesWorkspacePage() {
           <FormField label="Sicht" id="sales-scope">
             <select
               id="sales-scope"
+              className={inputStyles.select}
               value={scope}
               onChange={(event) => setScope(event.target.value as 'mine' | 'team')}
             >

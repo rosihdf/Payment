@@ -1,3 +1,4 @@
+import inputStyles from './inputs.module.css';
 import styles from './SearchField.module.css';
 
 interface SearchFieldProps {
@@ -21,7 +22,7 @@ export function SearchField({
       <input
         id="search-field"
         type="search"
-        className={styles.input}
+        className={inputStyles.input}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}

@@ -34,12 +34,59 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+/* Kanonische Formular-Controls (Referenz: SearchField / inputs.module) */
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']),
+select,
+textarea {
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']),
+select {
+  height: var(--touch-target);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--touch-target) - 2px);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']) {
+  appearance: none;
+}
+
+textarea {
+  min-height: 6rem;
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  line-height: var(--line-height-normal);
+  resize: vertical;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']):disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 img {

@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: center;
   min-height: var(--touch-target);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   font-weight: var(--font-weight-medium);
   text-decoration: none;

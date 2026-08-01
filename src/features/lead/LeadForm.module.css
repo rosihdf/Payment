@@ -36,17 +36,40 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+.input,
+.select {
+  height: var(--touch-target);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--touch-target) - 2px);
 }
 
 .textarea {
   min-height: 8rem;
+  height: auto;
   resize: vertical;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--color-accent);
 }
 
 .inputError,
 .selectError,
 .textareaError {
   border-color: var(--color-danger);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .cardMixSummary {
@@ -81,8 +104,9 @@
   align-items: center;
   justify-content: center;
   min-height: var(--touch-target);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
