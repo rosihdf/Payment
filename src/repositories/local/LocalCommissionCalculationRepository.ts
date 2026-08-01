@@ -1,19 +1,8 @@
 import type { CommissionCalculationRecord } from '../../domain/commission/commissionCalculation';
-import type { CommissionCase } from '../../domain/commission/commissionCase';
-import type { CommissionEvent } from '../../domain/commission/commissionCase';
+import type { CommissionCase, CommissionEvent } from '../../domain/commission/commissionCase';
 import { migrateCommissionCalculationStorageIfNeeded } from '../../services/commissionCalculationStorageMigration';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../../utils/storage';
-
-export interface CommissionCalculationRepository {
-  getCalculations(): Promise<CommissionCalculationRecord[]>;
-  getCalculationsByOfferId(offerId: string): Promise<CommissionCalculationRecord[]>;
-  getCalculationById(id: string): Promise<CommissionCalculationRecord | null>;
-  createCalculation(record: CommissionCalculationRecord): Promise<CommissionCalculationRecord>;
-  updateCalculation(record: CommissionCalculationRecord): Promise<CommissionCalculationRecord>;
-  getCasesByOfferId(offerId: string): Promise<CommissionCase[]>;
-  createCase(record: CommissionCase): Promise<CommissionCase>;
-  createEvent(event: CommissionEvent): Promise<CommissionEvent>;
-}
+import type { CommissionCalculationRepository } from '../interfaces/CommissionCalculationRepository';
 
 export class LocalCommissionCalculationRepository implements CommissionCalculationRepository {
   async getCalculations(): Promise<CommissionCalculationRecord[]> {
@@ -49,9 +38,13 @@ export class LocalCommissionCalculationRepository implements CommissionCalculati
     return { ...record };
   }
 
-  async getCasesByOfferId(offerId: string): Promise<CommissionCase[]> {
+  async getAllCases(): Promise<CommissionCase[]> {
     migrateCommissionCalculationStorageIfNeeded();
-    const cases = readStorageItem<CommissionCase[]>(STORAGE_KEYS.commissionCases) ?? [];
+    return readStorageItem<CommissionCase[]>(STORAGE_KEYS.commissionCases) ?? [];
+  }
+
+  async getCasesByOfferId(offerId: string): Promise<CommissionCase[]> {
+    const cases = await this.getAllCases();
     return cases.filter((item) => item.offerId === offerId);
   }
 

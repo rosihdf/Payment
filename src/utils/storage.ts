@@ -1,3 +1,5 @@
+import { isSupabaseDataMode } from '../config/dataMode';
+
 export const STORAGE_KEYS = {
   users: 'amrtech.users',
   leads: 'amrtech.leads',
@@ -17,6 +19,8 @@ export const STORAGE_KEYS = {
   offerAcceptances: 'amrtech.offerAcceptances',
   offerDeclines: 'amrtech.offerDeclines',
   offerActivations: 'amrtech.offerActivations',
+  offerCounselingConfirmations: 'amrtech.offerCounselingConfirmations',
+  offerFollowUpPreferences: 'amrtech.offerFollowUpPreferences',
   salesDocuments: 'amrtech.salesDocuments',
   offerWorkflowStorageVersion: 'amrtech.offerWorkflowStorageVersion',
   offerDocuments: 'amrtech.offerDocuments',
@@ -77,7 +81,27 @@ export const STORAGE_KEYS = {
   activationStorageVersion: 'amrtech.activationStorageVersion',
 } as const;
 
+const SUPABASE_PROD_ALLOWED_STORAGE_KEYS = new Set<string>([
+  STORAGE_KEYS.leadDrafts,
+  STORAGE_KEYS.leadEditDrafts,
+]);
+
+function assertStorageAccessAllowed(key: string): void {
+  if (!isSupabaseDataMode() || !import.meta.env.PROD) {
+    return;
+  }
+
+  if (SUPABASE_PROD_ALLOWED_STORAGE_KEYS.has(key)) {
+    return;
+  }
+
+  throw new Error(
+    `LocalStorage-Zugriff auf "${key}" ist im Supabase-Produktionsmodus nicht erlaubt. Persistente Daten müssen über Repositories gelesen werden.`,
+  );
+}
+
 export function readStorageItem<T>(key: string): T | null {
+  assertStorageAccessAllowed(key);
   const raw = localStorage.getItem(key);
   if (!raw) {
     return null;
@@ -91,6 +115,7 @@ export function readStorageItem<T>(key: string): T | null {
 }
 
 export function writeStorageItem<T>(key: string, value: T): void {
+  assertStorageAccessAllowed(key);
   localStorage.setItem(key, JSON.stringify(value));
 }
 

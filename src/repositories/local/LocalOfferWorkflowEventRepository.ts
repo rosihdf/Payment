@@ -10,6 +10,8 @@ const keyFor = (event: OfferWorkflowEvent): string => ({
   acceptance: STORAGE_KEYS.offerAcceptances,
   decline: STORAGE_KEYS.offerDeclines,
   activation: STORAGE_KEYS.offerActivations,
+  counseling_confirmation: STORAGE_KEYS.offerCounselingConfirmations,
+  follow_up_preferences: STORAGE_KEYS.offerFollowUpPreferences,
 })[event.type];
 
 export class LocalOfferWorkflowEventRepository implements OfferWorkflowEventRepository {
@@ -18,6 +20,7 @@ export class LocalOfferWorkflowEventRepository implements OfferWorkflowEventRepo
     return [
       STORAGE_KEYS.offerApprovals, STORAGE_KEYS.offerDispatches, STORAGE_KEYS.offerAcceptances,
       STORAGE_KEYS.offerDeclines, STORAGE_KEYS.offerActivations,
+      STORAGE_KEYS.offerCounselingConfirmations, STORAGE_KEYS.offerFollowUpPreferences,
     ].flatMap((key) => normalizeOfferWorkflowEvents(readStorageItem<unknown[]>(key) ?? []));
   }
   async getAll(): Promise<OfferWorkflowEvent[]> { return this.readAll(); }
