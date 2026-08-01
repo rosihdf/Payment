@@ -1,3 +1,8 @@
+import {
+  COUNSELING_PRINCIPLE_KEYS,
+  type CounselingPrincipleFlags,
+} from './counselingConfirmation';
+import type { OfferFollowUpPreferences } from './offerFollowUpPreferences';
 import type {
   OfferAcceptance,
   OfferActivationChecklist,
@@ -39,6 +44,26 @@ export function validateActivationDeviations(
 ): string | undefined {
   if (deviations.some((entry) => !entry.reason.trim())) {
     return 'Abweichungen benötigen eine Begründung.';
+  }
+  return undefined;
+}
+
+export function validateCounselingPrinciples(principles: CounselingPrincipleFlags): string | undefined {
+  const missing = COUNSELING_PRINCIPLE_KEYS.filter((key) => !principles[key]);
+  if (missing.length > 0) {
+    return 'Alle Beratungsgrundsätze müssen bestätigt sein.';
+  }
+  return undefined;
+}
+
+export function validateOfferFollowUpPreferences(
+  preferences: OfferFollowUpPreferences,
+): string | undefined {
+  if (preferences.noFollowUpDesired) {
+    return undefined;
+  }
+  if (!preferences.followUpDate?.trim()) {
+    return 'Bitte geben Sie ein Nachfassdatum an oder wählen Sie „Kein Nachfassen gewünscht“.';
   }
   return undefined;
 }

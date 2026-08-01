@@ -1,4 +1,6 @@
 import { generateId, nowIso } from '../../utils/id';
+import { normalizeCounselingPrincipleFlags } from './counselingConfirmation';
+import { normalizeOfferFollowUpPreferences } from './offerFollowUpPreferences';
 import type { OfferWorkflowEvent } from './offerWorkflowEvents';
 
 const text = (value: unknown, fallback = ''): string => typeof value === 'string' ? value.trim() : fallback;
@@ -8,7 +10,19 @@ export function normalizeOfferWorkflowEvent(value: unknown): OfferWorkflowEvent 
   if (!value || typeof value !== 'object') return null;
   const raw = value as Record<string, unknown>;
   const type = raw.type;
-  if (!['approval', 'dispatch', 'acceptance', 'decline', 'activation'].includes(String(type))) return null;
+  if (
+    ![
+      'approval',
+      'dispatch',
+      'acceptance',
+      'decline',
+      'activation',
+      'counseling_confirmation',
+      'follow_up_preferences',
+    ].includes(String(type))
+  ) {
+    return null;
+  }
   const base = {
     id: text(raw.id) || generateId('offer_workflow_event'),
     schemaVersion: Number(raw.schemaVersion) || 1,
@@ -30,6 +44,20 @@ export function normalizeOfferWorkflowEvent(value: unknown): OfferWorkflowEvent 
       return { ...base, type, declinedAt: text(raw.declinedAt) || base.createdAt, reason: ['price', 'competitor', 'contract_term', 'hardware', 'no_need', 'no_response', 'postponed', 'other'].includes(text(raw.reason)) ? text(raw.reason) as 'price' | 'competitor' | 'contract_term' | 'hardware' | 'no_need' | 'no_response' | 'postponed' | 'other' : 'other', otherText: nullable(raw.otherText) };
     case 'activation':
       return { ...base, type, status: raw.status === 'activated' ? 'activated' : 'prepared', checklist: { offerVersionId: text((raw.checklist as Record<string, unknown> | undefined)?.offerVersionId) || base.offerVersionId || '', checks: raw.checklist && typeof raw.checklist === 'object' ? Object.fromEntries(Object.entries(((raw.checklist as Record<string, unknown>).checks ?? raw.checklist) as Record<string, unknown>).filter(([key]) => key !== 'offerVersionId').map(([key, entry]) => [key, entry === true])) : {} }, activatedAt: nullable(raw.activatedAt), externalReference: nullable(raw.externalReference), deviations: Array.isArray(raw.deviations) ? raw.deviations.filter((entry): entry is { field: string; expected: string; actual: string; reason: string } => Boolean(entry && typeof entry === 'object')) : [], activatedHardware: Array.isArray(raw.activatedHardware) ? raw.activatedHardware.filter((entry): entry is string => typeof entry === 'string') : [] };
+    case 'counseling_confirmation':
+      return {
+        ...base,
+        type,
+        confirmedAt: text(raw.confirmedAt) || base.createdAt,
+        principles: normalizeCounselingPrincipleFlags(raw.principles),
+      };
+    case 'follow_up_preferences': {
+      const preferences = normalizeOfferFollowUpPreferences(raw.preferences);
+      if (!preferences) {
+        return null;
+      }
+      return { ...base, type, preferences };
+    }
     default:
       return null;
   }

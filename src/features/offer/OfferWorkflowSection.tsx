@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormField } from '../../components/common/FormField';
+import {
+  COUNSELING_PRINCIPLE_KEYS,
+  COUNSELING_PRINCIPLE_LABELS,
+  emptyCounselingPrincipleFlags,
+  type CounselingPrincipleFlags,
+} from '../../domain/offer/counselingConfirmation';
 import type { Offer } from '../../domain/offer/offer';
 import type { OfferVersion } from '../../domain/offer/offerVersion';
 import type { OfferWorkflowEvent } from '../../domain/offer/offerWorkflowEvents';
@@ -43,6 +49,10 @@ function eventLabel(event: OfferWorkflowEvent): string {
       return event.status === 'prepared'
         ? 'Historische Aktivierungsvorbereitung'
         : 'Historische Angebotsaktivierung';
+    case 'counseling_confirmation':
+      return 'Beratungsgrundsätze bestätigt';
+    case 'follow_up_preferences':
+      return 'Bedenkzeit / Nachfassen';
     default: {
       const _exhaustive: never = event;
       return _exhaustive;
@@ -82,6 +92,14 @@ export function OfferWorkflowSection({
   const [recipient, setRecipient] = useState('');
   const [acceptedByName, setAcceptedByName] = useState('');
   const [declineReason, setDeclineReason] = useState('');
+  const [counselingFlags, setCounselingFlags] = useState<CounselingPrincipleFlags>(
+    emptyCounselingPrincipleFlags(),
+  );
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [comparesOffers, setComparesOffers] = useState(false);
+  const [openQuestions, setOpenQuestions] = useState('');
+  const [customerContactsSelf, setCustomerContactsSelf] = useState(false);
+  const [noFollowUpDesired, setNoFollowUpDesired] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
   const userContext = useMemo(
@@ -124,6 +142,12 @@ export function OfferWorkflowSection({
     setRecipient('');
     setAcceptedByName('');
     setDeclineReason('');
+    setCounselingFlags(emptyCounselingPrincipleFlags());
+    setFollowUpDate('');
+    setComparesOffers(false);
+    setOpenQuestions('');
+    setCustomerContactsSelf(false);
+    setNoFollowUpDesired(false);
   };
 
   const runAction = async (action: () => Promise<{ ok: boolean }>) => {
@@ -364,6 +388,28 @@ export function OfferWorkflowSection({
 
       {showActions && dialog === 'send' ? (
         <section className={styles.formPanel}>
+          <fieldset>
+            <legend>Beratungsgrundsätze</legend>
+            <ul className={styles.checklist}>
+              {COUNSELING_PRINCIPLE_KEYS.map((key) => (
+                <li key={key}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={counselingFlags[key]}
+                      onChange={(event) =>
+                        setCounselingFlags((current) => ({
+                          ...current,
+                          [key]: event.target.checked,
+                        }))
+                      }
+                    />
+                    {COUNSELING_PRINCIPLE_LABELS[key]}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
           <FormField id="dispatch-recipient" label="Empfänger">
             <input
               id="dispatch-recipient"
@@ -373,6 +419,51 @@ export function OfferWorkflowSection({
               placeholder="kunde@example.test"
             />
           </FormField>
+          <fieldset>
+            <legend>Bedenkzeit / Nachfassen</legend>
+            <FormField id="follow-up-date" label="Nachfassdatum">
+              <input
+                id="follow-up-date"
+                type="date"
+                className={styles.input}
+                value={followUpDate}
+                disabled={noFollowUpDesired}
+                onChange={(event) => setFollowUpDate(event.target.value)}
+              />
+            </FormField>
+            <label>
+              <input
+                type="checkbox"
+                checked={comparesOffers}
+                onChange={(event) => setComparesOffers(event.target.checked)}
+              />
+              Kunde vergleicht Angebote
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={customerContactsSelf}
+                onChange={(event) => setCustomerContactsSelf(event.target.checked)}
+              />
+              Kunde meldet sich selbst
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={noFollowUpDesired}
+                onChange={(event) => setNoFollowUpDesired(event.target.checked)}
+              />
+              Kein Nachfassen gewünscht
+            </label>
+            <FormField id="open-questions" label="Offene Fragen">
+              <textarea
+                id="open-questions"
+                className={styles.textarea}
+                value={openQuestions}
+                onChange={(event) => setOpenQuestions(event.target.value)}
+              />
+            </FormField>
+          </fieldset>
           <div className={styles.formActions}>
             <button type="button" className={styles.secondaryAction} onClick={closeDialog}>
               Abbrechen
@@ -383,9 +474,33 @@ export function OfferWorkflowSection({
               disabled={isRunning}
               onClick={() =>
                 userContext &&
-                void runAction(() =>
-                  offerWorkflowService.documentSent(offer.id, userContext, recipient),
-                )
+                currentVersion &&
+                void runAction(async () => {
+                  const confirmResult = await offerWorkflowService.confirmCounselingPrinciples(
+                    offer.id,
+                    currentVersion.id,
+                    userContext,
+                    counselingFlags,
+                  );
+                  if (!confirmResult.ok) {
+                    return confirmResult;
+                  }
+                  const providedAt = new Date().toISOString();
+                  return offerWorkflowService.documentSent(
+                    offer.id,
+                    userContext,
+                    recipient,
+                    'email',
+                    {
+                      providedAt,
+                      followUpDate: followUpDate ? new Date(followUpDate).toISOString() : null,
+                      comparesOffers,
+                      openQuestions,
+                      customerContactsSelf,
+                      noFollowUpDesired,
+                    },
+                  );
+                })
               }
             >
               Versand speichern

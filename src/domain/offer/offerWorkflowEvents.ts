@@ -65,9 +65,22 @@ export interface OfferActivation extends OfferWorkflowEventBase {
   activatedHardware: string[];
 }
 
+export interface OfferCounselingConfirmation extends OfferWorkflowEventBase {
+  type: 'counseling_confirmation';
+  confirmedAt: string;
+  principles: import('./counselingConfirmation').CounselingPrincipleFlags;
+}
+
+export interface OfferFollowUpPreferencesEvent extends OfferWorkflowEventBase {
+  type: 'follow_up_preferences';
+  preferences: import('./offerFollowUpPreferences').OfferFollowUpPreferences;
+}
+
 export type OfferWorkflowEvent =
   | OfferApproval
   | OfferDispatch
   | OfferAcceptance
   | OfferDecline
-  | OfferActivation;
+  | OfferActivation
+  | OfferCounselingConfirmation
+  | OfferFollowUpPreferencesEvent;
