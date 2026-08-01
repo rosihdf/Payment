@@ -62,12 +62,12 @@ describe('Offer detail UI', () => {
     renderAtRoute(`/offers/${offer.id}`, false);
 
     expect(await screen.findByRole('heading', { name: 'Detail Test Angebot' })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(offer.offerNumber))).toBeInTheDocument();
-    expect(screen.getByText('Café Sonnenschein GmbH')).toBeInTheDocument();
-    expect(screen.getByText('BestPay Mobile A920 Classic')).toBeInTheDocument();
-    expect(screen.getByText(product.name)).toBeInTheDocument();
+    expect(screen.getAllByText(new RegExp(offer.offerNumber)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Café Sonnenschein GmbH/)).toBeInTheDocument();
+    expect(screen.getByText(/BestPay Mobile A920 Classic/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(product.name))).toBeInTheDocument();
     expect(screen.getByText('Monatlich gesamt')).toBeInTheDocument();
-    expect(screen.getByText('137,85 € / Monat')).toBeInTheDocument();
+    expect(screen.getAllByText('137,85 € / Monat').length).toBeGreaterThan(0);
     expect(screen.getAllByText('79,95 € einmalig').length).toBeGreaterThan(0);
   });
 

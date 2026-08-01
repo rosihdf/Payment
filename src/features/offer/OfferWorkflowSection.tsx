@@ -53,9 +53,19 @@ function eventLabel(event: OfferWorkflowEvent): string {
 interface OfferWorkflowSectionProps {
   offer: Offer;
   onUpdated: () => Promise<void>;
+  /** actions = Freigabe/Versand; versions = Versionen & Verlauf; full = beides (Legacy). */
+  mode?: 'actions' | 'versions' | 'full';
+  hideHeaderBadge?: boolean;
+  hideNextActionBanner?: boolean;
 }
 
-export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionProps) {
+export function OfferWorkflowSection({
+  offer,
+  onUpdated,
+  mode = 'full',
+  hideHeaderBadge = false,
+  hideNextActionBanner = false,
+}: OfferWorkflowSectionProps) {
   const { currentUser } = useCurrentUser();
   const { offerWorkflowService } = useServices();
   const { showToast } = useToast();
@@ -157,25 +167,33 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
     }
   };
 
+  const showActions = mode === 'actions' || mode === 'full';
+  const showVersions = mode === 'versions' || mode === 'full';
+  const title =
+    mode === 'actions' ? 'Freigabe & Versand' : mode === 'versions' ? 'Versionen & Verlauf' : 'Angebotsworkflow';
+
   return (
     <section className={styles.section} aria-labelledby="offer-workflow-title">
       <div className={styles.header}>
         <div>
           <h2 id="offer-workflow-title" className={styles.title}>
-            Angebotsworkflow
+            {title}
           </h2>
           <p className={styles.subtitle}>
             Version {offer.currentVersionNumber}
             {offer.validUntil ? ` · Gültig bis ${displayDateTime(offer.validUntil)}` : ''}
           </p>
         </div>
-        <OfferWorkflowStatusBadge status={offer.workflowStatus} />
+        {hideHeaderBadge ? null : <OfferWorkflowStatusBadge status={offer.workflowStatus} />}
       </div>
 
-      <p className={styles.nextAction}>
-        <strong>Nächste Aktion:</strong> {nextAction(offer.workflowStatus)}
-      </p>
+      {hideNextActionBanner || !showActions ? null : (
+        <p className={styles.nextAction}>
+          <strong>Nächste Aktion:</strong> {nextAction(offer.workflowStatus)}
+        </p>
+      )}
 
+      {showActions ? (
       <div className={styles.actions}>
         {offer.workflowStatus === 'draft' ? (
           <button
@@ -251,8 +269,9 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
           </>
         ) : null}
       </div>
+      ) : null}
 
-      {dialog === 'submit_approval' ? (
+      {showActions && dialog === 'submit_approval' ? (
         <section className={styles.formPanel}>
           <FormField id="approval-note" label="Notiz zur Freigabe">
             <textarea
@@ -283,7 +302,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'approve' ? (
+      {showActions && dialog === 'approve' ? (
         <section className={styles.formPanel}>
           <FormField id="approve-note" label="Freigabe-Kommentar">
             <textarea
@@ -312,7 +331,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'request_changes' ? (
+      {showActions && dialog === 'request_changes' ? (
         <section className={styles.formPanel}>
           <FormField id="changes-note" label="Änderungsanforderung">
             <textarea
@@ -343,7 +362,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'send' ? (
+      {showActions && dialog === 'send' ? (
         <section className={styles.formPanel}>
           <FormField id="dispatch-recipient" label="Empfänger">
             <input
@@ -375,7 +394,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'accept' ? (
+      {showActions && dialog === 'accept' ? (
         <section className={styles.formPanel}>
           <FormField id="accepted-by" label="Annehmende Person">
             <input
@@ -406,7 +425,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'decline' ? (
+      {showActions && dialog === 'decline' ? (
         <section className={styles.formPanel}>
           <FormField id="decline-reason" label="Ablehnungsgrund">
             <textarea
@@ -437,6 +456,7 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
+      {showVersions ? (
       <div className={styles.grid}>
         <section className={styles.panel} aria-labelledby="workflow-status-history">
           <h3 id="workflow-status-history" className={styles.panelTitle}>
@@ -534,8 +554,9 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
           )}
         </section>
       </div>
+      ) : null}
 
-      {currentVersion ? (
+      {showVersions && currentVersion ? (
         <p className={styles.snapshotHint}>
           Angezeigte Konditionen entsprechen Version {currentVersion.versionNumber} (Snapshot vom{' '}
           {displayDateTime(currentVersion.createdAt)}).

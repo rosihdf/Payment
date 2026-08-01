@@ -43,22 +43,28 @@
 .primaryAction,
 .secondaryAction,
 .linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
-  padding: 0.55rem 0.9rem;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
+  text-decoration: none;
 }
 
 .primaryAction {
   border: none;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-text-inverse);
 }
 
 .secondaryAction,
 .linkButton {
-  border: 1px solid var(--color-border-light);
-  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text);
 }
 
@@ -153,9 +159,37 @@
 .textarea,
 .input {
   width: 100%;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border-light);
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+}
+
+.input {
+  height: var(--touch-target);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--touch-target) - 2px);
+}
+
+.textarea {
+  min-height: 6rem;
+  height: auto;
+  resize: vertical;
+}
+
+.textarea:focus,
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+.textarea:disabled,
+.input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .checkLabel {

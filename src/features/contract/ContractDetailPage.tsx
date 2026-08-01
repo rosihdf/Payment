@@ -23,28 +23,24 @@ import type { ActivationCase } from '../../domain/activation/activationCase';
 import { ActivationStatusBadge } from '../activation/ActivationStatusBadge';
 import type { SalesDocument } from '../../domain/salesDocument/salesDocument';
 import { SALES_DOCUMENT_TYPE_LABELS } from '../../domain/salesDocument/salesDocument';
-import type { SalesActivity } from '../../domain/salesWorkspace/salesActivity';
-import { SALES_ACTIVITY_TYPE_LABELS } from '../../domain/salesWorkspace/salesActivity';
 import type { SalesTask } from '../../domain/salesWorkspace/salesTask';
-import { SALES_TASK_STATUS_LABELS, SALES_TASK_TYPE_LABELS } from '../../domain/salesWorkspace/salesTask';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { ContractStatusBadge } from './ContractStatusBadge';
 import styles from './ContractDetailPage.module.css';
 
-type TabId = 'overview' | 'versions' | 'changes' | 'termination' | 'documents' | 'tasks';
+type TabId = 'overview' | 'conditions' | 'changes' | 'termination' | 'documents';
 
 export function ContractDetailPage() {
   const { contractId = '' } = useParams();
   const { currentUser } = useCurrentUser();
-  const { contractService, activationService, salesTaskService, salesActivityService } = useServices();
+  const { contractService, activationService, salesTaskService } = useServices();
   const [contract, setContract] = useState<Contract | null>(null);
   const [activation, setActivation] = useState<ActivationCase | null>(null);
   const [versions, setVersions] = useState<ContractVersion[]>([]);
   const [terminations, setTerminations] = useState<ContractTermination[]>([]);
   const [documents, setDocuments] = useState<SalesDocument[]>([]);
   const [tasks, setTasks] = useState<SalesTask[]>([]);
-  const [activities, setActivities] = useState<SalesActivity[]>([]);
   const [tab, setTab] = useState<TabId>('overview');
   const [error, setError] = useState<'forbidden' | 'not_found' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,6 +57,7 @@ export function ContractDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<null | (() => Promise<void>)>(null);
   const [confirmTitle, setConfirmTitle] = useState('');
+  const [showChangeForm, setShowChangeForm] = useState(false);
 
   const context = currentUser
     ? {
@@ -85,20 +82,18 @@ export function ContractDetailPage() {
     }
     setContract(result.value);
     setError(null);
-    const [versionResult, terminationResult, documentResult, taskList, activityList, activationCase] =
+    const [versionResult, terminationResult, documentResult, taskList, activationCase] =
       await Promise.all([
         contractService.listVersions(contractId, context),
         contractService.listTerminations(contractId, context),
         contractService.listDocuments(contractId, context),
         salesTaskService.listVisible(context),
-        salesActivityService.listVisible(context),
         activationService.getByContractId(contractId, context),
       ]);
     if (versionResult.ok) setVersions(versionResult.value);
     if (terminationResult.ok) setTerminations(terminationResult.value);
     if (documentResult.ok) setDocuments(documentResult.value);
     setTasks(taskList.filter((task) => task.contractId === contractId));
-    setActivities(activityList.filter((activity) => activity.contractId === contractId));
     setActivation(activationCase);
     setIsLoading(false);
   };
@@ -196,59 +191,49 @@ export function ContractDetailPage() {
       />
 
       <div className={styles.headerMeta}>
-        <ContractStatusBadge status={contract.status} />
-        <span>Version: {currentVersion?.versionNumber ?? '–'}</span>
+        <ContractStatusBadge
+          status={contract.status}
+          showTechnical={currentUser.role === 'admin'}
+        />
+        <span>Version {currentVersion?.versionNumber ?? '–'}</span>
         <span>
           {contract.startDate ?? '–'} – {contract.endDate ?? '–'}
         </span>
-        <span>
-          Nächste Frist: {contract.nextDeadlineLabel ?? '–'} {contract.nextDeadlineAt ?? ''}
-        </span>
-        <span>Eigentümer: {contract.createdByDisplayName}</span>
         <span>Nächste Aktion: {nextTask?.title ?? '–'}</span>
+        {activation ? (
+          <span>
+            Aktivierung: <ActivationStatusBadge status={activation.status} /> {activation.progressPercent}%
+          </span>
+        ) : null}
       </div>
 
       {message ? <p role="status">{message}</p> : null}
 
-      <div className={styles.section}>
-        <h2>Aktivierung</h2>
-        {activation ? (
-          <div className={styles.row}>
-            <ActivationStatusBadge status={activation.status} />
-            <span>Fortschritt: {activation.progressPercent}%</span>
-            <span>Nächster Schritt: {activation.nextStep ?? '–'}</span>
-            {activation.openBlockerCount > 0 ? (
-              <span>Blocker: {activation.openBlockerCount}</span>
-            ) : (
-              <span>Blocker: keine</span>
-            )}
-            <Link className={styles.linkButton} to={`/activations/${activation.id}`}>
-              Aktivierung öffnen
-            </Link>
-          </div>
-        ) : hasPermission(currentUser.role, 'activations.create') &&
-          ['preparation', 'activation'].includes(contract.status) ? (
+      <div className={styles.actions}>
+        {!activation &&
+        hasPermission(currentUser.role, 'activations.create') &&
+        ['preparation', 'activation'].includes(contract.status) ? (
           <button
             type="button"
+            className={styles.primaryAction}
             onClick={() =>
               askConfirm('Aktivierung starten?', async () => {
                 const result = await activationService.startFromContract(contract.id, context);
-                setMessage(result.ok ? `Aktivierung ${result.value.activationNumber} gestartet` : result.message ?? result.error);
+                setMessage(
+                  result.ok
+                    ? `Aktivierung ${result.value.activationNumber} gestartet`
+                    : result.message ?? result.error,
+                );
                 await reload();
               })
             }
           >
             Aktivierung starten
           </button>
-        ) : (
-          <p>Für diesen Vertrag liegt noch keine Aktivierung vor.</p>
-        )}
-      </div>
-
-      <div className={styles.actions}>
-        {hasPermission(currentUser.role, 'contracts.suspend') && contract.status === 'active' ? (
+        ) : hasPermission(currentUser.role, 'contracts.suspend') && contract.status === 'active' ? (
           <button
             type="button"
+            className={styles.primaryAction}
             onClick={() =>
               askConfirm('Vertrag sperren?', async () => {
                 await contractService.transitionStatus(contract.id, 'suspended', context);
@@ -258,10 +243,10 @@ export function ContractDetailPage() {
           >
             Sperren
           </button>
-        ) : null}
-        {hasPermission(currentUser.role, 'contracts.suspend') && contract.status === 'suspended' ? (
+        ) : hasPermission(currentUser.role, 'contracts.suspend') && contract.status === 'suspended' ? (
           <button
             type="button"
+            className={styles.primaryAction}
             onClick={() =>
               askConfirm('Vertrag reaktivieren?', async () => {
                 await contractService.transitionStatus(contract.id, 'active', context);
@@ -271,15 +256,22 @@ export function ContractDetailPage() {
           >
             Reaktivieren
           </button>
+        ) : activation ? (
+          <Link className={styles.primaryAction} to={`/activations/${activation.id}`}>
+            Aktivierung öffnen
+          </Link>
         ) : null}
         {hasPermission(currentUser.role, 'contracts.extend') ? (
           <button
             type="button"
+            className={styles.linkButton}
             onClick={() =>
-              void contractService.extendContract(contract.id, { additionalMonths: 12 }, context).then(async (result) => {
-                setMessage(result.ok ? 'Verlängerung vorbereitet' : result.message ?? result.error);
-                await reload();
-              })
+              void contractService
+                .extendContract(contract.id, { additionalMonths: 12 }, context)
+                .then(async (result) => {
+                  setMessage(result.ok ? 'Verlängerung vorbereitet' : result.message ?? result.error);
+                  await reload();
+                })
             }
           >
             Verlängerung vorbereiten
@@ -291,11 +283,10 @@ export function ContractDetailPage() {
         {(
           [
             ['overview', 'Übersicht'],
-            ['versions', 'Versionen'],
+            ['conditions', 'Konditionen'],
             ['changes', 'Änderungen'],
             ['termination', 'Kündigung'],
             ['documents', 'Dokumente'],
-            ['tasks', 'Aufgaben'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -318,16 +309,70 @@ export function ContractDetailPage() {
           <h2>Übersicht</h2>
           <div className={styles.grid}>
             <div className={styles.row}>
-              <span className={styles.label}>Tarif</span>
-              <span>{currentVersion.snapshot.tariffSnapshot?.name ?? '–'}</span>
+              <span className={styles.label}>Vertragsnummer</span>
+              <span>{contract.contractNumber}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Vertragsmodell</span>
-              <span>{OFFER_CONTRACT_MODEL_LABELS[currentVersion.snapshot.contractModel]}</span>
+              <span className={styles.label}>Kunde</span>
+              <span>{contract.customerCompanyName}</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Aktuelle Version</span>
+              <span>{currentVersion.versionNumber}</span>
             </div>
             <div className={styles.row}>
               <span className={styles.label}>Laufzeit</span>
               <span>{currentVersion.snapshot.termMonths ?? '–'} Monate</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Beginn / Ende</span>
+              <span>
+                {contract.startDate ?? '–'} – {contract.endDate ?? '–'}
+              </span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Tarif</span>
+              <span>{currentVersion.snapshot.tariffSnapshot?.name ?? '–'}</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Hardwareanzahl</span>
+              <span>
+                {currentVersion.snapshot.hardware.reduce((sum, line) => sum + line.quantity, 0)}
+              </span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Aktivierungsstatus</span>
+              <span>
+                {activation ? (
+                  <>
+                    <ActivationStatusBadge status={activation.status} /> · {activation.progressPercent}%
+                  </>
+                ) : (
+                  'Keine Aktivierung'
+                )}
+              </span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Aufgaben & Verlauf</span>
+              <span>
+                {contract.leadId ? (
+                  <Link to={`/leads/${contract.leadId}`}>In der Kundenakte öffnen</Link>
+                ) : (
+                  '–'
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'conditions' && currentVersion ? (
+        <div className={styles.section} role="tabpanel" id="panel-conditions" aria-labelledby="tab-conditions">
+          <h2>Konditionen</h2>
+          <div className={styles.grid}>
+            <div className={styles.row}>
+              <span className={styles.label}>Vertragsmodell</span>
+              <span>{OFFER_CONTRACT_MODEL_LABELS[currentVersion.snapshot.contractModel]}</span>
             </div>
             <div className={styles.row}>
               <span className={styles.label}>Monatliche Gebühren</span>
@@ -374,12 +419,8 @@ export function ContractDetailPage() {
               </span>
             </div>
           </div>
-        </div>
-      ) : null}
 
-      {tab === 'versions' ? (
-        <div className={styles.section} role="tabpanel" id="panel-versions" aria-labelledby="tab-versions">
-          <h2>Versionen</h2>
+          <h3>Versionen</h3>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -438,55 +479,66 @@ export function ContractDetailPage() {
 
       {tab === 'changes' ? (
         <div className={styles.section} role="tabpanel" id="panel-changes" aria-labelledby="tab-changes">
-          <h2>Vertragsänderung</h2>
+          <h2>Änderungen</h2>
           {hasPermission(currentUser.role, 'contracts.change') ? (
-            <form
-              className={styles.form}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void startChange();
-              }}
-            >
-              <label>
-                Änderungsart
-                <select
-                  value={changeReason}
-                  onChange={(event) => setChangeReason(event.target.value as ContractChangeReason)}
+            <>
+              <button
+                type="button"
+                className={styles.primaryAction}
+                onClick={() => setShowChangeForm((current) => !current)}
+              >
+                {showChangeForm ? 'Änderung ausblenden' : 'Vertrag ändern'}
+              </button>
+              {showChangeForm ? (
+                <form
+                  className={styles.form}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void startChange();
+                  }}
                 >
-                  {Object.entries(CONTRACT_CHANGE_REASON_LABELS)
-                    .filter(([key]) => key !== 'initial')
-                    .map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                Notiz
-                <input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} />
-              </label>
-              <label>
-                Gültig ab (optional)
-                <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
-              </label>
-              <label>
-                Neue Laufzeit (Monate)
-                <input value={termMonths} onChange={(event) => setTermMonths(event.target.value)} />
-              </label>
-              <label>
-                Monatliche Gebühr (€)
-                <input value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} />
-              </label>
-              <label>
-                Nachname Ansprechpartner
-                <input
-                  value={contactLastName}
-                  onChange={(event) => setContactLastName(event.target.value)}
-                />
-              </label>
-              <button type="submit">Änderung starten</button>
-            </form>
+                  <label>
+                    Änderungsart
+                    <select
+                      value={changeReason}
+                      onChange={(event) => setChangeReason(event.target.value as ContractChangeReason)}
+                    >
+                      {Object.entries(CONTRACT_CHANGE_REASON_LABELS)
+                        .filter(([key]) => key !== 'initial')
+                        .map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Notiz
+                    <input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} />
+                  </label>
+                  <label>
+                    Gültig ab (optional)
+                    <input type="date" value={validFrom} onChange={(event) => setValidFrom(event.target.value)} />
+                  </label>
+                  <label>
+                    Neue Laufzeit (Monate)
+                    <input value={termMonths} onChange={(event) => setTermMonths(event.target.value)} />
+                  </label>
+                  <label>
+                    Monatliche Gebühr (€)
+                    <input value={monthlyFee} onChange={(event) => setMonthlyFee(event.target.value)} />
+                  </label>
+                  <label>
+                    Nachname Ansprechpartner
+                    <input
+                      value={contactLastName}
+                      onChange={(event) => setContactLastName(event.target.value)}
+                    />
+                  </label>
+                  <button type="submit">Änderung starten</button>
+                </form>
+              ) : null}
+            </>
           ) : null}
           {planned.map((version) => (
             <div key={version.id} className={styles.row}>
@@ -655,28 +707,6 @@ export function ContractDetailPage() {
               ))}
             </ul>
           )}
-        </div>
-      ) : null}
-
-      {tab === 'tasks' ? (
-        <div className={styles.section} role="tabpanel" id="panel-tasks" aria-labelledby="tab-tasks">
-          <h2>Aufgaben und Aktivitäten</h2>
-          <h3>Aufgaben</h3>
-          <ul>
-            {tasks.map((task) => (
-              <li key={task.id}>
-                {task.title} · {SALES_TASK_TYPE_LABELS[task.type]} · {SALES_TASK_STATUS_LABELS[task.status]}
-              </li>
-            ))}
-          </ul>
-          <h3>Aktivitäten</h3>
-          <ul>
-            {activities.map((activity) => (
-              <li key={activity.id}>
-                {activity.title} · {SALES_ACTIVITY_TYPE_LABELS[activity.type]} · {activity.occurredAt.slice(0, 10)}
-              </li>
-            ))}
-          </ul>
         </div>
       ) : null}
 

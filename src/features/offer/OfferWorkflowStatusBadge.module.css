@@ -8,52 +8,42 @@
   border: 1px solid transparent;
 }
 
-.draft,
-.changes_requested {
+.technical {
+  font-weight: var(--font-weight-regular);
+  opacity: 0.85;
+}
+
+.draft {
   background: var(--color-surface-muted);
   color: var(--color-text);
   border-color: var(--color-border-light);
 }
 
-.approval_required,
-.in_approval {
+.internal_review {
   background: #fff4e5;
   color: #8a4b00;
   border-color: #f0c987;
 }
 
-.approved,
-.ready_to_send {
+.ready_for_customer {
   background: #e8f4ff;
   color: #0b4f8a;
   border-color: #9ecdf5;
 }
 
-.sent,
-.expired {
+.customer_review {
   background: #f3ecff;
   color: #4a2d7a;
   border-color: #c9b3ef;
 }
 
-.accepted,
-.activation_pending,
-.activated {
+.accepted {
   background: #e7f7ed;
   color: #1f6b3a;
   border-color: #9fd4b0;
 }
 
-.released,
-.accounted,
-.paid {
-  background: #e7f7ed;
-  color: #14532d;
-  border-color: #86efac;
-}
-
-.declined,
-.cancelled {
+.closed {
   background: #fdecec;
   color: #8a1f1f;
   border-color: #f5b4b4;

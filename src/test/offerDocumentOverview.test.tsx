@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -34,6 +35,11 @@ function renderAtRoute(initialRoute: string, resetData = true, currentUserId = F
   return memoryRouter;
 }
 
+async function openDocumentsTab() {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('tab', { name: 'Versionen & Dokumente' }));
+}
+
 describe('Offer document overview UI', () => {
   beforeEach(() => {
     setupOfferDocumentTestStorage();
@@ -45,6 +51,7 @@ describe('Offer document overview UI', () => {
     const offer = await seedOfferInStorage(repository, { title: 'Dokument Test Angebot' });
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByRole('heading', { name: 'PDF-Dokumente' })).toBeInTheDocument();
     expect(
@@ -57,6 +64,7 @@ describe('Offer document overview UI', () => {
     const offer = await seedPremiumLineDraftOffer();
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByRole('link', { name: 'PDF-Vorschau' })).toHaveAttribute(
       'href',
@@ -69,6 +77,7 @@ describe('Offer document overview UI', () => {
     const offer = await seedPremiumLineCompletedOffer();
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByRole('button', { name: 'Finales PDF erzeugen' })).toBeInTheDocument();
   });
@@ -82,6 +91,7 @@ describe('Offer document overview UI', () => {
     });
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByText(document.documentNumber)).toBeInTheDocument();
     expect(screen.getByText('Aktuell')).toBeInTheDocument();
@@ -102,6 +112,7 @@ describe('Offer document overview UI', () => {
     });
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByRole('heading', { name: 'PDF-Dokumente' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'PDF-Vorschau' })).not.toBeInTheDocument();
@@ -114,6 +125,7 @@ describe('Offer document overview UI', () => {
     await seedOfferDocumentInStorage(offerDocumentRepository, offer, { id: 'offer_doc_current' });
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab();
 
     expect(await screen.findByRole('button', { name: 'Neue Dokumentversion erzeugen' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Finales PDF erzeugen' })).not.toBeInTheDocument();

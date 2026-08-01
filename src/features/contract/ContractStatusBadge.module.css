@@ -11,19 +11,27 @@
   font-weight: var(--font-weight-medium);
 }
 
-.badge[data-status='active'] {
+.technical {
+  font-weight: var(--font-weight-regular);
+  opacity: 0.85;
+}
+
+.badge[data-group='active'] {
   border-color: #16a34a;
   background: #ecfdf3;
 }
 
-.badge[data-status='suspended'],
-.badge[data-status='terminated'] {
+.badge[data-group='change_or_termination'],
+.badge[data-group='ended'] {
   border-color: #dc2626;
   background: #fef2f2;
 }
 
-.badge[data-status='expiring'],
-.badge[data-status='termination_pending'] {
+.badge[data-group='activation'] {
   border-color: #d97706;
   background: #fffbeb;
+}
+
+.badge[data-group='archived'] {
+  color: var(--color-text-secondary);
 }

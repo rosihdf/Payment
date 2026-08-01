@@ -45,6 +45,43 @@
   margin-bottom: var(--space-5);
 }
 
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.tab {
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tabActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light, #e8f0fe);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sectionHint {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.moreActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+}
+
 .meta {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
@@ -65,8 +102,9 @@
   align-items: center;
   justify-content: center;
   min-height: var(--touch-target);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
   cursor: pointer;
@@ -174,7 +212,18 @@
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
   resize: vertical;
+}
+
+.textarea:focus {
+  border-color: var(--color-accent);
+}
+
+.textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .cancelActions {

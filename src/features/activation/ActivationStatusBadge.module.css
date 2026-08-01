@@ -11,30 +11,29 @@
   font-weight: var(--font-weight-medium);
 }
 
-.badge[data-status='live'] {
+.technical {
+  font-weight: var(--font-weight-regular);
+  opacity: 0.85;
+}
+
+.badge[data-group='live'] {
   border-color: #16a34a;
   background: #ecfdf3;
 }
 
-.badge[data-status='completed'] {
-  border-color: #2563eb;
-  background: #eff6ff;
-}
-
-.badge[data-status='blocked'],
-.badge[data-status='cancelled'] {
-  border-color: #dc2626;
-  background: #fef2f2;
-}
-
-.badge[data-status='go_live_ready'],
-.badge[data-status='testing'] {
+.badge[data-group='go_live'],
+.badge[data-group='setup_test'] {
   border-color: #d97706;
   background: #fffbeb;
 }
 
-.badge[data-status='archived'] {
-  border-color: var(--color-border);
-  background: var(--color-surface-muted, #f4f6f8);
-  color: var(--color-text-secondary);
+.badge[data-group='blocked'],
+.badge[data-group='closed'] {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.badge[data-group='documents_review'] {
+  border-color: #2563eb;
+  background: #eff6ff;
 }

@@ -59,6 +59,21 @@
   margin-bottom: var(--space-5);
 }
 
+.primaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .categoryBlock {
   margin-bottom: var(--space-5);
 }
@@ -138,7 +153,10 @@
 
 .form label {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
 }
 
 .linkButton {

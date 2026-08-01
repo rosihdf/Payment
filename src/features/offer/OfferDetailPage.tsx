@@ -1,12 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { FormField } from '../../components/common/FormField';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { Contract } from '../../domain/contract/contract';
-import { CONTRACT_STATUS_LABELS } from '../../domain/contract/contractStatus';
 import type { Offer } from '../../domain/offer/offer';
+import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
 import { hasPermission } from '../../domain/permission/permission';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -28,11 +28,11 @@ import { OfferDocumentsSection } from '../offerDocument/OfferDocumentsSection';
 import { OfferCommissionSection } from './OfferCommissionSection';
 import { OfferPricingEvaluationSection } from './OfferPricingEvaluationSection';
 import { OfferRecommendationSection } from './OfferRecommendationSection';
-import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
 import { OfferFulfillmentCard } from './OfferFulfillmentCard';
 import { OfferWorkflowSection } from './OfferWorkflowSection';
 import { OfferWorkflowStatusBadge } from './OfferWorkflowStatusBadge';
+import { getOfferWorkflowDisplayLabel } from './offerWorkflowDisplay';
 import styles from './OfferDetailPage.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -41,6 +41,7 @@ const OfferBillingImportSection = lazy(async () => {
 });
 
 type DialogMode = 'complete' | 'cancel' | 'duplicate' | null;
+type TabId = 'overview' | 'positions' | 'workflow' | 'versions' | 'commission';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -55,8 +56,15 @@ export function OfferDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
-  const { offerService, offerDocumentService, pricingEvaluationService, commissionCalculationService, recommendationService, billingImportService, contractService } =
-    useServices();
+  const {
+    offerService,
+    offerDocumentService,
+    pricingEvaluationService,
+    commissionCalculationService,
+    recommendationService,
+    billingImportService,
+    contractService,
+  } = useServices();
   const { showToast } = useToast();
 
   const [offer, setOffer] = useState<Offer | null>(null);
@@ -66,6 +74,7 @@ export function OfferDetailPage() {
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancellationError, setCancellationError] = useState<string | undefined>();
+  const [tab, setTab] = useState<TabId>('overview');
 
   const loadOffer = useCallback(async () => {
     if (!id || !currentUser) {
@@ -111,6 +120,7 @@ export function OfferDetailPage() {
   );
 
   const canEdit = offer && userContext ? offerService.canUserEditOffer(offer, userContext) : false;
+  const canViewCommission = currentUser ? hasPermission(currentUser.role, 'commission.view') : false;
   const canCreateContract =
     userContext &&
     hasPermission(userContext.role, 'contracts.create') &&
@@ -245,17 +255,67 @@ export function OfferDetailPage() {
     offer.customerSnapshot.contactFirstName,
     offer.customerSnapshot.contactLastName,
   );
+  const showTechnical = currentUser?.role === 'admin';
+  const standLabel = getOfferWorkflowDisplayLabel(offer.workflowStatus);
+
+  const tabs: Array<{ id: TabId; label: string }> = [
+    { id: 'overview', label: 'Übersicht' },
+    { id: 'positions', label: 'Positionen & Konditionen' },
+    { id: 'workflow', label: 'Freigabe & Versand' },
+    { id: 'versions', label: 'Versionen & Dokumente' },
+  ];
+  if (canViewCommission) {
+    tabs.push({ id: 'commission', label: 'Interne Provision' });
+  }
+
+  const canCreateContractNow = Boolean(!linkedContract && canCreateContract);
+  const primaryIsComplete = offer.status === 'draft';
+  const primaryIsCreateContract = !primaryIsComplete && canCreateContractNow;
+  const primaryIsDuplicate = !primaryIsComplete && !primaryIsCreateContract && offer.status !== 'draft';
+
+  let primaryAction: ReactNode = null;
+  if (primaryIsComplete) {
+    primaryAction = (
+      <button
+        type="button"
+        className={styles.primaryAction}
+        disabled={isActionRunning}
+        onClick={() => setDialogMode('complete')}
+      >
+        Abschließen
+      </button>
+    );
+  } else if (primaryIsCreateContract) {
+    primaryAction = (
+      <button
+        type="button"
+        className={styles.primaryAction}
+        disabled={isActionRunning}
+        onClick={handleCreateContract}
+      >
+        Vertrag anlegen
+      </button>
+    );
+  } else if (primaryIsDuplicate) {
+    primaryAction = (
+      <button
+        type="button"
+        className={styles.primaryAction}
+        disabled={isActionRunning}
+        onClick={() => setDialogMode('duplicate')}
+      >
+        Als Entwurf duplizieren
+      </button>
+    );
+  }
 
   return (
     <section>
       <PageHeader
         title={offer.title}
-        subtitle={`${offer.offerNumber} · ${offer.customerSnapshot.companyName}`}
+        subtitle={`${offer.customerSnapshot.companyName} · ${offer.offerNumber}`}
         actions={
           <div className={styles.headerActions}>
-            <Link className={styles.secondaryAction} to="/sales">
-              Arbeitsplatz
-            </Link>
             <Link className={styles.secondaryAction} to={`/leads/${offer.leadId}`}>
               Zur Kundenakte
             </Link>
@@ -263,18 +323,129 @@ export function OfferDetailPage() {
               <Link className={styles.secondaryAction} to={`/offers/${offer.id}/edit`}>
                 Bearbeiten
               </Link>
-            ) : null}
-            {offer.status === 'draft' ? (
+            ) : offer.status !== 'draft' && !primaryIsDuplicate ? (
               <button
                 type="button"
-                className={styles.primaryAction}
+                className={styles.secondaryAction}
                 disabled={isActionRunning}
-                onClick={() => setDialogMode('complete')}
+                onClick={() => setDialogMode('duplicate')}
               >
-                Abschließen
+                Als Entwurf duplizieren
               </button>
             ) : null}
-            {offer.status !== 'cancelled' ? (
+            {primaryAction}
+          </div>
+        }
+      />
+
+      <div className={styles.statusRow}>
+        <OfferWorkflowStatusBadge status={offer.workflowStatus} showTechnical={showTechnical} />
+        {offer.status === 'completed' || offer.status === 'cancelled' ? (
+          <span className={styles.meta}>{OFFER_STATUS_LABELS[offer.status]}</span>
+        ) : null}
+        <span className={styles.meta}>Stand: {standLabel}</span>
+      </div>
+
+      <div className={styles.tabs} role="tablist" aria-label="Angebotsbereiche">
+        {tabs.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            role="tab"
+            id={`offer-tab-${entry.id}`}
+            aria-selected={tab === entry.id}
+            aria-controls={`offer-panel-${entry.id}`}
+            className={`${styles.tab} ${tab === entry.id ? styles.tabActive : ''}`}
+            onClick={() => setTab(entry.id)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' ? (
+        <div
+          className={styles.detailSection}
+          role="tabpanel"
+          id="offer-panel-overview"
+          aria-labelledby="offer-tab-overview"
+        >
+          <h2 className={styles.sectionTitle}>Übersicht</h2>
+          <dl className={styles.grid}>
+            <DetailRow label="Version" value={String(offer.currentVersionNumber)} />
+            <DetailRow label="Ansprechpartner" value={displayText(contactName)} />
+            <DetailRow label="Gesamtbetrag (monatlich)" value={`${formatOptionalCents(totals.monthlyTotalCents)} / Monat`} />
+            <DetailRow label="Gesamtbetrag (einmalig)" value={formatOptionalCents(totals.oneTimeTotalCents)} />
+            <DetailRow
+              label="Laufzeit"
+              value={formatOptionalMonths(offer.tariffSnapshot?.contractDurationMonths ?? null)}
+            />
+            <DetailRow label="Verständlicher Stand" value={standLabel} />
+            <DetailRow
+              label="Nächste Aktion"
+              value={
+                offer.status === 'draft'
+                  ? 'Angebot abschließen oder Freigabe starten'
+                  : linkedContract
+                    ? 'In Vertrag / Kundenakte fortsetzen'
+                    : canCreateContract
+                      ? 'Vertrag anlegen'
+                      : 'Status prüfen'
+              }
+            />
+            <DetailRow label="Gültig bis" value={displayDateTime(offer.validUntil)} />
+            {offer.completedAt ? (
+              <DetailRow label="Abgeschlossen am" value={displayDateTime(offer.completedAt)} />
+            ) : null}
+          </dl>
+
+          {offer.items.length > 0 ? (
+            <p className={styles.sectionHint}>
+              Positionen: {offer.items.map((item) => item.name).join(', ')}
+            </p>
+          ) : null}
+
+          {offer.tariffSnapshot ? (
+            <p className={styles.sectionHint}>Tarif: {offer.tariffSnapshot.name}</p>
+          ) : null}
+
+          <OfferTotalsDisplay totals={totals} />
+
+          {['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
+            offer.workflowStatus,
+          ) ? (
+            <OfferFulfillmentCard offer={offer} onUpdated={loadOffer} />
+          ) : null}
+
+          {linkedContract ? (
+            <p className={styles.sectionHint}>
+              <Link className={styles.inlineLink} to={`/contracts/${linkedContract.id}`}>
+                Zum Vertrag
+              </Link>
+            </p>
+          ) : null}
+
+          {offer.status !== 'cancelled' ? (
+            <div className={styles.moreActions}>
+              <h3 className={styles.sectionTitle}>Stornierung</h3>
+              <FormField
+                id="cancellationReason"
+                label="Stornierungsgrund"
+                required
+                error={cancellationError}
+              >
+                <textarea
+                  id="cancellationReason"
+                  className={styles.textarea}
+                  value={cancellationReason}
+                  disabled={isActionRunning}
+                  aria-invalid={Boolean(cancellationError)}
+                  onChange={(event) => {
+                    setCancellationReason(event.target.value);
+                    setCancellationError(undefined);
+                  }}
+                />
+              </FormField>
               <button
                 type="button"
                 className={styles.secondaryAction}
@@ -290,256 +461,175 @@ export function OfferDetailPage() {
               >
                 Stornieren
               </button>
-            ) : null}
-            {offer.status !== 'draft' ? (
-              <button
-                type="button"
-                className={styles.secondaryAction}
-                disabled={isActionRunning}
-                onClick={() => setDialogMode('duplicate')}
-              >
-                Als Entwurf duplizieren
-              </button>
-            ) : null}
-            {linkedContract ? (
-              <Link className={styles.secondaryAction} to={`/contracts/${linkedContract.id}`}>
-                Vertrag {linkedContract.contractNumber}
-              </Link>
-            ) : canCreateContract ? (
-              <button
-                type="button"
-                className={styles.primaryAction}
-                disabled={isActionRunning}
-                onClick={handleCreateContract}
-              >
-                Vertrag anlegen
-              </button>
-            ) : null}
-            <Link className={styles.link} to="/offers">
-              Zur Übersicht
-            </Link>
-          </div>
-        }
-      />
-
-      <div className={styles.statusRow}>
-        <OfferStatusBadge status={offer.status} />
-        <OfferWorkflowStatusBadge status={offer.workflowStatus} />
-        <span className={styles.meta}>Erstellt von {offer.createdByDisplayName}</span>
-      </div>
-
-      <OfferWorkflowSection offer={offer} onUpdated={loadOffer} />
-
-      {['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
-        offer.workflowStatus,
-      ) ? (
-        <OfferFulfillmentCard offer={offer} onUpdated={loadOffer} />
-      ) : null}
-
-      <section className={styles.detailSection}>
-        <h2 className={styles.sectionTitle}>Vertrag</h2>
-        {linkedContract ? (
-          <dl className={styles.grid}>
-            <DetailRow label="Vertragsnummer" value={linkedContract.contractNumber} />
-            <DetailRow label="Status" value={CONTRACT_STATUS_LABELS[linkedContract.status]} />
-            <div className={styles.row}>
-              <dt>Vertrag</dt>
-              <dd>
-                <Link className={styles.inlineLink} to={`/contracts/${linkedContract.id}`}>
-                  Zum Vertrag
-                </Link>
-              </dd>
             </div>
-          </dl>
-        ) : (
-          <p className={styles.sectionHint}>
-            Noch kein Vertrag verknüpft. Bei angenommenen Angeboten kann ein Vertrag angelegt werden.
-          </p>
-        )}
-      </section>
-
-      <section className={styles.detailSection}>
-        <h2 className={styles.sectionTitle}>Kunde</h2>
-        <dl className={styles.grid}>
-          <DetailRow label="Firma" value={displayText(offer.customerSnapshot.companyName)} />
-          <DetailRow label="Ansprechpartner" value={displayText(contactName)} />
-          <DetailRow label="Telefon" value={displayText(offer.customerSnapshot.phone)} />
-          <DetailRow label="E-Mail" value={displayText(offer.customerSnapshot.email)} />
-          <DetailRow
-            label="Anschrift"
-            value={displayText(
-              [
-                offer.customerSnapshot.street,
-                `${offer.customerSnapshot.postalCode} ${offer.customerSnapshot.city}`.trim(),
-              ]
-                .filter(Boolean)
-                .join(', '),
-            )}
-          />
-          <div className={styles.row}>
-            <dt>Kunde</dt>
-            <dd>
-              <Link className={styles.inlineLink} to={`/leads/${offer.leadId}`}>
-                Zur Kundenakte
-              </Link>
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      {offer.tariffSnapshot ? (
-        <section className={styles.detailSection}>
-          <h2 className={styles.sectionTitle}>Payment-Tarif</h2>
-          <dl className={styles.grid}>
-            <DetailRow label="Tarif" value={displayText(offer.tariffSnapshot.name)} />
-            <DetailRow label="Anbieter" value={displayText(offer.tariffSnapshot.providerName)} />
-            <DetailRow
-              label="Einsatzart"
-              value={TERMINAL_TYPE_LABELS[offer.tariffSnapshot.terminalType]}
-            />
-            <DetailRow
-              label="Monatliche Fixkosten"
-              value={formatOptionalCents(totals.tariffMonthlyFixedTotalCents) + ' / Monat'}
-            />
-            <DetailRow
-              label="Einrichtungsgebühr"
-              value={formatOptionalCents(offer.tariffSnapshot.setupFeeCents) + ' einmalig'}
-            />
-            <DetailRow label="Girocard" value={formatCardRate({
-              percentageTenthsOfBasisPoint: offer.tariffSnapshot.girocardRateTenthsOfBasisPoint,
-              fixedFeeTenthsOfCent: 0,
-            })} />
-            <DetailRow
-              label="Girocard-Clearing"
-              value={formatGirocardClearing(
-                offer.tariffSnapshot.girocardClearingIncluded,
-                offer.tariffSnapshot.girocardClearingFeeTenthsOfCent,
-              )}
-            />
-            <DetailRow
-              label="Vertragslaufzeit"
-              value={formatOptionalMonths(offer.tariffSnapshot.contractDurationMonths)}
-            />
-          </dl>
-        </section>
+          ) : null}
+        </div>
       ) : null}
 
-      <section className={styles.detailSection}>
-        <h2 className={styles.sectionTitle}>Positionen</h2>
-        {offer.items.length === 0 ? (
-          <p className={styles.emptyHint}>Keine Positionen vorhanden.</p>
-        ) : (
-          <ul className={styles.itemList}>
-            {offer.items.map((item) => (
-              <li key={item.id} className={styles.itemCard}>
-                <div className={styles.itemHeader}>
-                  <h3 className={styles.itemTitle}>{item.name}</h3>
-                  <span className={styles.itemType}>
-                    {item.type === 'product' ? 'Produkt' : 'Manuell'}
-                  </span>
-                </div>
-                {item.description ? <p className={styles.itemDescription}>{item.description}</p> : null}
-                <dl className={styles.itemDetails}>
-                  <DetailRow label="Menge" value={String(item.quantity)} />
-                  <DetailRow
-                    label="Preisart"
-                    value={formatOfferItemPriceTypeLabel(item.priceType)}
-                  />
-                  <DetailRow
-                    label="Einzelpreis"
-                    value={formatOfferItemPrice(item.priceType, item.unitPriceCents)}
-                  />
-                  <DetailRow label="Zeilensumme" value={formatOfferLineTotal(item)} />
-                  {item.priceOverridden ? (
-                    <DetailRow
-                      label="Preisüberschreibung"
-                      value={displayText(item.priceOverrideReason)}
-                    />
-                  ) : null}
-                </dl>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {tab === 'positions' ? (
+        <div
+          className={styles.detailSection}
+          role="tabpanel"
+          id="offer-panel-positions"
+          aria-labelledby="offer-tab-positions"
+        >
+          <h2 className={styles.sectionTitle}>Positionen & Konditionen</h2>
+          {offer.tariffSnapshot ? (
+            <dl className={styles.grid}>
+              <DetailRow label="Tarif" value={displayText(offer.tariffSnapshot.name)} />
+              <DetailRow label="Anbieter" value={displayText(offer.tariffSnapshot.providerName)} />
+              <DetailRow
+                label="Einsatzart"
+                value={TERMINAL_TYPE_LABELS[offer.tariffSnapshot.terminalType]}
+              />
+              <DetailRow
+                label="Monatliche Fixkosten"
+                value={formatOptionalCents(totals.tariffMonthlyFixedTotalCents) + ' / Monat'}
+              />
+              <DetailRow
+                label="Einrichtungsgebühr"
+                value={formatOptionalCents(offer.tariffSnapshot.setupFeeCents) + ' einmalig'}
+              />
+              <DetailRow
+                label="Girocard"
+                value={formatCardRate({
+                  percentageTenthsOfBasisPoint: offer.tariffSnapshot.girocardRateTenthsOfBasisPoint,
+                  fixedFeeTenthsOfCent: 0,
+                })}
+              />
+              <DetailRow
+                label="Girocard-Clearing"
+                value={formatGirocardClearing(
+                  offer.tariffSnapshot.girocardClearingIncluded,
+                  offer.tariffSnapshot.girocardClearingFeeTenthsOfCent,
+                )}
+              />
+              <DetailRow
+                label="Vertragslaufzeit"
+                value={formatOptionalMonths(offer.tariffSnapshot.contractDurationMonths)}
+              />
+            </dl>
+          ) : (
+            <p className={styles.emptyHint}>Kein Payment-Tarif verknüpft.</p>
+          )}
 
-      {userContext ? (
-        <Suspense fallback={<p className={styles.sectionHint}>Abrechnungsimport wird vorbereitet…</p>}>
-          <OfferBillingImportSection
+          <h3 className={styles.sectionTitle}>Positionen</h3>
+          {offer.items.length === 0 ? (
+            <p className={styles.emptyHint}>Keine Positionen vorhanden.</p>
+          ) : (
+            <ul className={styles.itemList}>
+              {offer.items.map((item) => (
+                <li key={item.id} className={styles.itemCard}>
+                  <div className={styles.itemHeader}>
+                    <h3 className={styles.itemTitle}>{item.name}</h3>
+                    <span className={styles.itemType}>
+                      {item.type === 'product' ? 'Produkt' : 'Manuell'}
+                    </span>
+                  </div>
+                  {item.description ? <p className={styles.itemDescription}>{item.description}</p> : null}
+                  <dl className={styles.itemDetails}>
+                    <DetailRow label="Menge" value={String(item.quantity)} />
+                    <DetailRow label="Preisart" value={formatOfferItemPriceTypeLabel(item.priceType)} />
+                    <DetailRow
+                      label="Einzelpreis"
+                      value={formatOfferItemPrice(item.priceType, item.unitPriceCents)}
+                    />
+                    <DetailRow label="Zeilensumme" value={formatOfferLineTotal(item)} />
+                    {item.priceOverridden ? (
+                      <DetailRow
+                        label="Preisüberschreibung"
+                        value={displayText(item.priceOverrideReason)}
+                      />
+                    ) : null}
+                  </dl>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {userContext ? (
+            <Suspense fallback={<p className={styles.sectionHint}>Abrechnungsimport wird vorbereitet…</p>}>
+              <OfferBillingImportSection
+                offer={offer}
+                userContext={userContext}
+                billingImportService={billingImportService}
+                showToast={showToast}
+                onBaselineConfirmed={() => {
+                  void loadOffer();
+                }}
+              />
+            </Suspense>
+          ) : null}
+
+          {userContext ? (
+            <OfferRecommendationSection
+              offer={offer}
+              userContext={userContext}
+              recommendationService={recommendationService}
+              showToast={showToast}
+            />
+          ) : null}
+
+          {userContext ? (
+            <OfferPricingEvaluationSection
+              offer={offer}
+              userContext={userContext}
+              pricingEvaluationService={pricingEvaluationService}
+              showToast={showToast}
+            />
+          ) : null}
+
+          <dl className={styles.grid}>
+            <DetailRow label="Einleitungstext" value={displayText(offer.introductionText)} />
+            <DetailRow label="Hinweise für den Kunden" value={displayText(offer.customerNotes)} />
+            <DetailRow label="Interne Hinweise" value={displayText(offer.internalNotes)} />
+          </dl>
+          <OfferTotalsDisplay totals={totals} />
+        </div>
+      ) : null}
+
+      {tab === 'workflow' ? (
+        <div role="tabpanel" id="offer-panel-workflow" aria-labelledby="offer-tab-workflow">
+          <OfferWorkflowSection
+            offer={offer}
+            onUpdated={loadOffer}
+            mode="actions"
+            hideHeaderBadge
+            hideNextActionBanner
+          />
+        </div>
+      ) : null}
+
+      {tab === 'versions' ? (
+        <div role="tabpanel" id="offer-panel-versions" aria-labelledby="offer-tab-versions">
+          <OfferWorkflowSection
+            offer={offer}
+            onUpdated={loadOffer}
+            mode="versions"
+            hideHeaderBadge
+            hideNextActionBanner
+          />
+          {userContext ? (
+            <OfferDocumentsSection
+              offer={offer}
+              userContext={userContext}
+              offerDocumentService={offerDocumentService}
+              showToast={showToast}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === 'commission' && canViewCommission && userContext ? (
+        <div role="tabpanel" id="offer-panel-commission" aria-labelledby="offer-tab-commission">
+          <OfferCommissionSection
             offer={offer}
             userContext={userContext}
-            billingImportService={billingImportService}
+            commissionCalculationService={commissionCalculationService}
             showToast={showToast}
-            onBaselineConfirmed={() => {
-              void loadOffer();
-            }}
           />
-        </Suspense>
+        </div>
       ) : null}
-
-      {userContext ? (
-        <OfferRecommendationSection
-          offer={offer}
-          userContext={userContext}
-          recommendationService={recommendationService}
-          showToast={showToast}
-        />
-      ) : null}
-
-      {userContext ? (
-        <OfferPricingEvaluationSection
-          offer={offer}
-          userContext={userContext}
-          pricingEvaluationService={pricingEvaluationService}
-          showToast={showToast}
-        />
-      ) : null}
-
-      {userContext ? (
-        <OfferCommissionSection
-          offer={offer}
-          userContext={userContext}
-          commissionCalculationService={commissionCalculationService}
-          showToast={showToast}
-        />
-      ) : null}
-
-      {userContext ? (
-        <OfferDocumentsSection
-          offer={offer}
-          userContext={userContext}
-          offerDocumentService={offerDocumentService}
-          showToast={showToast}
-        />
-      ) : null}
-
-      <section className={styles.detailSection}>
-        <h2 className={styles.sectionTitle}>Angebotsdetails</h2>
-        <dl className={styles.grid}>
-          <DetailRow label="Gültig bis" value={displayDateTime(offer.validUntil)} />
-          <DetailRow label="Einleitungstext" value={displayText(offer.introductionText)} />
-          <DetailRow label="Hinweise für den Kunden" value={displayText(offer.customerNotes)} />
-          <DetailRow label="Interne Hinweise" value={displayText(offer.internalNotes)} />
-        </dl>
-        <OfferTotalsDisplay totals={totals} />
-      </section>
-
-      <section className={styles.detailSection}>
-        <h2 className={styles.sectionTitle}>Metadaten</h2>
-        <dl className={styles.grid}>
-          <DetailRow label="Erstellt am" value={displayDateTime(offer.createdAt)} />
-          <DetailRow label="Zuletzt geändert" value={displayDateTime(offer.updatedAt)} />
-          {offer.completedAt ? (
-            <DetailRow label="Abgeschlossen am" value={displayDateTime(offer.completedAt)} />
-          ) : null}
-          {offer.cancelledAt ? (
-            <DetailRow label="Storniert am" value={displayDateTime(offer.cancelledAt)} />
-          ) : null}
-          {offer.cancellationReason ? (
-            <DetailRow label="Stornierungsgrund" value={displayText(offer.cancellationReason)} />
-          ) : null}
-        </dl>
-      </section>
 
       <ConfirmDialog
         isOpen={dialogMode === 'complete'}
@@ -560,30 +650,6 @@ export function OfferDetailPage() {
         onCancel={() => setDialogMode(null)}
         onConfirm={handleDuplicate}
       />
-
-      {offer.status !== 'cancelled' ? (
-        <section className={styles.detailSection}>
-          <h2 className={styles.sectionTitle}>Stornierung</h2>
-          <FormField
-            id="cancellationReason"
-            label="Stornierungsgrund"
-            required
-            error={cancellationError}
-          >
-            <textarea
-              id="cancellationReason"
-              className={styles.textarea}
-              value={cancellationReason}
-              disabled={isActionRunning}
-              aria-invalid={Boolean(cancellationError)}
-              onChange={(event) => {
-                setCancellationReason(event.target.value);
-                setCancellationError(undefined);
-              }}
-            />
-          </FormField>
-        </section>
-      ) : null}
 
       <ConfirmDialog
         isOpen={dialogMode === 'cancel'}

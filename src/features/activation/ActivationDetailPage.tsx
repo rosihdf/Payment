@@ -27,7 +27,7 @@ import { useServices } from '../../hooks/useServices';
 import { ActivationStatusBadge } from './ActivationStatusBadge';
 import styles from './ActivationDetailPage.module.css';
 
-type TabId = 'overview' | 'checklist' | 'documents' | 'applications' | 'hardware' | 'setup_test' | 'blockers' | 'tasks';
+type TabId = 'overview' | 'open_items' | 'hardware' | 'setup_test' | 'documents' | 'history';
 
 const ACTIVATION_DOCUMENT_TYPES: SalesDocumentType[] = [
   'activation_identification',
@@ -67,6 +67,8 @@ export function ActivationDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<null | (() => Promise<void>)>(null);
   const [confirmTitle, setConfirmTitle] = useState('');
+  const [reasonDialog, setReasonDialog] = useState<null | 'revoke_go_live' | 'cancel'>(null);
+  const [reasonText, setReasonText] = useState('');
 
   const [newApplicationType, setNewApplicationType] = useState<ActivationApplicationType>('merchant_setup');
   const [newApplicationTitle, setNewApplicationTitle] = useState('');
@@ -159,10 +161,104 @@ export function ActivationDetailPage() {
     await reload();
   };
 
-  const openChecklistItems = checklist.filter((item) => item.status !== 'not_applicable');
-  const allowedTransitions = getAllowedActivationStatusTransitions(activation.status).filter(
-    (status) => status !== 'live' && status !== 'cancelled',
+  const openChecklistItems = checklist.filter(
+    (item) => item.status !== 'not_applicable' && item.status !== 'done',
   );
+  const openBlockers = blockers.filter((blocker) => blocker.status === 'open');
+  const openApplications = applications.filter(
+    (application) => !['approved', 'rejected', 'cancelled'].includes(application.status),
+  );
+  const allowedTransitions = getAllowedActivationStatusTransitions(activation.status).filter(
+    (status) => status !== 'live' && status !== 'cancelled' && status !== 'archived',
+  );
+  const preferredTransition =
+    activation.status === 'draft'
+      ? 'preparation'
+      : allowedTransitions.find((status) => status !== 'blocked') ?? allowedTransitions[0] ?? null;
+
+  const primaryHeaderAction = (() => {
+    if (
+      hasPermission(currentUser.role, 'activations.go_live') &&
+      activation.status === 'go_live_ready'
+    ) {
+      return (
+        <button
+          type="button"
+          className={styles.primaryAction}
+          onClick={() =>
+            askConfirm('Go-live bestätigen?', async () => {
+              await runResult(await activationService.confirmGoLive(activation.id, context));
+            })
+          }
+        >
+          Go-live bestätigen
+        </button>
+      );
+    }
+    if (hasPermission(currentUser.role, 'activations.complete') && activation.status === 'live') {
+      return (
+        <button
+          type="button"
+          className={styles.primaryAction}
+          onClick={() =>
+            askConfirm('Aktivierung abschließen?', async () => {
+              await runResult(await activationService.completeActivation(activation.id, context));
+            })
+          }
+        >
+          Abschließen
+        </button>
+      );
+    }
+    if (
+      hasPermission(currentUser.role, 'activations.complete') &&
+      activation.status === 'completed' &&
+      !activation.handedOverAt
+    ) {
+      return (
+        <button
+          type="button"
+          className={styles.primaryAction}
+          onClick={() =>
+            askConfirm('Übergabe bestätigen?', async () => {
+              await runResult(await activationService.confirmHandover(activation.id, context));
+            })
+          }
+        >
+          Übergabe bestätigen
+        </button>
+      );
+    }
+    if (
+      hasPermission(currentUser.role, 'activations.update') &&
+      preferredTransition &&
+      activation.status !== 'blocked'
+    ) {
+      return (
+        <button
+          type="button"
+          className={styles.primaryAction}
+          onClick={() =>
+            askConfirm(
+              `Status auf „${ACTIVATION_STATUS_LABELS[preferredTransition]}“ setzen?`,
+              async () => {
+                await runResult(
+                  await activationService.transitionStatus(
+                    activation.id,
+                    preferredTransition as ActivationStatus,
+                    context,
+                  ),
+                );
+              },
+            )
+          }
+        >
+          {ACTIVATION_STATUS_LABELS[preferredTransition]}
+        </button>
+      );
+    }
+    return null;
+  })();
 
   return (
     <section>
@@ -171,105 +267,44 @@ export function ActivationDetailPage() {
         subtitle={`Vertrag ${activation.contractId}`}
         actions={
           <div className={styles.actions}>
-            <Link className={styles.linkButton} to="/activations">Aktivierungen</Link>
-            <Link className={styles.linkButton} to={`/contracts/${activation.contractId}`}>Vertrag öffnen</Link>
             {activation.leadId ? (
               <Link className={styles.linkButton} to={`/leads/${activation.leadId}`}>
                 Zur Kundenakte
               </Link>
             ) : null}
+            <Link className={styles.linkButton} to={`/contracts/${activation.contractId}`}>
+              Vertrag öffnen
+            </Link>
+            {primaryHeaderAction}
           </div>
         }
       />
 
       <div className={styles.headerMeta}>
-        <ActivationStatusBadge status={activation.status} />
-        <span>Priorität: {ACTIVATION_PRIORITY_LABELS[activation.priority]}</span>
+        <ActivationStatusBadge
+          status={activation.status}
+          showTechnical={currentUser.role === 'admin'}
+        />
         <span>Fortschritt: {activation.progressPercent}%</span>
         <span>Nächster Schritt: {activation.nextStep ?? '–'}</span>
-        <span>Nächste Frist: {activation.nextDueAt ? activation.nextDueAt.slice(0, 10) : '–'}</span>
-        <span>Offene Blocker: {activation.openBlockerCount}</span>
-        <span>Offene Pflichtpunkte: {activation.openMandatoryCount}</span>
+        <span>Go-live geplant: {activation.desiredGoLive ?? '–'}</span>
+        {activation.openBlockerCount > 0 ? (
+          <span>Harte Blocker: {activation.openBlockerCount}</span>
+        ) : null}
       </div>
 
       {message ? <p role="status">{message}</p> : null}
 
       {hasPermission(currentUser.role, 'activations.update') ? (
         <div className={styles.actions}>
-          {allowedTransitions.map((nextStatus) => (
-            <button
-              key={nextStatus}
-              type="button"
-              onClick={() =>
-                askConfirm(`Status auf „${ACTIVATION_STATUS_LABELS[nextStatus]}“ setzen?`, async () => {
-                  await runResult(await activationService.transitionStatus(activation.id, nextStatus as ActivationStatus, context));
-                })
-              }
-            >
-              {ACTIVATION_STATUS_LABELS[nextStatus]}
-            </button>
-          ))}
-          {hasPermission(currentUser.role, 'activations.go_live') && activation.status === 'go_live_ready' ? (
-            <button
-              type="button"
-              onClick={() =>
-                askConfirm('Go-live bestätigen?', async () => {
-                  await runResult(await activationService.confirmGoLive(activation.id, context));
-                })
-              }
-            >
-              Go-live bestätigen
-            </button>
-          ) : null}
           {hasPermission(currentUser.role, 'activations.go_live') && activation.status === 'live' ? (
-            <button
-              type="button"
-              onClick={() => {
-                const reason = window.prompt('Grund für die Rücknahme des Go-live:');
-                if (reason === null) return;
-                askConfirm('Go-live zurücknehmen?', async () => {
-                  await runResult(await activationService.revokeGoLive(activation.id, reason, context));
-                });
-              }}
-            >
+            <button type="button" className={styles.linkButton} onClick={() => setReasonDialog('revoke_go_live')}>
               Go-live zurücknehmen
             </button>
           ) : null}
-          {hasPermission(currentUser.role, 'activations.complete') && activation.status === 'live' ? (
-            <button
-              type="button"
-              onClick={() =>
-                askConfirm('Aktivierung abschließen?', async () => {
-                  await runResult(await activationService.completeActivation(activation.id, context));
-                })
-              }
-            >
-              Abschließen
-            </button>
-          ) : null}
-          {hasPermission(currentUser.role, 'activations.complete') && activation.status === 'completed' && !activation.handedOverAt ? (
-            <button
-              type="button"
-              onClick={() =>
-                askConfirm('Übergabe bestätigen?', async () => {
-                  await runResult(await activationService.confirmHandover(activation.id, context));
-                })
-              }
-            >
-              Übergabe bestätigen
-            </button>
-          ) : null}
-          {hasPermission(currentUser.role, 'activations.cancel') && !['completed', 'cancelled', 'archived'].includes(activation.status) ? (
-            <button
-              type="button"
-              onClick={() => {
-                const reason = window.prompt('Grund für den Abbruch:');
-                if (reason === null) return;
-                askConfirm('Aktivierung abbrechen?', async () => {
-                  await runResult(await activationService.cancelActivation(activation.id, reason, context));
-                });
-              }}
-            >
+          {hasPermission(currentUser.role, 'activations.cancel') &&
+          !['completed', 'cancelled', 'archived'].includes(activation.status) ? (
+            <button type="button" className={styles.linkButton} onClick={() => setReasonDialog('cancel')}>
               Abbrechen
             </button>
           ) : null}
@@ -280,13 +315,11 @@ export function ActivationDetailPage() {
         {(
           [
             ['overview', 'Übersicht'],
-            ['checklist', 'Checkliste'],
-            ['documents', 'Dokumente'],
-            ['applications', 'Anträge'],
+            ['open_items', 'Offene Punkte'],
             ['hardware', 'Hardware'],
             ['setup_test', 'Einrichtung & Test'],
-            ['blockers', 'Blocker'],
-            ['tasks', 'Aufgaben'],
+            ['documents', 'Dokumente'],
+            ['history', 'Verlauf'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -309,37 +342,130 @@ export function ActivationDetailPage() {
           <h2>Übersicht</h2>
           <div className={styles.grid}>
             <div className={styles.row}>
-              <span className={styles.label}>Geplanter Start</span>
-              <span>{activation.plannedStart ?? '–'}</span>
+              <span className={styles.label}>Aktivierungsnummer</span>
+              <span>{activation.activationNumber}</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Gewünschter Go-live</span>
-              <span>{activation.desiredGoLive ?? '–'}</span>
+              <span className={styles.label}>Kunde</span>
+              <span>
+                {activation.leadId ? (
+                  <Link to={`/leads/${activation.leadId}`}>Zur Kundenakte</Link>
+                ) : (
+                  '–'
+                )}
+              </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Bestätigter Go-live</span>
-              <span>{activation.confirmedGoLive ?? '–'}</span>
+              <span className={styles.label}>Vertrag</span>
+              <span>
+                <Link to={`/contracts/${activation.contractId}`}>Vertrag öffnen</Link>
+              </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Abgeschlossen am</span>
-              <span>{activation.completedAt?.slice(0, 10) ?? '–'}</span>
+              <span className={styles.label}>Verständlicher Stand</span>
+              <span>
+                <ActivationStatusBadge status={activation.status} />
+              </span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Übergeben am</span>
-              <span>{activation.handedOverAt?.slice(0, 10) ?? '–'}</span>
+              <span className={styles.label}>Fortschritt</span>
+              <span>{activation.progressPercent}%</span>
             </div>
             <div className={styles.row}>
-              <span className={styles.label}>Eigentümer</span>
-              <span>{activation.ownerUserId}</span>
+              <span className={styles.label}>Geplantes Go-live</span>
+              <span>{activation.desiredGoLive ?? activation.plannedStart ?? '–'}</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Nächster Schritt</span>
+              <span>{activation.nextStep ?? '–'}</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Harte Blocker</span>
+              <span>{activation.openBlockerCount}</span>
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Priorität</span>
+              <span>{ACTIVATION_PRIORITY_LABELS[activation.priority]}</span>
             </div>
           </div>
         </div>
       ) : null}
 
-      {tab === 'checklist' ? (
-        <div className={styles.section} role="tabpanel" id="panel-checklist" aria-labelledby="tab-checklist">
-          <h2>Checkliste</h2>
-          {openChecklistItems.length === 0 ? (
+      {tab === 'open_items' ? (
+        <div className={styles.section} role="tabpanel" id="panel-open_items" aria-labelledby="tab-open_items">
+          <h2>Offene Punkte</h2>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Was fehlt</th>
+                  <th>Verantwortlich</th>
+                  <th>Fälligkeit</th>
+                  <th>Status</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openBlockers.map((blocker) => (
+                  <tr key={`blocker-${blocker.id}`}>
+                    <td>{blocker.title}</td>
+                    <td>{activation.ownerUserId}</td>
+                    <td>{activation.nextDueAt?.slice(0, 10) ?? '–'}</td>
+                    <td>Blocker · {ACTIVATION_BLOCKER_SEVERITY_LABELS[blocker.severity]}</td>
+                    <td>siehe Blocker unten</td>
+                  </tr>
+                ))}
+                {openChecklistItems.map((item) => (
+                  <tr key={`check-${item.id}`}>
+                    <td>{item.title}</td>
+                    <td>{activation.ownerUserId}</td>
+                    <td>{activation.nextDueAt?.slice(0, 10) ?? '–'}</td>
+                    <td>{ACTIVATION_CHECKLIST_ITEM_STATUS_LABELS[item.status]}</td>
+                    <td>
+                      {hasPermission(currentUser.role, 'activations.update') ? (
+                        <button
+                          type="button"
+                          onClick={async () =>
+                            void runResult(
+                              await activationService.updateChecklistItem(
+                                activation.id,
+                                item.id,
+                                { status: 'done' },
+                                context,
+                              ),
+                            )
+                          }
+                        >
+                          Erledigt
+                        </button>
+                      ) : (
+                        '–'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {openApplications.map((application) => (
+                  <tr key={`app-${application.id}`}>
+                    <td>{application.title}</td>
+                    <td>{application.createdByUserId}</td>
+                    <td>{application.submittedAt?.slice(0, 10) ?? '–'}</td>
+                    <td>{ACTIVATION_APPLICATION_STATUS_LABELS[application.status]}</td>
+                    <td>{ACTIVATION_APPLICATION_TYPE_LABELS[application.type]}</td>
+                  </tr>
+                ))}
+                {openBlockers.length === 0 &&
+                openChecklistItems.length === 0 &&
+                openApplications.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>Keine offenen Punkte</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Checkliste</h3>
+          {checklist.length === 0 ? (
             <EmptyState title="Keine Checklistenpunkte" description="Es liegen keine Punkte vor." />
           ) : (
             ACTIVATION_CHECKLIST_CATEGORY_ORDER.map((category) => {
@@ -507,9 +633,9 @@ export function ActivationDetailPage() {
         </div>
       ) : null}
 
-      {tab === 'applications' ? (
-        <div className={styles.section} role="tabpanel" id="panel-applications" aria-labelledby="tab-applications">
-          <h2>Anträge</h2>
+      {tab === 'open_items' ? (
+        <div className={styles.section}>
+          <h3>Anträge</h3>
           {hasPermission(currentUser.role, 'activations.applications') ? (
             <form
               className={styles.form}
@@ -888,9 +1014,9 @@ export function ActivationDetailPage() {
         </div>
       ) : null}
 
-      {tab === 'blockers' ? (
-        <div className={styles.section} role="tabpanel" id="panel-blockers" aria-labelledby="tab-blockers">
-          <h2>Blocker</h2>
+      {tab === 'open_items' ? (
+        <div className={styles.section}>
+          <h3>Blocker</h3>
           {hasPermission(currentUser.role, 'activations.blockers') ? (
             <form
               className={styles.form}
@@ -992,19 +1118,28 @@ export function ActivationDetailPage() {
         </div>
       ) : null}
 
-      {tab === 'tasks' ? (
-        <div className={styles.section} role="tabpanel" id="panel-tasks" aria-labelledby="tab-tasks">
-          <h2>Aufgaben und Aktivitäten</h2>
-          <h3>Aufgaben</h3>
+      {tab === 'history' ? (
+        <div className={styles.section} role="tabpanel" id="panel-history" aria-labelledby="tab-history">
+          <h2>Verlauf</h2>
+          <p>
+            {activation.leadId ? (
+              <Link to={`/leads/${activation.leadId}`}>Aufgaben & Verlauf in der Kundenakte</Link>
+            ) : (
+              'Kein Kundenbezug vorhanden.'
+            )}
+          </p>
+          <h3>Aufgaben (kompakt)</h3>
           <ul>
+            {tasks.length === 0 ? <li>Keine Aufgaben</li> : null}
             {tasks.map((task) => (
               <li key={task.id}>
                 {task.title} · {SALES_TASK_TYPE_LABELS[task.type]} · {SALES_TASK_STATUS_LABELS[task.status]}
               </li>
             ))}
           </ul>
-          <h3>Aktivitäten</h3>
+          <h3>Aktivitäten (kompakt)</h3>
           <ul>
+            {activities.length === 0 ? <li>Keine Aktivitäten</li> : null}
             {activities.map((activity) => (
               <li key={activity.id}>
                 {activity.title} · {SALES_ACTIVITY_TYPE_LABELS[activity.type]} · {activity.occurredAt.slice(0, 10)}
@@ -1027,6 +1162,62 @@ export function ActivationDetailPage() {
         }}
         onCancel={() => setConfirmAction(null)}
       />
+
+      {reasonDialog ? (
+        <div className={styles.section} role="dialog" aria-label="Begründung erforderlich">
+          <h2>{reasonDialog === 'cancel' ? 'Aktivierung abbrechen' : 'Go-live zurücknehmen'}</h2>
+          <label>
+            Begründung
+            <input
+              value={reasonText}
+              onChange={(event) => setReasonText(event.target.value)}
+              placeholder="Grund eingeben"
+            />
+          </label>
+          <div className={styles.inlineActions}>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={() => {
+                setReasonDialog(null);
+                setReasonText('');
+              }}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={() => {
+                if (!reasonText.trim()) {
+                  setMessage('Begründung ist erforderlich.');
+                  return;
+                }
+                const reason = reasonText.trim();
+                const mode = reasonDialog;
+                setReasonDialog(null);
+                setReasonText('');
+                askConfirm(
+                  mode === 'cancel' ? 'Aktivierung abbrechen?' : 'Go-live zurücknehmen?',
+                  async () => {
+                    if (mode === 'cancel') {
+                      await runResult(
+                        await activationService.cancelActivation(activation.id, reason, context),
+                      );
+                    } else {
+                      await runResult(
+                        await activationService.revokeGoLive(activation.id, reason, context),
+                      );
+                    }
+                  },
+                );
+              }}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

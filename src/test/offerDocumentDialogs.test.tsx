@@ -37,6 +37,10 @@ function renderAtRoute(initialRoute: string, resetData = true, currentUserId = F
   return memoryRouter;
 }
 
+async function openDocumentsTab(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('tab', { name: 'Versionen & Dokumente' }));
+}
+
 describe('Offer document dialogs UI', () => {
   beforeEach(() => {
     setupOfferDocumentTestStorage();
@@ -48,6 +52,7 @@ describe('Offer document dialogs UI', () => {
     const offer = await seedPremiumLineCompletedOffer();
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab(user);
 
     await user.click(await screen.findByRole('button', { name: 'Finales PDF erzeugen' }));
     expect(await screen.findByRole('heading', { name: 'Finales PDF erzeugen', level: 2 })).toBeInTheDocument();
@@ -74,6 +79,7 @@ describe('Offer document dialogs UI', () => {
     });
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab(user);
 
     await user.click(await screen.findByRole('button', { name: 'Neue Dokumentversion erzeugen' }));
     expect(
@@ -96,6 +102,7 @@ describe('Offer document dialogs UI', () => {
     const offer = await seedPremiumLineCompletedOffer();
 
     renderAtRoute(`/offers/${offer.id}`, false);
+    await openDocumentsTab(user);
 
     await user.click(await screen.findByRole('button', { name: 'Finales PDF erzeugen' }));
     await user.click(await screen.findByRole('button', { name: 'Abbrechen' }));
