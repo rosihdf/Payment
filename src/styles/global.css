@@ -64,8 +64,10 @@ select {
   line-height: calc(var(--touch-target) - 2px);
 }
 
-input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']) {
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']),
+select {
   appearance: none;
+  -webkit-appearance: none;
 }
 
 textarea {

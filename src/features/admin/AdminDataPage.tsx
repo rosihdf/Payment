@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { EXPORTABLE_AREAS } from '../../services/dataExportService';
 import type { MigrationPreview } from '../../services/supabaseDataMigrationService';
+import type { ProductionCatalogBootstrapPreview } from '../../services/productionCatalogBootstrapService';
 import { downloadBlob } from '../../utils/downloadBlob';
 import { AdminLayout, useAdminContext } from './AdminLayout';
 import { useServices } from '../../hooks/useServices';
@@ -13,12 +14,14 @@ function triggerTextDownload(content: string, filename: string, mimeType: string
 
 export function AdminDataPage() {
   const context = useAdminContext();
-  const { dataExportService, dataRestoreService, supabaseDataMigrationService } = useServices();
+  const { dataExportService, dataRestoreService, supabaseDataMigrationService, productionCatalogBootstrapService } = useServices();
   const [message, setMessage] = useState<string | null>(null);
   const [restorePreview, setRestorePreview] = useState<string | null>(null);
   const [migrationPreview, setMigrationPreview] = useState<MigrationPreview | null>(null);
   const [migrationContent, setMigrationContent] = useState<string | null>(null);
+  const [bootstrapPreview, setBootstrapPreview] = useState<ProductionCatalogBootstrapPreview | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   const handleBackup = async () => {
     if (!context) {
@@ -117,6 +120,39 @@ export function AdminDataPage() {
     setIsImporting(false);
   };
 
+  const handleBootstrapPreview = async () => {
+    if (!context) {
+      return;
+    }
+    const result = await productionCatalogBootstrapService.preview(context);
+    if (result.ok) {
+      setBootstrapPreview(result.preview);
+      setMessage(
+        result.preview.totalToInsert > 0
+          ? `Grundkonfiguration: ${result.preview.totalToInsert} Datensätze fehlen`
+          : 'Grundkonfiguration vollständig – nichts zu importieren',
+      );
+    } else {
+      setMessage('Grundkonfiguration-Vorschau nicht erlaubt');
+    }
+  };
+
+  const handleBootstrapImport = async () => {
+    if (!context) {
+      return;
+    }
+    setIsBootstrapping(true);
+    const result = await productionCatalogBootstrapService.execute(context);
+    if (result.ok) {
+      const inserted = Object.values(result.insertedCounts).reduce((sum, count) => sum + count, 0);
+      setMessage(`Grundkonfiguration importiert (${inserted} neue Datensätze)`);
+      setBootstrapPreview(result.preview);
+    } else {
+      setMessage('Grundkonfiguration-Import nicht erlaubt');
+    }
+    setIsBootstrapping(false);
+  };
+
   return (
     <AdminLayout
       title="Daten und Sicherung"
@@ -143,6 +179,41 @@ export function AdminDataPage() {
         {restorePreview ? <p role="status">{restorePreview}</p> : null}
         <p>Es erfolgt keine Datenmutation vor expliziter Bestätigung.</p>
       </section>
+      {isSupabaseDataMode() ? (
+        <section className={styles.panel}>
+          <h2>Grundkonfiguration</h2>
+          <p>
+            Produktive Ausgangskonfiguration (Tarife, Produkte, Provision, Preislisten, Freigaben,
+            Vorlagen) idempotent importieren. Bestehende Datensätze werden nicht überschrieben.
+          </p>
+          <div className={styles.toolbar}>
+            <button type="button" onClick={() => void handleBootstrapPreview()}>
+              Vorschau
+            </button>
+            <button
+              type="button"
+              disabled={!bootstrapPreview || bootstrapPreview.totalToInsert === 0 || isBootstrapping}
+              onClick={() => void handleBootstrapImport()}
+            >
+              Grundkonfiguration importieren
+            </button>
+          </div>
+          {bootstrapPreview ? (
+            <div role="status">
+              <ul>
+                {bootstrapPreview.areas
+                  .filter((area) => area.toInsertCount > 0 || area.existingCount > 0)
+                  .map((area) => (
+                    <li key={area.areaKey}>
+                      {area.label}: {area.existingCount} vorhanden
+                      {area.toInsertCount > 0 ? `, ${area.toInsertCount} fehlen` : ''}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {isSupabaseDataMode() ? (
         <section className={styles.panel}>
           <h2>Cloud-Migration</h2>

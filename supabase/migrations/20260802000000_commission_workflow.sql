@@ -46,7 +46,7 @@ alter table public.commission_payment_history enable row level security;
 drop policy if exists commission_assignment_versions_select on public.commission_assignment_versions;
 create policy commission_assignment_versions_select on public.commission_assignment_versions
   for select to authenticated
-  using (public.is_admin() or sales_representative_id = public.current_user_id());
+  using (public.is_active_user() and (public.is_admin() or sales_representative_id = auth.uid()::text));
 
 drop policy if exists commission_assignment_versions_admin on public.commission_assignment_versions;
 create policy commission_assignment_versions_admin on public.commission_assignment_versions
@@ -55,7 +55,7 @@ create policy commission_assignment_versions_admin on public.commission_assignme
 drop policy if exists commission_bonus_payments_select on public.commission_bonus_payments;
 create policy commission_bonus_payments_select on public.commission_bonus_payments
   for select to authenticated
-  using (public.is_admin() or sales_representative_id = public.current_user_id());
+  using (public.is_active_user() and (public.is_admin() or sales_representative_id = auth.uid()::text));
 
 drop policy if exists commission_bonus_payments_admin on public.commission_bonus_payments;
 create policy commission_bonus_payments_admin on public.commission_bonus_payments
@@ -64,7 +64,7 @@ create policy commission_bonus_payments_admin on public.commission_bonus_payment
 drop policy if exists commission_payment_history_select on public.commission_payment_history;
 create policy commission_payment_history_select on public.commission_payment_history
   for select to authenticated
-  using (public.is_admin() or sales_representative_id = public.current_user_id());
+  using (public.is_active_user() and (public.is_admin() or sales_representative_id = auth.uid()::text));
 
 drop policy if exists commission_payment_history_admin on public.commission_payment_history;
 create policy commission_payment_history_admin on public.commission_payment_history
