@@ -12,7 +12,7 @@ import { getVisibleWizardStep } from '../../domain/bestPayComparison/salesWizard
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
-import { ADVICE_NEW_PATH, ADVICE_QUICK_PATH, adviceSessionPath } from '../../utils/routes';
+import { ADVICE_NEW_PATH, adviceSessionPath } from '../../utils/routes';
 import { formatDate } from '../../utils/format';
 import styles from './AdviceHubPage.module.css';
 
@@ -184,45 +184,24 @@ export function AdviceHubPage() {
       {recentCalculations.length > 0 ? (
         <section className={styles.section} aria-labelledby="recent-heading">
           <h2 id="recent-heading" className={styles.sectionTitle}>
-            Letzte Berechnungen
+            Aktualisierungsbedarf
           </h2>
           <ul className={styles.list}>
             {recentCalculations.map((session) => (
               <li key={session.id}>
-                <Link className={styles.sessionCard} to={`/calculator/bestpay?session=${session.id}`}>
+                <Link className={styles.sessionCard} to={adviceSessionPath(session.id)}>
                   <span className={styles.sessionTitle}>
-                    {session.customerLabel || session.title || 'Gespeicherte Berechnung'}
+                    {session.customerLabel || session.title || 'Beratung'}
                   </span>
                   <span className={styles.sessionMeta}>
-                    {formatDate(session.updatedAt)} · öffnen
+                    {formatDate(session.updatedAt)} · fortsetzen
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
-          <Link className={styles.subtleLink} to="/calculator/bestpay/history">
-            Alle gespeicherten Berechnungen
-          </Link>
         </section>
-      ) : (
-        <p className={styles.historyHint}>
-          <Link className={styles.subtleLink} to="/calculator/bestpay/history">
-            Gespeicherte Berechnungen anzeigen
-          </Link>
-        </p>
-      )}
-
-      <aside className={styles.quickAside} aria-labelledby="quick-heading">
-        <h2 id="quick-heading" className={styles.quickTitle}>
-          Schnelle Berechnung
-        </h2>
-        <p className={styles.quickText}>
-          Für eine unverbindliche Berechnung ohne vollständigen Beratungsprozess.
-        </p>
-        <Link className={styles.secondaryAction} to={ADVICE_QUICK_PATH}>
-          Schnelle Berechnung
-        </Link>
-      </aside>
+      ) : null}
 
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}

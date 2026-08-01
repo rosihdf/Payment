@@ -19,7 +19,7 @@ export interface AppRuntimeConfig {
 
 export const DEFAULT_APP_RUNTIME_CONFIG: AppRuntimeConfig = {
   environment: import.meta.env.PROD ? 'production' : 'development',
-  appVersion: '0.1.0',
+  appVersion: '1.0.0',
   persistenceMode: 'local',
   authMode: 'demo',
   demoMode: !import.meta.env.PROD,

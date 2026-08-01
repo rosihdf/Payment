@@ -54,12 +54,10 @@ describe('Routing', () => {
     expect(screen.getByRole('button', { name: 'Änderungen speichern' })).toBeEnabled();
   });
 
-  it('renders the quick calculation page with comparison layout on /advice/quick', async () => {
-    renderApp('/advice/quick');
-    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Angebot von BestPay' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Vergleichsergebnis' })).toBeInTheDocument();
+  it('leitet /advice/quick auf den Beratungshub um', async () => {
+    const router = renderApp('/advice/quick');
+    expect(await screen.findByRole('heading', { name: 'Beratung', level: 1 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/advice');
   });
 
   it('redirects /calculator to the advice hub', async () => {

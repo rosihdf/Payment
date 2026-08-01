@@ -290,9 +290,7 @@ export function resolvePrimaryNextAction(phase: SalesPipelinePhase, facts: Sales
       return {
         label: 'Abrechnung prüfen',
         href: latestSession
-          ? latestSession.entryMode === 'wizard' || latestSession.wizard.enabled
-            ? salesWizardSessionPath(latestSession.id)
-            : `/calculator/bestpay?session=${latestSession.id}`
+          ? salesWizardSessionPath(latestSession.id)
           : SALES_WIZARD_NEW_PATH,
       };
     case 'calculation':

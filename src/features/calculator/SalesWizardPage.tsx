@@ -17,7 +17,7 @@ import type { Lead } from '../../domain/lead/lead';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
-import { SALES_WORKSPACE_PATH } from '../../utils/routes';
+import { SALES_WORKSPACE_PATH, ADVICE_PATH } from '../../utils/routes';
 import styles from './SalesWizardPage.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -526,8 +526,8 @@ export function SalesWizardPage() {
                 Entwurf speichern
               </button>
             ) : null}
-            <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
-              Berechnungen
+            <Link className={styles.secondaryAction} to={ADVICE_PATH}>
+              Zur Beratung
             </Link>
             <Link className={styles.secondaryAction} to={SALES_WORKSPACE_PATH}>
               Zum Arbeitsplatz
@@ -1412,8 +1412,8 @@ export function SalesWizardPage() {
                       Pipeline / Lead öffnen
                     </Link>
                   ) : null}
-                  <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
-                    Wiedervorlage / Historie
+                  <Link className={styles.secondaryAction} to={ADVICE_PATH}>
+                    Zur Beratung
                   </Link>
                 </div>
               </article>

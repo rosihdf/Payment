@@ -1,5 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -9,6 +8,7 @@ import { calculatePaymentComparison } from '../services/paymentComparisonService
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import { formatCentsToCurrency } from '../utils/currency';
+import { ADVICE_PATH } from '../utils/routes';
 
 function renderAtRoute(initialRoute: string, currentUserId = 'user_001') {
   clearDemoDataForTests();
@@ -34,126 +34,12 @@ describe('Calculator page', () => {
     resetDemoDataForTests();
   });
 
-  it('loads the calculator page', async () => {
-    renderAtRoute('/advice/quick');
-    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Vertriebs-Wizard' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Vertriebsprozess' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zur Beratung' })).toBeInTheDocument();
-    expect(await screen.findByLabelText('BestPay-Tarif')).toBeInTheDocument();
-  });
-
-  it('shows active tariffs in the select', async () => {
-    renderAtRoute('/advice/quick');
-    const select = await screen.findByLabelText('BestPay-Tarif');
-    expect(select).toBeInTheDocument();
-    expect(within(select as HTMLElement).getAllByRole('option').length).toBeGreaterThan(0);
-  });
-
-  it('shows current contract input fields', async () => {
-    renderAtRoute('/advice/quick');
-    expect(await screen.findByLabelText('Anzahl angemieteter Terminals')).toBeInTheDocument();
-    expect(screen.getByLabelText('Vertragslaufzeit in Jahren')).toBeInTheDocument();
-    expect(screen.getByLabelText('Mietkosten je Terminal monatlich')).toBeInTheDocument();
-  });
-
-  it('updates result when terminal count changes', async () => {
-    const user = userEvent.setup();
-    renderAtRoute('/advice/quick');
-
-    await screen.findByRole('heading', { name: 'Ergebnisübersicht' });
-
-    const terminalField = screen.getByLabelText('Anzahl angemieteter Terminals');
-    await user.clear(terminalField);
-    await user.type(terminalField, '2');
-
+  it('leitet parallelen Schnellrechner auf Beratung um', async () => {
+    const router = renderAtRoute('/advice/quick');
     await waitFor(() => {
-      expect(screen.getByText('Bisherige Kosten')).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(ADVICE_PATH);
     });
-  });
-
-  it('updates result when tariff changes', async () => {
-    const user = userEvent.setup();
-    renderAtRoute('/advice/quick');
-
-    const select = await screen.findByLabelText('BestPay-Tarif');
-    const options = within(select as HTMLElement).getAllByRole('option');
-    if (options.length < 2) {
-      return;
-    }
-
-    await user.selectOptions(select, options[1]!);
-    expect(await screen.findByRole('heading', { name: 'Ergebnisübersicht' })).toBeInTheDocument();
-  });
-
-  it('shows savings overview for default excel current values', async () => {
-    renderAtRoute('/advice/quick');
-    expect(await screen.findByRole('heading', { name: 'Ergebnisübersicht' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        level: 3,
-        name: /Monatliche (Ersparnis|Mehrkosten)/,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Jährliche (Ersparnis|Mehrkosten)/)).toBeInTheDocument();
-    expect(screen.getByText(/(Ersparnis|Mehrkosten) Vertragslaufzeit/)).toBeInTheDocument();
-  });
-
-  it('shows cost breakdown for both sides', async () => {
-    renderAtRoute('/advice/quick');
-    expect(await screen.findByText('Bisherige Kosten')).toBeInTheDocument();
-    expect(screen.getByText('BestPay-Kosten')).toBeInTheDocument();
-    expect(screen.getAllByText('Gesamtkosten monatlich').length).toBeGreaterThan(0);
-  });
-
-  it('resets inputs to defaults', async () => {
-    const user = userEvent.setup();
-    renderAtRoute('/advice/quick');
-
-    const terminalField = await screen.findByLabelText('Anzahl angemieteter Terminals');
-    await user.clear(terminalField);
-    await user.type(terminalField, '4');
-    await user.click(screen.getByRole('button', { name: 'Eingaben zurücksetzen' }));
-
-    expect(terminalField).toHaveValue('1');
-  });
-
-  it('shows mehrkosten label for negative savings', async () => {
-    renderAtRoute('/advice/quick');
-
-    const terminalField = await screen.findByLabelText('Anzahl angemieteter Terminals');
-    fireEvent.change(terminalField, { target: { value: '20' } });
-
-    await waitFor(() => {
-      const headings = screen.queryAllByRole('heading', { level: 3 });
-      const labels = headings.map((heading) => heading.textContent);
-      expect(
-        labels.some((label) => label?.includes('Mehrkosten') || label?.includes('Ersparnis')),
-      ).toBe(true);
-    });
-  });
-
-  it('shows empty state when no active tariffs exist', async () => {
-    clearDemoDataForTests();
-    resetDemoDataForTests();
-    writeStorageItem(STORAGE_KEYS.tariffs, []);
-    writeStorageItem(STORAGE_KEYS.currentUserId, 'user_004');
-
-    const memoryRouter = createMemoryRouter(appRoutes, {
-      initialEntries: ['/advice/quick'],
-    });
-
-    render(
-      <AppProviders>
-        <RouterProvider router={memoryRouter} />
-      </AppProviders>,
-    );
-
-    expect(await screen.findByText('Keine aktiven Tarife verfügbar')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Zu Tarifen' })).toHaveAttribute(
-      'href',
-      '/admin/catalog?tab=tariffs',
-    );
+    expect(await screen.findByRole('heading', { name: 'Beratung', level: 1 })).toBeInTheDocument();
   });
 });
 

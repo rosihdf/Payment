@@ -52,14 +52,11 @@ describe('Aufräumblock 3 – Beratungshub', () => {
     );
   });
 
-  it('stellt Schnelle Berechnung untergeordnet dar', async () => {
+  it('stellt keinen parallelen Schnellrechner mehr dar', async () => {
     renderAtRoute(ADVICE_PATH);
-    await screen.findByRole('heading', { name: 'Schnelle Berechnung', level: 2 });
-    const quick = screen.getByRole('link', { name: 'Schnelle Berechnung' });
-    expect(quick).toHaveAttribute('href', ADVICE_QUICK_PATH);
-    expect(
-      screen.getByText(/unverbindliche Berechnung ohne vollständigen Beratungsprozess/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Schnelle Berechnung' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Schnelle Berechnung' })).not.toBeInTheDocument();
   });
 
   it('leitet /calculator mit Query-Parametern auf /advice um', async () => {
@@ -134,17 +131,15 @@ describe('Aufräumblock 3 – Beratungshub', () => {
     expect(screen.getByRole('button', { name: 'Ohne Kunde rechnen' })).toBeInTheDocument();
   });
 
-  it('Historie bleibt als Deep Link erreichbar', async () => {
-    renderAtRoute('/calculator/bestpay/history');
-    expect(
-      await screen.findByRole('heading', { name: 'Gespeicherte BestPay-Berechnungen' }),
-    ).toBeInTheDocument();
-  });
+  it('leitet parallele Rechner-Deep-Links auf /advice um', async () => {
+    const historyRouter = renderAtRoute('/calculator/bestpay/history');
+    await waitFor(() => {
+      expect(historyRouter.state.location.pathname).toBe(ADVICE_PATH);
+    });
 
-  it('Schnellberechnung nutzt vorhandene einfache Vergleichslogik', async () => {
-    renderAtRoute(ADVICE_QUICK_PATH);
-    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
-    expect(await screen.findByLabelText('BestPay-Tarif')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
+    const quickRouter = renderAtRoute(ADVICE_QUICK_PATH);
+    await waitFor(() => {
+      expect(quickRouter.state.location.pathname).toBe(ADVICE_PATH);
+    });
   });
 });

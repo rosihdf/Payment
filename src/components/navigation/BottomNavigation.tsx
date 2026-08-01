@@ -16,6 +16,7 @@ function NavIcon({ icon }: { icon: string }) {
     offers: '◈',
     calculator: '∑',
     products: '▣',
+    admin: '⚙',
     profile: '◉',
   };
 

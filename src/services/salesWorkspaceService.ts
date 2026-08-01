@@ -618,10 +618,7 @@ export class SalesWorkspaceService {
             id: session.id,
             title: session.title || session.customerLabel || session.id,
             subtitle: 'Berechnung',
-            href:
-              session.entryMode === 'wizard' || session.wizard.enabled
-                ? salesWizardSessionPath(session.id)
-                : `/calculator/bestpay?session=${session.id}`,
+            href: salesWizardSessionPath(session.id),
           });
         }
       }

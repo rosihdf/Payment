@@ -41,8 +41,12 @@ export function RoleSwitcher() {
   if (!config.demoMode) {
     return (
       <div className={styles.switcher}>
-        <span className={styles.label}>Benutzer</span>
-        <span className={styles.demoHint}>{currentUser?.name ?? '—'}</span>
+        <span className={styles.label}>Angemeldet</span>
+        <span className={styles.demoHint}>
+          {currentUser
+            ? `${currentUser.name} (${USER_ROLE_LABELS[currentUser.role]})`
+            : '—'}
+        </span>
         <Link className={styles.profileLink} to="/profile">
           Profil
         </Link>

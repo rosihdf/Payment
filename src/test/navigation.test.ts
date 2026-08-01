@@ -9,26 +9,34 @@ import {
 import { ADVICE_PATH, LEGACY_SALES_WIZARD_PATH } from '../utils/routes';
 
 describe('Navigation role filtering', () => {
-  it('enthält nur die vereinfachte Hauptnavigation ohne Profil', () => {
+  it('enthält die Zielnavigation inkl. Profil', () => {
     expect(SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
       'Arbeitsplatz',
       'Kunden',
       'Beratung',
       'Verwaltung',
+      'Profil',
     ]);
     expect(MOBILE_NAV_ITEMS.map((item) => item.label)).toEqual([
       'Arbeitsplatz',
       'Kunden',
       'Beratung',
+      'Verwaltung',
+      'Profil',
     ]);
-    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(false);
-    expect(MOBILE_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(false);
+    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(true);
+    expect(MOBILE_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(true);
   });
 
   it('hides admin items for field service role', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
     expect(items.some((item) => item.to === '/admin')).toBe(false);
-    expect(items.map((item) => item.label)).toEqual(['Arbeitsplatz', 'Kunden', 'Beratung']);
+    expect(items.map((item) => item.label)).toEqual([
+      'Arbeitsplatz',
+      'Kunden',
+      'Beratung',
+      'Profil',
+    ]);
   });
 
   it('shows admin items for admin role', () => {
@@ -49,13 +57,12 @@ describe('Navigation role filtering', () => {
     expect(labels).not.toContain('Aktivierungen');
     expect(labels).not.toContain('Rechner');
     expect(labels).not.toContain('Produkte');
-    expect(labels).not.toContain('Profil');
     expect(routes).toContain(ADVICE_PATH);
+    expect(routes).toContain('/profile');
     expect(routes).not.toContain('/offers');
     expect(routes).not.toContain('/contracts');
     expect(routes).not.toContain('/activations');
     expect(routes).not.toContain('/products');
-    expect(routes).not.toContain('/profile');
     expect(routes).not.toContain(LEGACY_SALES_WIZARD_PATH);
     expect(routes).not.toContain('/calculator');
   });

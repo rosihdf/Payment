@@ -101,7 +101,7 @@ describe('Aufräumblock 2 – Rollen vereinfacht', () => {
     expect(options.every((text) => !text.includes('(Prüfer)'))).toBe(true);
     expect(options.every((text) => !text.includes('(Nur Lesen)'))).toBe(true);
 
-    expect(screen.getByRole('link', { name: 'Profil' })).toHaveAttribute('href', '/profile');
+    expect(screen.getAllByRole('link', { name: 'Profil' })[0]).toHaveAttribute('href', '/profile');
   });
 
   it('Außendienst sieht keine Verwaltung, Administrator schon', () => {
@@ -113,9 +113,9 @@ describe('Aufräumblock 2 – Rollen vereinfacht', () => {
     expect(hasPermission('admin', 'admin.access')).toBe(true);
   });
 
-  it('Profil ist nicht in Desktop- oder Mobile-Navigation', () => {
-    expect(SIDEBAR_NAV_ITEMS.some((item) => item.label === 'Profil')).toBe(false);
-    expect(MOBILE_NAV_ITEMS.some((item) => item.label === 'Profil')).toBe(false);
+  it('Profil ist in Desktop- und Mobile-Navigation', () => {
+    expect(SIDEBAR_NAV_ITEMS.some((item) => item.label === 'Profil')).toBe(true);
+    expect(MOBILE_NAV_ITEMS.some((item) => item.label === 'Profil')).toBe(true);
   });
 
   it('Rollen-Seite zeigt genau zwei Rollen', async () => {

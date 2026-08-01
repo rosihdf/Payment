@@ -133,12 +133,13 @@ Unterbereiche:
 - Keine BestPay-/Acquirer-/Carrier-/Zahlungs-API
 - Keine Kartendaten (PAN/CVV/Passwörter) in Stores
 
-## Bekannte Grenzen
+## Bekannte Grenzen (Version 1.0)
 
-- Keine echte Server-API, OAuth, Cloud-Sync oder Mandantentrennung
+- Kernbereiche (`profiles`, `leads`, `tariffs`, `products`) und Auth laufen über Supabase; Operativdomänen (Angebote, Verträge, Aktivierungen, BestPay-Sessions, Aufgaben/Aktivitäten, Provision/Freigaben/Vorlagen/Audit) bleiben LocalStorage bis zur Migration
+- Admin-Users-API läuft über Cloudflare Worker mit Service-Role-Secret (nicht im Frontend)
 - Keine automatischen externen Backups und kein transaktionaler Restore
 - Keine granulare Price-Book-Admin-UI jenseits Tarif-/Produkt-Hubs
 - Kein E-Mail-Vorlagenversand
 - Freigabesimulation und Vorlagenpflege sind lokal administrierbar; Angebotsworkflow nutzt weiter die bestehende Approval-Auswertung
 - Rechtliche Aufbewahrungsfristen sind konfigurierbar/offen, nicht automatisch umgesetzt
-- Browserdatenlöschung kann lokale Daten entfernen – regelmäßige Sicherung empfohlen
+- Browserdatenlöschung kann lokale Operativdaten entfernen – regelmäßige Sicherung empfohlen

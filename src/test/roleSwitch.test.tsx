@@ -45,8 +45,8 @@ describe('Role switching', () => {
     await user.selectOptions(roleSelect, 'user_004');
 
     expect(await screen.findByRole('option', { name: 'Michael Weber (Administrator)' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Verwaltung', hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Profil' })).toHaveAttribute('href', '/profile');
+    expect(screen.getAllByRole('link', { name: 'Verwaltung', hidden: true }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Profil' })[0]).toHaveAttribute('href', '/profile');
   });
 
   it('persists selected admin user in role switcher', async () => {

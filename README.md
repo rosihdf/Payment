@@ -12,9 +12,11 @@ Workflow-Mutationen erfolgen über `OfferWorkflowService`. Versionen werden bei 
 
 ## B04: Administration und Produktivbetrieb
 
-Unter `/admin` bündelt die Anwendung zentrale Stammdaten- und Betriebsfunktionen: Benutzer, Rollen/Rechte, Tarife/Preise, Produkte/Hardware, Provision, Freigaberegeln, Vorlagen, Export/Sicherung, Audit und Systemstatus. Rechte werden zentral über das Permission-Modell geprüft; der Demo-Benutzerwechsel ist nur im Demo-Modus verfügbar.
+Unter `/admin` bündelt die Anwendung zentrale Stammdaten- und Betriebsfunktionen: Benutzer, Rollen/Rechte, Tarife/Preise, Produkte/Hardware, Provision, Freigaberegeln, Vorlagen, Export/Sicherung, Audit und Systemstatus. Rechte werden zentral über das Permission-Modell geprüft.
 
-Standard ist der **lokale Datenmodus** (Browser-`localStorage`). Optional aktiviert `VITE_DATA_MODE=supabase` den ersten produktiven Cloud-Block: Supabase Auth sowie Repositories für `profiles`, `leads`, `tariffs` und `products` (finale Instanz `vohnqrftkuefkugabcob`). Alle übrigen Fachbereiche bleiben lokal. Es gibt keinen stillen LocalStorage-Fallback für die vier Kernbereiche. Deployment: Cloudflare Worker `amrtech-payment` (SPA-Assets + täglicher Keepalive). Gesamtsicherungen exportieren strukturierte JSON-Daten ohne Binärdateien, Secrets oder OCR-Bilder.
+**Version 1.0 (Produktion):** `VITE_DATA_MODE=supabase` ist Pflicht. Supabase Auth (keine Demo-User, kein Rollenumschalter). Kernrepositories für `profiles`, `leads`, `tariffs` und `products` auf der finalen Instanz `vohnqrftkuefkugabcob`. Angebote, Verträge, Aktivierungen und übrige Operativdaten bleiben bewusst in LocalStorage bis zur späteren Migration – keine doppelte Wahrheit in den vier Kernbereichen. Deployment: Cloudflare Worker `amrtech-payment` (SPA + Keepalive + Admin-Users-API).
+
+Lokalentwicklung kann weiter `VITE_DATA_MODE=local` nutzen (Demo-Benutzerwechsel).
 
 ## C: Vertragsmanagement
 
@@ -140,30 +142,31 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 
 ## Routen
 
+Hauptnavigation Version 1.0: **Arbeitsplatz · Kunden · Beratung · Verwaltung (Admin) · Profil**
+
 | Route | Beschreibung |
 |-------|--------------|
-| `/` | Dashboard / Weiterleitung Arbeitsplatz |
+| `/` | Weiterleitung Arbeitsplatz |
+| `/login` | Anmeldung (Supabase Auth in Produktion) |
 | `/leads` | Kundenübersicht |
 | `/leads/new` | Neuer Kunde |
 | `/leads/:id` | Kundenakte |
-| `/advice` | Beratung (Hub + Beratungsprozess) |
-| `/advice/quick` | Schnelle Berechnung (untergeordnet) |
-| `/calculator` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
-| `/calculator/wizard` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
-| `/sales` | Arbeitsplatz (Tagesarbeit) |
-| `/sales/wizard` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
-| `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
-| `/calculator/bestpay/history` | Gespeicherte BestPay-Berechnungen (A11.5) |
-| `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
-| `/offers` | Angebotsübersicht (Admin und Außendienst) |
+| `/advice` | Einziger Beratungseinstieg (Hub + Beratungsprozess) |
+| `/advice/quick` | Redirect → `/advice` |
+| `/calculator`, `/calculator/*`, `/sales/wizard` | Legacy-Redirect → `/advice` |
+| `/sales` | Arbeitsplatz |
+| `/products` | Redirect → `/admin/catalog?tab=products` |
+| `/offers` | Angebotsübersicht (Deep-Link, kein Menüpunkt) |
 | `/offers/new` | Neues Angebot anlegen |
 | `/offers/:id` | Angebotsdetail |
 | `/offers/:id/edit` | Angebot bearbeiten (nur Entwürfe) |
 | `/offers/:id/preview` | PDF-Vorschau |
 | `/offers/:offerId/documents/:documentId` | PDF-Dokumentdetail |
-| `/contracts` | Vertragsübersicht |
+| `/contracts` | Vertragsübersicht (Deep-Link) |
 | `/contracts/:contractId` | Vertragsdetail |
-| `/admin` | Administration (Übersicht, Benutzer, Stammdaten, Betrieb) |
+| `/activations` | Aktivierungsübersicht (Deep-Link) |
+| `/activations/:activationId` | Aktivierungsdetail |
+| `/admin` | Verwaltung (Übersicht, Benutzer, Stammdaten, Betrieb) |
 | `/admin/users` | Benutzerverwaltung |
 | `/admin/roles` | Rollen und Rechte |
 | `/admin/catalog` | Produkte & Konditionen (Tarife, Produkte, Preisregeln) |

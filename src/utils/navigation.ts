@@ -11,13 +11,16 @@ export interface NavItem {
 }
 
 /**
- * Vereinfachte operative Navigation.
- * Fachrouten (/offers, /contracts, /activations, Advice-Deep-Links) bleiben erreichbar.
+ * Zielnavigation Version 1.0:
+ * Arbeitsplatz · Kunden · Beratung · Verwaltung (Admin) · Profil
+ * Fach-Deep-Links (/offers, /contracts, /activations) bleiben erreichbar, ohne eigenen Menüpunkt.
  */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
   { to: '/leads', label: 'Kunden', icon: 'leads' },
   { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
+  { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
+  { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
 
 export const SIDEBAR_NAV_ITEMS: NavItem[] = [
@@ -25,6 +28,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/leads', label: 'Kunden', icon: 'leads' },
   { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
   { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
+  { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
 
 export const OPERATIVE_SIDEBAR_NAV_LABELS = ['Arbeitsplatz', 'Kunden', 'Beratung'] as const;
@@ -43,7 +47,9 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
     return (
       pathname === '/sales' ||
       pathname === '/' ||
-      (pathname.startsWith('/sales/') && pathname !== LEGACY_SALES_WIZARD_PATH && !pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`))
+      (pathname.startsWith('/sales/') &&
+        pathname !== LEGACY_SALES_WIZARD_PATH &&
+        !pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`))
     );
   }
   if (item.to === '/leads') {

@@ -2,13 +2,10 @@ import type { RouteObject } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AdviceEntry } from '../features/calculator/AdviceEntry';
-import { CalculatorPage } from '../features/calculator/CalculatorPage';
-import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
-import { BestPayComparisonHistoryPage } from '../features/calculator/BestPayComparisonHistoryPage';
 import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
 import { PreserveSearchRedirect } from './PreserveSearchRedirect';
 import { SalesWorkspacePage } from '../features/sales/SalesWorkspacePage';
-import { ADVICE_PATH } from '../utils/routes';
+import { ADVICE_PATH, adminCatalogPath } from '../utils/routes';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
 import { OfferDetailPage } from '../features/offer/OfferDetailPage';
@@ -42,7 +39,6 @@ import { AdminAuditPage } from '../features/admin/AdminAuditPage';
 import { AdminSystemPage } from '../features/admin/AdminSystemPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
-import { ProductsPage } from '../features/product/ProductsPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { EditTariffPage } from '../features/tariff/EditTariffPage';
 import { NewTariffPage } from '../features/tariff/NewTariffPage';
@@ -69,7 +65,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/:id', element: <LeadDetailPage /> },
       { path: 'sales', element: <SalesWorkspacePage /> },
       { path: 'advice', element: <AdviceEntry /> },
-      { path: 'advice/quick', element: <CalculatorPage /> },
+      { path: 'advice/quick', element: <Navigate to={ADVICE_PATH} replace /> },
       {
         path: 'sales/wizard',
         element: <PreserveSearchRedirect to={ADVICE_PATH} />,
@@ -79,8 +75,8 @@ export const appRoutes: RouteObject[] = [
         element: <PreserveSearchRedirect to={ADVICE_PATH} />,
       },
       { path: 'calculator/wizard', element: <CalculatorWizardRedirect /> },
-      { path: 'calculator/bestpay/history', element: <BestPayComparisonHistoryPage /> },
-      { path: 'calculator/bestpay', element: <BestPayComparisonPage /> },
+      { path: 'calculator/bestpay/history', element: <Navigate to={ADVICE_PATH} replace /> },
+      { path: 'calculator/bestpay', element: <PreserveSearchRedirect to={ADVICE_PATH} /> },
       { path: 'offers', element: <OffersPage /> },
       { path: 'offers/new', element: <NewOfferPage /> },
       { path: 'offers/:id/edit', element: <EditOfferPage /> },
@@ -91,7 +87,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'contracts/:contractId', element: <ContractDetailPage /> },
       { path: 'activations', element: <ActivationsPage /> },
       { path: 'activations/:activationId', element: <ActivationDetailPage /> },
-      { path: 'products', element: <ProductsPage /> },
+      { path: 'products', element: <Navigate to={adminCatalogPath('products')} replace /> },
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },
       { path: 'admin/roles', element: <AdminRolesPage /> },

@@ -93,7 +93,7 @@ describe('B01 Beratung Navigation', () => {
     const startLinks = screen.getAllByRole('link', { name: 'Beratung starten' });
     expect(startLinks).toHaveLength(1);
     expect(startLinks[0]).toHaveAttribute('href', SALES_WIZARD_NEW_PATH);
-    expect(screen.getByRole('link', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Schnelle Berechnung' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Neue Berechnung' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Zum Vertriebsprozess' })).not.toBeInTheDocument();
   });
