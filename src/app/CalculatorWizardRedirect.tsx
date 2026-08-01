@@ -1,7 +1,7 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { SALES_WIZARD_PATH } from '../utils/routes';
+import { PreserveSearchRedirect } from './PreserveSearchRedirect';
+import { ADVICE_PATH } from '../utils/routes';
 
+/** Legacy /calculator/wizard → /advice (Query erhalten). */
 export function CalculatorWizardRedirect() {
-  const location = useLocation();
-  return <Navigate to={`${SALES_WIZARD_PATH}${location.search}`} replace />;
+  return <PreserveSearchRedirect to={ADVICE_PATH} />;
 }

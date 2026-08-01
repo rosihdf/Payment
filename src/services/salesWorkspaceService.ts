@@ -4,6 +4,11 @@ import type { Lead } from '../domain/lead/lead';
 import type { Offer } from '../domain/offer/offer';
 import type { SalesActivity } from '../domain/salesWorkspace/salesActivity';
 import {
+  CUSTOMER_STAND_LABELS,
+  deriveCustomerPrimaryAction,
+  deriveCustomerStand,
+} from '../domain/salesWorkspace/customerRecordView';
+import {
   deriveSalesPipelinePhase,
   resolvePrimaryNextAction,
   SALES_PIPELINE_PHASE_LABELS,
@@ -16,10 +21,17 @@ import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
 import type { SalesActivityRepository } from '../repositories/interfaces/SalesActivityRepository';
 import type { SalesTaskRepository } from '../repositories/interfaces/SalesTaskRepository';
+import { normalizeActivationBlockers, normalizeActivationCases } from '../domain/activation/normalizeActivation';
+import { normalizeContracts } from '../domain/contract/normalizeContract';
+import type { CustomerPrimaryAction } from '../domain/salesWorkspace/customerRecordView';
 import { salesWizardSessionPath } from '../utils/routes';
 import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
 import { readBestPayComparisonSessions } from './bestPayComparisonStorageMigration';
 import type { SalesActivityService } from './salesActivityService';
+import {
+  buildSalesDayWorkspaceSections,
+  type SalesDayWorkspaceSections,
+} from './salesDayWorkspace';
 import type { SalesTaskService } from './salesTaskService';
 import { dueBucketOf, endOfDayIso, startOfDayIso } from './salesTaskService';
 
@@ -39,6 +51,7 @@ export interface SalesCaseCard {
   contactName: string;
   phase: SalesPipelinePhase;
   phaseLabel: string;
+  standLabel: string;
   ownerUserId: string | null;
   lastActivityAt: string | null;
   nextTaskTitle: string | null;
@@ -51,7 +64,10 @@ export interface SalesCaseCard {
   expectedValueCents: number | null;
   nextActionLabel: string;
   nextActionHref: string | null;
+  warning: string | null;
   staleCalculation: boolean;
+  primaryKind: CustomerPrimaryAction['kind'];
+  isHardBlocked: boolean;
 }
 
 export interface SalesWorkspaceMetrics {
@@ -68,6 +84,9 @@ export interface SalesWorkspaceMetrics {
 export interface SalesWorkspaceView {
   scope: SalesWorkspaceScope;
   canUseTeamScope: boolean;
+  /** Tagesarbeit – sichtbarer Hauptinhalt des Arbeitsplatzes. */
+  dayWork: SalesDayWorkspaceSections;
+  /** Intern / Regression – nicht mehr im Hauptfluss der UI. */
   metrics: SalesWorkspaceMetrics;
   pipeline: Record<SalesPipelinePhase, SalesCaseCard[]>;
   unassignedSessions: SalesCaseCard[];
@@ -221,21 +240,34 @@ export class SalesWorkspaceService {
       }
     }
 
+    const contracts = normalizeContracts(readStorageItem(STORAGE_KEYS.contracts) ?? []);
+    const activations = normalizeActivationCases(readStorageItem(STORAGE_KEYS.activationCases) ?? []);
+    const activatedContractIds = new Set(activations.map((entry) => entry.contractId));
+
     for (const offer of offers) {
-      if (offer.workflowStatus === 'accepted') {
-        await this.taskService.ensureAutomaticTask(
-          {
-            title: 'Aktivierung prüfen',
-            type: 'check_activation',
-            priority: 'normal',
-            dueAt: endOfDayIso(new Date(Date.now() + 3 * 86400000)),
-            leadId: offer.leadId,
-            offerId: offer.id,
-            sourceKey: `auto:prepare_activation:${offer.id}`,
-          },
-          context,
-        );
+      if (!['accepted', 'activation_pending'].includes(offer.workflowStatus)) {
+        continue;
       }
+      const contract = contracts.find((entry) => entry.sourceOfferId === offer.id);
+      if (!contract || activatedContractIds.has(contract.id)) {
+        continue;
+      }
+      if (!['preparation', 'activation'].includes(contract.status)) {
+        continue;
+      }
+      await this.taskService.ensureAutomaticTask(
+        {
+          title: 'Aktivierung starten',
+          type: 'start_activation',
+          priority: 'normal',
+          dueAt: endOfDayIso(new Date(Date.now() + 3 * 86400000)),
+          leadId: offer.leadId,
+          offerId: offer.id,
+          contractId: contract.id,
+          sourceKey: `auto:start_activation:${contract.id}`,
+        },
+        context,
+      );
     }
   }
 
@@ -294,6 +326,18 @@ export class SalesWorkspaceService {
     ) as Record<SalesPipelinePhase, SalesCaseCard[]>;
 
     const cards: SalesCaseCard[] = [];
+    const allContracts = normalizeContracts(readStorageItem(STORAGE_KEYS.contracts) ?? []);
+    const allActivations = normalizeActivationCases(
+      readStorageItem(STORAGE_KEYS.activationCases) ?? [],
+    );
+    const allBlockers = normalizeActivationBlockers(
+      readStorageItem(STORAGE_KEYS.activationBlockers) ?? [],
+    );
+    const hardBlockedActivationIds = new Set(
+      allBlockers
+        .filter((blocker) => blocker.status === 'open' && blocker.severity === 'hard')
+        .map((blocker) => blocker.activationId),
+    );
 
     for (const lead of leads) {
       const leadSessions = sessions.filter((session) => session.leadId === lead.id);
@@ -327,7 +371,37 @@ export class SalesWorkspaceService {
         ),
       };
       const phase = deriveSalesPipelinePhase(facts);
-      const next = resolvePrimaryNextAction(phase, facts);
+      const leadContracts = allContracts
+        .filter((contract) => contract.leadId === lead.id)
+        .map((contract) => ({
+          id: contract.id,
+          contractNumber: contract.contractNumber,
+          status: contract.status,
+          startDate: contract.startDate,
+          endDate: contract.endDate,
+          tariffName: contract.tariffName,
+        }));
+      const leadActivations = allActivations
+        .filter((activation) => activation.leadId === lead.id)
+        .map((activation) => ({
+          id: activation.id,
+          activationNumber: activation.activationNumber,
+          status: activation.status,
+          progressPercent: activation.progressPercent,
+          nextStep: activation.nextStep,
+          openBlockerCount: activation.openBlockerCount,
+          contractId: activation.contractId,
+        }));
+      const customerFacts = {
+        lead,
+        sessions: leadSessions,
+        offers: leadOffers,
+        contracts: leadContracts,
+        activations: leadActivations,
+        openTasks: leadTasks.filter((task) => task.status === 'open' || task.status === 'in_progress'),
+      };
+      const stand = deriveCustomerStand(customerFacts);
+      const primary = deriveCustomerPrimaryAction(customerFacts);
       const nextTask =
         leadTasks
           .filter((task) => task.status === 'open' || task.status === 'in_progress')
@@ -340,6 +414,12 @@ export class SalesWorkspaceService {
         b.updatedAt.localeCompare(a.updatedAt),
       )[0];
       const latestOffer = [...leadOffers].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      const hasHardActivationBlocker = leadActivations.some(
+        (activation) =>
+          hardBlockedActivationIds.has(activation.id) || activation.status === 'blocked',
+      );
+      const hasBlockingApproval = Boolean(facts.approvalBlocked);
+      const isHardBlocked = hasHardActivationBlocker || hasBlockingApproval;
 
       const card: SalesCaseCard = {
         id: lead.id,
@@ -349,19 +429,31 @@ export class SalesWorkspaceService {
         contactName: contactName(lead),
         phase,
         phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
+        standLabel: CUSTOMER_STAND_LABELS[stand],
         ownerUserId: lead.assignedSalesUserId,
         lastActivityAt: lastActivity?.occurredAt ?? lead.updatedAt,
-        nextTaskTitle: nextTask?.title ?? null,
-        nextTaskDueAt: nextTask?.dueAt ?? lead.nextFollowUpAt,
-        isOverdue: nextTask ? this.taskService.isOverdue(nextTask) : false,
+        nextTaskTitle: primary.label,
+        nextTaskDueAt: primary.dueAt ?? nextTask?.dueAt ?? lead.nextFollowUpAt,
+        isOverdue: primary.kind === 'overdue_follow_up',
         sessionId: latestSession?.id ?? null,
         wizardStep: latestSession?.wizard.enabled ? latestSession.wizard.currentStep : null,
         offerId: latestOffer?.id ?? null,
         offerNumber: latestOffer?.offerNumber ?? null,
         expectedValueCents: null,
-        nextActionLabel: next.label,
-        nextActionHref: next.href,
+        nextActionLabel: primary.label,
+        nextActionHref: `/leads/${lead.id}`,
+        warning: isHardBlocked
+          ? hasHardActivationBlocker
+            ? 'Harter Blocker'
+            : 'Freigabe blockiert'
+          : primary.warning && primary.warning !== 'Überfällig'
+            ? primary.warning
+            : primary.kind === 'overdue_follow_up'
+              ? 'Überfällig'
+              : null,
         staleCalculation: Boolean(latestSession?.result?.stale),
+        primaryKind: primary.kind,
+        isHardBlocked,
       };
       cards.push(card);
       pipeline[phase].push(card);
@@ -390,6 +482,7 @@ export class SalesWorkspaceService {
         };
         const phase = deriveSalesPipelinePhase(facts);
         const next = resolvePrimaryNextAction(phase, facts);
+        const isHardBlocked = Boolean(facts.approvalBlocked);
         return {
           id: session.id,
           kind: 'unassigned' as const,
@@ -398,9 +491,10 @@ export class SalesWorkspaceService {
           contactName: 'Nicht zugeordnet',
           phase,
           phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
+          standLabel: 'Beratung',
           ownerUserId: session.createdByUserId,
           lastActivityAt: session.updatedAt,
-          nextTaskTitle: null,
+          nextTaskTitle: next.label,
           nextTaskDueAt: null,
           isOverdue: false,
           sessionId: session.id,
@@ -410,7 +504,10 @@ export class SalesWorkspaceService {
           expectedValueCents: null,
           nextActionLabel: next.label,
           nextActionHref: next.href,
+          warning: isHardBlocked ? 'Freigabe blockiert' : null,
           staleCalculation: Boolean(session.result?.stale),
+          primaryKind: isHardBlocked ? ('blocker' as const) : ('continue_advice' as const),
+          isHardBlocked,
         };
       });
 
@@ -541,9 +638,15 @@ export class SalesWorkspaceService {
       }
     }
 
+    const dayWork = buildSalesDayWorkspaceSections({
+      cards,
+      tasks: openTasks,
+    });
+
     return {
       scope,
       canUseTeamScope,
+      dayWork,
       metrics,
       pipeline,
       unassignedSessions,
@@ -569,6 +672,9 @@ export class SalesWorkspaceService {
     };
   }
 
+  /**
+   * Leseansicht für die Kundenakte – ohne syncAutomaticTasks / ohne Side Effects.
+   */
   async getLeadWorkspaceSummary(
     leadId: string,
     context: SalesWorkspaceUserContext,
@@ -591,10 +697,6 @@ export class SalesWorkspaceService {
       return null;
     }
 
-    const view = await this.getWorkspaceView(context, { scope });
-    const card = Object.values(view.pipeline)
-      .flat()
-      .find((entry) => entry.leadId === leadId);
     const tasks = (await this.taskRepository.getAll()).filter((task) => task.leadId === leadId);
     const openTasks = tasks.filter((task) => task.status === 'open' || task.status === 'in_progress');
     const activities = (await this.activityRepository.getAll())
@@ -603,10 +705,20 @@ export class SalesWorkspaceService {
       .slice(0, 30);
     const sessions = readBestPayComparisonSessions().filter((session) => session.leadId === leadId);
     const offers = (await this.offerRepository.getAll()).filter((offer) => offer.leadId === leadId);
+    const phase = deriveSalesPipelinePhase({
+      lead,
+      sessions,
+      offers,
+      tasks: openTasks,
+      activities,
+      commissionCaseStatus: null,
+      approvalRequired: false,
+      approvalBlocked: false,
+    });
 
     return {
-      phase: card?.phase ?? 'new',
-      phaseLabel: card?.phaseLabel ?? SALES_PIPELINE_PHASE_LABELS.new,
+      phase,
+      phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
       openTasks,
       nextTask: openTasks.sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))[0] ?? null,
       timeline: activities,

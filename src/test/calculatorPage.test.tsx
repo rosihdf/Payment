@@ -35,25 +35,23 @@ describe('Calculator page', () => {
   });
 
   it('loads the calculator page', async () => {
-    renderAtRoute('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
+    renderAtRoute('/advice/quick');
+    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Vertriebs-Wizard' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Vertriebsprozess' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Gespeicherte Vergleiche' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Schnellvergleich' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zur Beratung' })).toBeInTheDocument();
     expect(await screen.findByLabelText('BestPay-Tarif')).toBeInTheDocument();
   });
 
   it('shows active tariffs in the select', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
     const select = await screen.findByLabelText('BestPay-Tarif');
     expect(select).toBeInTheDocument();
     expect(within(select as HTMLElement).getAllByRole('option').length).toBeGreaterThan(0);
   });
 
   it('shows current contract input fields', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
     expect(await screen.findByLabelText('Anzahl angemieteter Terminals')).toBeInTheDocument();
     expect(screen.getByLabelText('Vertragslaufzeit in Jahren')).toBeInTheDocument();
     expect(screen.getByLabelText('Mietkosten je Terminal monatlich')).toBeInTheDocument();
@@ -61,7 +59,7 @@ describe('Calculator page', () => {
 
   it('updates result when terminal count changes', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
 
     await screen.findByRole('heading', { name: 'Ergebnisübersicht' });
 
@@ -76,7 +74,7 @@ describe('Calculator page', () => {
 
   it('updates result when tariff changes', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
 
     const select = await screen.findByLabelText('BestPay-Tarif');
     const options = within(select as HTMLElement).getAllByRole('option');
@@ -89,7 +87,7 @@ describe('Calculator page', () => {
   });
 
   it('shows savings overview for default excel current values', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
     expect(await screen.findByRole('heading', { name: 'Ergebnisübersicht' })).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
@@ -102,7 +100,7 @@ describe('Calculator page', () => {
   });
 
   it('shows cost breakdown for both sides', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
     expect(await screen.findByText('Bisherige Kosten')).toBeInTheDocument();
     expect(screen.getByText('BestPay-Kosten')).toBeInTheDocument();
     expect(screen.getAllByText('Gesamtkosten monatlich').length).toBeGreaterThan(0);
@@ -110,7 +108,7 @@ describe('Calculator page', () => {
 
   it('resets inputs to defaults', async () => {
     const user = userEvent.setup();
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
 
     const terminalField = await screen.findByLabelText('Anzahl angemieteter Terminals');
     await user.clear(terminalField);
@@ -121,7 +119,7 @@ describe('Calculator page', () => {
   });
 
   it('shows mehrkosten label for negative savings', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
 
     const terminalField = await screen.findByLabelText('Anzahl angemieteter Terminals');
     fireEvent.change(terminalField, { target: { value: '20' } });
@@ -142,7 +140,7 @@ describe('Calculator page', () => {
     writeStorageItem(STORAGE_KEYS.currentUserId, 'user_004');
 
     const memoryRouter = createMemoryRouter(appRoutes, {
-      initialEntries: ['/calculator'],
+      initialEntries: ['/advice/quick'],
     });
 
     render(

@@ -1,12 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FormField } from '../../components/common/FormField';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
+import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import {
+  getNextSalesWizardStep,
+  getPreviousSalesWizardStep,
+  getVisibleWizardStepIndex,
   resolveSelectedScenarioVariant,
-  SALES_WIZARD_STEPS,
+  SALES_WIZARD_VISIBLE_STEPS,
   type SalesWizardStepId,
 } from '../../domain/bestPayComparison/salesWizard';
 import type { Lead } from '../../domain/lead/lead';
@@ -57,7 +61,8 @@ export function SalesWizardPage() {
   } = useServices();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const bootstrappedSessionIdRef = useRef<string | null>(null);
 
   const [session, setSession] = useState<BestPayComparisonSession | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -117,36 +122,94 @@ export function SalesWizardPage() {
     }
   }, []);
 
+  const bindSessionToUrl = useCallback(
+    (sessionId: string) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete('new');
+          next.set('session', sessionId);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const ensurePersisted = useCallback(
+    (current: BestPayComparisonSession): BestPayComparisonSession => {
+      if (!userContext) {
+        return current;
+      }
+      if (salesWizardService.isWizardPersisted(current.id)) {
+        return current;
+      }
+      const saved = salesWizardService.persistWizardSession(current, userContext);
+      bootstrappedSessionIdRef.current = saved.id;
+      bindSessionToUrl(saved.id);
+      return saved;
+    },
+    [bindSessionToUrl, salesWizardService, userContext],
+  );
+
   const bootstrap = useCallback(async () => {
     if (!userContext) {
       return;
     }
     const sessionId = searchParams.get('session');
+    if (sessionId && bootstrappedSessionIdRef.current === sessionId) {
+      return;
+    }
+
     let active: BestPayComparisonSession | null = null;
+    let resumedToast = false;
 
     if (sessionId) {
       const resumed = await salesWizardService.resumeWizard(sessionId, userContext);
       if (!resumed.ok) {
         showToast('Gespeicherter Vorgang nicht gefunden', 'error');
-        active = salesWizardService.startWizard(userContext);
+        active = salesWizardService.createTransientWizard(userContext);
       } else {
         active = resumed.session;
-        showToast('Vorgang fortgesetzt', 'info');
+        resumedToast = true;
       }
+    } else if (searchParams.get('leadId')) {
+      // leadId in der URL ist eine fachliche Kundenauswahl → einmal persistieren
+      active = salesWizardService.createTransientWizard(userContext);
+      active = salesWizardService.persistWizardSession(active, userContext);
+      const assigned = await salesWizardService.assignLead(
+        active.id,
+        searchParams.get('leadId')!,
+        userContext,
+      );
+      if (assigned.ok) {
+        active = assigned.session;
+      }
+      bindSessionToUrl(active.id);
     } else if (searchParams.get('new') === '1') {
-      active = salesWizardService.startWizard(userContext);
+      active = salesWizardService.createTransientWizard(userContext);
     } else {
       const draft = bestPayComparisonService.getActiveDraft(userContext);
-      if (draft?.wizard.enabled || draft?.entryMode === 'wizard') {
+      if (
+        draft &&
+        (draft.wizard.enabled || draft.entryMode === 'wizard') &&
+        !isEmptyAdviceSession(draft)
+      ) {
         const resumed = await salesWizardService.resumeWizard(draft.id, userContext);
-        active = resumed.ok ? resumed.session : salesWizardService.startWizard(userContext);
+        active = resumed.ok ? resumed.session : salesWizardService.createTransientWizard(userContext);
+        resumedToast = resumed.ok;
       } else {
-        active = salesWizardService.startWizard(userContext);
+        active = salesWizardService.createTransientWizard(userContext);
       }
     }
 
+    bootstrappedSessionIdRef.current = active.id;
     setSession(active);
     syncNeedFields(active);
+    if (resumedToast) {
+      showToast('Beratung fortgesetzt', 'info');
+    }
     if (active.offerId) {
       setWorkflowView(await offerWorkflowService.getWizardWorkflowView(active.offerId));
     } else {
@@ -154,6 +217,7 @@ export function SalesWizardPage() {
     }
   }, [
     bestPayComparisonService,
+    bindSessionToUrl,
     salesWizardService,
     offerWorkflowService,
     searchParams,
@@ -182,33 +246,73 @@ export function SalesWizardPage() {
   }
 
   const step = session.wizard.currentStep;
-  const stepIndex = SALES_WIZARD_STEPS.findIndex((entry) => entry.id === step);
+  const stepIndex = getVisibleWizardStepIndex(step);
   const selectedScenario =
     session.wizard.scenarios.find((entry) => entry.id === session.wizard.selectedScenarioId) ??
     null;
   const selectedVariant = resolveSelectedScenarioVariant(selectedScenario);
   const canSeeCommission = bestPayComparisonService.canSeeCommission(userContext);
 
-  const persistNeed = () => {
-    const updated = salesWizardService.updateNeed(
-      session.id,
-      {
-        monthlyCardVolumeCents: parseEuroToCents(monthlyVolume),
-        monthlyTransactions: monthlyTransactions
-          ? Number.parseInt(monthlyTransactions, 10)
-          : null,
-        monthlyTotalCostsCents: parseEuroToCents(monthlyTotal),
-        terminalCount: Math.max(1, Number.parseInt(terminalCount, 10) || 1),
-        girocardPercent: Number.parseInt(girocardPercent, 10) || null,
-        debitPercent: Number.parseInt(debitPercent, 10) || null,
-        creditPercent: Number.parseInt(creditPercent, 10) || null,
-        otherPercent: Number.parseInt(otherPercent, 10) || null,
-        preferredTermMonths: Number.parseInt(preferredTerm, 10) || null,
-        industry,
-        paymentUsage: { ...session.manualInput.paymentUsage },
+  const patchProspectDraft = (patch: Partial<BestPayComparisonSession['wizard']['prospectDraft']>) => {
+    const next: BestPayComparisonSession = {
+      ...session,
+      wizard: {
+        ...session.wizard,
+        prospectDraft: {
+          ...session.wizard.prospectDraft,
+          ...patch,
+        },
       },
-      userContext,
-    );
+    };
+    if (!salesWizardService.isWizardPersisted(session.id)) {
+      if (isEmptyAdviceSession(next)) {
+        setSession(next);
+        return;
+      }
+      const saved = ensurePersisted(next);
+      setSession(saved);
+      return;
+    }
+    const updated = salesWizardService.updateProspectDraft(session.id, patch, userContext);
+    if (updated) {
+      setSession(updated);
+    }
+  };
+
+  const persistNeed = () => {
+    const patch = {
+      monthlyCardVolumeCents: parseEuroToCents(monthlyVolume),
+      monthlyTransactions: monthlyTransactions
+        ? Number.parseInt(monthlyTransactions, 10)
+        : null,
+      monthlyTotalCostsCents: parseEuroToCents(monthlyTotal),
+      terminalCount: Math.max(1, Number.parseInt(terminalCount, 10) || 1),
+      girocardPercent: Number.parseInt(girocardPercent, 10) || null,
+      debitPercent: Number.parseInt(debitPercent, 10) || null,
+      creditPercent: Number.parseInt(creditPercent, 10) || null,
+      otherPercent: Number.parseInt(otherPercent, 10) || null,
+      preferredTermMonths: Number.parseInt(preferredTerm, 10) || null,
+      industry,
+      paymentUsage: { ...session.manualInput.paymentUsage },
+    };
+    const next: BestPayComparisonSession = {
+      ...session,
+      manualInput: {
+        ...session.manualInput,
+        ...patch,
+        paymentUsage: { ...session.manualInput.paymentUsage, ...patch.paymentUsage },
+      },
+    };
+    if (!salesWizardService.isWizardPersisted(session.id)) {
+      if (isEmptyAdviceSession(next)) {
+        setSession(next);
+        return next;
+      }
+      const saved = ensurePersisted(next);
+      setSession(saved);
+      return saved;
+    }
+    const updated = salesWizardService.updateNeed(session.id, patch, userContext);
     if (updated) {
       setSession(updated);
     }
@@ -216,13 +320,33 @@ export function SalesWizardPage() {
   };
 
   const handleGoNext = () => {
-    if (step === 'need') {
-      persistNeed();
-    }
     void (async () => {
-      const result = await salesWizardService.goNext(session.id, userContext);
+      let current = session;
+      if (step === 'need') {
+        const updated = persistNeed();
+        if (updated) {
+          current = updated;
+        }
+      }
+      if (!salesWizardService.isWizardPersisted(current.id)) {
+        const validation = await salesWizardService.validateStep(current, current.wizard.currentStep);
+        if (!validation.ok) {
+          showToast(validation.message ?? 'Weiter nicht möglich', 'error');
+          return;
+        }
+        const nextStep = getNextSalesWizardStep(current.wizard.currentStep);
+        if (!nextStep) {
+          return;
+        }
+        setSession({
+          ...current,
+          wizard: { ...current.wizard, currentStep: nextStep },
+        });
+        return;
+      }
+      const result = await salesWizardService.goNext(current.id, userContext);
       if (!result.ok) {
-        showToast(result.message ?? 'Schritt nicht möglich', 'error');
+        showToast(result.message ?? 'Weiter nicht möglich', 'error');
         return;
       }
       setSession(result.session);
@@ -233,6 +357,17 @@ export function SalesWizardPage() {
   };
 
   const handleGoBack = () => {
+    if (!salesWizardService.isWizardPersisted(session.id)) {
+      const previous = getPreviousSalesWizardStep(session.wizard.currentStep);
+      if (!previous) {
+        return;
+      }
+      setSession({
+        ...session,
+        wizard: { ...session.wizard, currentStep: previous },
+      });
+      return;
+    }
     const updated = salesWizardService.goBack(session.id, userContext);
     if (updated) {
       setSession(updated);
@@ -240,15 +375,29 @@ export function SalesWizardPage() {
   };
 
   const handleJumpStep = (target: SalesWizardStepId) => {
+    if (!salesWizardService.isWizardPersisted(session.id)) {
+      setSession({
+        ...session,
+        wizard: { ...session.wizard, currentStep: target },
+      });
+      return;
+    }
     const updated = salesWizardService.setStep(session.id, target, userContext);
     if (updated) {
       setSession(updated);
     }
   };
 
+  const handleSaveDraft = () => {
+    const saved = ensurePersisted(session);
+    setSession(saved);
+    showToast('Entwurf gespeichert', 'success');
+  };
+
   const handleCreateLead = async () => {
     setBusy(true);
-    const result = await salesWizardService.createLeadFromProspect(session.id, userContext);
+    const current = ensurePersisted(session);
+    const result = await salesWizardService.createLeadFromProspect(current.id, userContext);
     setBusy(false);
     if (!result.ok) {
       showToast(result.message ?? 'Lead konnte nicht angelegt werden', 'error');
@@ -266,7 +415,8 @@ export function SalesWizardPage() {
       return;
     }
     setBusy(true);
-    const result = await salesWizardService.assignLead(session.id, selectedLeadId, userContext);
+    const current = ensurePersisted(session);
+    const result = await salesWizardService.assignLead(current.id, selectedLeadId, userContext);
     setBusy(false);
     if (!result.ok) {
       showToast('Lead-Zuordnung fehlgeschlagen', 'error');
@@ -278,7 +428,8 @@ export function SalesWizardPage() {
 
   const handleStartBilling = async () => {
     setBusy(true);
-    const result = await salesWizardService.startBillingImport(session.id, userContext);
+    const current = ensurePersisted(session);
+    const result = await salesWizardService.startBillingImport(current.id, userContext);
     setBusy(false);
     if (!result.ok) {
       showToast('Abrechnungsimport konnte nicht gestartet werden', 'error');
@@ -288,8 +439,9 @@ export function SalesWizardPage() {
   };
 
   const handleAddScenario = () => {
+    const current = ensurePersisted(session);
     const result = salesWizardService.addScenario(
-      session.id,
+      current.id,
       userContext,
       scenarioLabel.trim() || undefined,
     );
@@ -302,9 +454,10 @@ export function SalesWizardPage() {
   };
 
   const handleCalculateScenario = async (scenarioId: string) => {
-    persistNeed();
+    const needed = persistNeed();
     setBusy(true);
-    const result = await salesWizardService.calculateScenario(session.id, scenarioId, userContext);
+    const current = ensurePersisted(needed ?? session);
+    const result = await salesWizardService.calculateScenario(current.id, scenarioId, userContext);
     setBusy(false);
     if (!result.ok) {
       showToast(result.message ?? 'Szenario-Berechnung fehlgeschlagen', 'error');
@@ -316,7 +469,8 @@ export function SalesWizardPage() {
 
   const handleCreateOffer = async () => {
     setBusy(true);
-    const result = await salesWizardService.createOffer(session.id, userContext);
+    const current = ensurePersisted(session);
+    const result = await salesWizardService.createOffer(current.id, userContext);
     setBusy(false);
     if (!result.ok) {
       showToast(result.message ?? 'Angebot konnte nicht erstellt werden', 'error');
@@ -329,8 +483,9 @@ export function SalesWizardPage() {
 
   const handleAcknowledgeApproval = () => {
     void (async () => {
+      const current = ensurePersisted(session);
       const result = await salesWizardService.acknowledgeApproval(
-        session.id,
+        current.id,
         approvalNotes,
         userContext,
       );
@@ -348,9 +503,10 @@ export function SalesWizardPage() {
 
   const handleComplete = () => {
     void (async () => {
-      const result = await salesWizardService.completeWizard(session.id, userContext);
+      const current = ensurePersisted(session);
+      const result = await salesWizardService.completeWizard(current.id, userContext);
       if (!result.ok) {
-        showToast(result.message ?? 'Abschluss nicht möglich', 'error');
+        showToast(result.message ?? 'Abschluss der Beratung nicht möglich', 'error');
         return;
       }
       setSession(result.session);
@@ -365,6 +521,11 @@ export function SalesWizardPage() {
         subtitle="Vom Kunden über den Kostenvergleich bis zum Angebot – ein durchgängiger Beratungsweg"
         actions={
           <div className={styles.headerActions}>
+            {!salesWizardService.isWizardPersisted(session.id) ? (
+              <button type="button" className={styles.secondaryAction} onClick={handleSaveDraft}>
+                Entwurf speichern
+              </button>
+            ) : null}
             <Link className={styles.secondaryAction} to="/calculator/bestpay/history">
               Berechnungen
             </Link>
@@ -376,17 +537,25 @@ export function SalesWizardPage() {
       />
 
       <div className={styles.statusLine} aria-live="polite">
-        <span>Autosave aktiv</span>
-        <span>Zuletzt gespeichert: {new Date(session.updatedAt).toLocaleString('de-DE')}</span>
         <span>
-          Fortschritt: {stepIndex + 1}/{SALES_WIZARD_STEPS.length}
+          {salesWizardService.isWizardPersisted(session.id)
+            ? 'Autosave aktiv'
+            : 'Noch nicht gespeichert'}
+        </span>
+        {salesWizardService.isWizardPersisted(session.id) ? (
+          <span>Zuletzt gespeichert: {new Date(session.updatedAt).toLocaleString('de-DE')}</span>
+        ) : (
+          <span>Eingaben werden lokal gehalten, bis fachliche Daten erfasst sind</span>
+        )}
+        <span>
+          Fortschritt: {stepIndex + 1}/{SALES_WIZARD_VISIBLE_STEPS.length}
         </span>
       </div>
 
       <div className={styles.layout}>
-        <nav className={styles.nav} aria-label="Prozessschritte">
-          {SALES_WIZARD_STEPS.map((entry, index) => {
-            const isActive = entry.id === step;
+        <nav className={styles.nav} aria-label="Beratungsschritte">
+          {SALES_WIZARD_VISIBLE_STEPS.map((entry, index) => {
+            const isActive = entry.includes.includes(step);
             const isDone = index < stepIndex;
             return (
               <button
@@ -408,17 +577,17 @@ export function SalesWizardPage() {
           {step === 'prospect' ? (
             <div className={styles.stack}>
               <article className={styles.heroCard}>
-                <h2>Interessent</h2>
+                <h2>Kunde</h2>
                 <p className={styles.hint}>
-                  Bestehenden Lead wählen, neuen Interessenten erfassen oder zunächst ohne Lead
+                  Bestehenden Kunden wählen, neuen Kunden anlegen oder zunächst ohne Kundenbezug
                   rechnen.
                 </p>
                 <div className={styles.choiceRow}>
                   {(
                     [
-                      ['existing', 'Bestehender Lead'],
-                      ['new', 'Neuer Interessent'],
-                      ['anonymous', 'Ohne Lead rechnen'],
+                      ['existing', 'Bestehender Kunde'],
+                      ['new', 'Neuer Kunde'],
+                      ['anonymous', 'Ohne Kunde rechnen'],
                     ] as const
                   ).map(([mode, label]) => (
                     <button
@@ -437,7 +606,7 @@ export function SalesWizardPage() {
 
               {prospectMode === 'existing' ? (
                 <article className={styles.card}>
-                  <FormField label="Lead auswählen" id="wizardLead">
+                  <FormField label="Kunde auswählen" id="wizardLead">
                     <select
                       id="wizardLead"
                       value={selectedLeadId}
@@ -458,7 +627,7 @@ export function SalesWizardPage() {
                       disabled={busy}
                       onClick={() => void handleAssignLead()}
                     >
-                      Lead zuordnen
+                      Kunde zuordnen
                     </button>
                   </div>
                 </article>
@@ -472,15 +641,8 @@ export function SalesWizardPage() {
                         id="companyName"
                         value={session.wizard.prospectDraft.companyName}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { companyName: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ companyName: event.target.value });
+                      }}
                       />
                     </FormField>
                     <FormField label="Branche" id="industryProspect">
@@ -488,15 +650,8 @@ export function SalesWizardPage() {
                         id="industryProspect"
                         value={session.wizard.prospectDraft.industry}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { industry: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ industry: event.target.value });
+                      }}
                       />
                     </FormField>
                     <FormField label="Vorname" id="contactFirstName">
@@ -504,15 +659,8 @@ export function SalesWizardPage() {
                         id="contactFirstName"
                         value={session.wizard.prospectDraft.contactFirstName}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { contactFirstName: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ contactFirstName: event.target.value });
+                      }}
                       />
                     </FormField>
                     <FormField label="Nachname" id="contactLastName">
@@ -520,15 +668,8 @@ export function SalesWizardPage() {
                         id="contactLastName"
                         value={session.wizard.prospectDraft.contactLastName}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { contactLastName: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ contactLastName: event.target.value });
+                      }}
                       />
                     </FormField>
                     <FormField label="Telefon" id="phone">
@@ -536,15 +677,8 @@ export function SalesWizardPage() {
                         id="phone"
                         value={session.wizard.prospectDraft.phone}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { phone: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ phone: event.target.value });
+                      }}
                       />
                     </FormField>
                     <FormField label="E-Mail" id="email">
@@ -552,15 +686,8 @@ export function SalesWizardPage() {
                         id="email"
                         value={session.wizard.prospectDraft.email}
                         onChange={(event) => {
-                          const updated = salesWizardService.updateProspectDraft(
-                            session.id,
-                            { email: event.target.value },
-                            userContext,
-                          );
-                          if (updated) {
-                            setSession(updated);
-                          }
-                        }}
+                        patchProspectDraft({ email: event.target.value });
+                      }}
                       />
                     </FormField>
                   </div>
@@ -570,14 +697,7 @@ export function SalesWizardPage() {
                       className={styles.textarea}
                       value={session.wizard.prospectDraft.notes}
                       onChange={(event) => {
-                        const updated = salesWizardService.updateProspectDraft(
-                          session.id,
-                          { notes: event.target.value },
-                          userContext,
-                        );
-                        if (updated) {
-                          setSession(updated);
-                        }
+                        patchProspectDraft({ notes: event.target.value });
                       }}
                     />
                   </FormField>
@@ -609,7 +729,7 @@ export function SalesWizardPage() {
           {step === 'costs' ? (
             <div className={styles.stack}>
               <article className={styles.heroCard}>
-                <h2>Aktuelle Kosten</h2>
+                <h2>Ausgangslage</h2>
                 <p className={styles.hint}>
                   Vorhandene Billing-/OCR-Pipeline: PDF, Foto, OCR oder manuelle Eingabe – danach
                   Ist-Kosten bestätigen.
@@ -629,16 +749,24 @@ export function SalesWizardPage() {
                     type="button"
                     className={styles.secondaryAction}
                     onClick={() => {
-                      const updated = salesWizardService.updateNeed(
-                        session.id,
-                        {
-                          monthlyTotalCostsCents:
-                            session.manualInput.monthlyTotalCostsCents ?? 250_00,
-                          monthlyCardVolumeCents:
-                            session.manualInput.monthlyCardVolumeCents ?? 50_000_00,
-                        },
-                        userContext,
-                      );
+                      const patch = {
+                        monthlyTotalCostsCents:
+                          session.manualInput.monthlyTotalCostsCents ?? 250_00,
+                        monthlyCardVolumeCents:
+                          session.manualInput.monthlyCardVolumeCents ?? 50_000_00,
+                      };
+                      const next: BestPayComparisonSession = {
+                        ...session,
+                        manualInput: { ...session.manualInput, ...patch },
+                      };
+                      if (!salesWizardService.isWizardPersisted(session.id)) {
+                        const saved = ensurePersisted(next);
+                        setSession(saved);
+                        syncNeedFields(saved);
+                        showToast('Manuelle Ist-Kosten vorbereitet', 'success');
+                        return;
+                      }
+                      const updated = salesWizardService.updateNeed(session.id, patch, userContext);
                       if (updated) {
                         setSession(updated);
                         syncNeedFields(updated);
@@ -804,14 +932,25 @@ export function SalesWizardPage() {
                       type="checkbox"
                       checked={session.manualInput.paymentUsage[key]}
                       onChange={(event) => {
+                        const paymentUsage = {
+                          ...session.manualInput.paymentUsage,
+                          [key]: event.target.checked,
+                        };
+                        const next: BestPayComparisonSession = {
+                          ...session,
+                          manualInput: { ...session.manualInput, paymentUsage },
+                        };
+                        if (!salesWizardService.isWizardPersisted(session.id)) {
+                          if (isEmptyAdviceSession(next)) {
+                            setSession(next);
+                            return;
+                          }
+                          setSession(ensurePersisted(next));
+                          return;
+                        }
                         const updated = salesWizardService.updateNeed(
                           session.id,
-                          {
-                            paymentUsage: {
-                              ...session.manualInput.paymentUsage,
-                              [key]: event.target.checked,
-                            },
-                          },
+                          { paymentUsage },
                           userContext,
                         );
                         if (updated) {
@@ -841,7 +980,7 @@ export function SalesWizardPage() {
           {step === 'variants' ? (
             <div className={styles.stack}>
               <article className={styles.heroCard}>
-                <h2>Variantenvergleich</h2>
+                <h2>Vergleich</h2>
                 <p className={styles.hint}>
                   Beliebig viele Szenarien anlegen, berechnen und vergleichen. Eine Variante wird
                   ausgewählt.
@@ -1084,7 +1223,7 @@ export function SalesWizardPage() {
                 ) : (
                   <EmptyState
                     title="Keine Variante gewählt"
-                    description="Bitte im Variantenvergleich eine Empfehlung auswählen."
+                    description="Bitte im Vergleich eine Empfehlung auswählen."
                   />
                 )}
                 <div className={styles.actions}>
@@ -1106,7 +1245,7 @@ export function SalesWizardPage() {
                     className={styles.secondaryAction}
                     onClick={() => handleJumpStep('variants')}
                   >
-                    Zurück zum Variantenvergleich
+                    Zurück zum Vergleich
                   </button>
                 </div>
                 {session.offerNumber ? (
@@ -1121,7 +1260,7 @@ export function SalesWizardPage() {
 
           {step === 'approval' ? (
             <article className={styles.card}>
-              <h2>Freigabe</h2>
+              <h2>Angebot – Freigabe</h2>
               {workflowView ? (
                 <dl className={styles.metrics}>
                   <div>
@@ -1204,7 +1343,7 @@ export function SalesWizardPage() {
           {step === 'closing' ? (
             <div className={styles.stack}>
               <article className={styles.heroCard}>
-                <h2>Abschluss</h2>
+                <h2>Prüfung & Nachfassen</h2>
                 {workflowView ? (
                   <dl className={styles.metrics}>
                     <div>

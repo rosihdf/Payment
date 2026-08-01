@@ -242,12 +242,12 @@ export function BestPayComparisonPage() {
               onClick={() => {
                 bestPayComparisonService.discardSession(session.id, userContext);
                 showToast('Entwurf verworfen', 'success');
-                navigate('/calculator');
+                navigate('/advice');
               }}
             >
               Entwurf verwerfen
             </button>
-            <Link className={styles.secondaryAction} to="/calculator">
+            <Link className={styles.secondaryAction} to="/advice">
               Zur Beratung
             </Link>
           </div>

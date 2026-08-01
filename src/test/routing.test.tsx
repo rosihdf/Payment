@@ -16,11 +16,13 @@ function renderApp(initialRoute = '/', currentUserId = 'user_001') {
     initialIndex: 0,
   });
 
-  return render(
+  render(
     <AppProviders>
       <RouterProvider router={memoryRouter} />
     </AppProviders>,
   );
+
+  return memoryRouter;
 }
 
 describe('Routing', () => {
@@ -52,12 +54,18 @@ describe('Routing', () => {
     expect(screen.getByRole('button', { name: 'Änderungen speichern' })).toBeEnabled();
   });
 
-  it('renders the calculator page with comparison layout on /calculator', async () => {
-    renderApp('/calculator');
-    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
+  it('renders the quick calculation page with comparison layout on /advice/quick', async () => {
+    renderApp('/advice/quick');
+    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bisheriger Vertrag' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Angebot von BestPay' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vergleichsergebnis' })).toBeInTheDocument();
+  });
+
+  it('redirects /calculator to the advice hub', async () => {
+    const router = renderApp('/calculator');
+    expect(await screen.findByRole('heading', { name: 'Beratung', level: 1 })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/advice');
   });
 
   it('renders admin tariffs for admin role on /admin/tariffs', async () => {

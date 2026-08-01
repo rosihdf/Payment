@@ -424,7 +424,7 @@ describe('C Vertragsmanagement', () => {
     expect(offerAfter?.currentVersionId).toBe(offerBefore.currentVersionId);
   });
 
-  it('synchronisiert Aktivierung kontrolliert ohne Schleife', async () => {
+  it('synchronisiert historische OfferActivation ohne Contract auf active zu setzen', async () => {
     const services = createTestServices();
     const offer = await createAcceptedOffer(services);
     const created = await services.contractService.createFromAcceptedOffer(offer.id, field);
@@ -442,9 +442,17 @@ describe('C Vertragsmanagement', () => {
     const after = await services.contractService.getById(created.value.id, field);
     expect(after.ok).toBe(true);
     if (!after.ok) return;
-    expect(after.value.status).toBe('active');
+    expect(after.value.status).toBe('activation');
     expect(spy.mock.calls.length).toBeLessThan(5);
     spy.mockRestore();
+
+    const started = await services.activationService.startFromContract(created.value.id, field);
+    expect(started.ok).toBe(true);
+    const again = await services.activationService.startFromContract(created.value.id, field);
+    expect(again.ok).toBe(true);
+    if (started.ok && again.ok) {
+      expect(again.value.id).toBe(started.value.id);
+    }
   });
 
   it('erweitert Diagnose und Export um Verträge', async () => {

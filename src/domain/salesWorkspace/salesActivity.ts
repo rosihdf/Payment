@@ -65,7 +65,7 @@ export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   billing_requested: 'Abrechnung angefordert',
   billing_imported: 'Abrechnung importiert',
   calculation_created: 'Berechnung erstellt',
-  wizard_resumed: 'Vertriebsprozess fortgesetzt',
+  wizard_resumed: 'Beratung fortgesetzt',
   offer_created: 'Angebot erstellt',
   offer_sent: 'Angebot versendet',
   approval_requested: 'Freigabe angefordert',

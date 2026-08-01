@@ -221,7 +221,7 @@ export function BestPayComparisonHistoryPage() {
         subtitle="Entwürfe fortsetzen, abgeschlossene Vergleiche nachvollziehen und verknüpfte Angebote öffnen."
         actions={
           <div className={styles.actions}>
-            <Link className={styles.secondaryAction} to="/calculator">
+            <Link className={styles.secondaryAction} to="/advice">
               Zur Beratung
             </Link>
             <Link className={styles.primaryAction} to="/calculator/bestpay?new=1">

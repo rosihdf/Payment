@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -35,6 +36,7 @@ describe('Lead offer integration UI', () => {
   });
 
   it('shows offers section on lead detail', async () => {
+    const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
     await seedOfferInStorage(repository, {
@@ -43,21 +45,23 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-
-    expect(await screen.findByRole('heading', { name: 'Angebote' })).toBeInTheDocument();
-    expect(await screen.findByText('Lead Angebot Alpha')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Über Beratung erstellen' })).toBeInTheDocument();
+    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Angebot' }));
+    expect(await screen.findByRole('heading', { name: 'Angebot' })).toBeInTheDocument();
+    expect(screen.getByText('Angebotsnummer')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Angebot öffnen' })).toBeInTheDocument();
   });
 
   it('shows empty state when lead has no offers', async () => {
+    const user = userEvent.setup();
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`);
-
-    expect(
-      await screen.findByText('Für diesen Kunden liegen noch keine Angebote vor.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Angebot' }));
+    expect(await screen.findByText('Noch kein Angebot vorhanden.')).toBeInTheDocument();
   });
 
   it('links offer detail from lead page', async () => {
+    const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
     const offer = await seedOfferInStorage(repository, {
@@ -66,8 +70,9 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-
-    expect(await screen.findByRole('link', { name: /Verlinktes Angebot/i })).toHaveAttribute(
+    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Angebot' }));
+    expect(await screen.findByRole('link', { name: 'Angebot öffnen' })).toHaveAttribute(
       'href',
       `/offers/${offer.id}`,
     );

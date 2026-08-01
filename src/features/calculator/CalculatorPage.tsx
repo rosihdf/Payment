@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { SALES_WIZARD_PATH } from '../../utils/routes';
+import { ADVICE_PATH } from '../../utils/routes';
 import { DEFAULT_CURRENT_PAYMENT_CONDITIONS } from '../../domain/calculator/comparisonDefaults';
 import { mapTariffToBestPayComparisonConditions } from '../../domain/calculator/comparisonMapping';
 import type { CurrentPaymentConditions } from '../../domain/calculator/comparison';
@@ -21,6 +21,10 @@ import { ComparisonResultsOverview } from './ComparisonResultsOverview';
 import { CurrentConditionsForm } from './CurrentConditionsForm';
 import styles from './CalculatorPage.module.css';
 
+/**
+ * Untergeordnete „Schnelle Berechnung“ – nutzt die vorhandene einfache Vergleichslogik.
+ * Vollständige Beratung: /advice
+ */
 export function CalculatorPage() {
   const { tariffService } = useServices();
   const [activeTariffs, setActiveTariffs] = useState<Tariff[]>([]);
@@ -93,41 +97,25 @@ export function CalculatorPage() {
   return (
     <section>
       <PageHeader
-        title="Beratung"
-        subtitle="Kostenvergleich und Angebotsweg – ein Einstieg für den Außendienst"
+        title="Schnelle Berechnung"
+        subtitle="Unverbindliche Tarifberechnung ohne vollständigen Beratungsprozess."
         actions={
-          <button type="button" className={styles.resetButton} onClick={handleReset}>
-            Eingaben zurücksetzen
-          </button>
+          <div className={styles.headerActions}>
+            <Link className={styles.hubSecondary} to={ADVICE_PATH}>
+              Zur Beratung
+            </Link>
+            <button type="button" className={styles.resetButton} onClick={handleReset}>
+              Eingaben zurücksetzen
+            </button>
+          </div>
         }
       />
 
-      <div className={styles.hubGrid}>
-        <article className={styles.hubCard}>
-          <h2 className={styles.hubTitle}>Beratungsweg</h2>
-          <p className={styles.hubText}>
-            Starten Sie den Vergleich mit Abrechnung oder manuellen Angaben und führen Sie den
-            Kunden bis zum Angebot. Bevorzugter Einstieg über den Kunden.
-          </p>
-          <div className={styles.hubActions}>
-            <Link className={styles.hubPrimary} to={SALES_WIZARD_PATH}>
-              Beratung starten
-            </Link>
-            <Link className={styles.hubSecondary} to="/calculator/bestpay/history">
-              Gespeicherte Vergleiche
-            </Link>
-            <Link className={styles.hubSecondary} to="/leads">
-              Zum Kunden
-            </Link>
-          </div>
-        </article>
-      </div>
-
-      <h2 className={styles.sectionHeading}>Schnellvergleich</h2>
       <p className={styles.sectionHint}>
-        Optionaler Tarifvergleich ohne vollständigen Beratungsweg. Für den normalen Fall bitte
-        „Beratung starten“ verwenden.
+        Reduzierte Variante des Kostenvergleichs. Für Abrechnungseinlesen, Empfehlung und Angebot
+        bitte den Beratungsweg nutzen.
       </p>
+
       {tariffUnavailableMessage ? (
         <p className={styles.notice} role="status">
           {tariffUnavailableMessage}

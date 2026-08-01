@@ -1,12 +1,14 @@
 import type { RouteObject } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
+import { AdviceEntry } from '../features/calculator/AdviceEntry';
 import { CalculatorPage } from '../features/calculator/CalculatorPage';
 import { BestPayComparisonPage } from '../features/calculator/BestPayComparisonPage';
 import { BestPayComparisonHistoryPage } from '../features/calculator/BestPayComparisonHistoryPage';
 import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
-import { SalesWizardPage } from '../features/calculator/SalesWizardPage';
+import { PreserveSearchRedirect } from './PreserveSearchRedirect';
 import { SalesWorkspacePage } from '../features/sales/SalesWorkspacePage';
+import { ADVICE_PATH } from '../utils/routes';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
 import { OfferDetailPage } from '../features/offer/OfferDetailPage';
@@ -52,8 +54,16 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
       { path: 'leads/:id', element: <LeadDetailPage /> },
       { path: 'sales', element: <SalesWorkspacePage /> },
-      { path: 'sales/wizard', element: <SalesWizardPage /> },
-      { path: 'calculator', element: <CalculatorPage /> },
+      { path: 'advice', element: <AdviceEntry /> },
+      { path: 'advice/quick', element: <CalculatorPage /> },
+      {
+        path: 'sales/wizard',
+        element: <PreserveSearchRedirect to={ADVICE_PATH} />,
+      },
+      {
+        path: 'calculator',
+        element: <PreserveSearchRedirect to={ADVICE_PATH} />,
+      },
       { path: 'calculator/wizard', element: <CalculatorWizardRedirect /> },
       { path: 'calculator/bestpay/history', element: <BestPayComparisonHistoryPage /> },
       { path: 'calculator/bestpay', element: <BestPayComparisonPage /> },

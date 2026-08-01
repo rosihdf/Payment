@@ -30,6 +30,7 @@ import { OfferPricingEvaluationSection } from './OfferPricingEvaluationSection';
 import { OfferRecommendationSection } from './OfferRecommendationSection';
 import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
+import { OfferFulfillmentCard } from './OfferFulfillmentCard';
 import { OfferWorkflowSection } from './OfferWorkflowSection';
 import { OfferWorkflowStatusBadge } from './OfferWorkflowStatusBadge';
 import styles from './OfferDetailPage.module.css';
@@ -256,7 +257,7 @@ export function OfferDetailPage() {
               Arbeitsplatz
             </Link>
             <Link className={styles.secondaryAction} to={`/leads/${offer.leadId}`}>
-              Kunde öffnen
+              Zur Kundenakte
             </Link>
             {canEdit ? (
               <Link className={styles.secondaryAction} to={`/offers/${offer.id}/edit`}>
@@ -329,6 +330,12 @@ export function OfferDetailPage() {
 
       <OfferWorkflowSection offer={offer} onUpdated={loadOffer} />
 
+      {['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
+        offer.workflowStatus,
+      ) ? (
+        <OfferFulfillmentCard offer={offer} onUpdated={loadOffer} />
+      ) : null}
+
       <section className={styles.detailSection}>
         <h2 className={styles.sectionTitle}>Vertrag</h2>
         {linkedContract ? (
@@ -373,7 +380,7 @@ export function OfferDetailPage() {
             <dt>Kunde</dt>
             <dd>
               <Link className={styles.inlineLink} to={`/leads/${offer.leadId}`}>
-                Kunde anzeigen
+                Zur Kundenakte
               </Link>
             </dd>
           </div>

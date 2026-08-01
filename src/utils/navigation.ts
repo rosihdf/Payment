@@ -1,4 +1,4 @@
-import { SALES_WIZARD_PATH } from './routes';
+import { ADVICE_PATH, LEGACY_SALES_WIZARD_PATH } from './routes';
 import type { UserRole } from '../domain/user/user';
 import { hasPermission } from '../domain/permission/permission';
 
@@ -12,19 +12,18 @@ export interface NavItem {
 
 /**
  * Vereinfachte operative Navigation.
- * Fachrouten (/offers, /contracts, /activations, Wizard) bleiben erreichbar,
- * erscheinen aber nicht mehr als parallele Hauptmenüpunkte.
+ * Fachrouten (/offers, /contracts, /activations, Advice-Deep-Links) bleiben erreichbar.
  */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
   { to: '/leads', label: 'Kunden', icon: 'leads' },
-  { to: '/calculator', label: 'Beratung', icon: 'calculator' },
+  { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
 ];
 
 export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
   { to: '/leads', label: 'Kunden', icon: 'leads' },
-  { to: '/calculator', label: 'Beratung', icon: 'calculator' },
+  { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
   { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
 ];
 
@@ -44,7 +43,7 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
     return (
       pathname === '/sales' ||
       pathname === '/' ||
-      (pathname.startsWith('/sales/') && !pathname.startsWith(SALES_WIZARD_PATH))
+      (pathname.startsWith('/sales/') && pathname !== LEGACY_SALES_WIZARD_PATH && !pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`))
     );
   }
   if (item.to === '/leads') {
@@ -59,12 +58,14 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
       pathname.startsWith('/activations/')
     );
   }
-  if (item.to === '/calculator') {
+  if (item.to === ADVICE_PATH) {
     return (
+      pathname === ADVICE_PATH ||
+      pathname.startsWith(`${ADVICE_PATH}/`) ||
       pathname === '/calculator' ||
       pathname.startsWith('/calculator/') ||
-      pathname === SALES_WIZARD_PATH ||
-      pathname.startsWith(`${SALES_WIZARD_PATH}/`)
+      pathname === LEGACY_SALES_WIZARD_PATH ||
+      pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`)
     );
   }
   if (item.to === '/admin') {

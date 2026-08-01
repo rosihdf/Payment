@@ -6,7 +6,7 @@ import {
   OPERATIVE_SIDEBAR_NAV_LABELS,
   SIDEBAR_NAV_ITEMS,
 } from '../utils/navigation';
-import { SALES_WIZARD_PATH } from '../utils/routes';
+import { ADVICE_PATH, LEGACY_SALES_WIZARD_PATH } from '../utils/routes';
 
 describe('Navigation role filtering', () => {
   it('enthält nur die vereinfachte Hauptnavigation ohne Profil', () => {
@@ -50,12 +50,14 @@ describe('Navigation role filtering', () => {
     expect(labels).not.toContain('Rechner');
     expect(labels).not.toContain('Produkte');
     expect(labels).not.toContain('Profil');
+    expect(routes).toContain(ADVICE_PATH);
     expect(routes).not.toContain('/offers');
     expect(routes).not.toContain('/contracts');
     expect(routes).not.toContain('/activations');
     expect(routes).not.toContain('/products');
     expect(routes).not.toContain('/profile');
-    expect(routes).not.toContain(SALES_WIZARD_PATH);
+    expect(routes).not.toContain(LEGACY_SALES_WIZARD_PATH);
+    expect(routes).not.toContain('/calculator');
   });
 
   it('enthält keinen Hauptmenüpunkt Neuer Lead', () => {
@@ -72,13 +74,15 @@ describe('Navigation role filtering', () => {
     expect(operativeLabels).toEqual([...OPERATIVE_SIDEBAR_NAV_LABELS]);
   });
 
-  it('markiert Beratung bei Wizard- und Rechner-Routen als aktiv', () => {
-    const beratungItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/calculator')!;
+  it('markiert Beratung bei Advice-, Wizard- und Rechner-Routen als aktiv', () => {
+    const beratungItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === ADVICE_PATH)!;
     const arbeitsplatzItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/sales')!;
 
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, beratungItem)).toBe(true);
+    expect(isSidebarNavItemActive(ADVICE_PATH, beratungItem)).toBe(true);
+    expect(isSidebarNavItemActive(`${ADVICE_PATH}/quick`, beratungItem)).toBe(true);
+    expect(isSidebarNavItemActive(LEGACY_SALES_WIZARD_PATH, beratungItem)).toBe(true);
     expect(isSidebarNavItemActive('/calculator/bestpay', beratungItem)).toBe(true);
-    expect(isSidebarNavItemActive(SALES_WIZARD_PATH, arbeitsplatzItem)).toBe(false);
+    expect(isSidebarNavItemActive(ADVICE_PATH, arbeitsplatzItem)).toBe(false);
     expect(isSidebarNavItemActive('/sales', arbeitsplatzItem)).toBe(true);
   });
 

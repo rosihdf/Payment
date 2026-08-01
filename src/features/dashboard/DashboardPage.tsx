@@ -78,8 +78,8 @@ export function DashboardPage() {
               <Link className={styles.link} to="/leads/new">
                 Neuen Lead anlegen
               </Link>
-              <Link className={styles.link} to="/calculator">
-                Zum Rechner
+              <Link className={styles.link} to="/advice">
+                Zur Beratung
               </Link>
               <Link className={styles.link} to="/profile">
                 Profil öffnen

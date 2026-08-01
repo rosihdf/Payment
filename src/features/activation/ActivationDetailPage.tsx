@@ -173,6 +173,11 @@ export function ActivationDetailPage() {
           <div className={styles.actions}>
             <Link className={styles.linkButton} to="/activations">Aktivierungen</Link>
             <Link className={styles.linkButton} to={`/contracts/${activation.contractId}`}>Vertrag öffnen</Link>
+            {activation.leadId ? (
+              <Link className={styles.linkButton} to={`/leads/${activation.leadId}`}>
+                Zur Kundenakte
+              </Link>
+            ) : null}
           </div>
         }
       />

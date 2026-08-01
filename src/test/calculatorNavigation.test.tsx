@@ -26,17 +26,17 @@ function renderAtRoute(initialRoute: string, currentUserId = 'user_001') {
 
 describe('Calculator navigation and access', () => {
   it('renders calculator for field service', async () => {
-    renderAtRoute('/calculator', 'user_001');
-    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
+    renderAtRoute('/advice/quick', 'user_001');
+    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
   });
 
   it('renders calculator for admin', async () => {
-    renderAtRoute('/calculator', 'user_004');
-    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
+    renderAtRoute('/advice/quick', 'user_004');
+    expect(await screen.findByRole('heading', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
   });
 
   it('allows direct route access', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute('/advice/quick');
     expect(await screen.findByLabelText('Anzahl angemieteter Terminals')).toBeInTheDocument();
   });
 });

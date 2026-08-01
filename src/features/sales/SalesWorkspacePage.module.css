@@ -1,8 +1,7 @@
-.intro {
-  margin: 0 0 var(--space-4);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .toolbar {
@@ -13,45 +12,19 @@
   align-items: end;
 }
 
-.metrics {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  margin-bottom: var(--space-5);
-}
-
-.metricCard {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  background: var(--color-surface);
-}
-
-.metricValue {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
-}
-
-.metricLabel {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+.dayStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .sectionTitle {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-md);
-}
-
-.sectionHint {
-  margin: 0 0 var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }
 
 .list {
@@ -62,9 +35,7 @@
   list-style: none;
 }
 
-.card,
-.taskCard,
-.timelineItem {
+.card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
@@ -76,6 +47,15 @@
 
 .cardOverdue {
   border-color: #b42318;
+}
+
+.cardTitleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cardTitleLink:hover {
+  text-decoration: underline;
 }
 
 .cardTitle {
@@ -90,30 +70,22 @@
   font-size: var(--font-size-sm);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75rem;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  font-size: var(--font-size-sm);
-}
-
-.badgeUrgent {
-  border-color: #b42318;
+.warningText {
+  margin: 0;
   color: #b42318;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .primaryAction,
-.secondaryAction,
-.buttonAction {
+.secondaryAction {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -132,8 +104,7 @@
   color: #fff;
 }
 
-.secondaryAction,
-.buttonAction {
+.secondaryAction {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
@@ -145,64 +116,13 @@
   gap: var(--space-2);
 }
 
-.pipelineDesktop {
-  display: none;
-}
-
-.pipelineMobile {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.pipelineColumns {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 1fr);
-  gap: var(--space-3);
-  overflow-x: auto;
-  padding-bottom: var(--space-2);
-}
-
-.pipelineColumn {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #f7fafc 0%, #ffffff 100%);
-  padding: var(--space-3);
-  min-height: 160px;
-}
-
-.pipelineColumnTitle {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-}
-
-.formGrid {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.dialog {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  background: var(--color-surface);
-  margin-bottom: var(--space-4);
-}
-
-.textarea {
-  width: 100%;
-  min-height: 80px;
-  resize: vertical;
-}
-
-@media (min-width: 960px) {
-  .pipelineDesktop {
-    display: block;
+@media (max-width: 719px) {
+  .list {
+    gap: var(--space-3);
   }
 
-  .pipelineMobile {
-    display: none;
+  .primaryAction,
+  .secondaryAction {
+    width: 100%;
   }
 }

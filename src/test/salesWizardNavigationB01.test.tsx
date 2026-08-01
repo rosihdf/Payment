@@ -7,7 +7,9 @@ import { appRoutes } from '../app/router';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import {
+  ADVICE_PATH,
   CALCULATOR_WIZARD_LEGACY_PATH,
+  LEGACY_SALES_WIZARD_PATH,
   SALES_WIZARD_NEW_PATH,
   SALES_WIZARD_PATH,
 } from '../utils/routes';
@@ -42,10 +44,10 @@ describe('B01 Beratung Navigation', () => {
   });
 
   it('führt Beratung als Hauptnavigation, nicht als parallelen Wizard-Eintrag', () => {
-    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === '/calculator' && item.label === 'Beratung')).toBe(
+    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === ADVICE_PATH && item.label === 'Beratung')).toBe(
       true,
     );
-    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === SALES_WIZARD_PATH)).toBe(false);
+    expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === LEGACY_SALES_WIZARD_PATH)).toBe(false);
     expect(SIDEBAR_NAV_ITEMS.some((item) => item.label === 'Vertriebsprozess')).toBe(false);
     expect(SIDEBAR_NAV_ITEMS.some((item) => item.label === 'Vertriebs-Wizard')).toBe(false);
   });
@@ -54,14 +56,14 @@ describe('B01 Beratung Navigation', () => {
     expect(SIDEBAR_NAV_ITEMS.some((item) => item.to === '/leads/new')).toBe(false);
   });
 
-  it('öffnet die Beratung über die kanonische Wizard-Route', async () => {
+  it('öffnet die Beratung über die kanonische Advice-Route', async () => {
     renderAtRoute(SALES_WIZARD_NEW_PATH);
     expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Prozessschritte' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Interessent' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Beratungsschritte' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
   });
 
-  it('markiert Beratung bei /sales/wizard als aktiv und Arbeitsplatz nicht', async () => {
+  it('markiert Beratung bei /advice als aktiv und Arbeitsplatz nicht', async () => {
     renderAtRoute(SALES_WIZARD_NEW_PATH);
     await screen.findByRole('heading', { name: 'Beratung' });
 
@@ -73,7 +75,7 @@ describe('B01 Beratung Navigation', () => {
     );
   });
 
-  it('leitet die Legacy-Route /calculator/wizard auf /sales/wizard um', async () => {
+  it('leitet die Legacy-Route /calculator/wizard auf /advice um', async () => {
     const router = renderAtRoute(`${CALCULATOR_WIZARD_LEGACY_PATH}?new=1`);
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(SALES_WIZARD_PATH);
@@ -86,13 +88,12 @@ describe('B01 Beratung Navigation', () => {
   });
 
   it('zeigt im Beratungshub einen einzigen Beratungseinstieg', async () => {
-    renderAtRoute('/calculator');
+    renderAtRoute(ADVICE_PATH);
     await screen.findByRole('heading', { name: 'Beratung' });
-    expect(screen.getByRole('link', { name: 'Beratung starten' })).toHaveAttribute(
-      'href',
-      SALES_WIZARD_PATH,
-    );
-    expect(screen.getByRole('link', { name: 'Gespeicherte Vergleiche' })).toBeInTheDocument();
+    const startLinks = screen.getAllByRole('link', { name: 'Beratung starten' });
+    expect(startLinks).toHaveLength(1);
+    expect(startLinks[0]).toHaveAttribute('href', SALES_WIZARD_NEW_PATH);
+    expect(screen.getByRole('link', { name: 'Schnelle Berechnung' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Neue Berechnung' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Zum Vertriebsprozess' })).not.toBeInTheDocument();
   });
@@ -100,7 +101,7 @@ describe('B01 Beratung Navigation', () => {
   it('startet Beratung vom Arbeitsplatz', async () => {
     const user = userEvent.setup();
     const router = renderAtRoute('/sales');
-    const link = await screen.findByRole('link', { name: 'Beratung starten' });
+    const link = await screen.findByRole('link', { name: 'Neue Beratung' });
     expect(link).toHaveAttribute('href', SALES_WIZARD_NEW_PATH);
     await user.click(link);
     expect(router.state.location.pathname).toBe(SALES_WIZARD_PATH);
@@ -110,18 +111,25 @@ describe('B01 Beratung Navigation', () => {
   it('verwendet beim Resume die kanonische Route und aktiven Navigationszustand', async () => {
     const user = userEvent.setup();
     const router = renderAtRoute(SALES_WIZARD_NEW_PATH);
-    await screen.findByRole('heading', { name: 'Interessent' });
+    await screen.findByRole('heading', { name: 'Kunde' });
+    await user.click(screen.getByRole('button', { name: 'Neuer Kunde' }));
+    await user.type(screen.getByLabelText('Firma'), 'Nav Resume GmbH');
+    expect(await screen.findByText('Autosave aktiv')).toBeInTheDocument();
 
     await user.click(screen.getByRole('link', { name: 'Zum Arbeitsplatz' }));
     expect(router.state.location.pathname).toBe('/sales');
-    expect(await screen.findByRole('heading', { name: 'Laufende Vorgänge' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Laufende Vorgänge' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
 
-    const resumeLink = await screen.findByRole('link', { name: /^Vorgang fortsetzen:/ });
-    expect(resumeLink.getAttribute('href')).toMatch(/^\/sales\/wizard\?session=/);
-
+    await user.click(navLinks('Beratung')[0]!);
+    expect(router.state.location.pathname).toBe(SALES_WIZARD_PATH);
+    expect(await screen.findByRole('heading', { name: 'Beratung fortsetzen' })).toBeInTheDocument();
+    const resumeLink = await screen.findByRole('link', { name: /Nav Resume GmbH/i });
+    expect(resumeLink.getAttribute('href')).toMatch(/^\/advice\?session=/);
     await user.click(resumeLink);
     expect(router.state.location.pathname).toBe(SALES_WIZARD_PATH);
-    expect(await screen.findByRole('heading', { name: 'Beratung' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
 
     expect(navLinks('Beratung').every((link) => link.getAttribute('aria-current') === 'page')).toBe(
       true,
@@ -142,9 +150,9 @@ describe('B01 Beratung Navigation', () => {
   it('navigiert per Schrittleiste und speichert Fortschritt', async () => {
     const user = userEvent.setup();
     renderAtRoute(SALES_WIZARD_NEW_PATH);
-    await screen.findByRole('heading', { name: 'Interessent' });
-    const steps = within(screen.getByRole('navigation', { name: 'Prozessschritte' }));
-    await user.click(steps.getByRole('button', { name: /Aktuelle Kosten/i }));
-    expect(await screen.findByRole('heading', { name: 'Aktuelle Kosten' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Kunde' });
+    const steps = within(screen.getByRole('navigation', { name: 'Beratungsschritte' }));
+    await user.click(steps.getByRole('button', { name: /Ausgangslage/i }));
+    expect(await screen.findByRole('heading', { name: 'Ausgangslage' })).toBeInTheDocument();
   });
 });

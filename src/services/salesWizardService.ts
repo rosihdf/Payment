@@ -27,6 +27,12 @@ import type { RecommendationService } from './recommendationService';
 import type { OfferWorkflowService } from './offerWorkflowService';
 import type { OfferService } from './offerService';
 import {
+  canDiscardEmptyAdviceSession,
+  isEmptyAdviceSession,
+} from '../domain/bestPayComparison/isEmptyAdviceSession';
+import { createBestPayComparisonSession } from '../domain/bestPayComparison/createBestPayComparisonSession';
+import {
+  readBestPayComparisonSessions,
   saveBestPayComparisonSession,
   setActiveBestPayComparisonSessionId,
 } from './bestPayComparisonStorageMigration';
@@ -76,8 +82,8 @@ export class SalesWizardService {
     return session;
   }
 
-  startWizard(context: BestPayComparisonUserContext): BestPayComparisonSession {
-    const session = this.bestPayComparisonService.createSession(context);
+  private buildWizardSession(context: BestPayComparisonUserContext): BestPayComparisonSession {
+    const session = createBestPayComparisonSession(context.userId);
     session.entryMode = 'wizard';
     session.wizard = {
       enabled: true,
@@ -90,8 +96,54 @@ export class SalesWizardService {
       approvalNotes: '',
       wizardCompletedAt: null,
     };
+    return session;
+  }
+
+  isWizardPersisted(sessionId: string): boolean {
+    return readBestPayComparisonSessions().some((entry) => entry.id === sessionId);
+  }
+
+  /**
+   * Neue Beratung nur im Speicher – noch keine localStorage-/Historien-Persistenz.
+   */
+  createTransientWizard(context: BestPayComparisonUserContext): BestPayComparisonSession {
+    return this.buildWizardSession(context);
+  }
+
+  /**
+   * Speichert eine bisher nur lokale Beratung genau einmal und aktiviert Autosave.
+   */
+  persistWizardSession(
+    session: BestPayComparisonSession,
+    _context: BestPayComparisonUserContext,
+  ): BestPayComparisonSession {
+    session.entryMode = 'wizard';
+    session.wizard.enabled = true;
     setActiveBestPayComparisonSessionId(session.id);
     return this.persist(session);
+  }
+
+  /**
+   * Expliziter Start mit Persistenz (Tests / bewusster Entwurf).
+   * UI „Beratung starten“ nutzt createTransientWizard.
+   */
+  startWizard(context: BestPayComparisonUserContext): BestPayComparisonSession {
+    return this.persistWizardSession(this.buildWizardSession(context), context);
+  }
+
+  discardEmptyWizard(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): { ok: true } | { ok: false; error: 'not_found' | 'not_empty' } {
+    const session = this.getSession(sessionId, context);
+    if (!session) {
+      return { ok: false, error: 'not_found' };
+    }
+    if (!canDiscardEmptyAdviceSession(session) || !isEmptyAdviceSession(session)) {
+      return { ok: false, error: 'not_empty' };
+    }
+    const discarded = this.bestPayComparisonService.discardSession(sessionId, context);
+    return discarded ? { ok: true } : { ok: false, error: 'not_found' };
   }
 
   async resumeWizard(

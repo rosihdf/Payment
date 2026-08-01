@@ -182,7 +182,9 @@ export function ContractDetailPage() {
           <div className={styles.actions}>
             <Link className={styles.linkButton} to="/contracts">Verträge</Link>
             {contract.leadId ? (
-              <Link className={styles.linkButton} to={`/leads/${contract.leadId}`}>Lead</Link>
+              <Link className={styles.linkButton} to={`/leads/${contract.leadId}`}>
+                Zur Kundenakte
+              </Link>
             ) : null}
             {contract.sourceOfferId ? (
               <Link className={styles.linkButton} to={`/offers/${contract.sourceOfferId}`}>
@@ -212,12 +214,17 @@ export function ContractDetailPage() {
         <h2>Aktivierung</h2>
         {activation ? (
           <div className={styles.row}>
-            <Link className={styles.linkButton} to={`/activations/${activation.id}`}>
-              {activation.activationNumber} öffnen
-            </Link>
             <ActivationStatusBadge status={activation.status} />
             <span>Fortschritt: {activation.progressPercent}%</span>
             <span>Nächster Schritt: {activation.nextStep ?? '–'}</span>
+            {activation.openBlockerCount > 0 ? (
+              <span>Blocker: {activation.openBlockerCount}</span>
+            ) : (
+              <span>Blocker: keine</span>
+            )}
+            <Link className={styles.linkButton} to={`/activations/${activation.id}`}>
+              Aktivierung öffnen
+            </Link>
           </div>
         ) : hasPermission(currentUser.role, 'activations.create') &&
           ['preparation', 'activation'].includes(contract.status) ? (

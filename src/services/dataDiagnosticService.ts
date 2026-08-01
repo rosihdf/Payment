@@ -13,6 +13,7 @@ import {
   normalizeActivationChecklistItems,
   normalizeActivationHardwareList,
 } from '../domain/activation/normalizeActivation';
+import { normalizeOfferWorkflowEvents } from '../domain/offer/normalizeOfferWorkflowEvents';
 import type { UserContext } from '../domain/user/user';
 import { generateId } from '../utils/id';
 import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
@@ -444,6 +445,38 @@ export class DataDiagnosticService {
           autoRepairable: false,
           repairKey: null,
         });
+      } else if (
+        activation.contractVersionId &&
+        contractVersions.some(
+          (version) =>
+            version.id === activation.contractVersionId && version.contractId !== activation.contractId,
+        )
+      ) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'error',
+          area: 'activation_case',
+          entityId: activation.id,
+          description: 'ActivationCase auf falscher ContractVersion',
+          recommendedAction: 'Vertragsversionsbezug korrigieren',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    for (const contract of contracts) {
+      if (contract.status === 'activation' && !activationsByContract.has(contract.id)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'activation_case',
+          entityId: contract.id,
+          description: 'Contract in activation ohne ActivationCase',
+          recommendedAction: 'Aktivierung über ActivationService starten',
+          autoRepairable: false,
+          repairKey: null,
+        });
       }
     }
 
@@ -456,6 +489,75 @@ export class DataDiagnosticService {
           entityId: contractId,
           description: 'Mehrere Aktivierungen für denselben Vertrag',
           recommendedAction: 'Doppelte Aktivierungserzeugung prüfen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const offerActivationEvents = normalizeOfferWorkflowEvents(
+      readStorageItem(STORAGE_KEYS.offerActivations) ?? [],
+    ).filter((event) => event.type === 'activation');
+    const contractsByOfferId = new Map(
+      contracts
+        .filter((contract) => contract.sourceOfferId)
+        .map((contract) => [contract.sourceOfferId as string, contract]),
+    );
+
+    for (const event of offerActivationEvents) {
+      const contract = contractsByOfferId.get(event.offerId);
+      if (!contract) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'info',
+          area: 'workflow_event',
+          entityId: event.id,
+          description: 'OfferActivation ohne Contract',
+          recommendedAction: 'Historischen Eintrag belassen; Vertrag bei Bedarf anlegen',
+          autoRepairable: false,
+          repairKey: null,
+        });
+        continue;
+      }
+      if (!activationsByContract.has(contract.id)) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'info',
+          area: 'workflow_event',
+          entityId: event.id,
+          description: 'OfferActivation ohne passenden ActivationCase',
+          recommendedAction: 'Operative Aktivierung über ActivationService starten',
+          autoRepairable: false,
+          repairKey: null,
+        });
+      }
+    }
+
+    const openActivationTaskKeys = new Map<string, number>();
+    for (const task of tasks) {
+      if (!task || typeof task !== 'object') continue;
+      const row = task as { id?: unknown; status?: unknown; sourceKey?: unknown };
+      const sourceKey = typeof row.sourceKey === 'string' ? row.sourceKey : '';
+      const status = typeof row.status === 'string' ? row.status : '';
+      if (status === 'done' || status === 'cancelled') continue;
+      if (
+        !sourceKey.startsWith('auto:start_activation:') &&
+        !sourceKey.startsWith('auto:prepare_activation:') &&
+        !sourceKey.startsWith('auto:activation_step:')
+      ) {
+        continue;
+      }
+      openActivationTaskKeys.set(sourceKey, (openActivationTaskKeys.get(sourceKey) ?? 0) + 1);
+    }
+    for (const [sourceKey, count] of openActivationTaskKeys) {
+      if (count > 1) {
+        findings.push({
+          id: generateId('diagnostic'),
+          severity: 'warning',
+          area: 'task',
+          entityId: sourceKey,
+          description: 'Doppelte operative Aktivierungsaufgaben',
+          recommendedAction: 'Aufgaben mit gleichem sourceKey bereinigen',
           autoRepairable: false,
           repairKey: null,
         });

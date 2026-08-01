@@ -267,13 +267,16 @@ export class OfferWorkflowService {
     return result;
   }
   async markExpired(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'mark_expired', context); }
+  /**
+   * Historischer Workflow-Schritt (OfferActivation-Event).
+   * Operative Aktivierung erfolgt ausschließlich über ActivationService.startFromContract.
+   */
   async prepareActivation(offerId: string, context: OfferUserContext, checklist: OfferActivationChecklist): Promise<Result> {
     const checklistError = validateActivationChecklist(checklist);
     if (checklistError) return { ok: false, error: 'validation' };
     const result = await this.transition(offerId, 'prepare_activation', context);
     if (result.ok) {
       await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'prepared', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', checklist, activatedAt: null, externalReference: null, deviations: [], activatedHardware: [] });
-      if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Aktivierung vorbereiten', type: 'check_activation', priority: 'high', dueAt: endOfDayIso(), leadId: result.offer.leadId, offerId, sourceKey: `auto:prepare_activation:${offerId}` }, context);
       if (this.contractService) {
         await this.contractService.syncFromOfferActivation(offerId, {
           userId: context.userId,
@@ -285,6 +288,10 @@ export class OfferWorkflowService {
     }
     return result;
   }
+  /**
+   * Historischer Workflow-Schritt (OfferActivation-Event).
+   * Schreibt keine operative ActivationCase-Wahrheit und setzt den Vertrag nicht auf active.
+   */
   async activate(offerId: string, context: OfferUserContext, input: { externalReference?: string; note?: string; deviations?: OfferActivationDeviation[]; activatedHardware?: string[] } = {}): Promise<Result> {
     const deviations = input.deviations ?? [];
     const deviationError = validateActivationDeviations(deviations);
@@ -292,7 +299,7 @@ export class OfferWorkflowService {
     const result = await this.transition(offerId, 'activate', context);
     if (result.ok) {
       await this.event({ id: generateId('offer_activation'), schemaVersion: 1, type: 'activation', status: 'activated', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: input.note ?? '', checklist: { offerVersionId: result.offer.currentVersionId ?? '', checks: {} }, activatedAt: nowIso(), externalReference: input.externalReference ?? null, deviations, activatedHardware: input.activatedHardware ?? [] });
-      await this.record('activation', 'Angebot aktiviert', input.note ?? '', result.offer, context, `activation:${offerId}`);
+      await this.record('activation', 'Historische Angebotsaktivierung dokumentiert', input.note ?? '', result.offer, context, `activation:${offerId}`);
       if (this.contractService) {
         await this.contractService.syncFromOfferActivation(offerId, {
           userId: context.userId,

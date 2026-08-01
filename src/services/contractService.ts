@@ -682,17 +682,18 @@ export class ContractService {
     }
     if (!contract) return { ok: true, value: null };
 
+    // Operatives Go-live/active kommt nur noch aus ActivationCase (ActivationService).
+    // OfferActivation darf den Vertrag höchstens in den Aktivierungsstatus überführen.
     let next: ContractStatus | null = null;
-    if (offer.workflowStatus === 'activation_pending' && contract.status === 'preparation') {
-      next = 'activation';
-    } else if (
-      (offer.workflowStatus === 'activated' ||
+    if (
+      (offer.workflowStatus === 'activation_pending' ||
+        offer.workflowStatus === 'activated' ||
         offer.workflowStatus === 'released' ||
         offer.workflowStatus === 'accounted' ||
         offer.workflowStatus === 'paid') &&
-      (contract.status === 'preparation' || contract.status === 'activation')
+      contract.status === 'preparation'
     ) {
-      next = 'active';
+      next = 'activation';
     }
 
     if (!next || next === contract.status) {

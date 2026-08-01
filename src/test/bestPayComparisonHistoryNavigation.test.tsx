@@ -37,8 +37,10 @@ describe('A11.5 BestPay history navigation', () => {
     expect(screen.getByLabelText('Berechnungen durchsuchen')).toBeInTheDocument();
   });
 
-  it('zeigt Einstieg auf dem Beratungshub', async () => {
-    renderAtRoute('/calculator');
-    expect(await screen.findByRole('link', { name: 'Gespeicherte Vergleiche' })).toBeInTheDocument();
+  it('zeigt Historieneinstieg auf dem Beratungshub', async () => {
+    renderAtRoute('/advice');
+    expect(
+      await screen.findByRole('link', { name: /Gespeicherte Berechnungen/i }),
+    ).toBeInTheDocument();
   });
 });

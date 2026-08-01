@@ -11,12 +11,13 @@ import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDa
 import { SalesActivityService } from '../services/salesActivityService';
 import { SalesTaskService } from '../services/salesTaskService';
 import { SalesWorkspaceService } from '../services/salesWorkspaceService';
+import { ADVICE_NEW_PATH } from '../utils/routes';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
-function renderAtRoute(initialRoute: string) {
+function renderAtRoute(initialRoute: string, userId = 'user_001') {
   clearDemoDataForTests();
   resetDemoDataForTests();
-  writeStorageItem(STORAGE_KEYS.currentUserId, 'user_001');
+  writeStorageItem(STORAGE_KEYS.currentUserId, userId);
 
   const memoryRouter = createMemoryRouter(appRoutes, {
     initialEntries: [initialRoute],
@@ -40,15 +41,21 @@ describe('B02 Sales Workspace', () => {
   it('öffnet /sales über die Hauptnavigation', async () => {
     renderAtRoute('/sales');
     expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
-    expect(screen.getByText(/Meine Vorgänge/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Neue Beratung' })).toHaveAttribute('href', ADVICE_NEW_PATH);
+    expect(screen.getByRole('link', { name: 'Kunden suchen' })).toHaveAttribute('href', '/leads');
   });
 
-  it('zeigt Kennzahlen und Pipeline ohne OCR/PDF-Imports', async () => {
+  it('zeigt genau vier Tagesbereiche ohne Pipeline und Kennzahlen', async () => {
     renderAtRoute('/sales');
-    expect(await screen.findByRole('heading', { name: 'Kennzahlen' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Pipeline' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Heute' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Kennzahlen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Erwartete Abschlüsse' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aufgabe anlegen' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Provision/)).not.toBeInTheDocument();
   });
 
   it('aggregiert Workspace-Daten und legt automatische Wizard-Aufgaben an', async () => {
@@ -70,5 +77,10 @@ describe('B02 Sales Workspace', () => {
     expect(view.canUseTeamScope).toBe(false);
     expect(view.metrics.openLeads).toBeGreaterThan(0);
     expect(Object.keys(view.pipeline)).toContain('new');
+    expect(view.dayWork).toBeTruthy();
+    expect(view.dayWork.overdue).toBeDefined();
+    expect(view.dayWork.today).toBeDefined();
+    expect(view.dayWork.blocked).toBeDefined();
+    expect(view.dayWork.nextCases).toBeDefined();
   });
 });

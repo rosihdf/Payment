@@ -13,19 +13,49 @@ export type SalesWizardStepId =
   | 'approval'
   | 'closing';
 
+/** Interne Schrittfolge (inkl. Freigabe). Sichtbare Nav nutzt SALES_WIZARD_VISIBLE_STEPS. */
 export const SALES_WIZARD_STEPS: Array<{
   id: SalesWizardStepId;
   number: number;
   label: string;
 }> = [
-  { id: 'prospect', number: 1, label: 'Interessent' },
-  { id: 'costs', number: 2, label: 'Aktuelle Kosten' },
+  { id: 'prospect', number: 1, label: 'Kunde' },
+  { id: 'costs', number: 2, label: 'Ausgangslage' },
   { id: 'need', number: 3, label: 'Bedarf' },
-  { id: 'variants', number: 4, label: 'Variantenvergleich' },
+  { id: 'variants', number: 4, label: 'Vergleich' },
   { id: 'offer', number: 5, label: 'Angebot' },
-  { id: 'approval', number: 6, label: 'Freigabe' },
-  { id: 'closing', number: 7, label: 'Abschluss' },
+  { id: 'approval', number: 6, label: 'Angebot' },
+  { id: 'closing', number: 7, label: 'Prüfung & Nachfassen' },
 ];
+
+/** Maximal sechs sichtbare Beratungsschritte (Freigabe gehört zu Angebot). */
+export const SALES_WIZARD_VISIBLE_STEPS: Array<{
+  id: Exclude<SalesWizardStepId, 'approval'>;
+  number: number;
+  label: string;
+  includes: SalesWizardStepId[];
+}> = [
+  { id: 'prospect', number: 1, label: 'Kunde', includes: ['prospect'] },
+  { id: 'costs', number: 2, label: 'Ausgangslage', includes: ['costs'] },
+  { id: 'need', number: 3, label: 'Bedarf', includes: ['need'] },
+  { id: 'variants', number: 4, label: 'Vergleich', includes: ['variants'] },
+  { id: 'offer', number: 5, label: 'Angebot', includes: ['offer', 'approval'] },
+  { id: 'closing', number: 6, label: 'Prüfung & Nachfassen', includes: ['closing'] },
+];
+
+export function getVisibleWizardStep(
+  step: SalesWizardStepId,
+): (typeof SALES_WIZARD_VISIBLE_STEPS)[number] {
+  const matched = SALES_WIZARD_VISIBLE_STEPS.find((entry) => entry.includes.includes(step));
+  return matched ?? SALES_WIZARD_VISIBLE_STEPS[0]!;
+}
+
+export function getVisibleWizardStepIndex(step: SalesWizardStepId): number {
+  return Math.max(
+    0,
+    SALES_WIZARD_VISIBLE_STEPS.findIndex((entry) => entry.includes.includes(step)),
+  );
+}
 
 export interface SalesWizardProspectDraft {
   companyName: string;

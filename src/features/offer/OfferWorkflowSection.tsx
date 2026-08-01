@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormField } from '../../components/common/FormField';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { Offer } from '../../domain/offer/offer';
 import type { OfferVersion } from '../../domain/offer/offerVersion';
 import type { OfferWorkflowEvent } from '../../domain/offer/offerWorkflowEvents';
@@ -24,24 +23,7 @@ type WorkflowDialog =
   | 'send'
   | 'accept'
   | 'decline'
-  | 'activate'
-  | 'prepare_activation'
   | null;
-
-const ACTIVATION_CHECKLIST: Array<{ key: string; label: string }> = [
-  { key: 'offerAccepted', label: 'Angebot angenommen' },
-  { key: 'correctVersion', label: 'Korrekte Version' },
-  { key: 'customerComplete', label: 'Kundendaten vollständig' },
-  { key: 'contractComplete', label: 'Vertragsdaten vollständig' },
-  { key: 'terminalConfirmed', label: 'Terminalmodell bestätigt' },
-  { key: 'terminalCountConfirmed', label: 'Terminalanzahl bestätigt' },
-  { key: 'accessoriesConfirmed', label: 'Zubehör bestätigt' },
-  { key: 'termConfirmed', label: 'Laufzeit bestätigt' },
-  { key: 'conditionsConfirmed', label: 'Konditionen bestätigt' },
-  { key: 'documentsPresent', label: 'Notwendige Dokumente vorhanden' },
-  { key: 'approvalPresent', label: 'Interne Freigabe vorhanden' },
-  { key: 'contactPresent', label: 'Ansprechpartner für Aktivierung' },
-];
 
 function eventLabel(event: OfferWorkflowEvent): string {
   switch (event.type) {
@@ -58,7 +40,9 @@ function eventLabel(event: OfferWorkflowEvent): string {
     case 'decline':
       return 'Abgelehnt';
     case 'activation':
-      return event.status === 'prepared' ? 'Aktivierung vorbereitet' : 'Aktiviert';
+      return event.status === 'prepared'
+        ? 'Historische Aktivierungsvorbereitung'
+        : 'Historische Angebotsaktivierung';
     default: {
       const _exhaustive: never = event;
       return _exhaustive;
@@ -88,7 +72,6 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
   const [recipient, setRecipient] = useState('');
   const [acceptedByName, setAcceptedByName] = useState('');
   const [declineReason, setDeclineReason] = useState('');
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [isRunning, setIsRunning] = useState(false);
 
   const userContext = useMemo(
@@ -166,9 +149,9 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
       case 'sent':
         return 'Annahme oder Ablehnung dokumentieren';
       case 'accepted':
-        return 'Aktivierung vorbereiten';
       case 'activation_pending':
-        return 'Aktivierung dokumentieren';
+      case 'activated':
+        return 'Weiter in der Kundenakte oder über Vertrag & Aktivierung';
       default:
         return 'Status prüfen';
     }
@@ -266,26 +249,6 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
               Ablehnung dokumentieren
             </button>
           </>
-        ) : null}
-        {offer.workflowStatus === 'accepted' ? (
-          <button
-            type="button"
-            className={styles.primaryAction}
-            disabled={isRunning}
-            onClick={() => setDialog('prepare_activation')}
-          >
-            Aktivierung vorbereiten
-          </button>
-        ) : null}
-        {offer.workflowStatus === 'activation_pending' ? (
-          <button
-            type="button"
-            className={styles.primaryAction}
-            disabled={isRunning}
-            onClick={() => setDialog('activate')}
-          >
-            Aktivierung dokumentieren
-          </button>
         ) : null}
       </div>
 
@@ -474,48 +437,6 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
         </section>
       ) : null}
 
-      {dialog === 'prepare_activation' ? (
-        <section className={styles.formPanel}>
-          <ul className={styles.checklist}>
-            {ACTIVATION_CHECKLIST.map((item) => (
-              <li key={item.key}>
-                <label className={styles.checkLabel}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(checklist[item.key])}
-                    onChange={(event) =>
-                      setChecklist((current) => ({ ...current, [item.key]: event.target.checked }))
-                    }
-                  />
-                  {item.label}
-                </label>
-              </li>
-            ))}
-          </ul>
-          <div className={styles.formActions}>
-            <button type="button" className={styles.secondaryAction} onClick={closeDialog}>
-              Abbrechen
-            </button>
-            <button
-              type="button"
-              className={styles.primaryAction}
-              disabled={isRunning}
-              onClick={() =>
-                userContext &&
-                void runAction(() =>
-                  offerWorkflowService.prepareActivation(offer.id, userContext, {
-                    offerVersionId: offer.currentVersionId ?? '',
-                    checks: checklist,
-                  }),
-                )
-              }
-            >
-              Vorbereitung speichern
-            </button>
-          </div>
-        </section>
-      ) : null}
-
       <div className={styles.grid}>
         <section className={styles.panel} aria-labelledby="workflow-status-history">
           <h3 id="workflow-status-history" className={styles.panelTitle}>
@@ -620,18 +541,6 @@ export function OfferWorkflowSection({ offer, onUpdated }: OfferWorkflowSectionP
           {displayDateTime(currentVersion.createdAt)}).
         </p>
       ) : null}
-
-      <ConfirmDialog
-        isOpen={dialog === 'activate'}
-        title="Aktivierung dokumentieren"
-        message="Die interne Übergabe an die operative Bearbeitung wird abgeschlossen."
-        cancelLabel="Abbrechen"
-        confirmLabel="Aktivierung speichern"
-        onCancel={closeDialog}
-        onConfirm={() =>
-          userContext && void runAction(() => offerWorkflowService.activate(offer.id, userContext))
-        }
-      />
     </section>
   );
 }

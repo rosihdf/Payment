@@ -35,7 +35,7 @@ Operatives Onboarding inkl. Hardwarezuordnung und Go-live liegt in Bereich D (`/
 
 ## D: Aktivierung & Onboarding
 
-Unter `/activations` bildet die Anwendung die operative Umsetzung eines Vertrags bis zum Go-live ab. `ActivationCase` ist die führende operative Wahrheit für das Onboarding aus einem `Contract`; `Contract`/`ContractVersion` bleiben die Wahrheit für vereinbarte Konditionen und Hardware-Positionen. Das bestehende `OfferActivation` (B03) bleibt unverändert bestehen.
+Unter `/activations` bildet die Anwendung die operative Umsetzung eines Vertrags bis zum Go-live ab. `ActivationCase` ist die führende operative Wahrheit für das Onboarding aus einem `Contract`; `Contract`/`ContractVersion` bleiben die Wahrheit für vereinbarte Konditionen und Hardware-Positionen. Historische `OfferActivation`-Einträge (B03) bleiben kompatibel lesbar, steuern aber keine operative Checkliste, Hardwarebearbeitung oder Go-live-Aktion mehr.
 
 Eine Aktivierung entsteht idempotent (`sourceKey` = `contract:{contractId}:initial-activation`) aus einem Vertrag in Status Vorbereitung oder Aktivierung. Beim Start wird eine versionsgebundene Checkliste aus der aktuellen `ContractVersion` abgeleitet (Stammdaten, Vertragsprüfung, Unterlagen, Händlerantrag, Acquiring, Hardware, Versand, Einrichtung, Test, Go-live, Abschluss, Übergabe) sowie je Hardware-Zeile eine Einheit pro Stückzahl angelegt.
 
@@ -141,14 +141,16 @@ Unter `/calculator` vergleicht die Anwendung bisherige Payment-Konditionen mit e
 
 | Route | Beschreibung |
 |-------|--------------|
-| `/` | Dashboard |
-| `/leads` | Lead-Übersicht |
-| `/leads/new` | Neuer Lead |
-| `/leads/:id` | Lead-Detail |
-| `/calculator` | Rechner-Hub (BestPay-Einzelberechnung, Neue Berechnung, gespeicherte Berechnungen) |
-| `/calculator/wizard` | Legacy-Redirect auf `/sales/wizard` |
-| `/sales` | Vertriebsarbeitsplatz (Pipeline, laufende Vertriebsfälle) |
-| `/sales/wizard` | BestPay Vertriebsprozess (B01, technisch SalesWizard) |
+| `/` | Dashboard / Weiterleitung Arbeitsplatz |
+| `/leads` | Kundenübersicht |
+| `/leads/new` | Neuer Kunde |
+| `/leads/:id` | Kundenakte |
+| `/advice` | Beratung (Hub + Beratungsprozess) |
+| `/advice/quick` | Schnelle Berechnung (untergeordnet) |
+| `/calculator` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
+| `/calculator/wizard` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
+| `/sales` | Arbeitsplatz (Tagesarbeit) |
+| `/sales/wizard` | Legacy-Redirect auf `/advice` (Query bleibt erhalten) |
 | `/calculator/bestpay` | Eigenständiger BestPay-Vergleich (A11.4) |
 | `/calculator/bestpay/history` | Gespeicherte BestPay-Berechnungen (A11.5) |
 | `/products` | Produktkatalog (Admin und Außendienst, nur aktive Produkte) |
@@ -538,93 +540,61 @@ Unter **Rechner** gibt es die Übersicht **Gespeicherte Berechnungen** (`/calcul
 
 ### Abgrenzung A11.6
 
-Kein separater A11.6-Block mehr: Varianten-/Szenariovergleich ist Teil des B01-Vertriebs-Wizards. Keine Cloud-Sync, keine Teamfreigaben.
+Kein separater A11.6-Block mehr: Varianten-/Szenariovergleich ist Teil der Beratung unter `/advice`. Keine Cloud-Sync, keine Teamfreigaben.
 
-## BestPay Vertriebs-Wizard (B01)
+## Beratung (`/advice`)
 
-Unter **Vertriebsprozess** (`/sales/wizard`) orchestriert die App den vollständigen Vertriebsablauf. Der Einstieg erfolgt über den Hauptnavigationseintrag **Vertriebsprozess** oder über den Vertriebsarbeitsplatz (`/sales`) mit **Neuen Vertriebsfall starten**. Die Legacy-Route `/calculator/wizard` leitet auf `/sales/wizard` um.
+Unter **Beratung** (`/advice`) liegt der klare Einstieg vom Kunden über Vergleich bis zum Angebot. Die dominante Aktion ist **Beratung starten**. Die schnelle Berechnung bleibt untergeordnet. Legacy-Routen `/calculator`, `/calculator/wizard` und `/sales/wizard` leiten unter Erhalt der Query-Parameter auf `/advice` um.
 
-### Schritte
+### Sichtbare Schritte
 
-1. Interessent (bestehender Lead / neuer Interessent / ohne Lead)
-2. Aktuelle Kosten (Billing-/OCR-Pipeline oder manuell)
+1. Kunde
+2. Ausgangslage
 3. Bedarf
-4. Variantenvergleich (beliebige Szenarien)
-5. Angebot (vorhandene Angebotsengine)
-6. Freigabe (Pricing-Approval-Metadaten; Auto-Skip wenn nicht nötig)
-7. Abschluss
+4. Vergleich
+5. Angebot
+6. Prüfung & Nachfassen
 
 ### Architektur
 
-- Orchestrierung über `SalesWizardService` auf derselben `BestPayComparisonSession` (Schema v3)
+- Orchestrierung über `SalesWizardService` auf derselben `BestPayComparisonSession`
 - Keine zweite Persistenz, keine zweite OCR-/Billing-/Pricing-/Recommendation-/Commission-Engine
-- Autosave bei jeder Service-Änderung; Resume über `?session=` oder aktiven Wizard-Entwurf
+- Neue Beratung startet zunächst nur im Page-State; Persistenz erst bei fachlicher Eingabe oder bewusstem „Entwurf speichern“
+- Leere Entwürfe werden über `isEmptyAdviceSession` erkannt und können im Hub per ConfirmDialog verworfen werden
+- Danach Autosave; Resume über `?session=`
 - Desktop: linke Fortschrittsnavigation; mobil: horizontale Schrittleiste
 
-### Hub-Einstiege (Rechner)
+## Kundenakte (`/leads/:id`)
 
-- Neue Berechnung
-- Abrechnung einlesen
-- Manuell eingeben
-- Gespeicherte Berechnungen (Historie A11.5)
-- Unaufdringlicher Hinweis zum Vertriebsprozess
+Die bestehende Kundendetailseite ist die zentrale **Kundenakte** mit genau einer abgeleiteten Hauptaktion, einem verständlichen Gesamtstand und den Bereichen Übersicht, Beratung, Angebot, Vertrag, Aktivierung, Dokumente sowie Aufgaben & Verlauf. Offer-, Contract- und Activation-Detailseiten verlinken zurück „Zur Kundenakte“.
 
-## Vertriebsarbeitsplatz (B02)
+## Arbeitsplatz (`/sales`)
 
-Unter **Vertrieb** (`/sales`) liegt der tägliche operative Arbeitsplatz.
+Unter **Arbeitsplatz** (`/sales`) liegt die reduzierte Tagesansicht.
 
-### Zweck
+### Sichtbare Bereiche
 
-Handlungsorientierte Übersicht über Pipeline, Aufgaben/Wiedervorlagen, Aktivitäten und erwartete Abschlüsse – verbunden mit Lead, Wizard, Berechnung, Angebot, Freigabe und Provision.
+1. Überfällig
+2. Heute
+3. Blockiert
+4. Nächste Kundenfälle
 
-### Pipelinephasen
+Schnellaktionen: **Neue Beratung**, **Kunden suchen**. Karten öffnen direkt die Kundenakte.
 
-Neu → Kontakt → Abrechnung → Berechnung → Angebot → Freigabe → Nachfassen → Angenommen → Aktivierung → Abgerechnet → Gewonnen / Verloren
+### Nicht mehr im Hauptfluss
 
-Die Ableitung erfolgt deterministisch aus Lead-, Session-, Offer-, Aktivitäts-, Aufgaben- und Provisionsdaten. Der bestehende Offerstatus (`draft` / `completed` / `cancelled`) wird nicht überschrieben. Spätere Stufen nutzen u. a. Commission-Case-Status und dokumentierte Aktivitäten (z. B. Angebot versendet).
-
-Vorgänge ohne Lead erscheinen unter **Noch nicht zugeordnet**.
-
-### Aufgaben und Wiedervorlagen
-
-- Domain `SalesTask` (versionierter Store)
-- Typen u. a. Rückruf, Abrechnung, Berechnung fortsetzen, Freigabe, Nachfassen, Aktivierung, Provision
-- Status: offen / in Bearbeitung / erledigt / abgebrochen
-- Priorität: normal / hoch / dringend
-- Wiedervorlagen = Aufgaben mit Fälligkeit
-- Automatische Aufgaben (idempotent über `sourceKey`), z. B. Wizard-Entwurf → „Berechnung fortsetzen“
-- Erledigung erzeugt genau eine Systemaktivität
-
-### Aktivitäten und Notizen
-
-- Domain `SalesActivity` (versionierter Store)
-- Manuell: Notiz, Telefonat, E-Mail, Termin (intern, nicht in Kundendokumente)
-- Systemaktivitäten: nicht editierbar/löschbar, idempotent, nicht bei bloßem Lesen
-- Timeline im Arbeitsplatz und kompakt im Lead-Detail
-
-### Dashboard
-
-Kennzahlen (überfällig, heute, offene Leads/Wizards/Berechnungen, Freigaben, Nachfassen, erwartete Abschlüsse), Listen Heute / Offene Vorgänge / Erwartete Abschlüsse, Suche und Scope **Meine Vorgänge** (Team nur Admin).
+Pipelineübersicht, Kennzahlenwand, erwartete Abschlüsse, Provision, freie Aufgabenanlage und lange Timeline.
 
 ### Rechte
 
-- Außendienst: primär eigene Vorgänge/Aufgaben
-- Admin: Teamansicht
-- Provision nur gemäß bestehendem Recht sichtbar
-- Service-seitige Sichtbarkeitsprüfung
+- Außendienst: nur eigene Fälle
+- Admin: eigene Fälle oder Teamansicht
 
 ### Persistenz / Datenschutz
 
-- Lokale Stores `salesTasks` / `salesActivities` mit Schema- und Storage-Version
-- Migration + Isolation beschädigter Einträge
-- Keine Originaldokumente, keine OCR-Rohdaten, keine zweite Lead-/Offer-/Session-Wahrheit
-- Spätere Serverpersistenz über Repository-Interfaces vorbereitet
-
-### Bekannte Grenzen / Abgrenzung B04
-
-- Kein E-Mail-Versand, keine externe Signaturplattform, keine BestPay-Aktivierungs-API
-- Keine Cloud-Synchronisation, kein vollständiges DMS
-- B04: Administration und Produktivbetrieb
+- Bestehende lokale Stores `salesTasks` / `salesActivities` bleiben
+- Keine Originaldokumente, keine OCR-Rohdaten, keine neue Persistenz für die Tagesansicht
+- View-Ableitungen mutieren keine Fachdaten
 
 ## OCR-Produktionsreife: Bundle-Splitting und Asset-Verifikation (A11.3)
 
