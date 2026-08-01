@@ -24,9 +24,11 @@ import type { ActivationChecklistRepository } from '../repositories/interfaces/A
 import type { ActivationApplicationRepository } from '../repositories/interfaces/ActivationApplicationRepository';
 import type { ActivationHardwareRepository } from '../repositories/interfaces/ActivationHardwareRepository';
 import type { ActivationBlockerRepository } from '../repositories/interfaces/ActivationBlockerRepository';
-import { LocalCommissionCalculationRepository } from '../repositories/local/LocalCommissionCalculationRepository';
-import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
-import { LocalRecommendationRepository } from '../repositories/local/LocalRecommendationRepository';
+import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
+import type { BillingImportRepository } from '../repositories/interfaces/BillingImportRepository';
+import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
+import type { CommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
+import type { RecommendationRepository } from '../repositories/interfaces/RecommendationRepository';
 import { AdminOverviewService } from './adminOverviewService';
 import { AdminUserService } from './adminUserService';
 import { ApprovalRuleService } from './approvalRuleService';
@@ -37,6 +39,7 @@ import { CommissionCatalogAdminService } from './commissionCatalogAdminService';
 import { ContractService } from './contractService';
 import { DataDiagnosticService } from './dataDiagnosticService';
 import { DataExportService, DataRestoreService } from './dataExportService';
+import { SupabaseDataMigrationService } from './supabaseDataMigrationService';
 import { DocumentTemplateService } from './documentTemplateService';
 import { RecommendationService } from './recommendationService';
 import { BillingImportService } from './billingImportService';
@@ -65,6 +68,7 @@ export interface AppServices {
   documentTemplateService: DocumentTemplateService;
   dataExportService: DataExportService;
   dataRestoreService: DataRestoreService;
+  supabaseDataMigrationService: SupabaseDataMigrationService;
   dataDiagnosticService: DataDiagnosticService;
   systemStatusService: SystemStatusService;
   adminOverviewService: AdminOverviewService;
@@ -107,9 +111,11 @@ export interface AppRepositories {
   offerDocumentRepository: OfferDocumentRepository;
   pricingCatalogRepository: PricingCatalogRepository;
   pricingEvaluationRepository: PricingEvaluationRepository;
-  commissionCatalogRepository: LocalCommissionCatalogRepository;
-  commissionCalculationRepository: LocalCommissionCalculationRepository;
-  recommendationRepository: LocalRecommendationRepository;
+  commissionCatalogRepository: CommissionCatalogRepository;
+  commissionCalculationRepository: CommissionCalculationRepository;
+  recommendationRepository: RecommendationRepository;
+  billingImportRepository: BillingImportRepository;
+  bestPayComparisonRepository: BestPayComparisonRepository;
   salesTaskRepository: SalesTaskRepository;
   salesActivityRepository: SalesActivityRepository;
   contractRepository: ContractRepository;
@@ -132,6 +138,7 @@ export function createServices(repositories: AppRepositories): AppServices {
   );
   const dataExportService = new DataExportService(auditService);
   const dataRestoreService = new DataRestoreService(auditService);
+  const supabaseDataMigrationService = new SupabaseDataMigrationService(auditService);
   const dataDiagnosticService = new DataDiagnosticService(auditService);
   const systemStatusService = new SystemStatusService(dataExportService, dataDiagnosticService);
   const commissionCatalogAdminService = new CommissionCatalogAdminService(
@@ -154,7 +161,10 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.tariffRepository,
     repositories.productRepository,
   );
-  const billingImportService = new BillingImportService(repositories.offerRepository);
+  const billingImportService = new BillingImportService(
+    repositories.offerRepository,
+    repositories.billingImportRepository,
+  );
   const recommendationService = new RecommendationService(
     repositories.recommendationRepository,
     repositories.offerRepository,
@@ -171,6 +181,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     offerService,
     repositories.leadRepository,
     repositories.offerRepository,
+    repositories.bestPayComparisonRepository,
   );
   const leadService = new LeadService(repositories.leadRepository);
   const salesTaskService = new SalesTaskService(repositories.salesTaskRepository);
@@ -182,6 +193,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.offerWorkflowEventRepository,
     repositories.salesDocumentRepository,
     repositories.pricingEvaluationRepository,
+    repositories.commissionCalculationRepository,
   );
   offerWorkflowService.setSalesTaskService(salesTaskService);
   offerWorkflowService.setSalesActivityService(salesActivityService);
@@ -192,6 +204,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     leadService,
     offerWorkflowService,
     offerService,
+    repositories.bestPayComparisonRepository,
   );
   const salesWorkspaceService = new SalesWorkspaceService(
     repositories.leadRepository,
@@ -200,6 +213,12 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.salesActivityRepository,
     salesTaskService,
     salesActivityService,
+    repositories.bestPayComparisonRepository,
+    repositories.commissionCalculationRepository,
+    repositories.pricingEvaluationRepository,
+    repositories.contractRepository,
+    repositories.activationCaseRepository,
+    repositories.activationBlockerRepository,
   );
   const contractService = new ContractService(
     repositories.contractRepository,
@@ -209,6 +228,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.offerVersionRepository,
     repositories.salesDocumentRepository,
     repositories.salesTaskRepository,
+    repositories.commissionCalculationRepository,
     auditService,
   );
   contractService.setSalesTaskService(salesTaskService);
@@ -240,6 +260,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     documentTemplateService,
     dataExportService,
     dataRestoreService,
+    supabaseDataMigrationService,
     dataDiagnosticService,
     systemStatusService,
     adminOverviewService,

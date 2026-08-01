@@ -54,7 +54,7 @@ export function AdviceHubPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const reload = useCallback(() => {
+  const reload = useCallback(async () => {
     if (!currentUser) {
       return;
     }
@@ -63,12 +63,17 @@ export function AdviceHubPage() {
       role: currentUser.role,
       displayName: currentUser.name,
     };
-    const summaries = bestPayComparisonService.listComparisons(userContext, {
+    const summaries = await bestPayComparisonService.listComparisons(userContext, {
       status: 'all',
       includeArchived: false,
     });
-    const sessions = (summaries ?? [])
-      .map((summary) => bestPayComparisonService.getSession(summary.id, userContext))
+    const sessions = (
+      await Promise.all(
+        (summaries ?? []).map((summary) =>
+          bestPayComparisonService.getSession(summary.id, userContext),
+        ),
+      )
+    )
       .filter((session): session is BestPayComparisonSession => Boolean(session))
       .filter(
         (session) =>
@@ -90,7 +95,7 @@ export function AdviceHubPage() {
   }, [bestPayComparisonService, currentUser]);
 
   useEffect(() => {
-    reload();
+    void reload();
   }, [reload]);
 
   const pendingDelete = openSessions.find((session) => session.id === pendingDeleteId) ?? null;
@@ -99,23 +104,26 @@ export function AdviceHubPage() {
     if (!currentUser || !pendingDelete) {
       return;
     }
-    const result = salesWizardService.discardEmptyWizard(pendingDelete.id, {
-      userId: currentUser.id,
-      role: currentUser.role,
-      displayName: currentUser.name,
-    });
-    setPendingDeleteId(null);
-    if (!result.ok) {
-      showToast(
-        result.error === 'not_empty'
-          ? 'Nur leere Entwürfe können so gelöscht werden'
-          : 'Entwurf konnte nicht gelöscht werden',
-        'error',
-      );
-      return;
-    }
-    showToast('Leerer Entwurf verworfen', 'success');
-    reload();
+    void salesWizardService
+      .discardEmptyWizard(pendingDelete.id, {
+        userId: currentUser.id,
+        role: currentUser.role,
+        displayName: currentUser.name,
+      })
+      .then((result) => {
+        setPendingDeleteId(null);
+        if (!result.ok) {
+          showToast(
+            result.error === 'not_empty'
+              ? 'Nur leere Entwürfe können so gelöscht werden'
+              : 'Entwurf konnte nicht gelöscht werden',
+            'error',
+          );
+          return;
+        }
+        showToast('Leerer Entwurf verworfen', 'success');
+        void reload();
+      });
   };
 
   return (

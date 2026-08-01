@@ -44,11 +44,10 @@ import type { Offer } from '../domain/offer/offer';
 import type { User } from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
-import {
-  readBillingImportStore,
-  writeBillingImportStore,
-} from '../repositories/local/billingImportStore';
-import { migrateBillingImportStorageIfNeeded } from './billingImportStorageMigration';
+import type {
+  BillingImportRepository,
+  BillingImportStoreData,
+} from '../repositories/interfaces/BillingImportRepository';
 import {
   toSalesBillingImportView,
   type SalesBillingImportView,
@@ -149,13 +148,19 @@ function buildAggregationExtras(
 
 export class BillingImportService {
   private readonly offerRepository: OfferRepository;
+  private readonly billingImportRepository: BillingImportRepository;
 
-  constructor(offerRepository: OfferRepository) {
+  constructor(offerRepository: OfferRepository, billingImportRepository: BillingImportRepository) {
     this.offerRepository = offerRepository;
+    this.billingImportRepository = billingImportRepository;
   }
 
-  private ensureMigrated(): void {
-    migrateBillingImportStorageIfNeeded();
+  private readStore(): Promise<BillingImportStoreData> {
+    return this.billingImportRepository.readStore();
+  }
+
+  private writeStore(store: BillingImportStoreData): Promise<void> {
+    return this.billingImportRepository.writeStore(store);
   }
 
   private async getAccessibleOffer(
@@ -173,13 +178,12 @@ export class BillingImportService {
     offerId: string,
     context: BillingImportUserContext,
   ): Promise<BillingImportSession | null> {
-    this.ensureMigrated();
     const offer = await this.getAccessibleOffer(offerId, context);
     if (!offer) {
       return null;
     }
 
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const existing = store.sessions
       .filter(
         (session) =>
@@ -216,7 +220,7 @@ export class BillingImportService {
     };
 
     store.sessions.push(session);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return session;
   }
 
@@ -224,8 +228,7 @@ export class BillingImportService {
     context: BillingImportUserContext,
     options: { leadId?: string | null; existingSessionId?: string | null } = {},
   ): Promise<BillingImportSession | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
 
     if (options.existingSessionId) {
       const existing = store.sessions.find(
@@ -261,7 +264,7 @@ export class BillingImportService {
     };
 
     store.sessions.push(session);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return session;
   }
 
@@ -269,7 +272,7 @@ export class BillingImportService {
     sessionId: string,
     context: BillingImportUserContext,
   ): Promise<SalesBillingImportView | null> {
-    const data = this.getSessionData(sessionId, context);
+    const data = await this.getSessionData(sessionId, context);
     if (!data) {
       return null;
     }
@@ -292,8 +295,7 @@ export class BillingImportService {
     files: File[],
     context: BillingImportUserContext,
   ): Promise<{ ok: true; documents: BillingSourceDocument[] } | { ok: false; errors: string[] }> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return { ok: false, errors: ['not_found'] };
@@ -363,7 +365,7 @@ export class BillingImportService {
       }
     }
 
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return { ok: true, documents };
   }
 
@@ -372,8 +374,7 @@ export class BillingImportService {
     documentId: string,
     context: BillingImportUserContext,
   ): Promise<BillingSourceDocument | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     const document = store.documents.find((entry) => entry.id === documentId);
     if (!session || !document || session.createdByUserId !== context.userId) {
@@ -384,7 +385,7 @@ export class BillingImportService {
     if (!file) {
       document.extractionStatus = 'failed';
       document.errorMessage = 'Originaldatei nicht mehr verfügbar – bitte erneut hochladen.';
-      writeBillingImportStore(store);
+      await this.writeStore(store);
       return document;
     }
 
@@ -409,7 +410,7 @@ export class BillingImportService {
     if (abortController.signal.aborted) {
       document.extractionStatus = 'pending';
       document.errorMessage = 'Extraktion abgebrochen.';
-      writeBillingImportStore(store);
+      await this.writeStore(store);
       return document;
     }
 
@@ -417,7 +418,7 @@ export class BillingImportService {
       document.extractionStatus = 'failed';
       document.errorMessage = extraction.errorMessage ?? extraction.errorCode ?? 'Extraktion fehlgeschlagen';
       session.status = 'review_required';
-      writeBillingImportStore(store);
+      await this.writeStore(store);
       return document;
     }
 
@@ -451,7 +452,7 @@ export class BillingImportService {
       this.recalculateSessionPeriods(store, sessionId);
     }
 
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return document;
   }
 
@@ -464,8 +465,7 @@ export class BillingImportService {
     },
     context: BillingImportUserContext,
   ): Promise<ExtractedBillingField | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const field = store.fields.find((entry) => entry.id === fieldId);
     if (!field) {
       return null;
@@ -492,12 +492,12 @@ export class BillingImportService {
       field.correctedAt = nowIso();
     }
 
-    const storeAfter = readBillingImportStore();
+    const storeAfter = await this.readStore();
     if (document && session) {
       this.recalculateSessionPeriods(storeAfter, session.id);
-      writeBillingImportStore(storeAfter);
+      await this.writeStore(storeAfter);
     } else {
-      writeBillingImportStore(store);
+      await this.writeStore(store);
     }
     return field;
   }
@@ -508,7 +508,7 @@ export class BillingImportService {
     context: BillingImportUserContext,
     comment = '',
   ): Promise<ExtractedBillingField | null> {
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const field = store.fields.find((entry) => entry.id === fieldId);
     if (!field) {
       return null;
@@ -528,8 +528,7 @@ export class BillingImportService {
     fieldId: string,
     context: BillingImportUserContext,
   ): Promise<ExtractedBillingField | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const field = store.fields.find((entry) => entry.id === fieldId);
     if (!field) {
       return null;
@@ -547,7 +546,7 @@ export class BillingImportService {
     field.correctedByUserId = null;
     field.correctedAt = null;
     this.recalculateSessionPeriods(store, session.id);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return field;
   }
 
@@ -555,8 +554,7 @@ export class BillingImportService {
     fieldId: string,
     context: BillingImportUserContext,
   ): Promise<ExtractedBillingField | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const field = store.fields.find((entry) => entry.id === fieldId);
     if (!field) {
       return null;
@@ -587,7 +585,7 @@ export class BillingImportService {
     }
 
     this.recalculateSessionPeriods(store, session.id);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return field;
   }
 
@@ -605,8 +603,7 @@ export class BillingImportService {
     },
     context: BillingImportUserContext,
   ): Promise<BillingCostLineItem | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return null;
@@ -635,7 +632,7 @@ export class BillingImportService {
     };
     store.costLineItems.push(item);
     this.recalculateSessionPeriods(store, sessionId);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return item;
   }
 
@@ -644,8 +641,7 @@ export class BillingImportService {
     input: Partial<Pick<BillingCostLineItem, 'label' | 'amountCents' | 'category' | 'costType' | 'included' | 'comment'>>,
     context: BillingImportUserContext,
   ): Promise<BillingCostLineItem | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const item = store.costLineItems.find((entry) => entry.id === itemId);
     if (!item) {
       return null;
@@ -657,13 +653,12 @@ export class BillingImportService {
 
     Object.assign(item, input, { updatedAt: nowIso(), source: 'corrected' as const });
     this.recalculateSessionPeriods(store, session.id);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return item;
   }
 
   async removeCostLineItem(itemId: string, context: BillingImportUserContext): Promise<boolean> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const item = store.costLineItems.find((entry) => entry.id === itemId);
     if (!item) {
       return false;
@@ -674,12 +669,12 @@ export class BillingImportService {
     }
     store.costLineItems = store.costLineItems.filter((entry) => entry.id !== itemId);
     this.recalculateSessionPeriods(store, session.id);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return true;
   }
 
-  cancelExtraction(sessionId: string, context: BillingImportUserContext): boolean {
-    const store = readBillingImportStore();
+  async cancelExtraction(sessionId: string, context: BillingImportUserContext): Promise<boolean> {
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return false;
@@ -688,8 +683,8 @@ export class BillingImportService {
     return true;
   }
 
-  rotateDocument(sessionId: string, documentId: string, direction: 'left' | 'right' | 'reset', context: BillingImportUserContext): number {
-    const store = readBillingImportStore();
+  async rotateDocument(sessionId: string, documentId: string, direction: 'left' | 'right' | 'reset', context: BillingImportUserContext): Promise<number> {
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     const document = store.documents.find((entry) => entry.id === documentId);
     if (!session || !document || session.createdByUserId !== context.userId) {
@@ -706,9 +701,8 @@ export class BillingImportService {
     return 0;
   }
 
-  computeBaselinePreview(sessionId: string, context: BillingImportUserContext): CustomerCostBaseline | null {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+  async computeBaselinePreview(sessionId: string, context: BillingImportUserContext): Promise<CustomerCostBaseline | null> {
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || (session.createdByUserId !== context.userId && context.role !== 'admin')) {
       return null;
@@ -740,7 +734,7 @@ export class BillingImportService {
   }
 
   private recalculateSessionPeriods(
-    store: ReturnType<typeof readBillingImportStore>,
+    store: BillingImportStoreData,
     sessionId: string,
   ): void {
     const documents = store.documents.filter((document) => document.sessionId === sessionId);
@@ -765,8 +759,7 @@ export class BillingImportService {
     sessionId: string,
     context: BillingImportUserContext,
   ): Promise<CustomerCostBaseline | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return null;
@@ -807,7 +800,7 @@ export class BillingImportService {
     });
 
     if (baseline.findings.some((finding) => finding.blocking)) {
-      writeBillingImportStore(store);
+      await this.writeStore(store);
       return null;
     }
 
@@ -841,14 +834,13 @@ export class BillingImportService {
       }
     }
 
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     clearSessionFiles(sessionId);
     return baseline;
   }
 
-  getSessionData(sessionId: string, context: BillingImportUserContext) {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+  async getSessionData(sessionId: string, context: BillingImportUserContext) {
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || (session.createdByUserId !== context.userId && context.role !== 'admin')) {
       return null;
@@ -867,7 +859,9 @@ export class BillingImportService {
       null;
 
     const costLineItems = store.costLineItems.filter((item) => item.sessionId === sessionId);
-    const baselinePreview = session.status !== 'confirmed' ? this.computeBaselinePreview(sessionId, context) : null;
+    const baselinePreview = session.status !== 'confirmed'
+      ? await this.computeBaselinePreview(sessionId, context)
+      : null;
 
     return {
       session,
@@ -890,8 +884,7 @@ export class BillingImportService {
     sessionId: string,
     context: BillingImportUserContext,
   ): Promise<BillingSourceDocument[]> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return [];
@@ -919,8 +912,7 @@ export class BillingImportService {
     input: Parameters<typeof createManualPeriodInput>[1],
     context: BillingImportUserContext,
   ): Promise<BillingPeriodRecord | null> {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return null;
@@ -935,7 +927,7 @@ export class BillingImportService {
     session.periodCount = store.periods.filter((entry) => entry.sessionId === sessionId).length;
     session.status = 'review_required';
     session.updatedAt = nowIso();
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return period;
   }
 
@@ -949,14 +941,14 @@ export class BillingImportService {
     }
 
     const session =
-      this.getActiveSessionForOffer(offerId, context) ??
+      (await this.getActiveSessionForOffer(offerId, context)) ??
       (await this.getOrCreateSession(offerId, context));
     if (!session) {
       return null;
     }
 
-    const data = this.getSessionData(session.id, context);
-    const baseline = this.getActiveBaselineForOffer(offerId, context);
+    const data = await this.getSessionData(session.id, context);
+    const baseline = await this.getActiveBaselineForOffer(offerId, context);
 
     return toSalesBillingImportView({
       session,
@@ -971,12 +963,11 @@ export class BillingImportService {
     });
   }
 
-  getActiveBaselineForOffer(
+  async getActiveBaselineForOffer(
     offerId: string,
     context: BillingImportUserContext,
-  ): CustomerCostBaseline | null {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+  ): Promise<CustomerCostBaseline | null> {
+    const store = await this.readStore();
     const baseline = store.baselines
       .filter(
         (entry) =>
@@ -990,12 +981,11 @@ export class BillingImportService {
     return baseline ?? null;
   }
 
-  getActiveSessionForOffer(
+  async getActiveSessionForOffer(
     offerId: string,
     context: BillingImportUserContext,
-  ): BillingImportSession | null {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+  ): Promise<BillingImportSession | null> {
+    const store = await this.readStore();
     return (
       store.sessions
         .filter(
@@ -1008,13 +998,12 @@ export class BillingImportService {
     );
   }
 
-  removeDocument(
+  async removeDocument(
     sessionId: string,
     documentId: string,
     context: BillingImportUserContext,
-  ): boolean {
-    this.ensureMigrated();
-    const store = readBillingImportStore();
+  ): Promise<boolean> {
+    const store = await this.readStore();
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (!session || session.createdByUserId !== context.userId) {
       return false;
@@ -1029,7 +1018,7 @@ export class BillingImportService {
     session.documentCount = store.documents.filter((document) => document.sessionId === sessionId).length;
     session.updatedAt = nowIso();
     removeSessionFile(sessionId, documentId);
-    writeBillingImportStore(store);
+    await this.writeStore(store);
     return true;
   }
 }

@@ -26,16 +26,12 @@ import type { LeadService } from './leadService';
 import type { RecommendationService } from './recommendationService';
 import type { OfferWorkflowService } from './offerWorkflowService';
 import type { OfferService } from './offerService';
+import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import {
   canDiscardEmptyAdviceSession,
   isEmptyAdviceSession,
 } from '../domain/bestPayComparison/isEmptyAdviceSession';
 import { createBestPayComparisonSession } from '../domain/bestPayComparison/createBestPayComparisonSession';
-import {
-  readBestPayComparisonSessions,
-  saveBestPayComparisonSession,
-  setActiveBestPayComparisonSessionId,
-} from './bestPayComparisonStorageMigration';
 
 export type SalesWizardError =
   | BestPayComparisonError
@@ -58,6 +54,7 @@ export class SalesWizardService {
   private readonly recommendationService: RecommendationService;
   private readonly leadService: LeadService;
   private readonly offerWorkflowService: OfferWorkflowService | null;
+  private readonly bestPayComparisonRepository: BestPayComparisonRepository;
 
   constructor(
     bestPayComparisonService: BestPayComparisonService,
@@ -65,20 +62,22 @@ export class SalesWizardService {
     leadService: LeadService,
     offerWorkflowService: OfferWorkflowService | null = null,
     _offerService: OfferService | null = null,
+    bestPayComparisonRepository: BestPayComparisonRepository,
   ) {
     this.bestPayComparisonService = bestPayComparisonService;
     this.recommendationService = recommendationService;
     this.leadService = leadService;
     this.offerWorkflowService = offerWorkflowService;
+    this.bestPayComparisonRepository = bestPayComparisonRepository;
   }
 
-  private persist(session: BestPayComparisonSession): BestPayComparisonSession {
+  private async persist(session: BestPayComparisonSession): Promise<BestPayComparisonSession> {
     session.updatedAt = nowIso();
     if (!session.title && session.wizard.prospectDraft.companyName.trim()) {
       session.customerLabel = session.wizard.prospectDraft.companyName.trim();
       session.title = session.wizard.prospectDraft.companyName.trim();
     }
-    saveBestPayComparisonSession(session);
+    await this.bestPayComparisonRepository.save(session);
     return session;
   }
 
@@ -99,8 +98,9 @@ export class SalesWizardService {
     return session;
   }
 
-  isWizardPersisted(sessionId: string): boolean {
-    return readBestPayComparisonSessions().some((entry) => entry.id === sessionId);
+  async isWizardPersisted(sessionId: string): Promise<boolean> {
+    const session = await this.bestPayComparisonRepository.getById(sessionId);
+    return session !== null;
   }
 
   /**
@@ -113,13 +113,13 @@ export class SalesWizardService {
   /**
    * Speichert eine bisher nur lokale Beratung genau einmal und aktiviert Autosave.
    */
-  persistWizardSession(
+  async persistWizardSession(
     session: BestPayComparisonSession,
-    _context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession {
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession> {
     session.entryMode = 'wizard';
     session.wizard.enabled = true;
-    setActiveBestPayComparisonSessionId(session.id);
+    await this.bestPayComparisonRepository.setActiveSessionId(context.userId, session.id);
     return this.persist(session);
   }
 
@@ -127,22 +127,22 @@ export class SalesWizardService {
    * Expliziter Start mit Persistenz (Tests / bewusster Entwurf).
    * UI „Beratung starten“ nutzt createTransientWizard.
    */
-  startWizard(context: BestPayComparisonUserContext): BestPayComparisonSession {
+  async startWizard(context: BestPayComparisonUserContext): Promise<BestPayComparisonSession> {
     return this.persistWizardSession(this.buildWizardSession(context), context);
   }
 
-  discardEmptyWizard(
+  async discardEmptyWizard(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true } | { ok: false; error: 'not_found' | 'not_empty' } {
-    const session = this.getSession(sessionId, context);
+  ): Promise<{ ok: true } | { ok: false; error: 'not_found' | 'not_empty' }> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
     if (!canDiscardEmptyAdviceSession(session) || !isEmptyAdviceSession(session)) {
       return { ok: false, error: 'not_empty' };
     }
-    const discarded = this.bestPayComparisonService.discardSession(sessionId, context);
+    const discarded = await this.bestPayComparisonService.discardSession(sessionId, context);
     return discarded ? { ok: true } : { ok: false, error: 'not_found' };
   }
 
@@ -150,7 +150,7 @@ export class SalesWizardService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError }> {
-    const resumed = this.bestPayComparisonService.resumeComparison(sessionId, context);
+    const resumed = await this.bestPayComparisonService.resumeComparison(sessionId, context);
     if (!resumed.ok) {
       return { ok: false, error: resumed.error };
     }
@@ -168,22 +168,22 @@ export class SalesWizardService {
         );
       }
     }
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
-  getSession(
+  async getSession(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
+  ): Promise<BestPayComparisonSession | null> {
     return this.bestPayComparisonService.getSession(sessionId, context);
   }
 
-  setStep(
+  async setStep(
     sessionId: string,
     step: SalesWizardStepId,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session || session.archivedAt) {
       return null;
     }
@@ -197,7 +197,7 @@ export class SalesWizardService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -247,14 +247,14 @@ export class SalesWizardService {
     }
 
     session.wizard.currentStep = next;
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
-  goBack(
+  async goBack(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -350,12 +350,12 @@ export class SalesWizardService {
     }
   }
 
-  updateProspectDraft(
+  async updateProspectDraft(
     sessionId: string,
     patch: Partial<SalesWizardProspectDraft>,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -385,14 +385,14 @@ export class SalesWizardService {
     const session = assigned.session;
     session.wizard.enabled = true;
     session.entryMode = 'wizard';
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
   async createLeadFromProspect(
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession; leadId: string } | { ok: false; error: SalesWizardError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -450,12 +450,12 @@ export class SalesWizardService {
     return this.bestPayComparisonService.startBillingImport(sessionId, context);
   }
 
-  updateNeed(
+  async updateNeed(
     sessionId: string,
     patch: Partial<BestPayComparisonSession['manualInput']>,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const updated = this.bestPayComparisonService.updateManualInput(sessionId, patch, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const updated = await this.bestPayComparisonService.updateManualInput(sessionId, patch, context);
     if (!updated) {
       return null;
     }
@@ -464,12 +464,12 @@ export class SalesWizardService {
     return this.persist(updated);
   }
 
-  addScenario(
+  async addScenario(
     sessionId: string,
     context: BestPayComparisonUserContext,
     label?: string,
-  ): { ok: true; session: BestPayComparisonSession; scenarioId: string } | { ok: false; error: SalesWizardError } {
-    const session = this.getSession(sessionId, context);
+  ): Promise<{ ok: true; session: BestPayComparisonSession; scenarioId: string } | { ok: false; error: SalesWizardError }> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -490,15 +490,15 @@ export class SalesWizardService {
     if (!session.wizard.selectedScenarioId) {
       session.wizard.selectedScenarioId = scenario.id;
     }
-    return { ok: true, session: this.persist(session), scenarioId: scenario.id };
+    return { ok: true, session: await this.persist(session), scenarioId: scenario.id };
   }
 
-  duplicateScenario(
+  async duplicateScenario(
     sessionId: string,
     scenarioId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession; scenarioId: string } | { ok: false; error: SalesWizardError } {
-    const session = this.getSession(sessionId, context);
+  ): Promise<{ ok: true; session: BestPayComparisonSession; scenarioId: string } | { ok: false; error: SalesWizardError }> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -524,15 +524,15 @@ export class SalesWizardService {
     };
     session.wizard.scenarios.push(copy);
     session.wizard.selectedScenarioId = copy.id;
-    return { ok: true, session: this.persist(session), scenarioId: copy.id };
+    return { ok: true, session: await this.persist(session), scenarioId: copy.id };
   }
 
-  deleteScenario(
+  async deleteScenario(
     sessionId: string,
     scenarioId: string,
     context: BestPayComparisonUserContext,
-  ): { ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError } {
-    const session = this.getSession(sessionId, context);
+  ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError }> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -540,16 +540,16 @@ export class SalesWizardService {
     if (session.wizard.selectedScenarioId === scenarioId) {
       session.wizard.selectedScenarioId = session.wizard.scenarios[0]?.id ?? null;
     }
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
-  updateScenarioConfig(
+  async updateScenarioConfig(
     sessionId: string,
     scenarioId: string,
     patch: Partial<SalesWizardScenarioConfig>,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -580,7 +580,7 @@ export class SalesWizardService {
     scenarioId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -590,7 +590,7 @@ export class SalesWizardService {
     }
 
     await this.bestPayComparisonService.syncBaselineFromBilling(sessionId, context);
-    const fresh = this.getSession(sessionId, context);
+    const fresh = await this.getSession(sessionId, context);
     if (!fresh) {
       return { ok: false, error: 'not_found' };
     }
@@ -599,7 +599,7 @@ export class SalesWizardService {
       return { ok: false, error: 'not_found' };
     }
 
-    const baseline = this.bestPayComparisonService.getConfirmedBaseline(sessionId, context);
+    const baseline = await this.bestPayComparisonService.getConfirmedBaseline(sessionId, context);
     const manualInput = {
       ...fresh.manualInput,
       preferredTermMonths: target.config.preferredTermMonths,
@@ -695,16 +695,16 @@ export class SalesWizardService {
     target.approval = approval;
     target.updatedAt = nowIso();
     fresh.wizard.selectedScenarioId = target.id;
-    return { ok: true, session: this.persist(fresh) };
+    return { ok: true, session: await this.persist(fresh) };
   }
 
-  selectScenarioVariant(
+  async selectScenarioVariant(
     sessionId: string,
     scenarioId: string,
     candidateId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -735,7 +735,7 @@ export class SalesWizardService {
     | { ok: true; session: BestPayComparisonSession; offerId: string }
     | { ok: false; error: SalesWizardError; message?: string }
   > {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -761,7 +761,7 @@ export class SalesWizardService {
     notes: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -802,14 +802,14 @@ export class SalesWizardService {
     session.wizard.approvalNotes = notes.trim();
     // Deprecated UI resume hint only – not workflow truth.
     session.wizard.approvalAcknowledgedAt = nowIso();
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
   async completeWizard(
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -839,11 +839,11 @@ export class SalesWizardService {
     session.wizard.currentStep = 'closing';
     session.wizard.wizardCompletedAt = nowIso();
     session.completedAt = session.completedAt ?? nowIso();
-    return { ok: true, session: this.persist(session) };
+    return { ok: true, session: await this.persist(session) };
   }
 
   async getWizardOfferContext(sessionId: string, context: BestPayComparisonUserContext) {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session?.offerId) return null;
     return this.offerWorkflowService?.getWizardWorkflowView(session.offerId) ?? null;
   }

@@ -22,17 +22,10 @@ import type { User } from '../domain/user/user';
 import { nowIso } from '../utils/id';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
+import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import type { BillingImportService } from './billingImportService';
 import type { RecommendationService } from './recommendationService';
 import type { OfferService, OfferUserContext } from './offerService';
-import {
-  getActiveBestPayComparisonSessionId,
-  migrateBestPayComparisonStorageIfNeeded,
-  readBestPayComparisonSessions,
-  removeBestPayComparisonSession,
-  saveBestPayComparisonSession,
-  setActiveBestPayComparisonSessionId,
-} from './bestPayComparisonStorageMigration';
 import type { CreateOfferInput } from '../domain/offer/offer';
 import { generateId } from '../utils/id';
 
@@ -63,6 +56,7 @@ export class BestPayComparisonService {
   private readonly offerService: OfferService;
   private readonly leadRepository: LeadRepository;
   private readonly offerRepository: OfferRepository;
+  private readonly bestPayComparisonRepository: BestPayComparisonRepository;
   private readonly inFlightActions = new Set<string>();
 
   constructor(
@@ -71,16 +65,37 @@ export class BestPayComparisonService {
     offerService: OfferService,
     leadRepository: LeadRepository,
     offerRepository: OfferRepository,
+    bestPayComparisonRepository: BestPayComparisonRepository,
   ) {
     this.billingImportService = billingImportService;
     this.recommendationService = recommendationService;
     this.offerService = offerService;
     this.leadRepository = leadRepository;
     this.offerRepository = offerRepository;
+    this.bestPayComparisonRepository = bestPayComparisonRepository;
   }
 
-  private ensureMigrated(): void {
-    migrateBestPayComparisonStorageIfNeeded();
+  private readSessions(): Promise<BestPayComparisonSession[]> {
+    return this.bestPayComparisonRepository.getAll();
+  }
+
+  private async saveSession(session: BestPayComparisonSession): Promise<void> {
+    await this.bestPayComparisonRepository.save(session);
+  }
+
+  private async removeSession(id: string): Promise<void> {
+    await this.bestPayComparisonRepository.delete(id);
+  }
+
+  private getActiveSessionId(context: BestPayComparisonUserContext): Promise<string | null> {
+    return this.bestPayComparisonRepository.getActiveSessionId(context.userId);
+  }
+
+  private async setActiveSessionId(
+    context: BestPayComparisonUserContext,
+    sessionId: string | null,
+  ): Promise<void> {
+    await this.bestPayComparisonRepository.setActiveSessionId(context.userId, sessionId);
   }
 
   private canAccessCalculator(context: BestPayComparisonUserContext): boolean {
@@ -97,16 +112,16 @@ export class BestPayComparisonService {
     return session.createdByUserId === context.userId;
   }
 
-  private withInFlight<T>(
+  private async withInFlight<T>(
     key: string,
-    action: () => T,
-  ): T | { ok: false; error: 'in_flight' } {
+    action: () => Promise<T>,
+  ): Promise<T | { ok: false; error: 'in_flight' }> {
     if (this.inFlightActions.has(key)) {
       return { ok: false, error: 'in_flight' };
     }
     this.inFlightActions.add(key);
     try {
-      return action();
+      return await action();
     } finally {
       this.inFlightActions.delete(key);
     }
@@ -116,15 +131,14 @@ export class BestPayComparisonService {
     session.title = resolveBestPayComparisonTitle(session);
   }
 
-  getActiveDraft(context: BestPayComparisonUserContext): BestPayComparisonSession | null {
-    this.ensureMigrated();
+  async getActiveDraft(context: BestPayComparisonUserContext): Promise<BestPayComparisonSession | null> {
     if (!this.canAccessCalculator(context)) {
       return null;
     }
 
-    const activeId = getActiveBestPayComparisonSessionId();
+    const activeId = await this.getActiveSessionId(context);
     if (activeId) {
-      const active = this.getSession(activeId, context);
+      const active = await this.getSession(activeId, context);
       if (
         active &&
         active.status !== 'discarded' &&
@@ -135,8 +149,9 @@ export class BestPayComparisonService {
       }
     }
 
+    const sessions = await this.readSessions();
     return (
-      readBestPayComparisonSessions()
+      sessions
         .filter(
           (session) =>
             this.canAccess(session, context) &&
@@ -148,47 +163,47 @@ export class BestPayComparisonService {
     );
   }
 
-  getSession(sessionId: string, context: BestPayComparisonUserContext): BestPayComparisonSession | null {
-    this.ensureMigrated();
-    const session = readBestPayComparisonSessions().find((entry) => entry.id === sessionId) ?? null;
+  async getSession(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession | null> {
+    const session = (await this.readSessions()).find((entry) => entry.id === sessionId) ?? null;
     if (!session || !this.canAccess(session, context)) {
       return null;
     }
     return session;
   }
 
-  createSession(context: BestPayComparisonUserContext): BestPayComparisonSession {
-    this.ensureMigrated();
+  async createSession(context: BestPayComparisonUserContext): Promise<BestPayComparisonSession> {
     if (!this.canAccessCalculator(context)) {
       throw new Error('FORBIDDEN');
     }
     const session = createBestPayComparisonSession(context.userId);
     this.touchTitle(session);
-    saveBestPayComparisonSession(session);
-    setActiveBestPayComparisonSessionId(session.id);
+    await this.saveSession(session);
+    await this.setActiveSessionId(context, session.id);
     return session;
   }
 
-  discardSession(sessionId: string, context: BestPayComparisonUserContext): boolean {
-    const session = this.getSession(sessionId, context);
+  async discardSession(sessionId: string, context: BestPayComparisonUserContext): Promise<boolean> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return false;
     }
     session.status = 'discarded';
     session.discardedAt = nowIso();
     session.updatedAt = nowIso();
-    saveBestPayComparisonSession(session);
-    if (getActiveBestPayComparisonSessionId() === sessionId) {
-      setActiveBestPayComparisonSessionId(null);
+    await this.saveSession(session);
+    if ((await this.getActiveSessionId(context)) === sessionId) {
+      await this.setActiveSessionId(context, null);
     }
     return true;
   }
 
-  listComparisons(
+  async listComparisons(
     context: BestPayComparisonUserContext,
     filters: Partial<BestPayComparisonListFilters> = {},
-  ): BestPayComparisonSummary[] | null {
-    this.ensureMigrated();
+  ): Promise<BestPayComparisonSummary[] | null> {
     if (!this.canAccessCalculator(context)) {
       return null;
     }
@@ -196,15 +211,15 @@ export class BestPayComparisonService {
       ...DEFAULT_BESTPAY_COMPARISON_LIST_FILTERS,
       ...filters,
     };
-    const sessions = readBestPayComparisonSessions().filter((session) => this.canAccess(session, context));
+    const sessions = (await this.readSessions()).filter((session) => this.canAccess(session, context));
     return filterAndSortBestPayComparisons(sessions, merged);
   }
 
-  getComparisonSummary(
+  async getComparisonSummary(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSummary | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSummary | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -215,15 +230,15 @@ export class BestPayComparisonService {
     })[0] ?? null;
   }
 
-  resumeComparison(
+  async resumeComparison(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): {
+  ): Promise<{
     ok: true;
     session: BestPayComparisonSession;
     step: ReturnType<typeof resolveResumeStep>;
-  } | { ok: false; error: BestPayComparisonError } {
-    const session = this.getSession(sessionId, context);
+  } | { ok: false; error: BestPayComparisonError }> {
+    const session = await this.getSession(sessionId, context);
     if (!session || session.status === 'discarded') {
       return { ok: false, error: 'not_found' };
     }
@@ -231,20 +246,20 @@ export class BestPayComparisonService {
       return { ok: false, error: 'validation' };
     }
 
-    const refreshed = this.refreshStaleStatus(sessionId, context);
+    const refreshed = await this.refreshStaleStatus(sessionId, context);
     const current = refreshed ?? session;
     current.lastOpenedAt = nowIso();
     // lastOpenedAt allein aktualisiert updatedAt nicht
-    saveBestPayComparisonSession(current);
-    setActiveBestPayComparisonSessionId(current.id);
+    await this.saveSession(current);
+    await this.setActiveSessionId(context, current.id);
     return { ok: true, session: current, step: resolveResumeStep(current) };
   }
 
-  refreshStaleStatus(
+  async refreshStaleStatus(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session?.result) {
       return session;
     }
@@ -253,7 +268,7 @@ export class BestPayComparisonService {
     let stale = session.result.stale;
 
     if (session.billingImportSessionId && session.costBaselineVersion !== null) {
-      const data = this.billingImportService.getSessionData(session.billingImportSessionId, context);
+      const data = await this.billingImportService.getSessionData(session.billingImportSessionId, context);
       const baseline = data?.baseline;
       if (baseline && baseline.version !== session.costBaselineVersion) {
         stale = true;
@@ -270,19 +285,20 @@ export class BestPayComparisonService {
         staleReasons: reasons,
       };
       // Metadaten-Refresh ohne fachliche Änderung: updatedAt unverändert
-      saveBestPayComparisonSession(session);
+      await this.saveSession(session);
     }
     return session;
   }
 
-  duplicateComparison(
+  async duplicateComparison(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ):
+  ): Promise<
     | { ok: true; session: BestPayComparisonSession }
-    | { ok: false; error: BestPayComparisonError; message?: string } {
-    const result = this.withInFlight(`duplicate:${sessionId}:${context.userId}`, () => {
-      const source = this.getSession(sessionId, context);
+    | { ok: false; error: BestPayComparisonError; message?: string }
+  > {
+    const result = await this.withInFlight(`duplicate:${sessionId}:${context.userId}`, async () => {
+      const source = await this.getSession(sessionId, context);
       if (!source || source.status === 'discarded') {
         return { ok: false as const, error: 'not_found' as const };
       }
@@ -320,8 +336,8 @@ export class BestPayComparisonService {
         discardedAt: null,
       });
 
-      saveBestPayComparisonSession(copy);
-      setActiveBestPayComparisonSessionId(copy.id);
+      await this.saveSession(copy);
+      await this.setActiveSessionId(context, copy.id);
       return { ok: true as const, session: copy };
     });
 
@@ -333,14 +349,15 @@ export class BestPayComparisonService {
       | { ok: false; error: BestPayComparisonError; message?: string };
   }
 
-  archiveComparison(
+  async archiveComparison(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ):
+  ): Promise<
     | { ok: true; session: BestPayComparisonSession }
-    | { ok: false; error: BestPayComparisonError; message?: string } {
-    const result = this.withInFlight(`archive:${sessionId}`, () => {
-      const session = this.getSession(sessionId, context);
+    | { ok: false; error: BestPayComparisonError; message?: string }
+  > {
+    const result = await this.withInFlight(`archive:${sessionId}`, async () => {
+      const session = await this.getSession(sessionId, context);
       if (!session || session.status === 'discarded') {
         return { ok: false as const, error: 'not_found' as const };
       }
@@ -349,9 +366,9 @@ export class BestPayComparisonService {
       }
       session.archivedAt = nowIso();
       session.updatedAt = nowIso();
-      saveBestPayComparisonSession(session);
-      if (getActiveBestPayComparisonSessionId() === sessionId) {
-        setActiveBestPayComparisonSessionId(null);
+      await this.saveSession(session);
+      if ((await this.getActiveSessionId(context)) === sessionId) {
+        await this.setActiveSessionId(context, null);
       }
       return { ok: true as const, session };
     });
@@ -364,14 +381,15 @@ export class BestPayComparisonService {
       | { ok: false; error: BestPayComparisonError; message?: string };
   }
 
-  restoreComparison(
+  async restoreComparison(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ):
+  ): Promise<
     | { ok: true; session: BestPayComparisonSession }
-    | { ok: false; error: BestPayComparisonError; message?: string } {
-    const result = this.withInFlight(`restore:${sessionId}`, () => {
-      const session = this.getSession(sessionId, context);
+    | { ok: false; error: BestPayComparisonError; message?: string }
+  > {
+    const result = await this.withInFlight(`restore:${sessionId}`, async () => {
+      const session = await this.getSession(sessionId, context);
       if (!session || session.status === 'discarded') {
         return { ok: false as const, error: 'not_found' as const };
       }
@@ -380,9 +398,9 @@ export class BestPayComparisonService {
       }
       session.archivedAt = null;
       session.updatedAt = nowIso();
-      saveBestPayComparisonSession(session);
-      this.refreshStaleStatus(sessionId, context);
-      const restored = this.getSession(sessionId, context);
+      await this.saveSession(session);
+      await this.refreshStaleStatus(sessionId, context);
+      const restored = await this.getSession(sessionId, context);
       return restored
         ? { ok: true as const, session: restored }
         : { ok: false as const, error: 'not_found' as const };
@@ -396,18 +414,19 @@ export class BestPayComparisonService {
       | { ok: false; error: BestPayComparisonError; message?: string };
   }
 
-  deleteDraftComparison(
+  async deleteDraftComparison(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ):
+  ): Promise<
     | { ok: true }
-    | { ok: false; error: BestPayComparisonError; message?: string } {
-    const result = this.withInFlight(`delete:${sessionId}`, () => {
-      const session = this.getSession(sessionId, context);
+    | { ok: false; error: BestPayComparisonError; message?: string }
+  > {
+    const result = await this.withInFlight(`delete:${sessionId}`, async () => {
+      const session = await this.getSession(sessionId, context);
       if (!session) {
         return { ok: false as const, error: 'not_found' as const };
       }
-      const summary = this.getComparisonSummary(sessionId, context);
+      const summary = await this.getComparisonSummary(sessionId, context);
       if (!summary?.canDelete) {
         return {
           ok: false as const,
@@ -415,7 +434,7 @@ export class BestPayComparisonService {
           message: 'Nur reine lokale Entwürfe ohne Angebot können gelöscht werden. Bitte archivieren.',
         };
       }
-      removeBestPayComparisonSession(sessionId);
+      await this.removeSession(sessionId);
       return { ok: true as const };
     });
 
@@ -425,12 +444,11 @@ export class BestPayComparisonService {
     return result as { ok: true } | { ok: false; error: BestPayComparisonError; message?: string };
   }
 
-  countArchived(context: BestPayComparisonUserContext): number {
-    this.ensureMigrated();
+  async countArchived(context: BestPayComparisonUserContext): Promise<number> {
     if (!this.canAccessCalculator(context)) {
       return 0;
     }
-    return readBestPayComparisonSessions().filter(
+    return (await this.readSessions()).filter(
       (session) => this.canAccess(session, context) && session.archivedAt && session.status !== 'discarded',
     ).length;
   }
@@ -439,7 +457,7 @@ export class BestPayComparisonService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession; billingSessionId: string } | { ok: false; error: BestPayComparisonError }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return { ok: false, error: 'not_found' };
     }
@@ -457,16 +475,16 @@ export class BestPayComparisonService {
     session.status = 'billing_import';
     session.updatedAt = nowIso();
     this.touchTitle(session);
-    saveBestPayComparisonSession(session);
+    await this.saveSession(session);
     return { ok: true, session, billingSessionId: billingSession.id };
   }
 
-  updateManualInput(
+  async updateManualInput(
     sessionId: string,
     patch: Partial<BestPayManualInput>,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session || session.status === 'offer_created' || session.archivedAt) {
       return null;
     }
@@ -482,7 +500,7 @@ export class BestPayComparisonService {
     }
     session.updatedAt = nowIso();
     this.touchTitle(session);
-    saveBestPayComparisonSession(session);
+    await this.saveSession(session);
     return session;
   }
 
@@ -490,12 +508,12 @@ export class BestPayComparisonService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<BestPayComparisonSession | null> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session?.billingImportSessionId) {
       return session;
     }
 
-    const data = this.billingImportService.getSessionData(session.billingImportSessionId, context);
+    const data = await this.billingImportService.getSessionData(session.billingImportSessionId, context);
     const baseline = data?.baseline ?? null;
     if (baseline?.status === 'confirmed') {
       if (
@@ -513,31 +531,31 @@ export class BestPayComparisonService {
       session.status = 'ready_for_calculation';
       session.updatedAt = nowIso();
       this.touchTitle(session);
-      saveBestPayComparisonSession(session);
+      await this.saveSession(session);
     } else if (data?.session.status === 'review_required') {
       session.status = 'review_required';
       session.updatedAt = nowIso();
-      saveBestPayComparisonSession(session);
+      await this.saveSession(session);
     }
     return session;
   }
 
-  private resolveBaseline(
+  private async resolveBaseline(
     session: BestPayComparisonSession,
     context: BestPayComparisonUserContext,
-  ): CustomerCostBaseline | null {
+  ): Promise<CustomerCostBaseline | null> {
     if (!session.billingImportSessionId) {
       return null;
     }
-    const data = this.billingImportService.getSessionData(session.billingImportSessionId, context);
+    const data = await this.billingImportService.getSessionData(session.billingImportSessionId, context);
     return data?.baseline?.status === 'confirmed' ? data.baseline : null;
   }
 
-  getConfirmedBaseline(
+  async getConfirmedBaseline(
     sessionId: string,
     context: BestPayComparisonUserContext,
-  ): CustomerCostBaseline | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<CustomerCostBaseline | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session) {
       return null;
     }
@@ -551,18 +569,18 @@ export class BestPayComparisonService {
     | { ok: true; session: BestPayComparisonSession }
     | { ok: false; error: BestPayComparisonError; message?: string }
   > {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
 
     await this.syncBaselineFromBilling(sessionId, context);
-    const fresh = this.getSession(sessionId, context);
+    const fresh = await this.getSession(sessionId, context);
     if (!fresh) {
       return { ok: false, error: 'not_found' };
     }
 
-    const baseline = this.resolveBaseline(fresh, context);
+    const baseline = await this.resolveBaseline(fresh, context);
     const hasManualVolume =
       fresh.manualInput.monthlyCardVolumeCents !== null ||
       fresh.manualInput.annualCardVolumeCents !== null;
@@ -636,16 +654,16 @@ export class BestPayComparisonService {
     fresh.completedAt = nowIso();
     fresh.updatedAt = nowIso();
     this.touchTitle(fresh);
-    saveBestPayComparisonSession(fresh);
+    await this.saveSession(fresh);
     return { ok: true, session: fresh };
   }
 
-  selectVariant(
+  async selectVariant(
     sessionId: string,
     candidateId: string,
     context: BestPayComparisonUserContext,
-  ): BestPayComparisonSession | null {
-    const session = this.getSession(sessionId, context);
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
     if (!session?.result || session.archivedAt) {
       return null;
     }
@@ -655,7 +673,7 @@ export class BestPayComparisonService {
     session.selectedCandidateId = candidateId;
     session.status = 'recommendation_selected';
     session.updatedAt = nowIso();
-    saveBestPayComparisonSession(session);
+    await this.saveSession(session);
     return session;
   }
 
@@ -664,7 +682,7 @@ export class BestPayComparisonService {
     leadId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: BestPayComparisonError; message?: string }> {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
@@ -691,7 +709,7 @@ export class BestPayComparisonService {
         : session.status;
     session.updatedAt = nowIso();
     this.touchTitle(session);
-    saveBestPayComparisonSession(session);
+    await this.saveSession(session);
     return { ok: true, session };
   }
 
@@ -703,7 +721,7 @@ export class BestPayComparisonService {
     | { ok: true; session: BestPayComparisonSession; offerId: string }
     | { ok: false; error: BestPayComparisonError; message?: string }
   > {
-    const session = this.getSession(sessionId, context);
+    const session = await this.getSession(sessionId, context);
     if (!session || session.archivedAt) {
       return { ok: false, error: 'not_found' };
     }
@@ -722,14 +740,14 @@ export class BestPayComparisonService {
 
     const token = options.creationToken ?? generateId('offer_create');
     if (session.offerCreationToken === token) {
-      const existing = this.getSession(sessionId, context);
+      const existing = await this.getSession(sessionId, context);
       if (existing?.offerId) {
         return { ok: true, session: existing, offerId: existing.offerId };
       }
     }
     session.offerCreationToken = token;
     session.updatedAt = nowIso();
-    saveBestPayComparisonSession(session);
+    await this.saveSession(session);
 
     const variant =
       session.result.variants.find((entry) => entry.candidateId === session.selectedCandidateId) ??
@@ -782,7 +800,7 @@ export class BestPayComparisonService {
       updatedAt: nowIso(),
     });
 
-    const linked = this.getSession(sessionId, context);
+    const linked = await this.getSession(sessionId, context);
     if (!linked) {
       return { ok: false, error: 'not_found' };
     }
@@ -794,7 +812,7 @@ export class BestPayComparisonService {
     linked.completedAt = linked.completedAt ?? nowIso();
     linked.updatedAt = nowIso();
     this.touchTitle(linked);
-    saveBestPayComparisonSession(linked);
+    await this.saveSession(linked);
     return { ok: true, session: linked, offerId: created.offer.id };
   }
 

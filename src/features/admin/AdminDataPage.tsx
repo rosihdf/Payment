@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { isSupabaseDataMode } from '../../config/dataMode';
 import { EXPORTABLE_AREAS } from '../../services/dataExportService';
+import type { MigrationPreview } from '../../services/supabaseDataMigrationService';
 import { downloadBlob } from '../../utils/downloadBlob';
 import { AdminLayout, useAdminContext } from './AdminLayout';
 import { useServices } from '../../hooks/useServices';
@@ -11,9 +13,12 @@ function triggerTextDownload(content: string, filename: string, mimeType: string
 
 export function AdminDataPage() {
   const context = useAdminContext();
-  const { dataExportService, dataRestoreService } = useServices();
+  const { dataExportService, dataRestoreService, supabaseDataMigrationService } = useServices();
   const [message, setMessage] = useState<string | null>(null);
   const [restorePreview, setRestorePreview] = useState<string | null>(null);
+  const [migrationPreview, setMigrationPreview] = useState<MigrationPreview | null>(null);
+  const [migrationContent, setMigrationContent] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleBackup = async () => {
     if (!context) {
@@ -58,6 +63,60 @@ export function AdminDataPage() {
     }
   };
 
+  const handleMigrationPreview = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!context) {
+      return;
+    }
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    const content = await file.text();
+    setMigrationContent(content);
+    const result = await supabaseDataMigrationService.previewFromContent(context, content);
+    if (result.ok) {
+      setMigrationPreview(result.preview);
+      setMessage(`Cloud-Migration Vorschau: ${result.preview.areas.length} Bereiche`);
+    } else {
+      setMigrationPreview(null);
+      setMessage(`Cloud-Migration Vorschau fehlgeschlagen: ${result.error}`);
+    }
+  };
+
+  const handleMigrationPreviewFromLocal = async () => {
+    if (!context) {
+      return;
+    }
+    const result = await supabaseDataMigrationService.previewFromLocalStorage(context);
+    if (result.ok) {
+      setMigrationPreview(result.preview);
+      setMigrationContent(null);
+      setMessage(`Cloud-Migration Vorschau aus LocalStorage (${result.preview.areas.length} Bereiche)`);
+    } else {
+      setMessage(`LocalStorage-Vorschau fehlgeschlagen: ${result.error}`);
+    }
+  };
+
+  const handleMigrationImport = async () => {
+    if (!context || !migrationContent || !migrationPreview) {
+      return;
+    }
+    setIsImporting(true);
+    const result = await supabaseDataMigrationService.executeImport(
+      context,
+      migrationContent,
+      migrationPreview.runId,
+    );
+    if (result.ok) {
+      setMessage(`Cloud-Migration abgeschlossen (Run ${result.runId})`);
+      setMigrationPreview(null);
+      setMigrationContent(null);
+    } else {
+      setMessage(result.message ?? `Cloud-Migration fehlgeschlagen: ${result.error}`);
+    }
+    setIsImporting(false);
+  };
+
   return (
     <AdminLayout
       title="Daten und Sicherung"
@@ -84,6 +143,54 @@ export function AdminDataPage() {
         {restorePreview ? <p role="status">{restorePreview}</p> : null}
         <p>Es erfolgt keine Datenmutation vor expliziter Bestätigung.</p>
       </section>
+      {isSupabaseDataMode() ? (
+        <section className={styles.panel}>
+          <h2>Cloud-Migration</h2>
+          <p>LocalStorage-Backup in Supabase importieren (idempotent, ohne Abrechnungs-Binärdateien).</p>
+          <div className={styles.toolbar}>
+            <input
+              type="file"
+              accept="application/json"
+              onChange={(event) => void handleMigrationPreview(event)}
+            />
+            {!import.meta.env.PROD ? (
+              <button type="button" onClick={() => void handleMigrationPreviewFromLocal()}>
+                LocalStorage-Vorschau
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={!migrationPreview || !migrationContent || isImporting}
+              onClick={() => void handleMigrationImport()}
+            >
+              Import bestätigen
+            </button>
+          </div>
+          {migrationPreview ? (
+            <div role="status">
+              <p>
+                Quelle: {migrationPreview.source} · Run {migrationPreview.runId}
+              </p>
+              <ul>
+                {migrationPreview.areas
+                  .filter((area) => area.recordCount > 0)
+                  .map((area) => (
+                    <li key={area.areaKey}>
+                      {area.label}: {area.recordCount} Datensätze
+                      {area.conflictCount > 0 ? ` (${area.conflictCount} Konflikte)` : ''}
+                    </li>
+                  ))}
+              </ul>
+              {migrationPreview.warnings.length > 0 ? (
+                <p>Hinweise: {migrationPreview.warnings.join('; ')}</p>
+              ) : null}
+              {migrationPreview.conflicts.length > 0 ? (
+                <p>Konflikte: {migrationPreview.conflicts.join('; ')}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </AdminLayout>
   );
 }

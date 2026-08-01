@@ -68,22 +68,22 @@ export function BestPayComparisonPage() {
     let nextStep: Step = 'source';
 
     if (sessionId) {
-      const resumed = bestPayComparisonService.resumeComparison(sessionId, userContext);
+      const resumed = await bestPayComparisonService.resumeComparison(sessionId, userContext);
       if (!resumed.ok) {
         showToast('Gespeicherte Berechnung nicht gefunden', 'error');
-        active = bestPayComparisonService.createSession(userContext);
+        active = await bestPayComparisonService.createSession(userContext);
         nextStep = 'source';
       } else {
         active = resumed.session;
         nextStep = resumed.step;
       }
     } else if (searchParams.get('new') === '1') {
-      active = bestPayComparisonService.createSession(userContext);
+      active = await bestPayComparisonService.createSession(userContext);
       nextStep = mode === 'manual' ? 'need' : 'source';
     } else {
-      active = bestPayComparisonService.getActiveDraft(userContext);
+      active = await bestPayComparisonService.getActiveDraft(userContext);
       if (!active) {
-        active = bestPayComparisonService.createSession(userContext);
+        active = await bestPayComparisonService.createSession(userContext);
       }
       if (active.result) {
         nextStep = 'result';
@@ -159,8 +159,8 @@ export function BestPayComparisonPage() {
     setStep('review');
   };
 
-  const handleSaveManual = () => {
-    const updated = bestPayComparisonService.updateManualInput(
+  const handleSaveManual = async () => {
+    const updated = await bestPayComparisonService.updateManualInput(
       session.id,
       {
         monthlyCardVolumeCents: parseEuroToCents(monthlyVolume),
@@ -185,7 +185,7 @@ export function BestPayComparisonPage() {
   };
 
   const handleCalculate = async () => {
-    handleSaveManual();
+    await handleSaveManual();
     await bestPayComparisonService.syncBaselineFromBilling(session.id, userContext);
     setIsCalculating(true);
     const result = await bestPayComparisonService.calculate(session.id, userContext);
@@ -240,9 +240,12 @@ export function BestPayComparisonPage() {
               type="button"
               className={styles.secondaryAction}
               onClick={() => {
-                bestPayComparisonService.discardSession(session.id, userContext);
-                showToast('Entwurf verworfen', 'success');
-                navigate('/advice');
+                void bestPayComparisonService.discardSession(session.id, userContext).then((discarded) => {
+                  if (discarded) {
+                    showToast('Entwurf verworfen', 'success');
+                    navigate('/advice');
+                  }
+                });
               }}
             >
               Entwurf verwerfen
@@ -406,10 +409,13 @@ export function BestPayComparisonPage() {
                   type="button"
                   className={variant.candidateId === session.selectedCandidateId ? styles.variantActive : styles.variant}
                   onClick={() => {
-                    const updated = bestPayComparisonService.selectVariant(session.id, variant.candidateId, userContext);
-                    if (updated) {
-                      setSession(updated);
-                    }
+                    void bestPayComparisonService
+                      .selectVariant(session.id, variant.candidateId, userContext)
+                      .then((updated) => {
+                        if (updated) {
+                          setSession(updated);
+                        }
+                      });
                   }}
                 >
                   <strong>{variant.tariffName}</strong>

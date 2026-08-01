@@ -98,7 +98,7 @@ export function BestPayComparisonHistoryPage() {
     [currentUser],
   );
 
-  const reload = useCallback(() => {
+  const reload = useCallback(async () => {
     if (!userContext) {
       return;
     }
@@ -107,15 +107,15 @@ export function BestPayComparisonHistoryPage() {
       setIsLoading(false);
       return;
     }
-    const list = bestPayComparisonService.listComparisons(userContext, filters);
+    const list = await bestPayComparisonService.listComparisons(userContext, filters);
     setItems(list ?? []);
-    setArchivedCount(bestPayComparisonService.countArchived(userContext));
+    setArchivedCount(await bestPayComparisonService.countArchived(userContext));
     setIsLoading(false);
   }, [bestPayComparisonService, filters, userContext]);
 
   useEffect(() => {
     setIsLoading(true);
-    reload();
+    void reload();
   }, [reload]);
 
   if (!currentUser || !userContext) {
@@ -134,26 +134,28 @@ export function BestPayComparisonHistoryPage() {
   };
 
   const handlePrimary = (summary: BestPayComparisonSummary) => {
-    if (summary.primaryAction === 'restore') {
-      const result = bestPayComparisonService.restoreComparison(summary.id, userContext);
-      if (!result.ok) {
-        showToast('Wiederherstellung fehlgeschlagen', 'error');
+    void (async () => {
+      if (summary.primaryAction === 'restore') {
+        const result = await bestPayComparisonService.restoreComparison(summary.id, userContext);
+        if (!result.ok) {
+          showToast('Wiederherstellung fehlgeschlagen', 'error');
+          return;
+        }
+        showToast('Berechnung wiederhergestellt', 'success');
+        await reload();
         return;
       }
-      showToast('Berechnung wiederhergestellt', 'success');
-      reload();
-      return;
-    }
-    if (summary.primaryAction === 'open_offer' && summary.offerId) {
-      navigate(`/offers/${summary.offerId}`);
-      return;
-    }
-    const resumed = bestPayComparisonService.resumeComparison(summary.id, userContext);
-    if (!resumed.ok) {
-      showToast('Berechnung konnte nicht geöffnet werden', 'error');
-      return;
-    }
-    navigate(`/calculator/bestpay?session=${summary.id}`);
+      if (summary.primaryAction === 'open_offer' && summary.offerId) {
+        navigate(`/offers/${summary.offerId}`);
+        return;
+      }
+      const resumed = await bestPayComparisonService.resumeComparison(summary.id, userContext);
+      if (!resumed.ok) {
+        showToast('Berechnung konnte nicht geöffnet werden', 'error');
+        return;
+      }
+      navigate(`/calculator/bestpay?session=${summary.id}`);
+    })();
   };
 
   const handleDuplicate = (summary: BestPayComparisonSummary) => {
@@ -161,15 +163,16 @@ export function BestPayComparisonHistoryPage() {
       return;
     }
     setActionInFlight(true);
-    const result = bestPayComparisonService.duplicateComparison(summary.id, userContext);
-    setActionInFlight(false);
-    setOpenMenuId(null);
-    if (!result.ok) {
-      showToast(result.message ?? 'Duplizieren fehlgeschlagen', 'error');
-      return;
-    }
-    showToast('Berechnung dupliziert', 'success');
-    navigate(`/calculator/bestpay?session=${result.session.id}`);
+    void bestPayComparisonService.duplicateComparison(summary.id, userContext).then((result) => {
+      setActionInFlight(false);
+      setOpenMenuId(null);
+      if (!result.ok) {
+        showToast(result.message ?? 'Duplizieren fehlgeschlagen', 'error');
+        return;
+      }
+      showToast('Berechnung dupliziert', 'success');
+      navigate(`/calculator/bestpay?session=${result.session.id}`);
+    });
   };
 
   const confirmDialog = () => {
@@ -178,29 +181,31 @@ export function BestPayComparisonHistoryPage() {
     }
     setActionInFlight(true);
     if (dialogMode === 'archive') {
-      const result = bestPayComparisonService.archiveComparison(dialogTarget.id, userContext);
-      setActionInFlight(false);
-      setDialogMode(null);
-      setDialogTarget(null);
-      if (!result.ok) {
-        showToast('Archivierung fehlgeschlagen', 'error');
-        return;
-      }
-      showToast('Berechnung archiviert', 'success');
-      reload();
+      void bestPayComparisonService.archiveComparison(dialogTarget.id, userContext).then((result) => {
+        setActionInFlight(false);
+        setDialogMode(null);
+        setDialogTarget(null);
+        if (!result.ok) {
+          showToast('Archivierung fehlgeschlagen', 'error');
+          return;
+        }
+        showToast('Berechnung archiviert', 'success');
+        void reload();
+      });
       return;
     }
     if (dialogMode === 'delete') {
-      const result = bestPayComparisonService.deleteDraftComparison(dialogTarget.id, userContext);
-      setActionInFlight(false);
-      setDialogMode(null);
-      setDialogTarget(null);
-      if (!result.ok) {
-        showToast(result.message ?? 'Löschen nicht möglich', 'error');
-        return;
-      }
-      showToast('Entwurf gelöscht', 'success');
-      reload();
+      void bestPayComparisonService.deleteDraftComparison(dialogTarget.id, userContext).then((result) => {
+        setActionInFlight(false);
+        setDialogMode(null);
+        setDialogTarget(null);
+        if (!result.ok) {
+          showToast(result.message ?? 'Löschen nicht möglich', 'error');
+          return;
+        }
+        showToast('Entwurf gelöscht', 'success');
+        void reload();
+      });
     }
   };
 
