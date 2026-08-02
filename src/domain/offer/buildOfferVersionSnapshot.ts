@@ -7,10 +7,20 @@ function copy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+export interface BuildOfferVersionSnapshotOptions {
+  pricingEvaluationId?: string | null;
+  commissionReferenceId?: string | null;
+  priceBookVersion?: string | null;
+  approvalRequired?: boolean;
+  approvalReasons?: string[];
+  savingsCents?: number | null;
+}
+
 export function buildOfferVersionSnapshot(
   offer: Offer,
   totals: OfferTotals = calculateOfferTotals(offer),
   versionNumber = offer.currentVersionNumber || 1,
+  options: BuildOfferVersionSnapshotOptions = {},
 ): OfferVersionSnapshot {
   const terminals = deriveTerminalSnapshot(offer.items);
   return {
@@ -37,12 +47,13 @@ export function buildOfferVersionSnapshot(
     optionalTerminalCount: terminals.optionalTerminalCount,
     terminalLines: copy(terminals.terminalLines),
     accessoryLines: copy(terminals.accessoryLines),
-    priceBookVersion: null,
-    commissionReferenceId: null,
-    approvalRequired: false,
-    approvalReasons: [],
+    priceBookVersion: options.priceBookVersion ?? null,
+    pricingEvaluationId: options.pricingEvaluationId ?? null,
+    commissionReferenceId: options.commissionReferenceId ?? null,
+    approvalRequired: options.approvalRequired ?? false,
+    approvalReasons: options.approvalReasons ? [...options.approvalReasons] : [],
     costBaselineId: offer.recommendationLink.costBaselineId,
-    savingsCents: null,
+    savingsCents: options.savingsCents ?? null,
     createdByUserId: offer.createdByUserId,
     createdAt: offer.createdAt,
   };

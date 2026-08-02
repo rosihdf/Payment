@@ -65,7 +65,8 @@ describe('Offer document dialogs UI', () => {
       expect(getStoredDocuments()[0]?.version).toBe(1);
     });
 
-    expect(await screen.findByText('Aktuell')).toBeInTheDocument();
+    // Dokumentstatus „Aktuell“; Angebotsversion kann denselben Text ebenfalls zeigen
+    expect((await screen.findAllByText('Aktuell')).length).toBeGreaterThanOrEqual(1);
   });
 
   it('creates new version after confirmation and supersedes old document', async () => {

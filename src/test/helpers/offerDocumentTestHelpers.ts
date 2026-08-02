@@ -1,3 +1,4 @@
+import { buildOfferVersionSnapshot } from '../../domain/offer/buildOfferVersionSnapshot';
 import type { CreateOfferInput, Offer } from '../../domain/offer/offer';
 import { createOfferDocumentSnapshot } from '../../domain/offerDocument/createOfferDocumentSnapshot';
 import type { OfferDocument } from '../../domain/offerDocument/offerDocument';
@@ -5,6 +6,7 @@ import { formatOfferDocumentNumber } from '../../domain/offerDocument/offerDocum
 import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
 import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
+import { LocalOfferVersionRepository } from '../../repositories/local/LocalOfferVersionRepository';
 import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
 import { LocalTariffRepository } from '../../repositories/local/LocalTariffRepository';
 import { OfferDocumentService } from '../../services/offerDocumentService';
@@ -88,6 +90,7 @@ export function createOfferServicesForTests(): {
   offerDocumentService: OfferDocumentService;
   offerRepository: LocalOfferRepository;
   offerDocumentRepository: LocalOfferDocumentRepository;
+  offerVersionRepository: LocalOfferVersionRepository;
 } {
   const offerRepository = new LocalOfferRepository();
   const offerService = new OfferService(
@@ -97,6 +100,7 @@ export function createOfferServicesForTests(): {
     new LocalProductRepository(),
   );
   const offerDocumentRepository = new LocalOfferDocumentRepository();
+  const offerVersionRepository = new LocalOfferVersionRepository();
   const offerDocumentService = new OfferDocumentService(
     offerDocumentRepository,
     offerRepository,
@@ -108,7 +112,39 @@ export function createOfferServicesForTests(): {
     offerDocumentService,
     offerRepository,
     offerDocumentRepository,
+    offerVersionRepository,
   };
+}
+
+/** Stellt eine unveränderliche Angebotsversion für Dokument-/PDF-Tests sicher. */
+export async function ensureOfferVersionForDocumentTests(offer: Offer): Promise<Offer> {
+  if (offer.currentVersionId) {
+    return offer;
+  }
+  const { offerRepository, offerVersionRepository } = createOfferServicesForTests();
+  const version = {
+    id: generateId('offer_version'),
+    offerId: offer.id,
+    versionNumber: 1,
+    workflowStatus: offer.workflowStatus,
+    snapshot: buildOfferVersionSnapshot(offer, undefined, 1),
+    createdAt: offer.createdAt,
+    createdByUserId: offer.createdByUserId,
+    createdByDisplayName: offer.createdByDisplayName,
+    approvedAt: null,
+    approvedByUserId: null,
+    sentAt: null,
+    acceptedAt: null,
+    declinedAt: null,
+    activatedAt: null,
+    supersededAt: null,
+  };
+  await offerVersionRepository.create(version);
+  return offerRepository.update({
+    ...offer,
+    currentVersionId: version.id,
+    currentVersionNumber: 1,
+  });
 }
 
 export async function seedPremiumLineCompletedOffer(
@@ -116,11 +152,12 @@ export async function seedPremiumLineCompletedOffer(
 ): Promise<Offer> {
   ensureOfferDocumentDemoData(context.userId);
   const { offerService } = createOfferServicesForTests();
-  return seedCompletedOffer(
+  const completed = await seedCompletedOffer(
     offerService,
     createPremiumLineOfferInput({ leadId: resolveLeadIdForContext(context) }),
     context,
   );
+  return ensureOfferVersionForDocumentTests(completed);
 }
 
 export async function createTestOfferDocument(
@@ -131,10 +168,12 @@ export async function createTestOfferDocument(
   const timestamp = nowIso();
   const version = overrides.version ?? 1;
   const documentId = overrides.id ?? generateId('offer_doc');
+  const offerVersionId = overrides.offerVersionId ?? offer.currentVersionId ?? null;
   const snapshot = await createOfferDocumentSnapshot({
     documentId,
     documentVersion: version,
     offer,
+    offerVersionId,
     generatedAt: timestamp,
     generatedByUserId: context.userId,
     generatedByDisplayName: context.displayName,
@@ -143,6 +182,7 @@ export async function createTestOfferDocument(
   return {
     id: documentId,
     offerId: offer.id,
+    offerVersionId,
     offerNumber: offer.offerNumber,
     documentNumber: formatOfferDocumentNumber(offer.offerNumber, version),
     version,

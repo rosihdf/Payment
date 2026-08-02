@@ -56,6 +56,7 @@ function normalizeSnapshot(value: unknown): OfferDocumentSnapshot {
     documentNumber: asString(raw.documentNumber),
     documentVersion: Math.max(1, asNonNegativeInteger(raw.documentVersion, 1)),
     offerId: asString(raw.offerId),
+    offerVersionId: asNullableString(raw.offerVersionId),
     offerNumber: asString(raw.offerNumber),
     offerStatusAtGeneration:
       raw.offerStatusAtGeneration === 'completed' ||
@@ -136,14 +137,16 @@ export function normalizeOfferDocument(value: unknown): OfferDocument {
   const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   const timestamp = nowIso();
 
+  const snapshot = normalizeSnapshot(raw.snapshot);
   const document: OfferDocument = {
     id: asString(raw.id) || generateId('offer_doc'),
     offerId: asString(raw.offerId),
+    offerVersionId: asNullableString(raw.offerVersionId) ?? snapshot.offerVersionId,
     offerNumber: asString(raw.offerNumber),
     documentNumber: asString(raw.documentNumber),
     version: Math.max(1, asNonNegativeInteger(raw.version, 1)),
     status: asDocumentStatus(raw.status),
-    snapshot: normalizeSnapshot(raw.snapshot),
+    snapshot,
     createdAt: asString(raw.createdAt) || timestamp,
     updatedAt: asString(raw.updatedAt) || timestamp,
   };

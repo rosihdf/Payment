@@ -128,6 +128,7 @@ export function normalizeOfferVersion(value: unknown): OfferVersion | null {
     terminalLines: terminals.terminalLines,
     accessoryLines: terminals.accessoryLines,
     priceBookVersion: nullable(snapshotRaw.priceBookVersion),
+    pricingEvaluationId: nullable(snapshotRaw.pricingEvaluationId),
     commissionReferenceId: nullable(snapshotRaw.commissionReferenceId),
     approvalRequired: snapshotRaw.approvalRequired === true,
     approvalReasons: Array.isArray(snapshotRaw.approvalReasons)

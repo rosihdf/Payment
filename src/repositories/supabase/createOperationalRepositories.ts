@@ -7,6 +7,9 @@ import type { ActivationHardwareRepository } from '../interfaces/ActivationHardw
 import type { ApprovalRuleRepository } from '../interfaces/ApprovalRuleRepository';
 import type { AuditRepository } from '../interfaces/AuditRepository';
 import type { BestPayComparisonRepository } from '../interfaces/BestPayComparisonRepository';
+import type { BestPayHandoffRepository } from '../interfaces/BestPayHandoffRepository';
+import type { OfferCustomerAcceptanceRepository } from '../interfaces/OfferCustomerAcceptanceRepository';
+import type { OfferShareRepository } from '../interfaces/OfferShareRepository';
 import type { BillingImportRepository, BillingImportStoreData } from '../interfaces/BillingImportRepository';
 import type { CommissionCalculationRepository } from '../interfaces/CommissionCalculationRepository';
 import type { CommissionWorkflowRepository } from '../interfaces/CommissionWorkflowRepository';
@@ -43,8 +46,11 @@ import { LocalContractRepository } from '../local/LocalContractRepository';
 import { LocalContractTerminationRepository } from '../local/LocalContractTerminationRepository';
 import { LocalContractVersionRepository } from '../local/LocalContractVersionRepository';
 import { LocalDocumentTemplateRepository } from '../local/LocalDocumentTemplateRepository';
-import { LocalOfferDocumentRepository } from '../local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../local/LocalOfferRepository';
+import { LocalOfferDocumentRepository } from '../local/LocalOfferDocumentRepository';
+import { LocalBestPayHandoffRepository } from '../local/LocalBestPayHandoffRepository';
+import { LocalOfferCustomerAcceptanceRepository } from '../local/LocalOfferCustomerAcceptanceRepository';
+import { LocalOfferShareRepository } from '../local/LocalOfferShareRepository';
 import { LocalOfferVersionRepository } from '../local/LocalOfferVersionRepository';
 import { LocalOfferWorkflowEventRepository } from '../local/LocalOfferWorkflowEventRepository';
 import { LocalPricingCatalogRepository } from '../local/LocalPricingCatalogRepository';
@@ -74,6 +80,9 @@ import { SupabaseActivationHardwareRepository } from './SupabaseActivationHardwa
 import { SupabaseApprovalRuleRepository } from './SupabaseApprovalRuleRepository';
 import { SupabaseAuditRepository } from './SupabaseAuditRepository';
 import { SupabaseBestPayComparisonRepository } from './SupabaseBestPayComparisonRepository';
+import { SupabaseBestPayHandoffRepository } from './SupabaseBestPayHandoffRepository';
+import { SupabaseOfferCustomerAcceptanceRepository } from './SupabaseOfferCustomerAcceptanceRepository';
+import { SupabaseOfferShareRepository } from './SupabaseOfferShareRepository';
 import { SupabaseBillingImportRepository } from './SupabaseBillingImportRepository';
 import { SupabaseCommissionCalculationRepository } from './SupabaseCommissionCalculationRepository';
 import { SupabaseCommissionWorkflowRepository } from './SupabaseCommissionWorkflowRepository';
@@ -161,6 +170,9 @@ export interface OperationalRepositories {
   documentTemplateRepository: DocumentTemplateRepository;
   bestPayComparisonRepository: BestPayComparisonRepository;
   billingImportRepository: BillingImportRepository;
+  offerShareRepository: OfferShareRepository;
+  offerCustomerAcceptanceRepository: OfferCustomerAcceptanceRepository;
+  bestPayHandoffRepository: BestPayHandoffRepository;
 }
 
 export function createOperationalRepositories(): OperationalRepositories {
@@ -194,6 +206,9 @@ export function createOperationalRepositories(): OperationalRepositories {
       documentTemplateRepository: new SupabaseDocumentTemplateRepository(),
       bestPayComparisonRepository: new SupabaseBestPayComparisonRepository(),
       billingImportRepository: new SupabaseBillingImportRepository(),
+      offerShareRepository: new SupabaseOfferShareRepository(),
+      offerCustomerAcceptanceRepository: new SupabaseOfferCustomerAcceptanceRepository(),
+      bestPayHandoffRepository: new SupabaseBestPayHandoffRepository(),
     };
   }
 
@@ -225,5 +240,8 @@ export function createOperationalRepositories(): OperationalRepositories {
     documentTemplateRepository: new LocalDocumentTemplateRepository(),
     bestPayComparisonRepository: new LocalBestPayComparisonRepository(),
     billingImportRepository: new LocalBillingImportRepository(),
+    offerShareRepository: new LocalOfferShareRepository(),
+    offerCustomerAcceptanceRepository: new LocalOfferCustomerAcceptanceRepository(),
+    bestPayHandoffRepository: new LocalBestPayHandoffRepository(),
   };
 }

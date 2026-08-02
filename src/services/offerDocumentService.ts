@@ -226,10 +226,19 @@ export class OfferDocumentService {
     const timestamp = nowIso();
     const version = getNextDocumentVersion(existingDocuments);
     const documentId = generateId('offer_doc');
+    const offerVersionId = offer.currentVersionId;
+    if (!offerVersionId) {
+      return {
+        ok: false,
+        errors: { offer: 'Angebotsversion fehlt – Finaldokument nur für eine konkrete Version.' },
+      };
+    }
+
     const snapshot = await createOfferDocumentSnapshot({
       documentId,
       documentVersion: version,
       offer,
+      offerVersionId,
       generatedAt: timestamp,
       generatedByUserId: context.userId,
       generatedByDisplayName: context.displayName,
@@ -243,6 +252,7 @@ export class OfferDocumentService {
     const document: OfferDocument = {
       id: documentId,
       offerId: offer.id,
+      offerVersionId,
       offerNumber: offer.offerNumber,
       documentNumber: formatOfferDocumentNumber(offer.offerNumber, version),
       version,

@@ -17,6 +17,9 @@ import { LocalLeadEditDraftRepository } from '../../repositories/local/LocalLead
 import { LocalLeadRepository } from '../../repositories/local/LocalLeadRepository';
 import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOfferDocumentRepository';
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
+import { LocalBestPayHandoffRepository } from '../../repositories/local/LocalBestPayHandoffRepository';
+import { LocalOfferCustomerAcceptanceRepository } from '../../repositories/local/LocalOfferCustomerAcceptanceRepository';
+import { LocalOfferShareRepository } from '../../repositories/local/LocalOfferShareRepository';
 import { LocalOfferVersionRepository } from '../../repositories/local/LocalOfferVersionRepository';
 import { LocalOfferWorkflowEventRepository } from '../../repositories/local/LocalOfferWorkflowEventRepository';
 import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPricingCatalogRepository';
@@ -102,6 +105,9 @@ export function createTestRepositories(): AppRepositories {
     documentTemplateRepository: new LocalDocumentTemplateRepository(),
     offerRepository: new LocalOfferRepository(),
     offerVersionRepository: new LocalOfferVersionRepository(),
+    offerShareRepository: new LocalOfferShareRepository(),
+    offerCustomerAcceptanceRepository: new LocalOfferCustomerAcceptanceRepository(),
+    bestPayHandoffRepository: new LocalBestPayHandoffRepository(),
     offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
     salesDocumentRepository: new LocalSalesDocumentRepository(),
     offerDocumentRepository: new LocalOfferDocumentRepository(),

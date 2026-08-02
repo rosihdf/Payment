@@ -75,7 +75,9 @@ export class SupabaseOfferVersionRepository implements OfferVersionRepository {
     if (!existing) {
       throw new Error(`OfferVersion not found: ${version.id}`);
     }
-    const row = await sbUpdate(TABLE, version.id, versionToRow(version));
+    // Snapshot ist unveränderlich – Updates dürfen nur Metadaten ändern.
+    const next: OfferVersion = { ...version, snapshot: existing.snapshot };
+    const row = await sbUpdate(TABLE, version.id, versionToRow(next));
     return rowToVersion(row);
   }
 }

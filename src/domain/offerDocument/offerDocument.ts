@@ -46,6 +46,8 @@ export interface OfferDocumentSnapshot {
   documentVersion: number;
 
   offerId: string;
+  /** Gebundene Angebotsversion – PDF gehört zu genau dieser Version. */
+  offerVersionId: string | null;
   offerNumber: string;
   offerStatusAtGeneration: OfferStatus;
   offerUpdatedAtAtGeneration: string;
@@ -76,6 +78,8 @@ export interface OfferDocument {
   id: string;
 
   offerId: string;
+  /** Gebundene Angebotsversion; null nur für Legacy-Dokumente vor Phase 1B. */
+  offerVersionId: string | null;
   offerNumber: string;
 
   documentNumber: string;

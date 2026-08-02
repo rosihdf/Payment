@@ -10,9 +10,16 @@ import {
   type CounselingPrincipleFlags,
   emptyCounselingPrincipleFlags,
 } from '../domain/offer/counselingConfirmation';
-import { compareOfferVersions } from '../domain/offer/compareOfferVersions';
+import {
+  compareOfferVersions,
+  hasCustomerRelevantVersionChanges,
+} from '../domain/offer/compareOfferVersions';
 import type { OfferFollowUpPreferences } from '../domain/offer/offerFollowUpPreferences';
 import type { Offer } from '../domain/offer/offer';
+import {
+  evaluateOfferPublicationReadiness,
+  type OfferPublicationReadiness,
+} from '../domain/offer/offerPublicationReadiness';
 import type { OfferVersion, OfferVersionDiffEntry } from '../domain/offer/offerVersion';
 import {
   applyWorkflowTransition,
@@ -91,40 +98,118 @@ export class OfferWorkflowService {
     return offer?.currentVersionId ? this.versionRepository.getById(offer.currentVersionId) : null;
   }
 
+  private async resolveVersionSnapshotRefs(offerId: string): Promise<{
+    pricingEvaluationId: string | null;
+    commissionReferenceId: string | null;
+  }> {
+    const [evaluations, commissionCases] = await Promise.all([
+      this.pricingEvaluationRepository.getByOfferId(offerId),
+      this.commissionCalculationRepository.getCasesByOfferId(offerId),
+    ]);
+    const evaluation =
+      evaluations.find((entry) => entry.status === 'draft' && !entry.result.stale) ??
+      evaluations[0] ??
+      null;
+    return {
+      pricingEvaluationId: evaluation?.id ?? null,
+      commissionReferenceId: commissionCases[0]?.id ?? null,
+    };
+  }
+
   async ensureInitialVersion(offer: Offer): Promise<Offer> {
     const versions = await this.getVersions(offer.id);
     if (versions.length) {
-      const current = versions.at(-1)!;
-      if (offer.currentVersionId === current.id && offer.currentVersionNumber === current.versionNumber) return offer;
-      return this.offerRepository.update({ ...offer, currentVersionId: current.id, currentVersionNumber: current.versionNumber });
+      const current =
+        versions.find((entry) => entry.id === offer.currentVersionId) ??
+        versions.filter((entry) => entry.supersededAt === null).at(-1) ??
+        versions.at(-1)!;
+      if (offer.currentVersionId === current.id && offer.currentVersionNumber === current.versionNumber) {
+        return offer;
+      }
+      return this.offerRepository.update({
+        ...offer,
+        currentVersionId: current.id,
+        currentVersionNumber: current.versionNumber,
+      });
     }
+    const refs = await this.resolveVersionSnapshotRefs(offer.id);
     const version: OfferVersion = {
-      id: generateId('offer_version'), offerId: offer.id, versionNumber: 1,
-      workflowStatus: offer.workflowStatus, snapshot: buildOfferVersionSnapshot(offer, undefined, 1),
-      createdAt: offer.createdAt, createdByUserId: offer.createdByUserId,
-      createdByDisplayName: offer.createdByDisplayName, approvedAt: null, approvedByUserId: null,
-      sentAt: null, acceptedAt: null, declinedAt: null, activatedAt: null, supersededAt: null,
+      id: generateId('offer_version'),
+      offerId: offer.id,
+      versionNumber: 1,
+      workflowStatus: offer.workflowStatus,
+      snapshot: buildOfferVersionSnapshot(offer, undefined, 1, refs),
+      createdAt: offer.createdAt,
+      createdByUserId: offer.createdByUserId,
+      createdByDisplayName: offer.createdByDisplayName,
+      approvedAt: null,
+      approvedByUserId: null,
+      sentAt: null,
+      acceptedAt: null,
+      declinedAt: null,
+      activatedAt: null,
+      supersededAt: null,
     };
     await this.versionRepository.create(version);
-    return this.offerRepository.update({ ...offer, currentVersionNumber: 1, currentVersionId: version.id });
+    return this.offerRepository.update({
+      ...offer,
+      currentVersionNumber: 1,
+      currentVersionId: version.id,
+    });
   }
 
   async createNewVersion(offerId: string, reason: string, context?: OfferUserContext): Promise<OfferVersion | null> {
     const offer = await this.offerRepository.getById(offerId);
     if (!offer) return null;
     const current = await this.getCurrentVersion(offerId);
-    if (current) await this.versionRepository.update({ ...current, supersededAt: nowIso() });
+    if (current) {
+      await this.versionRepository.update({ ...current, supersededAt: nowIso() });
+    }
+    const approvalRequired = await this.detectApprovalRequired(offerId);
+    const deviations = await this.collectApprovalDeviations(offerId);
+    const refs = await this.resolveVersionSnapshotRefs(offerId);
+    const versionNumber = (current?.versionNumber ?? 0) + 1;
+    const snapshot = buildOfferVersionSnapshot(offer, undefined, versionNumber, {
+      ...refs,
+      approvalRequired,
+      approvalReasons: deviations,
+    });
     const version: OfferVersion = {
-      id: generateId('offer_version'), offerId, versionNumber: (current?.versionNumber ?? 0) + 1,
-      workflowStatus: offer.workflowStatus, snapshot: buildOfferVersionSnapshot(offer, undefined, (current?.versionNumber ?? 0) + 1),
-      createdAt: nowIso(), createdByUserId: context?.userId ?? offer.createdByUserId,
+      id: generateId('offer_version'),
+      offerId,
+      versionNumber,
+      workflowStatus: 'draft',
+      snapshot,
+      createdAt: nowIso(),
+      createdByUserId: context?.userId ?? offer.createdByUserId,
       createdByDisplayName: context?.displayName ?? offer.createdByDisplayName,
-      approvedAt: null, approvedByUserId: null, sentAt: null, acceptedAt: null, declinedAt: null,
-      activatedAt: null, supersededAt: null,
+      approvedAt: null,
+      approvedByUserId: null,
+      sentAt: null,
+      acceptedAt: null,
+      declinedAt: null,
+      activatedAt: null,
+      supersededAt: null,
     };
     await this.versionRepository.create(version);
-    await this.offerRepository.update({ ...offer, currentVersionNumber: version.versionNumber, currentVersionId: version.id, updatedAt: nowIso() });
-    await this.record('status_change', `Neue Angebotsversion erstellt`, reason, offer, context, `offer_version:${version.id}`);
+    // Neue Version invalidiert Angebots-Freigabe-/Versandstatus – alte Freigabe gilt nicht weiter.
+    const resetStatus = 'draft' as const;
+    const updatedOffer = await this.offerRepository.update({
+      ...offer,
+      currentVersionNumber: version.versionNumber,
+      currentVersionId: version.id,
+      workflowStatus: resetStatus,
+      status: syncLegacyOfferStatus(resetStatus),
+      updatedAt: nowIso(),
+    });
+    await this.record(
+      'status_change',
+      'Neue Angebotsversion erstellt',
+      reason,
+      updatedOffer,
+      context,
+      `offer_version:${version.id}`,
+    );
     return version;
   }
 
@@ -132,6 +217,25 @@ export class OfferWorkflowService {
     const records = await this.pricingEvaluationRepository.getByOfferId(offerId);
     return records.some((record) => record.status === 'draft' && !record.result.stale &&
       (record.result.approval.adminReviewRequired || record.result.approval.approvalBlocked));
+  }
+
+  async collectApprovalDeviations(offerId: string): Promise<string[]> {
+    const records = await this.pricingEvaluationRepository.getByOfferId(offerId);
+    const reasons = new Set<string>();
+    for (const record of records) {
+      if (record.status !== 'draft' || record.result.stale) continue;
+      for (const reason of record.result.approval.reasons ?? []) {
+        if (typeof reason === 'string' && reason.trim()) {
+          reasons.add(reason.trim());
+        }
+      }
+    }
+    return [...reasons];
+  }
+
+  async isPricingStale(offerId: string): Promise<boolean> {
+    const records = await this.pricingEvaluationRepository.getByOfferId(offerId);
+    return records.some((record) => record.status === 'draft' && record.result.stale);
   }
 
   async hasApprovalForVersion(offerId: string, versionId: string): Promise<boolean> {
@@ -149,11 +253,51 @@ export class OfferWorkflowService {
     );
   }
 
+  async evaluatePublicationReadiness(offerId: string): Promise<OfferPublicationReadiness | null> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) return null;
+    const version = await this.getCurrentVersion(offerId);
+    const approvalRequired = await this.detectApprovalRequired(offerId);
+    const hasApprovalForVersion = version
+      ? await this.hasApprovalForVersion(offerId, version.id)
+      : false;
+    const hasCounselingConfirmation = version
+      ? await this.hasCounselingConfirmationForVersion(offerId, version.id)
+      : false;
+    const pricingStale = await this.isPricingStale(offerId);
+    const recommendationStale = Boolean(
+      offer.recommendationLink.recommendationRecordId &&
+        !offer.recommendationLink.recommendationVersion,
+    );
+    const deviations = await this.collectApprovalDeviations(offerId);
+    return evaluateOfferPublicationReadiness({
+      offer,
+      version,
+      approvalRequired,
+      hasApprovalForVersion,
+      hasCounselingConfirmation,
+      pricingStale,
+      recommendationStale,
+      deviations,
+    });
+  }
+
   async getWizardWorkflowView(offerId: string): Promise<{ offer: Offer | null; version: OfferVersion | null; approvalRequired: boolean; approved: boolean; workflowStatus: Offer['workflowStatus'] | null }> {
     const offer = await this.offerRepository.getById(offerId);
     const version = offer ? await this.getCurrentVersion(offerId) : null;
     const approvalRequired = offer ? await this.detectApprovalRequired(offerId) : false;
-    const approved = Boolean(offer && version && (await this.hasApprovalForVersion(offerId, version.id) || ['approved', 'ready_to_send', 'sent', 'accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(offer.workflowStatus)));
+    const hasVersionApproval = Boolean(
+      version && (await this.hasApprovalForVersion(offerId, version.id)),
+    );
+    // Freigabe gilt nur versionsbezogen – Status allein reicht nicht für eine neue Version.
+    const approved = Boolean(
+      version &&
+        ((!approvalRequired &&
+          ['approved', 'ready_to_send', 'sent', 'accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
+            offer!.workflowStatus,
+          )) ||
+          hasVersionApproval),
+    );
     return { offer, version, approvalRequired, approved, workflowStatus: offer?.workflowStatus ?? null };
   }
 
@@ -177,7 +321,10 @@ export class OfferWorkflowService {
   }
 
   async createNewVersionIfNeeded(offerId: string, reason: string, context?: OfferUserContext): Promise<OfferVersion | null> {
-    return (await this.detectRelevantChanges(offerId)).length ? this.createNewVersion(offerId, reason, context) : this.getCurrentVersion(offerId);
+    const diffs = await this.detectRelevantChanges(offerId);
+    return hasCustomerRelevantVersionChanges(diffs)
+      ? this.createNewVersion(offerId, reason, context)
+      : this.getCurrentVersion(offerId);
   }
 
   async syncOfferAfterWizardCreation(offerId: string, sessionId: string, scenarioId: string, context: OfferUserContext): Promise<Offer | null> {
@@ -292,7 +439,28 @@ export class OfferWorkflowService {
     await this.record('approval_completed', 'Freigabe erteilt', note, result.offer, context, `approval_completed:${offerId}:${result.offer.currentVersionId}`);
     return result;
   }
-  async markReadyToSend(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'mark_ready_to_send', context); }
+  async markReadyToSend(offerId: string, context: OfferUserContext): Promise<Result> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) {
+      return { ok: false, error: 'not_found' };
+    }
+    const readiness = await this.evaluatePublicationReadiness(offerId);
+    if (!readiness) {
+      return { ok: false, error: 'not_found' };
+    }
+    // Counseling ist erst für Versand/Veröffentlichung nötig; ready_to_send braucht Version + Freigabe.
+    if (
+      offer.workflowStatus !== 'approved' ||
+      !readiness.hasCurrentVersion ||
+      !readiness.versionComplete ||
+      !readiness.pricingCurrent ||
+      !readiness.recommendationCurrent ||
+      (readiness.approvalRequired && !readiness.approvalPresentForVersion)
+    ) {
+      return { ok: false, error: 'validation' };
+    }
+    return this.transition(offerId, 'mark_ready_to_send', context);
+  }
 
   async confirmCounselingPrinciples(
     offerId: string,
@@ -381,8 +549,8 @@ export class OfferWorkflowService {
     if (!offer?.currentVersionId) {
       return { ok: false, error: 'not_found' };
     }
-    const confirmed = await this.hasCounselingConfirmationForVersion(offerId, offer.currentVersionId);
-    if (!confirmed) {
+    const readiness = await this.evaluatePublicationReadiness(offerId);
+    if (!readiness?.publicationAllowed) {
       return { ok: false, error: 'validation' };
     }
     if (followUpPreferences) {

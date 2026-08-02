@@ -43,6 +43,8 @@ export interface CreateOfferDocumentSnapshotInput {
   documentId: string;
   documentVersion: number;
   offer: Offer;
+  /** Pflicht für Final-Dokumente ab Phase 1B Block 1. */
+  offerVersionId?: string | null;
   generatedAt: string;
   generatedByUserId: string;
   generatedByDisplayName: string;
@@ -73,6 +75,7 @@ export async function createOfferDocumentSnapshot(
     documentNumber,
     documentVersion: input.documentVersion,
     offerId: input.offer.id,
+    offerVersionId: input.offerVersionId ?? input.offer.currentVersionId ?? null,
     offerNumber: input.offer.offerNumber,
     offerStatusAtGeneration: input.offer.status,
     offerUpdatedAtAtGeneration: input.offer.updatedAt,
@@ -117,6 +120,7 @@ export async function createPreviewDocumentSnapshot(
     documentNumber: 'VORSCHAU',
     documentVersion: 0,
     offerId: offer.id,
+    offerVersionId: offer.currentVersionId,
     offerNumber: offer.offerNumber,
     offerStatusAtGeneration: offer.status,
     offerUpdatedAtAtGeneration: offer.updatedAt,

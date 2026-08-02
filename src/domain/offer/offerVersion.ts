@@ -35,6 +35,9 @@ export interface OfferVersionSnapshot {
   terminalLines: OfferItem[];
   accessoryLines: OfferItem[];
   priceBookVersion: string | null;
+  /** Interne Pricing-Evaluation-Referenz der Version (Snapshot-Zeitpunkt). */
+  pricingEvaluationId: string | null;
+  /** Interne Provisionsreferenz – nie in Kunden-PDF. */
   commissionReferenceId: string | null;
   approvalRequired: boolean;
   approvalReasons: string[];

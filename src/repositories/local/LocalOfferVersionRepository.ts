@@ -24,8 +24,13 @@ export class LocalOfferVersionRepository implements OfferVersionRepository {
     all.push(version); this.writeAll(all); return version;
   }
   async update(version: OfferVersion): Promise<OfferVersion> {
-    const all = this.readAll(); const index = all.findIndex((entry) => entry.id === version.id);
+    const all = this.readAll();
+    const index = all.findIndex((entry) => entry.id === version.id);
     if (index < 0) throw new Error(`OfferVersion not found: ${version.id}`);
-    all[index] = version; this.writeAll(all); return version;
+    // Snapshot ist unveränderlich – Updates dürfen nur Metadaten ändern.
+    const next: OfferVersion = { ...version, snapshot: all[index]!.snapshot };
+    all[index] = next;
+    this.writeAll(all);
+    return next;
   }
 }

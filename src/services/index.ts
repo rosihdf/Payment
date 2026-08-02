@@ -26,6 +26,9 @@ import type { ActivationApplicationRepository } from '../repositories/interfaces
 import type { ActivationHardwareRepository } from '../repositories/interfaces/ActivationHardwareRepository';
 import type { ActivationBlockerRepository } from '../repositories/interfaces/ActivationBlockerRepository';
 import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
+import type { BestPayHandoffRepository } from '../repositories/interfaces/BestPayHandoffRepository';
+import type { OfferCustomerAcceptanceRepository } from '../repositories/interfaces/OfferCustomerAcceptanceRepository';
+import type { OfferShareRepository } from '../repositories/interfaces/OfferShareRepository';
 import type { BillingImportRepository } from '../repositories/interfaces/BillingImportRepository';
 import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
 import type { CommissionWorkflowRepository } from '../repositories/interfaces/CommissionWorkflowRepository';
@@ -54,6 +57,10 @@ import { LeadService } from './leadService';
 import { createOfferDocumentService } from './offerDocumentService';
 import { OfferService } from './offerService';
 import { OfferWorkflowService } from './offerWorkflowService';
+import { BestPayHandoffService } from './bestPayHandoffService';
+import { OfferAcceptanceService } from './offerAcceptanceService';
+import { OfferShareService } from './offerShareService';
+import { OfferVersionService } from './offerVersionService';
 import { PricingEvaluationService } from './pricingEvaluationService';
 import { ProductService } from './productService';
 import { ContactService } from './contactService';
@@ -88,6 +95,10 @@ export interface AppServices {
   productService: ProductService;
   offerService: OfferService;
   offerWorkflowService: OfferWorkflowService;
+  offerVersionService: OfferVersionService;
+  offerShareService: OfferShareService;
+  offerAcceptanceService: OfferAcceptanceService;
+  bestPayHandoffService: BestPayHandoffService;
   offerDocumentService: ReturnType<typeof createOfferDocumentService>;
   pricingEvaluationService: PricingEvaluationService;
   commissionCalculationService: CommissionCalculationService;
@@ -138,6 +149,9 @@ export interface AppRepositories {
   activationApplicationRepository: ActivationApplicationRepository;
   activationHardwareRepository: ActivationHardwareRepository;
   activationBlockerRepository: ActivationBlockerRepository;
+  offerShareRepository: OfferShareRepository;
+  offerCustomerAcceptanceRepository: OfferCustomerAcceptanceRepository;
+  bestPayHandoffRepository: BestPayHandoffRepository;
 }
 
 export function createServices(repositories: AppRepositories): AppServices {
@@ -289,6 +303,28 @@ export function createServices(repositories: AppRepositories): AppServices {
   activationService.setSalesActivityService(salesActivityService);
   activationService.setContractService(contractService);
 
+  const offerVersionService = new OfferVersionService(
+    repositories.offerRepository,
+    repositories.offerVersionRepository,
+    repositories.offerWorkflowEventRepository,
+    repositories.offerShareRepository,
+    repositories.offerCustomerAcceptanceRepository,
+    repositories.bestPayHandoffRepository,
+  );
+  const offerShareService = new OfferShareService(
+    repositories.offerShareRepository,
+    repositories.offerVersionRepository,
+  );
+  const offerAcceptanceService = new OfferAcceptanceService(
+    repositories.offerCustomerAcceptanceRepository,
+    repositories.offerVersionRepository,
+  );
+  const bestPayHandoffService = new BestPayHandoffService(
+    repositories.bestPayHandoffRepository,
+    repositories.offerVersionRepository,
+    repositories.offerCustomerAcceptanceRepository,
+  );
+
   return {
     userService: new UserService(repositories.userRepository),
     adminUserService,
@@ -310,6 +346,10 @@ export function createServices(repositories: AppRepositories): AppServices {
     productService: new ProductService(repositories.productRepository),
     offerService,
     offerWorkflowService,
+    offerVersionService,
+    offerShareService,
+    offerAcceptanceService,
+    bestPayHandoffService,
     offerDocumentService: createOfferDocumentService(
       repositories.offerDocumentRepository,
       repositories.offerRepository,

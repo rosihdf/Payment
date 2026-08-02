@@ -84,6 +84,10 @@ export const STORAGE_KEYS = {
   activationHardware: 'amrtech.activationHardware',
   activationBlockers: 'amrtech.activationBlockers',
   activationStorageVersion: 'amrtech.activationStorageVersion',
+  offerShares: 'amrtech.offerShares',
+  offerCustomerAcceptances: 'amrtech.offerCustomerAcceptances',
+  bestPayHandoffs: 'amrtech.bestPayHandoffs',
+  salesProcessStorageVersion: 'amrtech.salesProcessStorageVersion',
   salesGuideTipsEnabled: 'amrtech.salesGuideTipsEnabled',
 } as const;
 
