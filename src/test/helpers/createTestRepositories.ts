@@ -19,6 +19,8 @@ import { LocalOfferDocumentRepository } from '../../repositories/local/LocalOffe
 import { LocalOfferRepository } from '../../repositories/local/LocalOfferRepository';
 import { LocalBestPayHandoffRepository } from '../../repositories/local/LocalBestPayHandoffRepository';
 import { LocalOfferCustomerAcceptanceRepository } from '../../repositories/local/LocalOfferCustomerAcceptanceRepository';
+import { LocalOfferChangeRequestRepository } from '../../repositories/local/LocalOfferChangeRequestRepository';
+import { LocalOfferCustomerQuestionRepository } from '../../repositories/local/LocalOfferCustomerQuestionRepository';
 import { LocalOfferShareRepository } from '../../repositories/local/LocalOfferShareRepository';
 import { LocalOfferVersionRepository } from '../../repositories/local/LocalOfferVersionRepository';
 import { LocalOfferWorkflowEventRepository } from '../../repositories/local/LocalOfferWorkflowEventRepository';
@@ -106,6 +108,8 @@ export function createTestRepositories(): AppRepositories {
     offerRepository: new LocalOfferRepository(),
     offerVersionRepository: new LocalOfferVersionRepository(),
     offerShareRepository: new LocalOfferShareRepository(),
+    offerCustomerQuestionRepository: new LocalOfferCustomerQuestionRepository(),
+    offerChangeRequestRepository: new LocalOfferChangeRequestRepository(),
     offerCustomerAcceptanceRepository: new LocalOfferCustomerAcceptanceRepository(),
     bestPayHandoffRepository: new LocalBestPayHandoffRepository(),
     offerWorkflowEventRepository: new LocalOfferWorkflowEventRepository(),
@@ -153,5 +157,7 @@ export function createTestWorkspace(repos: AppRepositories = createTestRepositor
     repos.contractRepository,
     repos.activationCaseRepository,
     repos.activationBlockerRepository,
+    repos.offerCustomerQuestionRepository,
+    repos.offerChangeRequestRepository,
   );
 }

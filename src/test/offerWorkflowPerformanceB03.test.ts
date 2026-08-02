@@ -212,6 +212,8 @@ describe('B03 Angebotsworkflow Performance', () => {
         repos.contractRepository,
         repos.activationCaseRepository,
         repos.activationBlockerRepository,
+        repos.offerCustomerQuestionRepository,
+        repos.offerChangeRequestRepository,
       );
 
       const allOffers = await offerRepository.getAll();

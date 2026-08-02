@@ -113,6 +113,8 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
       repos.contractRepository,
       repos.activationCaseRepository,
       repos.activationBlockerRepository,
+      repos.offerCustomerQuestionRepository,
+      repos.offerChangeRequestRepository,
     );
     const view = await workspace.getWorkspaceView(
       { userId: 'user_001', role: 'field_service', displayName: 'Laura' },

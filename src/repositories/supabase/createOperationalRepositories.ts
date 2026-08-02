@@ -9,6 +9,8 @@ import type { AuditRepository } from '../interfaces/AuditRepository';
 import type { BestPayComparisonRepository } from '../interfaces/BestPayComparisonRepository';
 import type { BestPayHandoffRepository } from '../interfaces/BestPayHandoffRepository';
 import type { OfferCustomerAcceptanceRepository } from '../interfaces/OfferCustomerAcceptanceRepository';
+import type { OfferChangeRequestRepository } from '../interfaces/OfferChangeRequestRepository';
+import type { OfferCustomerQuestionRepository } from '../interfaces/OfferCustomerQuestionRepository';
 import type { OfferShareRepository } from '../interfaces/OfferShareRepository';
 import type { BillingImportRepository, BillingImportStoreData } from '../interfaces/BillingImportRepository';
 import type { CommissionCalculationRepository } from '../interfaces/CommissionCalculationRepository';
@@ -50,6 +52,8 @@ import { LocalOfferRepository } from '../local/LocalOfferRepository';
 import { LocalOfferDocumentRepository } from '../local/LocalOfferDocumentRepository';
 import { LocalBestPayHandoffRepository } from '../local/LocalBestPayHandoffRepository';
 import { LocalOfferCustomerAcceptanceRepository } from '../local/LocalOfferCustomerAcceptanceRepository';
+import { LocalOfferChangeRequestRepository } from '../local/LocalOfferChangeRequestRepository';
+import { LocalOfferCustomerQuestionRepository } from '../local/LocalOfferCustomerQuestionRepository';
 import { LocalOfferShareRepository } from '../local/LocalOfferShareRepository';
 import { LocalOfferVersionRepository } from '../local/LocalOfferVersionRepository';
 import { LocalOfferWorkflowEventRepository } from '../local/LocalOfferWorkflowEventRepository';
@@ -82,6 +86,8 @@ import { SupabaseAuditRepository } from './SupabaseAuditRepository';
 import { SupabaseBestPayComparisonRepository } from './SupabaseBestPayComparisonRepository';
 import { SupabaseBestPayHandoffRepository } from './SupabaseBestPayHandoffRepository';
 import { SupabaseOfferCustomerAcceptanceRepository } from './SupabaseOfferCustomerAcceptanceRepository';
+import { SupabaseOfferChangeRequestRepository } from './SupabaseOfferChangeRequestRepository';
+import { SupabaseOfferCustomerQuestionRepository } from './SupabaseOfferCustomerQuestionRepository';
 import { SupabaseOfferShareRepository } from './SupabaseOfferShareRepository';
 import { SupabaseBillingImportRepository } from './SupabaseBillingImportRepository';
 import { SupabaseCommissionCalculationRepository } from './SupabaseCommissionCalculationRepository';
@@ -171,6 +177,8 @@ export interface OperationalRepositories {
   bestPayComparisonRepository: BestPayComparisonRepository;
   billingImportRepository: BillingImportRepository;
   offerShareRepository: OfferShareRepository;
+  offerCustomerQuestionRepository: OfferCustomerQuestionRepository;
+  offerChangeRequestRepository: OfferChangeRequestRepository;
   offerCustomerAcceptanceRepository: OfferCustomerAcceptanceRepository;
   bestPayHandoffRepository: BestPayHandoffRepository;
 }
@@ -207,6 +215,8 @@ export function createOperationalRepositories(): OperationalRepositories {
       bestPayComparisonRepository: new SupabaseBestPayComparisonRepository(),
       billingImportRepository: new SupabaseBillingImportRepository(),
       offerShareRepository: new SupabaseOfferShareRepository(),
+      offerCustomerQuestionRepository: new SupabaseOfferCustomerQuestionRepository(),
+      offerChangeRequestRepository: new SupabaseOfferChangeRequestRepository(),
       offerCustomerAcceptanceRepository: new SupabaseOfferCustomerAcceptanceRepository(),
       bestPayHandoffRepository: new SupabaseBestPayHandoffRepository(),
     };
@@ -241,6 +251,8 @@ export function createOperationalRepositories(): OperationalRepositories {
     bestPayComparisonRepository: new LocalBestPayComparisonRepository(),
     billingImportRepository: new LocalBillingImportRepository(),
     offerShareRepository: new LocalOfferShareRepository(),
+    offerCustomerQuestionRepository: new LocalOfferCustomerQuestionRepository(),
+    offerChangeRequestRepository: new LocalOfferChangeRequestRepository(),
     offerCustomerAcceptanceRepository: new LocalOfferCustomerAcceptanceRepository(),
     bestPayHandoffRepository: new LocalBestPayHandoffRepository(),
   };

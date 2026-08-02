@@ -374,9 +374,17 @@ describe('admin users worker API', () => {
     expect(updateUserById).toHaveBeenCalled();
   });
 
-  it('returns 404 for unknown api route', async () => {
+  it('ignoriert nicht-Admin-API-Routen', async () => {
     const response = await routeAdminUsersApi(
       new Request('https://example.com/api/nope', { method: 'GET' }),
+      env(),
+    );
+    expect(response).toBeNull();
+  });
+
+  it('returns 404 for unknown admin api route', async () => {
+    const response = await routeAdminUsersApi(
+      new Request('https://example.com/api/admin/nope', { method: 'GET' }),
       env(),
     );
     expect(response?.status).toBe(404);

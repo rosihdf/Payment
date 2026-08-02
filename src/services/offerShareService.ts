@@ -1,9 +1,13 @@
+import type { OfferPublicationReadiness } from '../domain/offer/offerPublicationReadiness';
 import type { OfferShare, ShareStatus } from '../domain/offer/offerShare';
 import { deriveShareStatus, isShareAccessible } from '../domain/offer/offerShare';
 import { generateShareToken, hashShareToken } from '../domain/offer/shareToken';
+import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
 import type { OfferShareRepository } from '../repositories/interfaces/OfferShareRepository';
 import type { OfferVersionRepository } from '../repositories/interfaces/OfferVersionRepository';
 import { generateId, nowIso } from '../utils/id';
+import type { OfferUserContext } from './offerService';
+import type { SalesActivityService } from './salesActivityService';
 
 export interface PrepareOfferShareInput {
   offerId: string;
@@ -15,9 +19,9 @@ export interface PrepareOfferShareInput {
 
 export type PrepareOfferShareResult =
   | { ok: true; share: OfferShare; token: string }
-  | { ok: false; error: 'not_found' | 'validation' };
+  | { ok: false; error: 'not_found' | 'validation' | 'not_ready' | 'stale_version'; blockers?: string[] };
 
-const DEFAULT_SHARE_VALIDITY_DAYS = 14;
+export const DEFAULT_SHARE_VALIDITY_DAYS = 30;
 
 export function defaultShareValidUntil(from: string = nowIso()): string {
   const date = new Date(from);
@@ -25,17 +29,36 @@ export function defaultShareValidUntil(from: string = nowIso()): string {
   return date.toISOString();
 }
 
+export function buildOfferReviewUrl(token: string, origin = window.location.origin): string {
+  return `${origin.replace(/\/$/, '')}/offer-review/${token}`;
+}
+
 export class OfferShareService {
+  private activityService: SalesActivityService | null = null;
   private readonly shareRepository: OfferShareRepository;
   private readonly versionRepository: OfferVersionRepository;
+  private readonly offerRepository: OfferRepository;
 
-  constructor(shareRepository: OfferShareRepository, versionRepository: OfferVersionRepository) {
+  constructor(
+    shareRepository: OfferShareRepository,
+    versionRepository: OfferVersionRepository,
+    offerRepository: OfferRepository,
+  ) {
     this.shareRepository = shareRepository;
     this.versionRepository = versionRepository;
+    this.offerRepository = offerRepository;
+  }
+
+  setSalesActivityService(service: SalesActivityService): void {
+    this.activityService = service;
   }
 
   async getSharesByOfferId(offerId: string): Promise<OfferShare[]> {
     return this.shareRepository.getByOfferId(offerId);
+  }
+
+  async getActiveShareByOfferId(offerId: string): Promise<OfferShare | null> {
+    return this.shareRepository.getActiveByOfferId(offerId);
   }
 
   async getShareById(id: string): Promise<OfferShare | null> {
@@ -46,16 +69,48 @@ export class OfferShareService {
     return this.shareRepository.getByOfferVersionId(offerVersionId);
   }
 
-  async prepareShare(input: PrepareOfferShareInput): Promise<PrepareOfferShareResult> {
-    const version = await this.versionRepository.getById(input.offerVersionId);
-    if (!version || version.offerId !== input.offerId) {
+  async createCustomerShareLink(
+    offerId: string,
+    context: OfferUserContext,
+    readiness: OfferPublicationReadiness | null,
+  ): Promise<PrepareOfferShareResult> {
+    if (!readiness?.publicationAllowed) {
+      return {
+        ok: false,
+        error: 'not_ready',
+        blockers: readiness?.blockers ?? ['Kundenvorlage ist nicht freigegeben.'],
+      };
+    }
+
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer?.currentVersionId) {
       return { ok: false, error: 'not_found' };
     }
-    if (version.supersededAt) {
-      return { ok: false, error: 'validation' };
+
+    const version = await this.versionRepository.getById(offer.currentVersionId);
+    if (!version || version.offerId !== offerId || version.supersededAt) {
+      return { ok: false, error: 'stale_version' };
     }
-    if (!input.validUntil || input.validUntil <= (input.validFrom ?? nowIso())) {
-      return { ok: false, error: 'validation' };
+
+    if (readiness.currentVersionId !== version.id) {
+      return { ok: false, error: 'stale_version' };
+    }
+
+    const active = await this.shareRepository.getActiveByOfferId(offerId);
+    if (active) {
+      await this.shareRepository.update({
+        ...active,
+        status: 'superseded',
+        supersededAt: nowIso(),
+      });
+      await this.recordActivity(context, {
+        type: 'status_change',
+        title: 'Kundenlink ersetzt',
+        description: `Ein neuer Kundenlink ersetzt den bisherigen Link für Angebot ${offer.offerNumber}.`,
+        offerId,
+        leadId: offer.leadId,
+        sourceKey: `offer_share_superseded:${active.id}`,
+      });
     }
 
     const token = generateShareToken();
@@ -63,27 +118,37 @@ export class OfferShareService {
     const timestamp = nowIso();
     const share: OfferShare = {
       id: generateId('offer_share'),
-      offerId: input.offerId,
-      offerVersionId: input.offerVersionId,
+      offerId,
+      offerVersionId: version.id,
       tokenHash,
       status: 'active',
-      validFrom: input.validFrom ?? timestamp,
-      validUntil: input.validUntil,
+      validFrom: timestamp,
+      validUntil: defaultShareValidUntil(timestamp),
       accessCount: 0,
       lastAccessAt: null,
       createdAt: timestamp,
-      createdByUserId: input.createdByUserId,
+      createdByUserId: context.userId,
       revokedAt: null,
       revokedByUserId: null,
+      supersededAt: null,
     };
 
     await this.shareRepository.create(share);
+    await this.recordActivity(context, {
+      type: 'offer_sent',
+      title: 'Kundenlink erstellt',
+      description: `Angebot ${offer.offerNumber} (Version ${version.versionNumber}) wurde für die Kundenprüfung bereitgestellt.`,
+      offerId,
+      leadId: offer.leadId,
+      sourceKey: `offer_share_created:${share.id}`,
+    });
+
     return { ok: true, share, token };
   }
 
   async revokeShare(
     shareId: string,
-    revokedByUserId: string,
+    context: OfferUserContext,
   ): Promise<{ ok: true; share: OfferShare } | { ok: false; error: 'not_found' }> {
     const share = await this.shareRepository.getById(shareId);
     if (!share) {
@@ -93,9 +158,18 @@ export class OfferShareService {
       ...share,
       status: 'revoked',
       revokedAt: nowIso(),
-      revokedByUserId,
+      revokedByUserId: context.userId,
     };
     await this.shareRepository.update(updated);
+    const offer = await this.offerRepository.getById(share.offerId);
+    await this.recordActivity(context, {
+      type: 'status_change',
+      title: 'Kundenlink widerrufen',
+      description: 'Der Kundenlink wurde widerrufen und ist nicht mehr gültig.',
+      offerId: share.offerId,
+      leadId: offer?.leadId ?? null,
+      sourceKey: `offer_share_revoked:${share.id}`,
+    });
     return { ok: true, share: updated };
   }
 
@@ -104,7 +178,11 @@ export class OfferShareService {
     if (!share) {
       return { ok: false, error: 'not_found' };
     }
-    const updated: OfferShare = { ...share, status: 'superseded' };
+    const updated: OfferShare = {
+      ...share,
+      status: 'superseded',
+      supersededAt: nowIso(),
+    };
     await this.shareRepository.update(updated);
     return { ok: true, share: updated };
   }
@@ -115,5 +193,30 @@ export class OfferShareService {
 
   isAccessible(share: OfferShare, at: string = nowIso()): boolean {
     return isShareAccessible(share, at);
+  }
+
+  private async recordActivity(
+    context: OfferUserContext,
+    input: {
+      type: 'offer_sent' | 'status_change';
+      title: string;
+      description: string;
+      offerId: string;
+      leadId: string | null;
+      sourceKey: string;
+    },
+  ): Promise<void> {
+    if (!this.activityService) return;
+    await this.activityService.recordSystemActivity(
+      {
+        type: input.type,
+        title: input.title,
+        description: input.description,
+        offerId: input.offerId,
+        leadId: input.leadId,
+        sourceKey: input.sourceKey,
+      },
+      context,
+    );
   }
 }

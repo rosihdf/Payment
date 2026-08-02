@@ -654,7 +654,7 @@ export async function routeAdminUsersApi(
     if (action === 'resend-invite') return handleResendInvite(request, env, userId);
   }
 
-  if (path.startsWith('/api/')) {
+  if (path.startsWith('/api/admin/')) {
     return errorResponse(404, 'not_found', 'Unbekannter API-Endpunkt.');
   }
 

@@ -55,11 +55,13 @@ import { NewTariffPage } from '../features/tariff/NewTariffPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { AuthCallbackPage } from '../features/auth/AuthCallbackPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
+import { OfferReviewPage } from '../features/offer/OfferReviewPage';
 
 export const appRoutes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/auth/callback', element: <AuthCallbackPage /> },
   { path: '/set-password', element: <AuthCallbackPage /> },
+  { path: '/offer-review/:token', element: <OfferReviewPage /> },
   {
     path: '/',
     element: (

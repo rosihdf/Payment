@@ -19,6 +19,14 @@ function shareToRow(share: OfferShare): Record<string, unknown> {
     offer_id: share.offerId,
     offer_version_id: share.offerVersionId,
     token_hash: share.tokenHash,
+    status: share.status,
+    valid_from: share.validFrom,
+    valid_until: share.validUntil,
+    revoked_at: share.revokedAt,
+    superseded_at: share.supersededAt,
+    access_count: share.accessCount,
+    last_accessed_at: share.lastAccessAt,
+    created_by_user_id: share.createdByUserId,
     data: share,
     created_at: share.createdAt,
     updated_at: share.createdAt,
@@ -60,6 +68,11 @@ export class SupabaseOfferShareRepository implements OfferShareRepository {
   async getByOfferVersionId(offerVersionId: string): Promise<OfferShare[]> {
     const rows = await sbSelectWhere(TABLE, 'offer_version_id', offerVersionId);
     return normalizeOfferShares(rows.map((row) => rowToShare(row)));
+  }
+
+  async getActiveByOfferId(offerId: string): Promise<OfferShare | null> {
+    const shares = await this.getByOfferId(offerId);
+    return shares.find((entry) => entry.status === 'active') ?? null;
   }
 
   async getByTokenHash(tokenHash: string): Promise<OfferShare | null> {

@@ -31,6 +31,12 @@ export class LocalOfferShareRepository implements OfferShareRepository {
     return this.readAll().filter((entry) => entry.offerVersionId === offerVersionId);
   }
 
+  async getActiveByOfferId(offerId: string): Promise<OfferShare | null> {
+    return (
+      this.readAll().find((entry) => entry.offerId === offerId && entry.status === 'active') ?? null
+    );
+  }
+
   async getByTokenHash(tokenHash: string): Promise<OfferShare | null> {
     return this.readAll().find((entry) => entry.tokenHash === tokenHash) ?? null;
   }

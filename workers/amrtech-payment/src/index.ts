@@ -1,4 +1,5 @@
 import { routeAdminUsersApi, type AdminEnv } from './adminUsersApi';
+import { routePublicOfferApi } from './publicOfferApi';
 
 interface AssetFetcher {
   fetch(request: Request): Promise<Response>;
@@ -78,6 +79,18 @@ const worker = {
     const adminResponse = await routeAdminUsersApi(request, env);
     if (adminResponse) {
       return adminResponse;
+    }
+
+    const publicOfferResponse = await routePublicOfferApi(request, env);
+    if (publicOfferResponse) {
+      return publicOfferResponse;
+    }
+
+    if (url.pathname.startsWith('/api/')) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'not_found', message: 'Unbekannter API-Endpunkt.' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } },
+      );
     }
 
     return handleAssetRequest(request, env);

@@ -36,6 +36,7 @@ export function normalizeOfferShare(value: unknown): OfferShare | null {
     createdByUserId: text(raw.createdByUserId),
     revokedAt: nullable(raw.revokedAt),
     revokedByUserId: nullable(raw.revokedByUserId),
+    supersededAt: nullable(raw.supersededAt),
   };
 }
 

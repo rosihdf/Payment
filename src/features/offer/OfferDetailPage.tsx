@@ -31,6 +31,8 @@ import { OfferPricingEvaluationSection } from './OfferPricingEvaluationSection';
 import { OfferRecommendationSection } from './OfferRecommendationSection';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
 import { OfferFulfillmentCard } from './OfferFulfillmentCard';
+import { OfferCustomerFeedbackSection } from './OfferCustomerFeedbackSection';
+import { OfferCustomerShareSection } from './OfferCustomerShareSection';
 import { OfferWorkflowSection } from './OfferWorkflowSection';
 import { OfferWorkflowStatusBadge } from './OfferWorkflowStatusBadge';
 import { getOfferWorkflowDisplayLabel } from './offerWorkflowDisplay';
@@ -598,6 +600,20 @@ export function OfferDetailPage() {
             hideHeaderBadge
             hideNextActionBanner
           />
+          {userContext ? (
+            <OfferCustomerShareSection
+              offer={offer}
+              userContext={userContext}
+              onUpdated={loadOffer}
+            />
+          ) : null}
+          {userContext ? (
+            <OfferCustomerFeedbackSection
+              offer={offer}
+              userContext={userContext}
+              onUpdated={loadOffer}
+            />
+          ) : null}
         </div>
       ) : null}
 

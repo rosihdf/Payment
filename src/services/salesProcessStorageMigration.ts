@@ -1,9 +1,11 @@
+import { normalizeOfferChangeRequests } from '../domain/offer/normalizeOfferChangeRequest';
+import { normalizeOfferCustomerQuestions } from '../domain/offer/normalizeOfferCustomerQuestion';
 import { normalizeBestPayHandoffs } from '../domain/offer/normalizeBestPayHandoff';
 import { normalizeOfferCustomerAcceptances } from '../domain/offer/normalizeOfferCustomerAcceptance';
 import { normalizeOfferShares } from '../domain/offer/normalizeOfferShare';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
-export const CURRENT_SALES_PROCESS_STORAGE_VERSION = 1;
+export const CURRENT_SALES_PROCESS_STORAGE_VERSION = 2;
 
 export function migrateSalesProcessStorageIfNeeded(): void {
   const version = readStorageItem<number>(STORAGE_KEYS.salesProcessStorageVersion) ?? 0;
@@ -14,6 +16,18 @@ export function migrateSalesProcessStorageIfNeeded(): void {
   writeStorageItem(
     STORAGE_KEYS.offerShares,
     normalizeOfferShares(readStorageItem<unknown[]>(STORAGE_KEYS.offerShares) ?? []),
+  );
+  writeStorageItem(
+    STORAGE_KEYS.offerCustomerQuestions,
+    normalizeOfferCustomerQuestions(
+      readStorageItem<unknown[]>(STORAGE_KEYS.offerCustomerQuestions) ?? [],
+    ),
+  );
+  writeStorageItem(
+    STORAGE_KEYS.offerChangeRequests,
+    normalizeOfferChangeRequests(
+      readStorageItem<unknown[]>(STORAGE_KEYS.offerChangeRequests) ?? [],
+    ),
   );
   writeStorageItem(
     STORAGE_KEYS.offerCustomerAcceptances,

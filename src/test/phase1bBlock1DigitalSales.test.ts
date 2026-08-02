@@ -19,18 +19,21 @@ import {
 import { SHARE_STATUS_LABELS } from '../domain/offer/offerShare';
 import { generateShareToken, hashShareToken, verifyShareToken } from '../domain/offer/shareToken';
 import { createServices } from '../services';
-import { defaultShareValidUntil } from '../services/offerShareService';
+import { DEFAULT_SHARE_VALIDITY_DAYS } from '../services/offerShareService';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createTestRepositories } from './helpers/createTestRepositories';
 import {
+  allCounselingPrinciplesConfirmed,
   createTestOffer,
   FIELD_SERVICE_CONTEXT,
+  OTHER_FIELD_SERVICE_CONTEXT,
   resetOfferTestSequence,
 } from './helpers/offerTestHelpers';
 import type { OfferVersion } from '../domain/offer/offerVersion';
 import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../domain/recommendation/recommendationRecord';
 
 const owner = FIELD_SERVICE_CONTEXT;
+const reviewer = OTHER_FIELD_SERVICE_CONTEXT;
 
 function createWorkflow() {
   const repos = createTestRepositories();
@@ -156,7 +159,7 @@ describe('Phase 1B Block 1 – Digitaler Vertriebsprozess (Vorbereitung)', () =>
           version: baseVersion({ workflowStatus: 'sent' }),
           isCurrent: true,
           approvals: [],
-          shares: [{ id: 's1', offerId: 'offer_1', offerVersionId: 'ver_1', tokenHash: 'abc', status: 'active', validFrom: '2026-08-01T00:00:00.000Z', validUntil: '2026-09-01T00:00:00.000Z', accessCount: 0, lastAccessAt: null, createdAt: '2026-08-02T10:00:00.000Z', createdByUserId: owner.userId, revokedAt: null, revokedByUserId: null }],
+          shares: [{ id: 's1', offerId: 'offer_1', offerVersionId: 'ver_1', tokenHash: 'abc', status: 'active', validFrom: '2026-08-01T00:00:00.000Z', validUntil: '2026-09-01T00:00:00.000Z', accessCount: 0, lastAccessAt: null, createdAt: '2026-08-02T10:00:00.000Z', createdByUserId: owner.userId, revokedAt: null, revokedByUserId: null, supersededAt: null }],
           acceptances: [],
           handoffs: [],
         }),
@@ -233,16 +236,20 @@ describe('Phase 1B Block 1 – Digitaler Vertriebsprozess (Vorbereitung)', () =>
 
     it('bereitet Share ohne öffentlichen Link vor', async () => {
       const { repos, services } = createWorkflow();
-      let offer = await repos.offerRepository.create(createTestOffer());
+      let offer = await repos.offerRepository.create(createTestOffer({ workflowStatus: 'approval_required' }));
       offer = await services.offerWorkflowService.ensureInitialVersion(offer);
-      const version = await services.offerVersionService.getCurrentVersion(offer.id);
+      await services.offerWorkflowService.approve(offer.id, reviewer);
+      await services.offerWorkflowService.markReadyToSend(offer.id, owner);
+      const version = (await services.offerWorkflowService.getCurrentVersion(offer.id))!;
+      await services.offerWorkflowService.confirmCounselingPrinciples(
+        offer.id,
+        version.id,
+        owner,
+        allCounselingPrinciplesConfirmed(),
+      );
+      const readiness = await services.offerWorkflowService.evaluatePublicationReadiness(offer.id);
 
-      const result = await services.offerShareService.prepareShare({
-        offerId: offer.id,
-        offerVersionId: version!.id,
-        createdByUserId: owner.userId,
-        validUntil: defaultShareValidUntil(),
-      });
+      const result = await services.offerShareService.createCustomerShareLink(offer.id, owner, readiness);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -251,6 +258,10 @@ describe('Phase 1B Block 1 – Digitaler Vertriebsprozess (Vorbereitung)', () =>
         expect(result.share.status).toBe('active');
         expect(SHARE_STATUS_LABELS.active).toBe('Aktiv');
       }
+    });
+
+    it('nutzt 30 Tage Standardlaufzeit', () => {
+      expect(DEFAULT_SHARE_VALIDITY_DAYS).toBe(30);
     });
   });
 

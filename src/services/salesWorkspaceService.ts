@@ -26,6 +26,8 @@ import type { ActivationCaseRepository } from '../repositories/interfaces/Activa
 import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
 import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
+import type { OfferChangeRequestRepository } from '../repositories/interfaces/OfferChangeRequestRepository';
+import type { OfferCustomerQuestionRepository } from '../repositories/interfaces/OfferCustomerQuestionRepository';
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { CustomerPrimaryAction } from '../domain/salesWorkspace/customerRecordView';
 import { buildSalesGuideNotifications, type SalesGuideNotification } from '../domain/sales/salesGuideNotifications';
@@ -135,6 +137,8 @@ export class SalesWorkspaceService {
   private readonly contractRepository: ContractRepository;
   private readonly activationCaseRepository: ActivationCaseRepository;
   private readonly activationBlockerRepository: ActivationBlockerRepository;
+  private readonly questionRepository: OfferCustomerQuestionRepository;
+  private readonly changeRequestRepository: OfferChangeRequestRepository;
 
   constructor(
     leadRepository: LeadRepository,
@@ -149,6 +153,8 @@ export class SalesWorkspaceService {
     contractRepository: ContractRepository,
     activationCaseRepository: ActivationCaseRepository,
     activationBlockerRepository: ActivationBlockerRepository,
+    questionRepository: OfferCustomerQuestionRepository,
+    changeRequestRepository: OfferChangeRequestRepository,
   ) {
     this.leadRepository = leadRepository;
     this.offerRepository = offerRepository;
@@ -161,6 +167,8 @@ export class SalesWorkspaceService {
     this.contractRepository = contractRepository;
     this.activationCaseRepository = activationCaseRepository;
     this.activationBlockerRepository = activationBlockerRepository;
+    this.questionRepository = questionRepository;
+    this.changeRequestRepository = changeRequestRepository;
   }
 
   canUseTeamScope(context: SalesWorkspaceUserContext): boolean {
@@ -292,7 +300,7 @@ export class SalesWorkspaceService {
 
     await this.syncAutomaticTasks(context);
 
-    const [allLeads, allOffers, allTasks, allActivities, allSessions, commissionCases, allContracts, allActivations, allBlockers] =
+    const [allLeads, allOffers, allTasks, allActivities, allSessions, commissionCases, allContracts, allActivations, allBlockers, allQuestions, allChangeRequests] =
       await Promise.all([
         this.leadRepository.getAll(),
         this.offerRepository.getAll(),
@@ -303,6 +311,8 @@ export class SalesWorkspaceService {
         this.contractRepository.getAll(),
         this.activationCaseRepository.getAll(),
         this.activationBlockerRepository.getAll(),
+        this.questionRepository.getAll(),
+        this.changeRequestRepository.getAll(),
       ]);
 
     const leads = allLeads.filter((lead) => this.isLeadVisible(lead, context, scope));
@@ -665,6 +675,36 @@ export class SalesWorkspaceService {
       offersInApproval,
     );
 
+    const feedbackNotifications: SalesGuideNotification[] = [];
+    for (const question of allQuestions) {
+      if (question.status !== 'open' || !visibleOfferIds.has(question.offerId)) {
+        continue;
+      }
+      const relatedOffer = offers.find((entry) => entry.id === question.offerId);
+      feedbackNotifications.push({
+        id: `customer-question:${question.id}`,
+        title: 'Offene Kundenrückfrage',
+        description: question.questionText.slice(0, 120),
+        occurredAt: question.askedAt,
+        offerId: question.offerId,
+        leadId: relatedOffer?.leadId ?? null,
+      });
+    }
+    for (const request of allChangeRequests) {
+      if (!['open', 'reviewed'].includes(request.status) || !visibleOfferIds.has(request.offerId)) {
+        continue;
+      }
+      const relatedOffer = offers.find((entry) => entry.id === request.offerId);
+      feedbackNotifications.push({
+        id: `customer-change:${request.id}`,
+        title: 'Offener Änderungswunsch',
+        description: request.requestText.slice(0, 120),
+        occurredAt: request.createdAt,
+        offerId: request.offerId,
+        leadId: relatedOffer?.leadId ?? null,
+      });
+    }
+
     return {
       scope,
       canUseTeamScope,
@@ -690,7 +730,7 @@ export class SalesWorkspaceService {
       timeline: [...activities]
         .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
         .slice(0, 50),
-      notifications,
+      notifications: [...feedbackNotifications, ...notifications],
       searchHits: searchHits.slice(0, 30),
     };
   }

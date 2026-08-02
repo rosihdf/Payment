@@ -29,6 +29,7 @@ export interface OfferShare {
   createdByUserId: string;
   revokedAt: string | null;
   revokedByUserId: string | null;
+  supersededAt: string | null;
 }
 
 export function isShareAccessible(share: OfferShare, at: string = new Date().toISOString()): boolean {

@@ -85,6 +85,8 @@ export const STORAGE_KEYS = {
   activationBlockers: 'amrtech.activationBlockers',
   activationStorageVersion: 'amrtech.activationStorageVersion',
   offerShares: 'amrtech.offerShares',
+  offerCustomerQuestions: 'amrtech.offerCustomerQuestions',
+  offerChangeRequests: 'amrtech.offerChangeRequests',
   offerCustomerAcceptances: 'amrtech.offerCustomerAcceptances',
   bestPayHandoffs: 'amrtech.bestPayHandoffs',
   salesProcessStorageVersion: 'amrtech.salesProcessStorageVersion',
