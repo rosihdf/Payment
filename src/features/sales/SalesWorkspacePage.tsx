@@ -186,6 +186,38 @@ export function SalesWorkspacePage() {
         </section>
       ) : null}
 
+      {!isLoading && view && view.notifications.length > 0 ? (
+        <section className={styles.section} aria-labelledby="notifications-heading">
+          <h2 id="notifications-heading" className={styles.sectionTitle}>
+            Aktuelle Hinweise
+          </h2>
+          <ul className={styles.list}>
+            {view.notifications.map((notification) => (
+              <li key={notification.id}>
+                <article className={styles.notificationCard}>
+                  <h3 className={styles.notificationTitle}>{notification.title}</h3>
+                  {notification.description ? (
+                    <p className={styles.cardMeta}>{notification.description}</p>
+                  ) : null}
+                  {notification.offerId ? (
+                    <Link
+                      className={styles.secondaryAction}
+                      to={`/offers/${notification.offerId}`}
+                    >
+                      {notification.title === 'Angebot wartet auf Freigabe' ? 'Prüfen' : 'Zum Angebot'}
+                    </Link>
+                  ) : notification.leadId ? (
+                    <Link className={styles.secondaryAction} to={`/leads/${notification.leadId}`}>
+                      Zur Kundenakte
+                    </Link>
+                  ) : null}
+                </article>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {isLoading || !view ? (
         <EmptyState
           title="Arbeitsplatz wird geladen"

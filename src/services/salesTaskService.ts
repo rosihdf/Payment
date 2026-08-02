@@ -283,6 +283,34 @@ export class SalesTaskService {
     return result.task;
   }
 
+  async ensureOrUpdateAutomaticTask(
+    input: CreateSalesTaskInput & { sourceKey: string },
+    context: SalesTaskUserContext,
+  ): Promise<SalesTask> {
+    const existing = (await this.taskRepository.getAll()).find(
+      (task) =>
+        task.sourceKey === input.sourceKey &&
+        (task.status === 'open' || task.status === 'in_progress'),
+    );
+    if (existing) {
+      const result = await this.updateTask(
+        existing.id,
+        {
+          title: input.title,
+          dueAt: input.dueAt ?? null,
+          priority: input.priority,
+          description: input.description,
+        },
+        context,
+      );
+      if (!result.ok) {
+        throw new Error(result.message ?? 'automatic task update failed');
+      }
+      return result.task;
+    }
+    return this.ensureAutomaticTask(input, context);
+  }
+
   async updateTask(
     id: string,
     patch: UpdateSalesTaskInput,

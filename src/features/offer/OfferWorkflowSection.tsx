@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormControl } from '../../components/common/FormControl';
 import { FormField, textareaClassName } from '../../components/common/FormField';
+import { SalesGuidePanel } from '../../components/sales/SalesGuidePanel';
+import {
+  APPROVAL_DEVIATION_FIELD_MESSAGE,
+  APPROVAL_WAITING_STATUS_LABEL,
+  NO_SIGNATURE_REQUIRED_MESSAGE,
+  OFFER_REVIEW_TIME_MESSAGE,
+  resolveSalesGuideContextFromOfferStatus,
+} from '../../domain/sales/salesGuide';
+import {
+  FOLLOW_UP_QUICK_PICKS,
+  followUpDateInputValue,
+} from '../../domain/sales/salesFollowUpSchedule';
 import {
   COUNSELING_PRINCIPLE_KEYS,
   COUNSELING_PRINCIPLE_LABELS,
@@ -197,6 +209,14 @@ export function OfferWorkflowSection({
   const title =
     mode === 'actions' ? 'Freigabe & Versand' : mode === 'versions' ? 'Versionen & Verlauf' : 'Angebotsworkflow';
 
+  const guideContext = useMemo(
+    () =>
+      dialog === 'send' || dialog === 'accept'
+        ? null
+        : resolveSalesGuideContextFromOfferStatus(offer.workflowStatus),
+    [dialog, offer.workflowStatus],
+  );
+
   return (
     <section className={styles.section} aria-labelledby="offer-workflow-title">
       <div className={styles.header}>
@@ -217,6 +237,22 @@ export function OfferWorkflowSection({
           <strong>Nächste Aktion:</strong> {nextAction(offer.workflowStatus)}
         </p>
       )}
+
+      {showActions && guideContext ? (
+        <SalesGuidePanel context={guideContext} tipSeed={offer.id} compact />
+      ) : null}
+
+      {showActions &&
+      currentUser?.role === 'field_service' &&
+      ['approval_required', 'in_approval', 'changes_requested'].includes(offer.workflowStatus) ? (
+        <div className={styles.approvalNotice}>
+          <p className={styles.guideEmphasis}>{APPROVAL_DEVIATION_FIELD_MESSAGE}</p>
+          <p className={styles.guideHint}>
+            Status: {APPROVAL_WAITING_STATUS_LABEL} – keine Annahme, Unterschrift oder Vertrag vor
+            Freigabe.
+          </p>
+        </div>
+      ) : null}
 
       {showActions ? (
       <div className={styles.actions}>
@@ -389,6 +425,9 @@ export function OfferWorkflowSection({
 
       {showActions && dialog === 'send' ? (
         <section className={styles.formPanel}>
+          <SalesGuidePanel context="offer_send" tipSeed={offer.id} compact />
+          <p className={styles.guideEmphasis}>{NO_SIGNATURE_REQUIRED_MESSAGE}</p>
+          <p className={styles.guideHint}>{OFFER_REVIEW_TIME_MESSAGE}</p>
           <fieldset>
             <legend>Beratungsgrundsätze</legend>
             <ul className={styles.checklist}>
@@ -421,6 +460,23 @@ export function OfferWorkflowSection({
           />
           <fieldset>
             <legend>Bedenkzeit / Nachfassen</legend>
+            <p className={styles.guideHint}>
+              Wählen Sie genau einen Nachfasszeitpunkt (Vorschläge: morgen, in drei Tagen, in einer
+              Woche) oder ein eigenes Datum:
+            </p>
+            <div className={styles.quickPicks}>
+              {FOLLOW_UP_QUICK_PICKS.map((pick) => (
+                <button
+                  key={pick.days}
+                  type="button"
+                  className={styles.secondaryAction}
+                  disabled={noFollowUpDesired}
+                  onClick={() => setFollowUpDate(followUpDateInputValue(pick.days))}
+                >
+                  {pick.label}
+                </button>
+              ))}
+            </div>
             <FormControl
               id="follow-up-date"
               type="date"
@@ -509,6 +565,7 @@ export function OfferWorkflowSection({
 
       {showActions && dialog === 'accept' ? (
         <section className={styles.formPanel}>
+          <SalesGuidePanel context="offer_accept" tipSeed={offer.id} compact />
           <FormControl
             id="accepted-by"
             type="text"

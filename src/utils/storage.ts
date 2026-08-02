@@ -82,11 +82,13 @@ export const STORAGE_KEYS = {
   activationHardware: 'amrtech.activationHardware',
   activationBlockers: 'amrtech.activationBlockers',
   activationStorageVersion: 'amrtech.activationStorageVersion',
+  salesGuideTipsEnabled: 'amrtech.salesGuideTipsEnabled',
 } as const;
 
 const SUPABASE_PROD_ALLOWED_STORAGE_KEYS = new Set<string>([
   STORAGE_KEYS.leadDrafts,
   STORAGE_KEYS.leadEditDrafts,
+  STORAGE_KEYS.salesGuideTipsEnabled,
 ]);
 
 function assertStorageAccessAllowed(key: string): void {

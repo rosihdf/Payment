@@ -71,6 +71,51 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
       noFollowUpDesired: false,
     });
     expect(sentResult.ok).toBe(true);
+
+    const tasks = await repos.salesTaskRepository.getAll();
+    const followUpTasks = tasks.filter(
+      (task) => task.offerId === versioned.id && task.type === 'follow_up_offer',
+    );
+    expect(followUpTasks).toHaveLength(1);
+    expect(followUpTasks[0]?.sourceKey).toBe(`auto:follow_up_offer:${versioned.id}`);
+    expect(followUpTasks[0]?.title).toMatch(/nachfassen/i);
+  });
+
+  it('legt keine Wiedervorlage an, wenn der Kunde sich selbst meldet', async () => {
+    const repos = createTestRepositories();
+    const { offerWorkflowService } = createServices(repos);
+    const offer = await repos.offerRepository.create(createTestOffer());
+    const versioned = await offerWorkflowService.ensureInitialVersion(offer);
+    await offerWorkflowService.approve(versioned.id, reviewer);
+    await offerWorkflowService.markReadyToSend(versioned.id, owner);
+    const version = await offerWorkflowService.getCurrentVersion(versioned.id);
+    await offerWorkflowService.confirmCounselingPrinciples(
+      versioned.id,
+      version!.id,
+      owner,
+      allPrinciplesConfirmed(),
+    );
+
+    const sentResult = await offerWorkflowService.documentSent(
+      versioned.id,
+      owner,
+      'kunde@example.test',
+      'email',
+      {
+        providedAt: new Date().toISOString(),
+        followUpDate: new Date(Date.now() + 3 * 86400000).toISOString(),
+        comparesOffers: false,
+        openQuestions: '',
+        customerContactsSelf: true,
+        noFollowUpDesired: false,
+      },
+    );
+    expect(sentResult.ok).toBe(true);
+
+    const tasks = await repos.salesTaskRepository.getAll();
+    expect(
+      tasks.filter((task) => task.offerId === versioned.id && task.type === 'follow_up_offer'),
+    ).toHaveLength(0);
   });
 
   it('validiert alle Beratungsgrundsätze', () => {

@@ -1,5 +1,12 @@
 import { buildOfferVersionSnapshot } from '../domain/offer/buildOfferVersionSnapshot';
 import {
+  followUpTaskSourceKey,
+  legacyFollowUpTaskSourceKeys,
+  resolveFollowUpDueAt,
+  resolveFollowUpTaskTitle,
+  shouldScheduleFollowUpTask,
+} from '../domain/sales/salesFollowUpSchedule';
+import {
   type CounselingPrincipleFlags,
   emptyCounselingPrincipleFlags,
 } from '../domain/offer/counselingConfirmation';
@@ -225,14 +232,17 @@ export class OfferWorkflowService {
     const result = await this.transition(offerId, 'submit_for_approval', context);
     if (!result.ok) return result;
     await this.event({ id: generateId('offer_approval'), schemaVersion: OFFER_WORKFLOW_EVENT_SCHEMA_VERSION, type: 'approval', status: 'submitted', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: context.userId, approvedByUserId: null });
-    await this.record('approval_requested', 'Freigabe angefordert', note, result.offer, context, `approval_requested:${offerId}:${result.offer.currentVersionId}`);
+    await this.record('approval_requested', 'Angebot wartet auf Freigabe', note, result.offer, context, `approval_requested:${offerId}:${result.offer.currentVersionId}`);
     if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Angebot freigeben', type: 'review_approval', priority: 'high', dueAt: endOfDayIso(), leadId: result.offer.leadId, offerId, sourceKey: `auto:review_approval:${offerId}` }, context);
     return result;
   }
   async startApproval(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'start_approval', context); }
   async requestChanges(offerId: string, context: OfferUserContext, note = ''): Promise<Result> {
     const result = await this.transition(offerId, 'request_changes', context);
-    if (result.ok) await this.event({ id: generateId('offer_approval'), schemaVersion: 1, type: 'approval', status: 'changes_requested', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: result.offer.createdByUserId, approvedByUserId: null });
+    if (result.ok) {
+      await this.event({ id: generateId('offer_approval'), schemaVersion: 1, type: 'approval', status: 'changes_requested', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: result.offer.createdByUserId, approvedByUserId: null });
+      await this.record('status_change', 'Änderung erforderlich', note, result.offer, context, `changes_requested:${offerId}:${result.offer.currentVersionId}`);
+    }
     return result;
   }
   async approve(offerId: string, context: OfferUserContext, note = ''): Promise<Result> {
@@ -360,21 +370,55 @@ export class OfferWorkflowService {
       await this.versionRepository.update({ ...version, workflowStatus: 'sent', sentAt });
     }
     await this.record('offer_sent', 'Angebot versendet', recipient, result.offer, context, `offer_sent:${offerId}:${result.offer.currentVersionId}`);
-    const followUpDue = followUpPreferences?.followUpDate
-      ? endOfDayIso(new Date(followUpPreferences.followUpDate))
-      : endOfDayIso(new Date(Date.now() + 7 * 86400000));
-    if (this.taskService && !followUpPreferences?.noFollowUpDesired) {
-      await this.taskService.ensureAutomaticTask({
-        title: 'Angebot nachfassen',
-        type: 'follow_up_offer',
-        priority: 'normal',
-        dueAt: followUpDue,
-        leadId: result.offer.leadId,
+    if (
+      this.taskService &&
+      followUpPreferences &&
+      shouldScheduleFollowUpTask(followUpPreferences)
+    ) {
+      await this.reconcileFollowUpOfferTask(
         offerId,
-        sourceKey: `auto:follow_up_offer:${offerId}`,
-      }, context);
+        result.offer.leadId,
+        followUpPreferences,
+        context,
+      );
     }
     return result;
+  }
+
+  private async reconcileFollowUpOfferTask(
+    offerId: string,
+    leadId: string | null,
+    preferences: OfferFollowUpPreferences,
+    context: OfferUserContext,
+  ): Promise<void> {
+    if (!this.taskService) {
+      return;
+    }
+    const openTasks = (await this.taskService.listVisible(context)).filter(
+      (task) =>
+        task.offerId === offerId &&
+        task.type === 'follow_up_offer' &&
+        (task.status === 'open' || task.status === 'in_progress'),
+    );
+    const canonicalKey = followUpTaskSourceKey(offerId);
+    const legacyKeys = new Set(legacyFollowUpTaskSourceKeys(offerId));
+    for (const task of openTasks) {
+      if (task.sourceKey && legacyKeys.has(task.sourceKey)) {
+        await this.taskService.cancelTask(task.id, context);
+      }
+    }
+    await this.taskService.ensureOrUpdateAutomaticTask(
+      {
+        title: resolveFollowUpTaskTitle(preferences),
+        type: 'follow_up_offer',
+        priority: 'normal',
+        dueAt: resolveFollowUpDueAt(preferences),
+        leadId,
+        offerId,
+        sourceKey: canonicalKey,
+      },
+      context,
+    );
   }
   async acceptOffer(offerId: string, context: OfferUserContext, input: Pick<OfferAcceptance, 'acceptedByName' | 'acceptanceType' | 'otherText' | 'note'> | string = ''): Promise<Result> {
     const acceptance = typeof input === 'string'
@@ -385,7 +429,7 @@ export class OfferWorkflowService {
     const result = await this.transition(offerId, 'accept', context);
     if (result.ok) {
       await this.event({ id: generateId('offer_acceptance'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: acceptance.note, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
-      await this.record('offer_accepted', 'Angebot angenommen', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
+      await this.record('offer_accepted', 'Kunde hat unterschrieben', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
       if (this.contractService) {
         await this.contractService.createFromAcceptedOffer(offerId, {
           userId: context.userId,

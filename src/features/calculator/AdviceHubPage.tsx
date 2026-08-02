@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { SalesGuidePanel } from '../../components/sales/SalesGuidePanel';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
 import {
   canDiscardEmptyAdviceSession,
@@ -132,6 +133,8 @@ export function AdviceHubPage() {
         title="Beratung"
         subtitle="Ein Weg vom Kunden über den Vergleich bis zum Angebot."
       />
+
+      <SalesGuidePanel context="hub" tipSeed="advice-hub" compact />
 
       <article className={styles.hero}>
         <h2 className={styles.heroTitle}>Neue Beratung</h2>

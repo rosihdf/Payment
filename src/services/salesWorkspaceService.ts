@@ -27,6 +27,7 @@ import type { CommissionCalculationRepository } from '../repositories/interfaces
 import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { CustomerPrimaryAction } from '../domain/salesWorkspace/customerRecordView';
+import { buildSalesGuideNotifications, type SalesGuideNotification } from '../domain/sales/salesGuideNotifications';
 import { salesWizardSessionPath } from '../utils/routes';
 import type { SalesActivityService } from './salesActivityService';
 import {
@@ -107,6 +108,7 @@ export interface SalesWorkspaceView {
     unpaidCommissionOfferIds: string[];
   };
   timeline: SalesActivity[];
+  notifications: SalesGuideNotification[];
   searchHits: Array<{
     kind: 'lead' | 'offer' | 'session' | 'task';
     id: string;
@@ -655,6 +657,12 @@ export class SalesWorkspaceService {
       tasks: openTasks,
     });
 
+    const notifications = buildSalesGuideNotifications(
+      activities,
+      context.role,
+      offersInApproval,
+    );
+
     return {
       scope,
       canUseTeamScope,
@@ -680,6 +688,7 @@ export class SalesWorkspaceService {
       timeline: [...activities]
         .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
         .slice(0, 50),
+      notifications,
       searchHits: searchHits.slice(0, 30),
     };
   }

@@ -4,6 +4,11 @@ import { FormControl } from '../../components/common/FormControl';
 import { FormField, textareaClassName } from '../../components/common/FormField';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
+import { SalesGuidePanel } from '../../components/sales/SalesGuidePanel';
+import {
+  APPROVAL_DEVIATION_FIELD_MESSAGE,
+  APPROVAL_WAITING_STATUS_LABEL,
+} from '../../domain/sales/salesGuide';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
 import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import {
@@ -593,6 +598,7 @@ export function SalesWizardPage() {
         </nav>
 
         <div className={styles.main}>
+          <SalesGuidePanel context={step} tipSeed={session.id} />
           {step === 'prospect' ? (
             <div className={styles.stack}>
               <article className={styles.heroCard}>
@@ -1211,6 +1217,12 @@ export function SalesWizardPage() {
           {step === 'approval' ? (
             <article className={styles.card}>
               <h2>Angebot – Freigabe</h2>
+              {selectedScenario?.approval?.adminReviewRequired ? (
+                <div className={styles.warningBox}>
+                  <p>{APPROVAL_DEVIATION_FIELD_MESSAGE}</p>
+                  <p className={styles.hint}>Status: {APPROVAL_WAITING_STATUS_LABEL}</p>
+                </div>
+              ) : null}
               {workflowView ? (
                 <dl className={styles.metrics}>
                   <div>
