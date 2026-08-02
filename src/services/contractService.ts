@@ -1,4 +1,5 @@
 import { buildContractVersionSnapshotFromOfferVersion } from '../domain/contract/buildContractVersionFromOffer';
+import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import {
   compareContractVersions,
   evaluateContractChangeApproval,
@@ -293,7 +294,7 @@ export class ContractService {
       expectedCommissionCents: commissionCase?.expectedAmountCents ?? null,
       hardwareCount: snapshot.hardware.reduce((sum, line) => sum + line.quantity, 0),
       tariffName: snapshot.tariffSnapshot?.name ?? null,
-      customerCompanyName: snapshot.customerSnapshot.companyName || 'Unbekannter Kunde',
+      customerCompanyName: getLeadDisplayName(snapshot.customerSnapshot),
       nextDeadlineAt: null,
       nextDeadlineLabel: null,
       plannedChangeAt: null,
@@ -322,6 +323,20 @@ export class ContractService {
         contractId: contract.id,
         contractVersionId: version.id,
         sourceKey: `contract_created:${contract.id}`,
+      },
+      context,
+    );
+
+    await this.activityService?.recordSystemActivity(
+      {
+        type: 'bestpay_handoff',
+        title: `Vertrag an BestPay übergeben: ${contract.contractNumber}`,
+        description: `Aus Angebot ${snapshot.sourceOfferNumber ?? offerId}`,
+        leadId: contract.leadId,
+        offerId,
+        contractId: contract.id,
+        contractVersionId: version.id,
+        sourceKey: `bestpay_handoff:${contract.id}`,
       },
       context,
     );
@@ -919,7 +934,7 @@ export class ContractService {
       renewalMonths: activated.snapshot.renewalMonths,
       hardwareCount: activated.snapshot.hardware.reduce((sum, line) => sum + line.quantity, 0),
       tariffName: activated.snapshot.tariffSnapshot?.name ?? contract.tariffName,
-      customerCompanyName: activated.snapshot.customerSnapshot.companyName,
+      customerCompanyName: getLeadDisplayName(activated.snapshot.customerSnapshot),
       plannedChangeAt: null,
       updatedAt: timestamp,
       updatedByUserId: context.userId,

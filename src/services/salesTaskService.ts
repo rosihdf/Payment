@@ -239,6 +239,7 @@ export class SalesTaskService {
       contractId: input.contractId ?? null,
       contractVersionId: input.contractVersionId ?? null,
       activationId: input.activationId ?? null,
+      contactId: input.contactId ?? null,
       wizardEnabled: Boolean(input.wizardEnabled),
       origin: input.origin ?? 'manual',
       sourceKey: input.sourceKey ?? null,
@@ -349,6 +350,7 @@ export class SalesTaskService {
       contractVersionId:
         patch.contractVersionId !== undefined ? patch.contractVersionId : task.contractVersionId,
       activationId: patch.activationId !== undefined ? patch.activationId : task.activationId,
+      contactId: patch.contactId !== undefined ? patch.contactId : task.contactId,
       completionNote:
         patch.completionNote !== undefined ? patch.completionNote.trim() : task.completionNote,
       updatedAt: nowIso(),
@@ -397,6 +399,7 @@ export class SalesTaskService {
           comparisonSessionId: saved.comparisonSessionId,
           offerId: saved.offerId,
           taskId: saved.id,
+          contactId: saved.contactId,
           sourceKey: `task_completed:${saved.id}`,
         },
         context,

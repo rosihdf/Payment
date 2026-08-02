@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Offer } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { formatContactName, formatDate } from '../../utils/format';
 import { OfferStatusBadge } from './OfferStatusBadge';
 import { OfferTotalsDisplay } from './OfferTotalsDisplay';
@@ -38,7 +39,7 @@ export function OfferCard({ offer, actions }: OfferCardProps) {
       <dl className={styles.details}>
         <div className={styles.row}>
           <dt>Kunde</dt>
-          <dd>{offer.customerSnapshot.companyName}</dd>
+          <dd>{getLeadDisplayName(offer.customerSnapshot)}</dd>
         </div>
         <div className={styles.row}>
           <dt>Ansprechpartner</dt>

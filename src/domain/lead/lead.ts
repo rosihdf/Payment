@@ -55,6 +55,8 @@ export interface Lead {
   syncState: SyncState;
   createdAt: string;
   updatedAt: string;
+  /** Fachlicher Anzeigename – vom LeadService gesetzt, niemals interne ID. */
+  displayName?: string;
 }
 
 export interface CreateLeadInput {

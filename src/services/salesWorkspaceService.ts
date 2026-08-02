@@ -1,5 +1,6 @@
 import type { BestPayComparisonSession } from '../domain/bestPayComparison/bestPayComparisonSession';
 import type { Lead } from '../domain/lead/lead';
+import { getLeadDisplayName, getSessionCustomerDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { Offer } from '../domain/offer/offer';
 import type { SalesActivity } from '../domain/salesWorkspace/salesActivity';
 import {
@@ -442,7 +443,7 @@ export class SalesWorkspaceService {
         id: lead.id,
         kind: 'lead',
         leadId: lead.id,
-        companyName: lead.companyName,
+        companyName: getLeadDisplayName(lead),
         contactName: contactName(lead),
         phase,
         phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
@@ -504,7 +505,7 @@ export class SalesWorkspaceService {
           id: session.id,
           kind: 'unassigned' as const,
           leadId: null,
-          companyName: session.customerLabel || session.title || 'Ohne Lead',
+          companyName: getSessionCustomerDisplayName(session),
           contactName: 'Nicht zugeordnet',
           phase,
           phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
@@ -604,12 +605,12 @@ export class SalesWorkspaceService {
     if (query) {
       for (const lead of leads) {
         const haystack =
-          `${lead.companyName} ${lead.contactFirstName} ${lead.contactLastName} ${lead.phone} ${lead.email}`.toLowerCase();
+          `${getLeadDisplayName(lead)} ${lead.contactFirstName} ${lead.contactLastName} ${lead.phone} ${lead.email}`.toLowerCase();
         if (haystack.includes(query)) {
           searchHits.push({
             kind: 'lead',
             id: lead.id,
-            title: lead.companyName,
+            title: getLeadDisplayName(lead),
             subtitle: contactName(lead),
             href: `/leads/${lead.id}`,
           });
@@ -628,12 +629,13 @@ export class SalesWorkspaceService {
         }
       }
       for (const session of sessions) {
-        const haystack = `${session.title ?? ''} ${session.customerLabel ?? ''}`.toLowerCase();
+        const sessionLabel = getSessionCustomerDisplayName(session);
+        const haystack = `${sessionLabel} ${session.title ?? ''} ${session.customerLabel ?? ''}`.toLowerCase();
         if (haystack.includes(query)) {
           searchHits.push({
             kind: 'session',
             id: session.id,
-            title: session.title || session.customerLabel || session.id,
+            title: sessionLabel,
             subtitle: 'Berechnung',
             href: salesWizardSessionPath(session.id),
           });

@@ -8,6 +8,7 @@ import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
 import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { hasPermission } from '../../domain/permission/permission';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
@@ -313,7 +314,7 @@ export function OfferDetailPage() {
     <section>
       <PageHeader
         title={offer.title}
-        subtitle={`${offer.customerSnapshot.companyName} · ${offer.offerNumber}`}
+        subtitle={`${getLeadDisplayName(offer.customerSnapshot)} · ${offer.offerNumber}`}
         actions={
           <div className={styles.headerActions}>
             <Link className={styles.secondaryAction} to={`/leads/${offer.leadId}`}>

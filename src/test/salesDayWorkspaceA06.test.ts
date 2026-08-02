@@ -35,6 +35,7 @@ function task(partial: Partial<SalesTask> & Pick<SalesTask, 'id' | 'title' | 'du
     contractId: null,
     contractVersionId: null,
     activationId: null,
+    contactId: null,
     comparisonSessionId: null,
     wizardEnabled: false,
     assigneeUserId: 'user_001',

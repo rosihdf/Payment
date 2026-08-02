@@ -1,4 +1,5 @@
 import type { Lead } from '../domain/lead/lead';
+import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { Product } from '../domain/product/product';
 import type { Tariff } from '../domain/tariff/tariff';
 import type { User } from '../domain/user/user';
@@ -32,6 +33,7 @@ import type { ProductRepository } from '../repositories/interfaces/ProductReposi
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import { OfferNotFoundError } from '../repositories/errors/OfferNotFoundError';
 import type { OfferWorkflowService } from './offerWorkflowService';
+import type { SalesActivityService } from './salesActivityService';
 import { isEditableWorkflowStatus, syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
 import {
   hasOfferValidationErrors,
@@ -171,6 +173,7 @@ export class OfferService {
   private readonly tariffRepository: TariffRepository;
   private readonly productRepository: ProductRepository;
   private workflowService: OfferWorkflowService | null = null;
+  private activityService: SalesActivityService | null = null;
 
   constructor(
     offerRepository: OfferRepository,
@@ -186,6 +189,10 @@ export class OfferService {
 
   setWorkflowService(workflowService: OfferWorkflowService): void {
     this.workflowService = workflowService;
+  }
+
+  setActivityService(activityService: SalesActivityService): void {
+    this.activityService = activityService;
   }
 
   canUserAccessOffer(offer: Offer, context: OfferUserContext): boolean {
@@ -244,7 +251,7 @@ export class OfferService {
       const haystack = [
         offer.offerNumber,
         offer.title,
-        offer.customerSnapshot.companyName,
+        getLeadDisplayName(offer.customerSnapshot),
         formatContactName(
           offer.customerSnapshot.contactFirstName,
           offer.customerSnapshot.contactLastName,
@@ -440,7 +447,21 @@ export class OfferService {
 
     try {
       const created = await this.offerRepository.create(offer);
-      return { ok: true, offer: this.workflowService ? await this.workflowService.ensureInitialVersion(created) : created };
+      const withVersion = this.workflowService
+        ? await this.workflowService.ensureInitialVersion(created)
+        : created;
+      await this.activityService?.recordSystemActivity(
+        {
+          type: 'offer_created',
+          title: `Angebot erstellt: ${withVersion.offerNumber}`,
+          description: withVersion.title,
+          leadId: withVersion.leadId,
+          offerId: withVersion.id,
+          sourceKey: `offer_created:${withVersion.id}`,
+        },
+        context,
+      );
+      return { ok: true, offer: withVersion };
     } catch {
       return { ok: false, error: 'storage' };
     }
@@ -511,6 +532,17 @@ export class OfferService {
 
     try {
       const saved = await this.offerRepository.update(updated);
+      await this.activityService?.recordSystemActivity(
+        {
+          type: 'offer_updated',
+          title: `Angebot geändert: ${saved.offerNumber}`,
+          description: saved.title,
+          leadId: saved.leadId,
+          offerId: saved.id,
+          sourceKey: `offer_updated:${saved.id}:${saved.updatedAt}`,
+        },
+        context,
+      );
       return { ok: true, offer: saved };
     } catch (error) {
       if (error instanceof OfferNotFoundError) {

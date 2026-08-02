@@ -39,24 +39,27 @@ describe('Lead offer integration UI', () => {
     const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
-    await seedOfferInStorage(repository, {
+    const offer = await seedOfferInStorage(repository, {
       leadId: DEMO_LEAD_ID,
       title: 'Lead Angebot Alpha',
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
     expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebot' }));
-    expect(await screen.findByRole('heading', { name: 'Angebot' })).toBeInTheDocument();
-    expect(screen.getByText('Angebotsnummer')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Angebot öffnen' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Angebote' }));
+    expect(await screen.findByRole('heading', { name: 'Angebote' })).toBeInTheDocument();
+    expect(screen.getByText(offer.offerNumber)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
+      'href',
+      `/offers/${offer.id}`,
+    );
   });
 
   it('shows empty state when lead has no offers', async () => {
     const user = userEvent.setup();
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`);
     expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebot' }));
+    await user.click(screen.getByRole('button', { name: 'Angebote' }));
     expect(await screen.findByText('Noch kein Angebot vorhanden.')).toBeInTheDocument();
   });
 
@@ -71,8 +74,8 @@ describe('Lead offer integration UI', () => {
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
     expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebot' }));
-    expect(await screen.findByRole('link', { name: 'Angebot öffnen' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: 'Angebote' }));
+    expect(await screen.findByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
       'href',
       `/offers/${offer.id}`,
     );

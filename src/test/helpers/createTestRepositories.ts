@@ -23,6 +23,7 @@ import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPri
 import { LocalPricingEvaluationRepository } from '../../repositories/local/LocalPricingEvaluationRepository';
 import { LocalProductRepository } from '../../repositories/local/LocalProductRepository';
 import { LocalRecommendationRepository } from '../../repositories/local/LocalRecommendationRepository';
+import { LocalContactRepository } from '../../repositories/local/LocalContactRepository';
 import { LocalSalesActivityRepository } from '../../repositories/local/LocalSalesActivityRepository';
 import { LocalSalesDocumentRepository } from '../../repositories/local/LocalSalesDocumentRepository';
 import { LocalSalesTaskRepository } from '../../repositories/local/LocalSalesTaskRepository';
@@ -120,6 +121,7 @@ export function createTestRepositories(): AppRepositories {
     activationBlockerRepository: new LocalActivationBlockerRepository(),
     salesTaskRepository: new LocalSalesTaskRepository(),
     salesActivityRepository: new LocalSalesActivityRepository(),
+    contactRepository: new LocalContactRepository(),
     bestPayComparisonRepository: new LocalBestPayComparisonRepository(),
     billingImportRepository: new LocalBillingImportRepository(),
     leadDraftRepository: new LocalLeadDraftRepository(),

@@ -59,6 +59,33 @@ describe('B01 Sales Wizard Service', () => {
     expect(moved?.wizard.currentStep).toBe('costs');
   });
 
+  it('legt Lead aus minimalem Prospect mit nur Firma an', async () => {
+    const { wizard } = createWizardService();
+    const session = await wizard.startWizard(context);
+    await wizard.updateProspectDraft(session.id, { companyName: 'Minimal GmbH' }, context);
+    const created = await wizard.createLeadFromProspect(session.id, context);
+    expect(created.ok).toBe(true);
+    if (created.ok) {
+      expect(created.session.leadId).toBeTruthy();
+      expect(created.session.customerLabel).toBe('Minimal GmbH');
+    }
+  });
+
+  it('legt Lead aus minimalem Prospect mit nur Name an', async () => {
+    const { wizard } = createWizardService();
+    const session = await wizard.startWizard(context);
+    await wizard.updateProspectDraft(
+      session.id,
+      { contactFirstName: 'Laura', contactLastName: 'Berger' },
+      context,
+    );
+    const created = await wizard.createLeadFromProspect(session.id, context);
+    expect(created.ok).toBe(true);
+    if (created.ok) {
+      expect(created.session.customerLabel).toBe('Laura Berger');
+    }
+  });
+
   it('legt Szenario an, berechnet und wählt Variante', async () => {
     const { wizard } = createWizardService();
     const session = await wizard.startWizard(context);

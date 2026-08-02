@@ -211,8 +211,28 @@ export class OfferWorkflowService {
   }
 
   private async event(event: OfferWorkflowEvent): Promise<void> { await this.eventRepository.create(event); }
-  private async record(type: 'status_change' | 'approval_requested' | 'approval_completed' | 'offer_sent' | 'offer_accepted' | 'activation' | 'commission', title: string, description: string, offer: Offer, context: OfferUserContext | undefined, sourceKey: string): Promise<void> {
-    if (this.activityService && context) await this.activityService.recordSystemActivity({ type, title, description, leadId: offer.leadId, offerId: offer.id, sourceKey }, context);
+  private async record(
+    type:
+      | 'status_change'
+      | 'approval_requested'
+      | 'approval_completed'
+      | 'approval_rejected'
+      | 'offer_sent'
+      | 'offer_accepted'
+      | 'activation'
+      | 'commission',
+    title: string,
+    description: string,
+    offer: Offer,
+    context: OfferUserContext | undefined,
+    sourceKey: string,
+  ): Promise<void> {
+    if (this.activityService && context) {
+      await this.activityService.recordSystemActivity(
+        { type, title, description, leadId: offer.leadId, offerId: offer.id, sourceKey },
+        context,
+      );
+    }
   }
 
   async submitForApproval(offerId: string, context: OfferUserContext, note = ''): Promise<Result> {
@@ -249,7 +269,14 @@ export class OfferWorkflowService {
     const result = await this.transition(offerId, 'request_changes', context);
     if (result.ok) {
       await this.event({ id: generateId('offer_approval'), schemaVersion: 1, type: 'approval', status: 'changes_requested', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: result.offer.createdByUserId, approvedByUserId: null });
-      await this.record('status_change', 'Änderung erforderlich', note, result.offer, context, `changes_requested:${offerId}:${result.offer.currentVersionId}`);
+      await this.record(
+        'approval_rejected',
+        'Freigabe abgelehnt',
+        note || 'Änderung erforderlich',
+        result.offer,
+        context,
+        `approval_rejected:${offerId}:${result.offer.currentVersionId}`,
+      );
     }
     return result;
   }
@@ -262,7 +289,7 @@ export class OfferWorkflowService {
     await this.event({ id: generateId('offer_approval'), schemaVersion: 1, type: 'approval', status: 'approved', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: offer.createdByUserId, approvedByUserId: context.userId });
     const version = await this.getCurrentVersion(offerId);
     if (version) await this.versionRepository.update({ ...version, workflowStatus: 'approved', approvedAt: nowIso(), approvedByUserId: context.userId });
-    await this.record('approval_completed', 'Angebot freigegeben', note, result.offer, context, `approval_completed:${offerId}:${result.offer.currentVersionId}`);
+    await this.record('approval_completed', 'Freigabe erteilt', note, result.offer, context, `approval_completed:${offerId}:${result.offer.currentVersionId}`);
     return result;
   }
   async markReadyToSend(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'mark_ready_to_send', context); }

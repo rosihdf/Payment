@@ -1,3 +1,7 @@
+import {
+  getSessionCustomerDisplayName,
+  UNNAMED_LEAD_DISPLAY_NAME,
+} from '../lead/getLeadDisplayName';
 import type {
   BestPayComparisonSession,
   BestPayComparisonSource,
@@ -121,14 +125,9 @@ export function formatBestPayComparisonFallbackTitle(createdAt: string): string 
 }
 
 export function resolveBestPayComparisonTitle(session: BestPayComparisonSession): string {
-  if (session.title?.trim()) {
-    return session.title.trim();
-  }
-  if (session.customerLabel?.trim()) {
-    return session.customerLabel.trim();
-  }
-  if (session.leadDisplayName?.trim()) {
-    return session.leadDisplayName.trim();
+  const label = getSessionCustomerDisplayName(session);
+  if (label !== UNNAMED_LEAD_DISPLAY_NAME) {
+    return label;
   }
   return formatBestPayComparisonFallbackTitle(session.createdAt);
 }
@@ -235,9 +234,9 @@ export function toBestPayComparisonSummary(session: BestPayComparisonSession): B
   return {
     id: session.id,
     title: resolveBestPayComparisonTitle(session),
-    merchantLabel: session.customerLabel,
+    merchantLabel: getSessionCustomerDisplayName(session),
     leadId: session.leadId,
-    leadLabel: session.leadDisplayName ?? session.customerLabel,
+    leadLabel: session.leadId ? getSessionCustomerDisplayName(session) : null,
     status: session.status,
     displayStatus: resolveDisplayStatus(session),
     isStale: Boolean(session.result?.stale),

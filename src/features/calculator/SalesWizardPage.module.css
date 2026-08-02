@@ -261,6 +261,52 @@
   font-weight: var(--font-weight-medium);
 }
 
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.leadResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.leadResult,
+.leadResultSelected {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  cursor: pointer;
+  min-height: var(--touch-target);
+  text-align: left;
+}
+
+.leadResultSelected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.leadResultName {
+  font-weight: var(--font-weight-medium);
+}
+
+.leadResultMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 .checkboxRow {
   display: flex;
   flex-wrap: wrap;

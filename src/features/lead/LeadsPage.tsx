@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
 import type { Lead } from '../../domain/lead/lead';
 import { LEAD_INTEREST_LABELS, LEAD_STATUS_LABELS } from '../../domain/lead/lead';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import type { User } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
@@ -83,7 +84,7 @@ export function LeadsPage() {
             <li key={lead.id}>
               <Link className={styles.card} to={`/leads/${lead.id}`}>
                 <div className={styles.cardHeader}>
-                  <h2 className={styles.company}>{lead.companyName}</h2>
+                  <h2 className={styles.company}>{getLeadDisplayName(lead)}</h2>
                   <span className={styles.status}>{LEAD_STATUS_LABELS[lead.status]}</span>
                 </div>
                 <p className={styles.contact}>

@@ -10,6 +10,7 @@ import {
   isEmptyAdviceSession,
 } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import { getVisibleWizardStep } from '../../domain/bestPayComparison/salesWizard';
+import { getSessionCustomerDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
@@ -21,13 +22,7 @@ function sessionTitle(session: BestPayComparisonSession): string {
   if (isEmptyAdviceSession(session)) {
     return 'Unbenannter Entwurf';
   }
-  return (
-    session.customerLabel ||
-    session.leadDisplayName ||
-    session.wizard.prospectDraft.companyName.trim() ||
-    session.title ||
-    'Unbenannter Entwurf'
-  );
+  return getSessionCustomerDisplayName(session) || 'Unbenannter Entwurf';
 }
 
 function sessionSourceLabel(session: BestPayComparisonSession): string | null {
@@ -201,9 +196,7 @@ export function AdviceHubPage() {
             {recentCalculations.map((session) => (
               <li key={session.id}>
                 <Link className={styles.sessionCard} to={adviceSessionPath(session.id)}>
-                  <span className={styles.sessionTitle}>
-                    {session.customerLabel || session.title || 'Beratung'}
-                  </span>
+                  <span className={styles.sessionTitle}>{sessionTitle(session)}</span>
                   <span className={styles.sessionMeta}>
                     {formatDate(session.updatedAt)} · fortsetzen
                   </span>

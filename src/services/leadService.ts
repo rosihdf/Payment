@@ -1,4 +1,5 @@
 import type { CreateLeadInput, EditLeadInput, Lead } from '../domain/lead/lead';
+import { enrichLeadWithDisplayName, getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { UserRole } from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
 import { formatContactName } from '../utils/format';
@@ -8,6 +9,7 @@ import {
   validateCreateLeadInput,
   type CreateLeadErrors,
 } from './leadValidation';
+import type { SalesActivityService } from './salesActivityService';
 
 export type CreateLeadResult =
   | { ok: true; lead: Lead }
@@ -56,9 +58,14 @@ function mapInputToFields(input: CreateLeadInput) {
 
 export class LeadService {
   private readonly leadRepository: LeadRepository;
+  private activityService: SalesActivityService | null = null;
 
   constructor(leadRepository: LeadRepository) {
     this.leadRepository = leadRepository;
+  }
+
+  setActivityService(activityService: SalesActivityService): void {
+    this.activityService = activityService;
   }
 
   validateCreateLeadInput(input: CreateLeadInput): CreateLeadErrors {
@@ -80,7 +87,8 @@ export class LeadService {
   }
 
   async getLeadById(id: string): Promise<Lead | null> {
-    return this.leadRepository.getById(id);
+    const lead = await this.leadRepository.getById(id);
+    return lead ? enrichLeadWithDisplayName(lead) : null;
   }
 
   async getLeadCount(context?: LeadSearchContext): Promise<number> {
@@ -90,7 +98,7 @@ export class LeadService {
 
   async getVisibleLeads(context?: LeadSearchContext): Promise<Lead[]> {
     const leads = await this.leadRepository.getAll();
-    return this.filterLeadsByRole(leads, context);
+    return this.filterLeadsByRole(leads, context).map(enrichLeadWithDisplayName);
   }
 
   async searchLeads(query: string, context?: LeadSearchContext): Promise<Lead[]> {
@@ -107,6 +115,7 @@ export class LeadService {
         lead.contactFirstName,
         lead.contactLastName,
         formatContactName(lead.contactFirstName, lead.contactLastName),
+        getLeadDisplayName(lead),
         lead.phone,
         lead.email,
         lead.city,
@@ -140,7 +149,22 @@ export class LeadService {
 
     try {
       const createdLead = await this.leadRepository.create(lead);
-      return { ok: true, lead: createdLead };
+      const enriched = enrichLeadWithDisplayName(createdLead);
+      try {
+        await this.activityService?.recordSystemActivity(
+          {
+            type: 'lead_created',
+            title: `Kunde angelegt: ${getLeadDisplayName(enriched)}`,
+            description: '',
+            leadId: enriched.id,
+            sourceKey: `lead_created:${enriched.id}`,
+          },
+          { userId, role: 'field_service', displayName: undefined },
+        );
+      } catch {
+        // Timeline-Dokumentation darf die Anlage nicht blockieren.
+      }
+      return { ok: true, lead: enriched };
     } catch {
       return { ok: false, error: 'storage' };
     }
@@ -181,7 +205,7 @@ export class LeadService {
 
     try {
       const lead = await this.leadRepository.update(updatedLead);
-      return { ok: true, lead };
+      return { ok: true, lead: enrichLeadWithDisplayName(lead) };
     } catch (error) {
       if (error instanceof LeadNotFoundError) {
         return { ok: false, error: 'not_found' };

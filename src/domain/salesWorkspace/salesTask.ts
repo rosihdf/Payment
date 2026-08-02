@@ -1,6 +1,13 @@
 export const SALES_TASK_SCHEMA_VERSION = 1;
 
 export type SalesTaskType =
+  | 'phone'
+  | 'mail'
+  | 'visit'
+  | 'follow_up'
+  | 'approval'
+  | 'activation'
+  | 'other'
   | 'callback'
   | 'request_billing'
   | 'review_billing'
@@ -41,7 +48,26 @@ export type SalesTaskPriority = 'normal' | 'high' | 'urgent';
 
 export type SalesTaskOrigin = 'manual' | 'automatic' | 'system';
 
+/** CRM-Aufgabentypen Phase 1A (bestehende Typen bleiben für Regression). */
+export const CRM_SALES_TASK_TYPES = [
+  'phone',
+  'mail',
+  'visit',
+  'follow_up',
+  'approval',
+  'activation',
+  'other',
+] as const;
+export type CrmSalesTaskType = (typeof CRM_SALES_TASK_TYPES)[number];
+
 export const SALES_TASK_TYPE_LABELS: Record<SalesTaskType, string> = {
+  phone: 'Telefon',
+  mail: 'Mail',
+  visit: 'Besuch',
+  follow_up: 'Nachfassen',
+  approval: 'Freigabe',
+  activation: 'Aktivierung',
+  other: 'Sonstiges',
   callback: 'Rückruf',
   request_billing: 'Abrechnung anfordern',
   review_billing: 'Abrechnung prüfen',
@@ -111,6 +137,7 @@ export interface SalesTask {
   contractId: string | null;
   contractVersionId: string | null;
   activationId: string | null;
+  contactId: string | null;
   wizardEnabled: boolean;
   origin: SalesTaskOrigin;
   /** Stable key for automatic/idempotent tasks, e.g. auto:continue_calculation:session_xyz */
@@ -133,6 +160,7 @@ export interface CreateSalesTaskInput {
   contractId?: string | null;
   contractVersionId?: string | null;
   activationId?: string | null;
+  contactId?: string | null;
   wizardEnabled?: boolean;
   origin?: SalesTaskOrigin;
   sourceKey?: string | null;
@@ -153,5 +181,6 @@ export interface UpdateSalesTaskInput {
   contractId?: string | null;
   contractVersionId?: string | null;
   activationId?: string | null;
+  contactId?: string | null;
   completionNote?: string;
 }

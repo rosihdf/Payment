@@ -112,9 +112,9 @@ describe('B01 Beratung Navigation', () => {
     const user = userEvent.setup();
     const router = renderAtRoute(SALES_WIZARD_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: 'Neuer Kunde' }));
+    await user.click(screen.getByRole('button', { name: 'Neuen Kunden anlegen' }));
     await user.type(screen.getByLabelText('Firma'), 'Nav Resume GmbH');
-    expect(await screen.findByText('Autosave aktiv')).toBeInTheDocument();
+    expect(await screen.findByText('Automatisch gespeichert')).toBeInTheDocument();
 
     await user.click(screen.getByRole('link', { name: 'Zum Arbeitsplatz' }));
     expect(router.state.location.pathname).toBe('/sales');

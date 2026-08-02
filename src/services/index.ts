@@ -9,6 +9,7 @@ import type { SalesDocumentRepository } from '../repositories/interfaces/SalesDo
 import type { PricingCatalogRepository } from '../repositories/interfaces/PricingCatalogRepository';
 import type { PricingEvaluationRepository } from '../repositories/interfaces/PricingEvaluationRepository';
 import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
+import type { ContactRepository } from '../repositories/interfaces/ContactRepository';
 import type { SalesActivityRepository } from '../repositories/interfaces/SalesActivityRepository';
 import type { SalesTaskRepository } from '../repositories/interfaces/SalesTaskRepository';
 import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
@@ -55,6 +56,8 @@ import { OfferService } from './offerService';
 import { OfferWorkflowService } from './offerWorkflowService';
 import { PricingEvaluationService } from './pricingEvaluationService';
 import { ProductService } from './productService';
+import { ContactService } from './contactService';
+import { CustomerDocumentAggregationService } from './customerDocumentAggregationService';
 import { SalesActivityService } from './salesActivityService';
 import { SalesTaskService } from './salesTaskService';
 import { SalesWizardService } from './salesWizardService';
@@ -94,6 +97,8 @@ export interface AppServices {
   salesWizardService: SalesWizardService;
   salesTaskService: SalesTaskService;
   salesActivityService: SalesActivityService;
+  contactService: ContactService;
+  customerDocumentAggregationService: CustomerDocumentAggregationService;
   salesWorkspaceService: SalesWorkspaceService;
   contractService: ContractService;
   activationService: ActivationService;
@@ -124,6 +129,7 @@ export interface AppRepositories {
   bestPayComparisonRepository: BestPayComparisonRepository;
   salesTaskRepository: SalesTaskRepository;
   salesActivityRepository: SalesActivityRepository;
+  contactRepository: ContactRepository;
   contractRepository: ContractRepository;
   contractVersionRepository: ContractVersionRepository;
   contractTerminationRepository: ContractTerminationRepository;
@@ -203,6 +209,19 @@ export function createServices(repositories: AppRepositories): AppServices {
   const salesTaskService = new SalesTaskService(repositories.salesTaskRepository);
   const salesActivityService = new SalesActivityService(repositories.salesActivityRepository);
   salesTaskService.setActivityService(salesActivityService);
+  leadService.setActivityService(salesActivityService);
+  const contactService = new ContactService(
+    repositories.contactRepository,
+    repositories.leadRepository,
+  );
+  contactService.setActivityService(salesActivityService);
+  const customerDocumentAggregationService = new CustomerDocumentAggregationService(
+    repositories.offerRepository,
+    repositories.contractRepository,
+    repositories.activationCaseRepository,
+    repositories.salesDocumentRepository,
+    repositories.offerDocumentRepository,
+  );
   const offerWorkflowService = new OfferWorkflowService(
     repositories.offerRepository,
     repositories.offerVersionRepository,
@@ -214,6 +233,7 @@ export function createServices(repositories: AppRepositories): AppServices {
   offerWorkflowService.setSalesTaskService(salesTaskService);
   offerWorkflowService.setSalesActivityService(salesActivityService);
   offerService.setWorkflowService(offerWorkflowService);
+  offerService.setActivityService(salesActivityService);
   const salesWizardService = new SalesWizardService(
     bestPayComparisonService,
     recommendationService,
@@ -222,6 +242,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     offerService,
     repositories.bestPayComparisonRepository,
   );
+  salesWizardService.setActivityService(salesActivityService);
   const salesWorkspaceService = new SalesWorkspaceService(
     repositories.leadRepository,
     repositories.offerRepository,
@@ -306,23 +327,29 @@ export function createServices(repositories: AppRepositories): AppServices {
       repositories.pricingEvaluationRepository,
       repositories.commissionWorkflowRepository,
     ),
-    commissionAdminService: new CommissionAdminService(
-      repositories.commissionCatalogRepository,
-      repositories.commissionCalculationRepository,
-      repositories.commissionWorkflowRepository,
-      repositories.userRepository,
-      repositories.offerRepository,
-      repositories.contractRepository,
-      repositories.activationCaseRepository,
-      repositories.activationBlockerRepository,
-      auditService,
-    ),
+    commissionAdminService: (() => {
+      const service = new CommissionAdminService(
+        repositories.commissionCatalogRepository,
+        repositories.commissionCalculationRepository,
+        repositories.commissionWorkflowRepository,
+        repositories.userRepository,
+        repositories.offerRepository,
+        repositories.contractRepository,
+        repositories.activationCaseRepository,
+        repositories.activationBlockerRepository,
+        auditService,
+      );
+      service.setActivityService(salesActivityService);
+      return service;
+    })(),
     billingImportService,
     recommendationService,
     bestPayComparisonService,
     salesWizardService,
     salesTaskService,
     salesActivityService,
+    contactService,
+    customerDocumentAggregationService,
     salesWorkspaceService,
     contractService,
     activationService,

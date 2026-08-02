@@ -28,6 +28,7 @@ import {
   isValidCommissionSharePercent,
 } from '../domain/commission/commissionShare';
 import { evaluateCommission } from '../domain/commissionEngine/commissionCalculationEngine';
+import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { UserContext } from '../domain/user/user';
 import type { ActivationBlockerRepository } from '../repositories/interfaces/ActivationBlockerRepository';
 import type { ActivationCaseRepository } from '../repositories/interfaces/ActivationCaseRepository';
@@ -40,6 +41,7 @@ import type { CommissionCatalogRepository } from '../repositories/local/LocalCom
 import { generateId, nowIso } from '../utils/id';
 import type { AuditService } from './auditService';
 import { requirePermission } from './auditService';
+import type { SalesActivityService } from './salesActivityService';
 
 export interface RepresentativeAssignmentRow {
   userId: string;
@@ -168,6 +170,7 @@ export class CommissionAdminService {
   private readonly activationCaseRepository: ActivationCaseRepository;
   private readonly activationBlockerRepository: ActivationBlockerRepository;
   private readonly auditService: AuditService;
+  private activityService: SalesActivityService | null = null;
 
   constructor(
     catalogRepository: CommissionCatalogRepository,
@@ -189,6 +192,10 @@ export class CommissionAdminService {
     this.activationCaseRepository = activationCaseRepository;
     this.activationBlockerRepository = activationBlockerRepository;
     this.auditService = auditService;
+  }
+
+  setActivityService(activityService: SalesActivityService): void {
+    this.activityService = activityService;
   }
 
   private async requireAdmin(context: UserContext) {
@@ -659,7 +666,9 @@ export class CommissionAdminService {
         caseId: commissionCase.id,
         salesRepresentativeId: commissionCase.salesRepresentativeId,
         salesRepresentativeName: rep?.name ?? commissionCase.salesRepresentativeId,
-        customerName: offer?.customerSnapshot.companyName ?? '—',
+        customerName: offer
+          ? getLeadDisplayName(offer.customerSnapshot)
+          : '—',
         offerId: commissionCase.offerId,
         contractId: commissionCase.contractId,
         activationId: commissionCase.activationId,
@@ -903,6 +912,26 @@ export class CommissionAdminService {
       amountCents: updated.approvedAmountCents,
       reason: input?.reductionReason ?? `Status geändert: ${previousStatus} → ${updated.status}`,
     });
+
+    if (this.activityService && (targetStatus === 'released' || targetStatus === 'paid')) {
+      const offer = await this.offerRepository.getById(updated.offerId);
+      if (offer) {
+        await this.activityService.recordSystemActivity(
+          {
+            type: targetStatus === 'released' ? 'commission_approved' : 'commission_paid',
+            title:
+              targetStatus === 'released' ? 'Provision freigegeben' : 'Provision ausgezahlt',
+            description: '',
+            leadId: offer.leadId,
+            offerId: offer.id,
+            contractId: updated.contractId,
+            activationId: updated.activationId,
+            sourceKey: `commission_${targetStatus}:${updated.id}:${updated.updatedAt}`,
+          },
+          context,
+        );
+      }
+    }
 
     return { ok: true, commissionCase: updated };
   }

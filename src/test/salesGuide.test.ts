@@ -202,6 +202,7 @@ describe('Verkaufs-Benachrichtigungen', () => {
     contractVersionId: null,
     activationId: null,
     taskId: null,
+    contactId: null,
     isSystem: true,
     editable: false,
     sourceKey: 'test',

@@ -61,6 +61,8 @@ export const STORAGE_KEYS = {
   salesTaskStorageVersion: 'amrtech.salesTaskStorageVersion',
   salesActivities: 'amrtech.salesActivities',
   salesActivityStorageVersion: 'amrtech.salesActivityStorageVersion',
+  contacts: 'amrtech.contacts',
+  contactStorageVersion: 'amrtech.contactStorageVersion',
   auditEntries: 'amrtech.auditEntries',
   auditStorageVersion: 'amrtech.auditStorageVersion',
   approvalRules: 'amrtech.approvalRules',

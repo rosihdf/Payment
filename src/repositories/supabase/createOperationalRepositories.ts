@@ -22,9 +22,11 @@ import type { OfferWorkflowEventRepository } from '../interfaces/OfferWorkflowEv
 import type { PricingCatalogRepository } from '../interfaces/PricingCatalogRepository';
 import type { PricingEvaluationRepository } from '../interfaces/PricingEvaluationRepository';
 import type { RecommendationRepository } from '../interfaces/RecommendationRepository';
+import type { ContactRepository } from '../interfaces/ContactRepository';
 import type { SalesActivityRepository } from '../interfaces/SalesActivityRepository';
 import type { SalesDocumentRepository } from '../interfaces/SalesDocumentRepository';
 import type { SalesTaskRepository } from '../interfaces/SalesTaskRepository';
+import { LocalContactRepository } from '../local/LocalContactRepository';
 import { LocalActivationApplicationRepository } from '../local/LocalActivationApplicationRepository';
 import { LocalActivationBlockerRepository } from '../local/LocalActivationBlockerRepository';
 import { LocalActivationCaseRepository } from '../local/LocalActivationCaseRepository';
@@ -87,6 +89,7 @@ import { SupabaseOfferWorkflowEventRepository } from './SupabaseOfferWorkflowEve
 import { SupabasePricingCatalogRepository } from './SupabasePricingCatalogRepository';
 import { SupabasePricingEvaluationRepository } from './SupabasePricingEvaluationRepository';
 import { SupabaseRecommendationRepository } from './SupabaseRecommendationRepository';
+import { SupabaseContactRepository } from './SupabaseContactRepository';
 import { SupabaseSalesActivityRepository } from './SupabaseSalesActivityRepository';
 import { SupabaseSalesDocumentRepository } from './SupabaseSalesDocumentRepository';
 import { SupabaseSalesTaskRepository } from './SupabaseSalesTaskRepository';
@@ -152,6 +155,7 @@ export interface OperationalRepositories {
   activationBlockerRepository: ActivationBlockerRepository;
   salesTaskRepository: SalesTaskRepository;
   salesActivityRepository: SalesActivityRepository;
+  contactRepository: ContactRepository;
   auditRepository: AuditRepository;
   approvalRuleRepository: ApprovalRuleRepository;
   documentTemplateRepository: DocumentTemplateRepository;
@@ -184,6 +188,7 @@ export function createOperationalRepositories(): OperationalRepositories {
       activationBlockerRepository: new SupabaseActivationBlockerRepository(),
       salesTaskRepository: new SupabaseSalesTaskRepository(),
       salesActivityRepository: new SupabaseSalesActivityRepository(),
+      contactRepository: new SupabaseContactRepository(),
       auditRepository: new SupabaseAuditRepository(),
       approvalRuleRepository: new SupabaseApprovalRuleRepository(),
       documentTemplateRepository: new SupabaseDocumentTemplateRepository(),
@@ -214,6 +219,7 @@ export function createOperationalRepositories(): OperationalRepositories {
     activationBlockerRepository: new LocalActivationBlockerRepository(),
     salesTaskRepository: new LocalSalesTaskRepository(),
     salesActivityRepository: new LocalSalesActivityRepository(),
+    contactRepository: new LocalContactRepository(),
     auditRepository: new LocalAuditRepository(),
     approvalRuleRepository: new LocalApprovalRuleRepository(),
     documentTemplateRepository: new LocalDocumentTemplateRepository(),

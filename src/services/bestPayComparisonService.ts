@@ -18,6 +18,7 @@ import {
   type BestPayComparisonSummary,
 } from '../domain/bestPayComparison/bestPayComparisonSummary';
 import type { CustomerCostBaseline } from '../domain/billingImport/customerCostBaseline';
+import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { User } from '../domain/user/user';
 import { nowIso } from '../utils/id';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
@@ -701,8 +702,9 @@ export class BestPayComparisonService {
     }
 
     session.leadId = leadId;
-    session.customerLabel = lead.companyName;
-    session.leadDisplayName = lead.companyName;
+    const displayName = getLeadDisplayName(lead);
+    session.customerLabel = displayName;
+    session.leadDisplayName = displayName;
     session.status =
       session.status === 'calculated' || session.status === 'recommendation_selected'
         ? 'assigned'

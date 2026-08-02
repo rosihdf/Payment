@@ -8,6 +8,7 @@ import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
 import type { Lead } from '../../domain/lead/lead';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import styles from './BestPayComparisonPage.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -428,7 +429,7 @@ export function BestPayComparisonPage() {
                 <option value="">— bitte wählen —</option>
                 {leads.map((lead) => (
                   <option key={lead.id} value={lead.id}>
-                    {lead.companyName}
+                    {lead.displayName ?? getLeadDisplayName(lead)}
                   </option>
                 ))}
               </FormControl>

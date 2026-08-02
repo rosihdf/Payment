@@ -13,7 +13,6 @@ import {
 } from '../services/bestPayComparisonStorageMigration';
 import { ADVICE_NEW_PATH, ADVICE_PATH } from '../utils/routes';
 import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
-import { selectFormOptionByValue } from './helpers/selectFormOption';
 
 function renderAt(route: string) {
   clearDemoDataForTests();
@@ -46,7 +45,7 @@ describe('Beratungsentwurf Persistenz', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('link', { name: 'Beratung starten' }));
     expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
-    expect(screen.getByText('Noch nicht gespeichert')).toBeInTheDocument();
+    expect(screen.getByText('Wird beim Fortschritt gespeichert')).toBeInTheDocument();
     expect(wizardSessionCount()).toBe(before);
     expect(getActiveBestPayComparisonSessionId()).toBeNull();
   });
@@ -76,16 +75,17 @@ describe('Beratungsentwurf Persistenz', () => {
     const before = wizardSessionCount();
     const router = renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: 'Bestehender Kunde' }));
-    await selectFormOptionByValue(user, 'Kunde auswählen', 'lead_001');
-    await user.click(screen.getByRole('button', { name: 'Kunde zuordnen' }));
+    await user.click(screen.getByRole('button', { name: 'Kunde suchen' }));
+    const leadButton = await screen.findByRole('button', { name: /Café Sonnenschein/i });
+    await user.click(leadButton);
+    await user.click(screen.getByRole('button', { name: 'Weiter' }));
     await waitFor(() => {
       expect(wizardSessionCount()).toBe(before + 1);
     });
-    expect(screen.getByText('Autosave aktiv')).toBeInTheDocument();
+    expect(screen.getByText('Automatisch gespeichert')).toBeInTheDocument();
     expect(router.state.location.search).toMatch(/session=/);
     // zweites Speichern / Reload-Pfad erzeugt keine zweite Session
-    await user.click(screen.getByRole('button', { name: /Bedarf/i }));
+    await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
     expect(wizardSessionCount()).toBe(before + 1);
   });
 
@@ -99,17 +99,27 @@ describe('Beratungsentwurf Persistenz', () => {
     await waitFor(() => {
       expect(wizardSessionCount()).toBe(before + 1);
     });
-    expect(screen.getByText('Autosave aktiv')).toBeInTheDocument();
+    expect(screen.getByText('Automatisch gespeichert')).toBeInTheDocument();
   });
 
   it('löscht leeren Entwurf über ConfirmDialog', async () => {
     const user = userEvent.setup();
-    const router = renderAt(ADVICE_NEW_PATH);
-    await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: 'Entwurf speichern' }));
-    await screen.findByText('Autosave aktiv');
-    const emptyId = new URLSearchParams(router.state.location.search).get('session');
-    expect(emptyId).toBeTruthy();
+    clearDemoDataForTests();
+    resetDemoDataForTests();
+    writeStorageItem(STORAGE_KEYS.currentUserId, 'user_001');
+    const services = createServices(createTestRepositories());
+    const wizard = services.salesWizardService;
+    const context = { userId: 'user_001', role: 'field_service' as const, displayName: 'Laura' };
+    const emptySession = await wizard.startWizard(context);
+    const emptyId = emptySession.id;
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: [`/advice?session=${emptyId}`],
+    });
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
 
     await user.click(screen.getAllByRole('link', { name: 'Beratung' })[0]!);
     expect(router.state.location.pathname).toBe(ADVICE_PATH);

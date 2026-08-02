@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FormControl } from '../../components/common/FormControl';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import type { Lead } from '../../domain/lead/lead';
 import { formatContactName } from '../../utils/format';
 import formStyles from './OfferForm.module.css';
@@ -29,6 +30,7 @@ export function OfferCustomerSection({
 
     return leads.filter((lead) => {
       const haystack = [
+        getLeadDisplayName(lead),
         lead.companyName,
         lead.contactFirstName,
         lead.contactLastName,
@@ -69,8 +71,7 @@ export function OfferCustomerSection({
         <option value="">Lead auswählen…</option>
         {filteredLeads.map((lead) => (
           <option key={lead.id} value={lead.id}>
-            {lead.companyName} – {formatContactName(lead.contactFirstName, lead.contactLastName)}
-            {lead.city ? ` (${lead.city})` : ''}
+            {lead.displayName ?? getLeadDisplayName(lead)}
           </option>
         ))}
       </FormControl>
@@ -79,12 +80,12 @@ export function OfferCustomerSection({
         <dl className={formStyles.preview}>
           <div className={formStyles.previewRow}>
             <dt>Firma</dt>
-            <dd>{selectedLead.companyName}</dd>
+            <dd>{getLeadDisplayName(selectedLead)}</dd>
           </div>
           <div className={formStyles.previewRow}>
             <dt>Ansprechpartner</dt>
             <dd>
-              {formatContactName(selectedLead.contactFirstName, selectedLead.contactLastName)}
+              {formatContactName(selectedLead.contactFirstName, selectedLead.contactLastName) || '—'}
             </dd>
           </div>
           <div className={formStyles.previewRow}>

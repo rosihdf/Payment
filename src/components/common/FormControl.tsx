@@ -26,6 +26,7 @@ export type FormControlType =
   | 'password'
   | 'number'
   | 'date'
+  | 'datetime-local'
   | 'select';
 
 interface FormControlBaseProps {

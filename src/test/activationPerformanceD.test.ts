@@ -409,6 +409,7 @@ function seedMaximalActivationSet() {
         contractVersionId: versionId,
         activationId,
         taskId: null,
+        contactId: null,
         isSystem: true,
         editable: false,
         sourceKey: `activation:${activationId}:activity:${activityIndex}`,
@@ -488,7 +489,10 @@ describe('D Aktivierungs-Performance Maximalmengen', () => {
     expect(counts.documents).toBe(5_000);
   });
 
-  it('aggregiert Übersicht, Suche, Filter, Sortierung und Kennzahlen ohne N+1 und ohne Engines', async () => {
+  // Vitest-Default 5s reicht nicht: der Fall hat fünf Phasen mit je <5s Budget (Summe der Phase-Budgets).
+  it(
+    'aggregiert Übersicht, Suche, Filter, Sortierung und Kennzahlen ohne N+1 und ohne Engines',
+    async () => {
     const services = createServices(createTestRepositories());
 
     const checklistByIdSpy = vi.spyOn(LocalActivationChecklistRepository.prototype, 'getByActivationId');
@@ -597,7 +601,9 @@ describe('D Aktivierungs-Performance Maximalmengen', () => {
     pricingSpy.mockRestore();
     commissionSpy.mockRestore();
     recommendationSpy.mockRestore();
-  });
+  },
+  30_000,
+  );
 
   it(
     'aggregiert Detail, Evaluator, Diagnose und Export auf Maximalmengen',

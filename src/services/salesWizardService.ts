@@ -15,6 +15,7 @@ import {
   type SalesWizardStepId,
 } from '../domain/bestPayComparison/salesWizard';
 import { DEFAULT_CREATE_LEAD_INPUT } from '../domain/lead/defaults';
+import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { CreateLeadInput } from '../domain/lead/lead';
 import { generateId, nowIso } from '../utils/id';
 import type {
@@ -26,6 +27,7 @@ import type { LeadService } from './leadService';
 import type { RecommendationService } from './recommendationService';
 import type { OfferWorkflowService } from './offerWorkflowService';
 import type { OfferService } from './offerService';
+import type { SalesActivityService } from './salesActivityService';
 import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import {
   canDiscardEmptyAdviceSession,
@@ -55,6 +57,7 @@ export class SalesWizardService {
   private readonly leadService: LeadService;
   private readonly offerWorkflowService: OfferWorkflowService | null;
   private readonly bestPayComparisonRepository: BestPayComparisonRepository;
+  private activityService: SalesActivityService | null = null;
 
   constructor(
     bestPayComparisonService: BestPayComparisonService,
@@ -71,11 +74,41 @@ export class SalesWizardService {
     this.bestPayComparisonRepository = bestPayComparisonRepository;
   }
 
+  setActivityService(activityService: SalesActivityService): void {
+    this.activityService = activityService;
+  }
+
+  private async recordAdviceStarted(
+    session: BestPayComparisonSession,
+    context: BestPayComparisonUserContext,
+  ): Promise<void> {
+    if (!session.leadId || !this.activityService) {
+      return;
+    }
+    await this.activityService.recordSystemActivity(
+      {
+        type: 'advice_started',
+        title: 'Beratung begonnen',
+        description: session.title || '',
+        leadId: session.leadId,
+        comparisonSessionId: session.id,
+        sourceKey: `advice_started:${session.id}`,
+      },
+      context,
+    );
+  }
+
   private async persist(session: BestPayComparisonSession): Promise<BestPayComparisonSession> {
     session.updatedAt = nowIso();
     if (!session.title && session.wizard.prospectDraft.companyName.trim()) {
-      session.customerLabel = session.wizard.prospectDraft.companyName.trim();
-      session.title = session.wizard.prospectDraft.companyName.trim();
+      const displayName = getLeadDisplayName({
+        companyName: session.wizard.prospectDraft.companyName,
+        contactFirstName: session.wizard.prospectDraft.contactFirstName,
+        contactLastName: session.wizard.prospectDraft.contactLastName,
+        city: '',
+      });
+      session.customerLabel = displayName;
+      session.title = displayName;
     }
     await this.bestPayComparisonRepository.save(session);
     return session;
@@ -120,7 +153,9 @@ export class SalesWizardService {
     session.entryMode = 'wizard';
     session.wizard.enabled = true;
     await this.bestPayComparisonRepository.setActiveSessionId(context.userId, session.id);
-    return this.persist(session);
+    const saved = await this.persist(session);
+    await this.recordAdviceStarted(saved, context);
+    return saved;
   }
 
   /**
@@ -360,9 +395,16 @@ export class SalesWizardService {
       return null;
     }
     session.wizard.prospectDraft = { ...session.wizard.prospectDraft, ...patch };
-    if (patch.companyName?.trim()) {
-      session.customerLabel = patch.companyName.trim();
-      session.leadDisplayName = patch.companyName.trim();
+    const displayName = getLeadDisplayName({
+      companyName: session.wizard.prospectDraft.companyName,
+      contactFirstName: session.wizard.prospectDraft.contactFirstName,
+      contactLastName: session.wizard.prospectDraft.contactLastName,
+      city: '',
+    });
+    session.customerLabel = displayName;
+    session.leadDisplayName = displayName;
+    if (!session.title || patch.companyName !== undefined) {
+      session.title = displayName;
     }
     if (patch.industry !== undefined) {
       session.manualInput = {
@@ -385,7 +427,9 @@ export class SalesWizardService {
     const session = assigned.session;
     session.wizard.enabled = true;
     session.entryMode = 'wizard';
-    return { ok: true, session: await this.persist(session) };
+    const saved = await this.persist(session);
+    await this.recordAdviceStarted(saved, context);
+    return { ok: true, session: saved };
   }
 
   async createLeadFromProspect(
@@ -397,25 +441,28 @@ export class SalesWizardService {
       return { ok: false, error: 'not_found' };
     }
     const draft = session.wizard.prospectDraft;
-    if (
-      !draft.companyName.trim() ||
-      !draft.contactFirstName.trim() ||
-      !draft.contactLastName.trim() ||
-      !draft.phone.trim()
-    ) {
+    const company = draft.companyName.trim();
+    const contactFirstName = draft.contactFirstName.trim();
+    const contactLastName = draft.contactLastName.trim();
+    const contactLabel = [contactFirstName, contactLastName].filter(Boolean).join(' ');
+    if (!company && !contactLabel) {
       return {
         ok: false,
         error: 'incomplete_input',
-        message: 'Firma, Ansprechpartner und Telefon sind für einen neuen Lead erforderlich.',
+        message: 'Bitte Firma oder Name eingeben.',
       };
     }
 
     const input: CreateLeadInput = {
       ...DEFAULT_CREATE_LEAD_INPUT,
-      companyName: draft.companyName,
-      contactFirstName: draft.contactFirstName,
-      contactLastName: draft.contactLastName,
-      phone: draft.phone,
+      companyName: company || contactLabel,
+      contactFirstName: contactFirstName || (company ? 'Allgemein' : contactLabel.split(/\s+/)[0] ?? 'Allgemein'),
+      contactLastName:
+        contactLastName ||
+        (company
+          ? 'Anfrage'
+          : contactLabel.split(/\s+/).slice(1).join(' ') || 'Anfrage'),
+      phone: draft.phone.trim() || '0',
       email: draft.email,
       industry: draft.industry,
       notes: draft.notes,
@@ -839,7 +886,21 @@ export class SalesWizardService {
     session.wizard.currentStep = 'closing';
     session.wizard.wizardCompletedAt = nowIso();
     session.completedAt = session.completedAt ?? nowIso();
-    return { ok: true, session: await this.persist(session) };
+    const saved = await this.persist(session);
+    if (saved.leadId && this.activityService) {
+      await this.activityService.recordSystemActivity(
+        {
+          type: 'advice_completed',
+          title: 'Beratung abgeschlossen',
+          description: saved.title || '',
+          leadId: saved.leadId,
+          comparisonSessionId: saved.id,
+          sourceKey: `advice_completed:${saved.id}`,
+        },
+        context,
+      );
+    }
+    return { ok: true, session: saved };
   }
 
   async getWizardOfferContext(sessionId: string, context: BestPayComparisonUserContext) {

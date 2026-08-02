@@ -5,16 +5,28 @@ export type SalesActivityType =
   | 'call'
   | 'email'
   | 'meeting'
+  | 'visit'
+  | 'lead_created'
+  | 'contact_created'
+  | 'contact_updated'
+  | 'contact_primary_changed'
+  | 'advice_started'
+  | 'advice_completed'
   | 'status_change'
   | 'billing_requested'
   | 'billing_imported'
   | 'calculation_created'
   | 'wizard_resumed'
   | 'offer_created'
+  | 'offer_updated'
   | 'offer_sent'
   | 'approval_requested'
   | 'approval_completed'
+  | 'approval_rejected'
   | 'offer_accepted'
+  | 'bestpay_handoff'
+  | 'commission_approved'
+  | 'commission_paid'
   | 'task_created'
   | 'task_completed'
   | 'activation'
@@ -56,21 +68,37 @@ export type SalesActivityType =
   | 'activation_handover_ready'
   | 'activation_handover_confirmed';
 
+/** Manuell erfassbare Aktivitätstypen (CRM). Notizen = type note, keine eigene Tabelle. */
+export const MANUAL_SALES_ACTIVITY_TYPES = ['note', 'call', 'email', 'meeting', 'visit'] as const;
+export type ManualSalesActivityType = (typeof MANUAL_SALES_ACTIVITY_TYPES)[number];
+
 export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   note: 'Notiz',
   call: 'Telefonat',
   email: 'E-Mail',
   meeting: 'Termin',
+  visit: 'Besuch',
+  lead_created: 'Kunde angelegt',
+  contact_created: 'Ansprechpartner angelegt',
+  contact_updated: 'Ansprechpartner geändert',
+  contact_primary_changed: 'Primärkontakt geändert',
+  advice_started: 'Beratung begonnen',
+  advice_completed: 'Beratung abgeschlossen',
   status_change: 'Statusänderung',
   billing_requested: 'Abrechnung angefordert',
   billing_imported: 'Abrechnung importiert',
   calculation_created: 'Berechnung erstellt',
   wizard_resumed: 'Beratung fortgesetzt',
   offer_created: 'Angebot erstellt',
+  offer_updated: 'Angebot geändert',
   offer_sent: 'Angebot versendet',
   approval_requested: 'Freigabe angefordert',
   approval_completed: 'Freigabe erfolgt',
+  approval_rejected: 'Freigabe abgelehnt',
   offer_accepted: 'Angebot angenommen',
+  bestpay_handoff: 'Übergabe an BestPay',
+  commission_approved: 'Provision freigegeben',
+  commission_paid: 'Provision ausgezahlt',
   task_created: 'Aufgabe angelegt',
   task_completed: 'Aufgabe erledigt',
   activation: 'Aktivierung',
@@ -128,6 +156,7 @@ export interface SalesActivity {
   contractVersionId: string | null;
   activationId: string | null;
   taskId: string | null;
+  contactId: string | null;
   isSystem: boolean;
   editable: boolean;
   /** Stable key for idempotent system activities */
@@ -148,7 +177,28 @@ export interface CreateSalesActivityInput {
   contractVersionId?: string | null;
   activationId?: string | null;
   taskId?: string | null;
+  contactId?: string | null;
   isSystem?: boolean;
   editable?: boolean;
   sourceKey?: string | null;
+}
+
+/** Timeline-Gruppen für Kundenakte (Datenmodell-Vorbereitung, keine UI). */
+export type TimelineTypeGroup =
+  | 'all'
+  | 'communication'
+  | 'visit'
+  | 'note'
+  | 'process'
+  | 'system';
+
+export interface TimelineFilters {
+  group?: TimelineTypeGroup;
+  type?: SalesActivityType | 'all';
+  from?: string | null;
+  to?: string | null;
+  query?: string;
+  contactId?: string | null;
+  limit?: number;
+  offset?: number;
 }

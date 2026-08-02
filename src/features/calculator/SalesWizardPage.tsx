@@ -19,7 +19,9 @@ import {
   SALES_WIZARD_VISIBLE_STEPS,
   type SalesWizardStepId,
 } from '../../domain/bestPayComparison/salesWizard';
+import { getLeadDisplayName, getSessionCustomerDisplayName } from '../../domain/lead/getLeadDisplayName';
 import type { Lead } from '../../domain/lead/lead';
+import { formatContactName } from '../../utils/format';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
@@ -56,6 +58,21 @@ function centsToInput(cents: number | null): string {
   return String(cents / 100).replace('.', ',');
 }
 
+function formatLeadResultLines(lead: Lead): {
+  company: string;
+  contact: string | null;
+  city: string | null;
+} {
+  const company = lead.companyName.trim();
+  const contact = formatContactName(lead.contactFirstName, lead.contactLastName) || null;
+  const city = lead.city.trim() || null;
+  return {
+    company: company || getLeadDisplayName(lead),
+    contact: company ? contact : null,
+    city,
+  };
+}
+
 export function SalesWizardPage() {
   const { currentUser } = useCurrentUser();
   const {
@@ -75,6 +92,8 @@ export function SalesWizardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [prospectMode, setProspectMode] = useState<ProspectMode>('anonymous');
   const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [leadSearch, setLeadSearch] = useState('');
+  const [contactName, setContactName] = useState('');
   const [busy, setBusy] = useState(false);
   const [monthlyVolume, setMonthlyVolume] = useState('');
   const [monthlyTransactions, setMonthlyTransactions] = useState('');
@@ -117,6 +136,12 @@ export function SalesWizardPage() {
     setIndustry(active.manualInput.industry || active.wizard.prospectDraft.industry);
     setApprovalNotes(active.wizard.approvalNotes);
     setSelectedLeadId(active.leadId ?? '');
+    setContactName(
+      formatContactName(
+        active.wizard.prospectDraft.contactFirstName,
+        active.wizard.prospectDraft.contactLastName,
+      ),
+    );
     if (active.leadId) {
       setProspectMode('existing');
     } else if (
@@ -252,6 +277,26 @@ export function SalesWizardPage() {
     void leadService.getVisibleLeads(userContext).then(setLeads);
   }, [leadService, userContext]);
 
+  const filteredLeads = useMemo(() => {
+    const normalizedSearch = leadSearch.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return leads;
+    }
+    return leads.filter((lead) => {
+      const haystack = [
+        getLeadDisplayName(lead),
+        lead.companyName,
+        lead.contactFirstName,
+        lead.contactLastName,
+        lead.city,
+        lead.email,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedSearch);
+    });
+  }, [leadSearch, leads]);
+
   if (!currentUser || !userContext) {
     return <EmptyState title="Kein Benutzer" description="Bitte melden Sie sich an." />;
   }
@@ -336,59 +381,160 @@ export function SalesWizardPage() {
     return updated;
   };
 
+  const patchContactName = (value: string) => {
+    setContactName(value);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      patchProspectDraft({ contactFirstName: '', contactLastName: '' });
+      return;
+    }
+    const parts = trimmed.split(/\s+/);
+    patchProspectDraft({
+      contactFirstName: parts[0] ?? '',
+      contactLastName: parts.slice(1).join(' '),
+    });
+  };
+
+  const handleSelectExistingLead = (leadId: string) => {
+    setSelectedLeadId(leadId);
+  };
+
+  const finalizeProspectStep = async (
+    current: BestPayComparisonSession,
+  ): Promise<
+    | { ok: true; session: BestPayComparisonSession }
+    | { ok: false; message: string }
+  > => {
+    if (prospectMode === 'anonymous') {
+      return { ok: true, session: current };
+    }
+    if (prospectMode === 'existing') {
+      if (current.leadId) {
+        return { ok: true, session: current };
+      }
+      if (!selectedLeadId) {
+        return { ok: false, message: 'Bitte einen Kunden aus der Liste wählen.' };
+      }
+      const assigned = await salesWizardService.assignLead(current.id, selectedLeadId, userContext);
+      if (!assigned.ok) {
+        return { ok: false, message: 'Kunde konnte nicht übernommen werden.' };
+      }
+      return { ok: true, session: assigned.session };
+    }
+    if (current.leadId) {
+      return { ok: true, session: current };
+    }
+    const draft = current.wizard.prospectDraft;
+    const hasInput =
+      draft.companyName.trim() ||
+      draft.contactFirstName.trim() ||
+      draft.contactLastName.trim();
+    if (!hasInput) {
+      return { ok: false, message: 'Bitte Firma oder Name eingeben.' };
+    }
+    const created = await salesWizardService.createLeadFromProspect(current.id, userContext);
+    if (!created.ok) {
+      return { ok: false, message: created.message ?? 'Kunde konnte nicht angelegt werden.' };
+    }
+    setSelectedLeadId(created.leadId);
+    return { ok: true, session: created.session };
+  };
+
   const handleGoNext = () => {
     void (async () => {
-      let current = session;
-      if (step === 'need') {
-        const updated = await persistNeed();
-        if (updated) {
-          current = updated;
+      setBusy(true);
+      try {
+        let current = session;
+
+        if (step === 'prospect' && prospectMode !== 'anonymous') {
+          current = await ensurePersisted(session);
+          const finalized = await finalizeProspectStep(current);
+          if (!finalized.ok) {
+            showToast(finalized.message, 'error');
+            return;
+          }
+          current = finalized.session;
+          setSession(current);
+        } else if (step === 'costs' || step === 'need') {
+          const updated = await persistNeed();
+          if (updated) {
+            current = updated;
+            setSession(updated);
+          }
         }
-      }
-      if (!sessionPersisted) {
-        const validation = await salesWizardService.validateStep(current, current.wizard.currentStep);
+
+        const validation = await salesWizardService.validateStep(current, step);
         if (!validation.ok) {
           showToast(validation.message ?? 'Weiter nicht möglich', 'error');
           return;
         }
-        const nextStep = getNextSalesWizardStep(current.wizard.currentStep);
-        if (!nextStep) {
+
+        if (!sessionPersisted && !isEmptyAdviceSession(current)) {
+          current = await ensurePersisted(current);
+          setSession(current);
+          setSessionPersisted(true);
+        }
+
+        if (!sessionPersisted) {
+          const nextStep = getNextSalesWizardStep(step);
+          if (!nextStep) {
+            return;
+          }
+          setSession({
+            ...current,
+            wizard: { ...current.wizard, currentStep: nextStep },
+          });
           return;
         }
-        setSession({
-          ...current,
-          wizard: { ...current.wizard, currentStep: nextStep },
-        });
-        return;
-      }
-      const result = await salesWizardService.goNext(current.id, userContext);
-      if (!result.ok) {
-        showToast(result.message ?? 'Weiter nicht möglich', 'error');
-        return;
-      }
-      setSession(result.session);
-      if (result.session.offerId) {
-        setWorkflowView(await offerWorkflowService.getWizardWorkflowView(result.session.offerId));
+
+        const result = await salesWizardService.goNext(current.id, userContext);
+        if (!result.ok) {
+          showToast(result.message ?? 'Weiter nicht möglich', 'error');
+          return;
+        }
+        setSession(result.session);
+        if (result.session.offerId) {
+          setWorkflowView(await offerWorkflowService.getWizardWorkflowView(result.session.offerId));
+        }
+      } finally {
+        setBusy(false);
       }
     })();
   };
 
   const handleGoBack = () => {
     void (async () => {
-      if (!sessionPersisted) {
-        const previous = getPreviousSalesWizardStep(session.wizard.currentStep);
-        if (!previous) {
+      setBusy(true);
+      try {
+        let current = session;
+        if (step === 'costs' || step === 'need') {
+          const updated = await persistNeed();
+          if (updated) {
+            current = updated;
+            setSession(updated);
+          }
+        } else if (!sessionPersisted && !isEmptyAdviceSession(session)) {
+          current = await ensurePersisted(session);
+          setSession(current);
+        }
+
+        if (!sessionPersisted) {
+          const previous = getPreviousSalesWizardStep(current.wizard.currentStep);
+          if (!previous) {
+            return;
+          }
+          setSession({
+            ...current,
+            wizard: { ...current.wizard, currentStep: previous },
+          });
           return;
         }
-        setSession({
-          ...session,
-          wizard: { ...session.wizard, currentStep: previous },
-        });
-        return;
-      }
-      const updated = await salesWizardService.goBack(session.id, userContext);
-      if (updated) {
-        setSession(updated);
+        const updated = await salesWizardService.goBack(current.id, userContext);
+        if (updated) {
+          setSession(updated);
+        }
+      } finally {
+        setBusy(false);
       }
     })();
   };
@@ -407,45 +553,6 @@ export function SalesWizardPage() {
         setSession(updated);
       }
     })();
-  };
-
-  const handleSaveDraft = () => {
-    void ensurePersisted(session).then((saved) => {
-      setSession(saved);
-      showToast('Entwurf gespeichert', 'success');
-    });
-  };
-
-  const handleCreateLead = async () => {
-    setBusy(true);
-    const current = await ensurePersisted(session);
-    const result = await salesWizardService.createLeadFromProspect(current.id, userContext);
-    setBusy(false);
-    if (!result.ok) {
-      showToast(result.message ?? 'Lead konnte nicht angelegt werden', 'error');
-      return;
-    }
-    setSession(result.session);
-    setProspectMode('existing');
-    setSelectedLeadId(result.leadId);
-    showToast('Lead angelegt und zugeordnet', 'success');
-  };
-
-  const handleAssignLead = async () => {
-    if (!selectedLeadId) {
-      showToast('Bitte einen Lead auswählen', 'error');
-      return;
-    }
-    setBusy(true);
-    const current = await ensurePersisted(session);
-    const result = await salesWizardService.assignLead(current.id, selectedLeadId, userContext);
-    setBusy(false);
-    if (!result.ok) {
-      showToast('Lead-Zuordnung fehlgeschlagen', 'error');
-      return;
-    }
-    setSession(result.session);
-    showToast('Lead zugeordnet', 'success');
   };
 
   const handleStartBilling = async () => {
@@ -545,11 +652,6 @@ export function SalesWizardPage() {
         subtitle="Vom Kunden über den Kostenvergleich bis zum Angebot – ein durchgängiger Beratungsweg"
         actions={
           <div className={styles.headerActions}>
-            {!sessionPersisted ? (
-              <button type="button" className={styles.secondaryAction} onClick={handleSaveDraft}>
-                Entwurf speichern
-              </button>
-            ) : null}
             <Link className={styles.secondaryAction} to={ADVICE_PATH}>
               Zur Beratung
             </Link>
@@ -561,18 +663,12 @@ export function SalesWizardPage() {
       />
 
       <div className={styles.statusLine} aria-live="polite">
-        <span>
-          {sessionPersisted
-            ? 'Autosave aktiv'
-            : 'Noch nicht gespeichert'}
-        </span>
+        <span>{sessionPersisted ? 'Automatisch gespeichert' : 'Wird beim Fortschritt gespeichert'}</span>
         {sessionPersisted ? (
-          <span>Zuletzt gespeichert: {new Date(session.updatedAt).toLocaleString('de-DE')}</span>
-        ) : (
-          <span>Eingaben werden lokal gehalten, bis fachliche Daten erfasst sind</span>
-        )}
+          <span>Zuletzt: {new Date(session.updatedAt).toLocaleString('de-DE')}</span>
+        ) : null}
         <span>
-          Fortschritt: {stepIndex + 1}/{SALES_WIZARD_VISIBLE_STEPS.length}
+          Schritt {stepIndex + 1} von {SALES_WIZARD_VISIBLE_STEPS.length}
         </span>
       </div>
 
@@ -603,16 +699,12 @@ export function SalesWizardPage() {
             <div className={styles.stack}>
               <article className={styles.heroCard}>
                 <h2>Kunde</h2>
-                <p className={styles.hint}>
-                  Bestehenden Kunden wählen, neuen Kunden anlegen oder zunächst ohne Kundenbezug
-                  rechnen.
-                </p>
                 <div className={styles.choiceRow}>
                   {(
                     [
-                      ['existing', 'Bestehender Kunde'],
-                      ['new', 'Neuer Kunde'],
-                      ['anonymous', 'Ohne Kunde rechnen'],
+                      ['existing', 'Kunde suchen'],
+                      ['new', 'Neuen Kunden anlegen'],
+                      ['anonymous', 'Ohne Kunden rechnen'],
                     ] as const
                   ).map(([mode, label]) => (
                     <button
@@ -631,32 +723,50 @@ export function SalesWizardPage() {
 
               {prospectMode === 'existing' ? (
                 <article className={styles.card}>
-                  <FormControl type="select" id="wizardLead" label="Kunde auswählen"
-                      value={selectedLeadId}
-                      onChange={(event) => setSelectedLeadId(event.target.value)}
-                    >
-                      <option value="">Bitte wählen…</option>
-                      {leads.map((lead) => (
-                        <option key={lead.id} value={lead.id}>
-                          {lead.companyName} – {lead.contactFirstName} {lead.contactLastName}
-                        </option>
-                      ))}
-                    </FormControl>
-                  <div className={styles.actions}>
-                    <button
-                      type="button"
-                      className={styles.primaryAction}
-                      disabled={busy}
-                      onClick={() => void handleAssignLead()}
-                    >
-                      Kunde zuordnen
-                    </button>
-                  </div>
+                  <h3 className={styles.sectionTitle}>Kunde suchen</h3>
+                  <FormControl
+                    type="search"
+                    id="wizardLeadSearch"
+                    label="Suche"
+                    value={leadSearch}
+                    onChange={(event) => setLeadSearch(event.target.value)}
+                    placeholder="Firma, Ansprechpartner, Ort…"
+                  />
+                  {filteredLeads.length === 0 ? (
+                    <p className={styles.hint}>Keine Treffer. Suchbegriff anpassen.</p>
+                  ) : (
+                    <ul className={styles.leadResults} aria-label="Kundentreffer">
+                      {filteredLeads.map((lead) => {
+                        const isSelected = selectedLeadId === lead.id || session.leadId === lead.id;
+                        const lines = formatLeadResultLines(lead);
+                        return (
+                          <li key={lead.id}>
+                            <button
+                              type="button"
+                              className={isSelected ? styles.leadResultSelected : styles.leadResult}
+                              disabled={busy}
+                              aria-pressed={isSelected}
+                              onClick={() => handleSelectExistingLead(lead.id)}
+                            >
+                              <span className={styles.leadResultName}>{lines.company}</span>
+                              {lines.contact ? (
+                                <span className={styles.leadResultMeta}>{lines.contact}</span>
+                              ) : null}
+                              {lines.city ? (
+                                <span className={styles.leadResultMeta}>{lines.city}</span>
+                              ) : null}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </article>
               ) : null}
 
               {prospectMode === 'new' ? (
                 <article className={styles.card}>
+                  <h3 className={styles.sectionTitle}>Neuen Kunden anlegen</h3>
                   <div className={styles.formGrid}>
                     <FormControl
                       type="text"
@@ -666,38 +776,22 @@ export function SalesWizardPage() {
                       onChange={(event) => {
                         patchProspectDraft({ companyName: event.target.value });
                       }}
+                      placeholder="Optional, wenn Name bekannt ist"
                     />
                     <FormControl
                       type="text"
-                      id="industryProspect"
-                      label="Branche"
-                      value={session.wizard.prospectDraft.industry}
+                      id="contactName"
+                      label="Name"
+                      value={contactName}
                       onChange={(event) => {
-                        patchProspectDraft({ industry: event.target.value });
+                        patchContactName(event.target.value);
                       }}
-                    />
-                    <FormControl
-                      type="text"
-                      id="contactFirstName"
-                      label="Vorname"
-                      value={session.wizard.prospectDraft.contactFirstName}
-                      onChange={(event) => {
-                        patchProspectDraft({ contactFirstName: event.target.value });
-                      }}
-                    />
-                    <FormControl
-                      type="text"
-                      id="contactLastName"
-                      label="Nachname"
-                      value={session.wizard.prospectDraft.contactLastName}
-                      onChange={(event) => {
-                        patchProspectDraft({ contactLastName: event.target.value });
-                      }}
+                      placeholder="Optional, wenn Firma bekannt ist"
                     />
                     <FormControl
                       type="text"
                       id="phone"
-                      label="Telefon"
+                      label="Telefon (optional)"
                       value={session.wizard.prospectDraft.phone}
                       onChange={(event) => {
                         patchProspectDraft({ phone: event.target.value });
@@ -706,43 +800,13 @@ export function SalesWizardPage() {
                     <FormControl
                       type="text"
                       id="email"
-                      label="E-Mail"
+                      label="E-Mail (optional)"
                       value={session.wizard.prospectDraft.email}
                       onChange={(event) => {
                         patchProspectDraft({ email: event.target.value });
                       }}
                     />
                   </div>
-                  <FormField label="Notizen" id="notes">
-                    <textarea
-                      id="notes"
-                      className={textareaClassName()}
-                      value={session.wizard.prospectDraft.notes}
-                      onChange={(event) => {
-                        patchProspectDraft({ notes: event.target.value });
-                      }}
-                    />
-                  </FormField>
-                  <div className={styles.actions}>
-                    <button
-                      type="button"
-                      className={styles.primaryAction}
-                      disabled={busy}
-                      onClick={() => void handleCreateLead()}
-                    >
-                      Als Lead anlegen
-                    </button>
-                    <p className={styles.hint}>Optional – Sie können auch später einen Lead anlegen.</p>
-                  </div>
-                </article>
-              ) : null}
-
-              {prospectMode === 'anonymous' ? (
-                <article className={styles.card}>
-                  <p>
-                    Die Berechnung läuft ohne Lead weiter. Für Angebot und Pipeline-Übernahme ist
-                    später ein Lead erforderlich.
-                  </p>
                 </article>
               ) : null}
             </div>
@@ -752,10 +816,6 @@ export function SalesWizardPage() {
             <div className={styles.stack}>
               <article className={styles.heroCard}>
                 <h2>Ausgangslage</h2>
-                <p className={styles.hint}>
-                  Vorhandene Billing-/OCR-Pipeline: PDF, Foto, OCR oder manuelle Eingabe – danach
-                  Ist-Kosten bestätigen.
-                </p>
                 <div className={styles.actions}>
                   {!session.billingImportSessionId ? (
                     <button
@@ -829,19 +889,6 @@ export function SalesWizardPage() {
                     <FormControl type="text" id="manualTotalCosts" label="Monatliche Ist-Gesamtkosten (EUR)" inputMode="decimal" value={monthlyTotal} onChange={(event) => setMonthlyTotal(event.target.value)} />
                     <FormControl type="text" id="manualVolumeCosts" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(event) => setMonthlyVolume(event.target.value)} />
                   </div>
-                  <button
-                    type="button"
-                    className={styles.primaryAction}
-                    onClick={() => {
-                      void persistNeed().then((updated) => {
-                        if (updated) {
-                          showToast('Ist-Kosten gespeichert', 'success');
-                        }
-                      });
-                    }}
-                  >
-                    Ist-Kosten speichern
-                  </button>
                 </article>
               )}
             </div>
@@ -850,9 +897,6 @@ export function SalesWizardPage() {
           {step === 'need' ? (
             <article className={styles.card}>
               <h2>Bedarf</h2>
-              <p className={styles.hint}>
-                Terminals, Umsatz, Kartenmix, Laufzeit und Besonderheiten für die Empfehlung.
-              </p>
               <div className={styles.formGrid}>
                 <FormControl type="text" id="needVolume" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(event) => setMonthlyVolume(event.target.value)} />
                 <FormControl type="text" id="needTx" label="Monatliche Transaktionen" inputMode="numeric" value={monthlyTransactions} onChange={(event) => setMonthlyTransactions(event.target.value)} />
@@ -914,19 +958,6 @@ export function SalesWizardPage() {
                   </label>
                 ))}
               </div>
-              <button
-                type="button"
-                className={styles.secondaryAction}
-                onClick={() => {
-                  void persistNeed().then((updated) => {
-                    if (updated) {
-                      showToast('Bedarf gespeichert', 'success');
-                    }
-                  });
-                }}
-              >
-                Bedarf speichern
-              </button>
             </article>
           ) : null}
 
@@ -934,10 +965,6 @@ export function SalesWizardPage() {
             <div className={styles.stack}>
               <article className={styles.heroCard}>
                 <h2>Vergleich</h2>
-                <p className={styles.hint}>
-                  Beliebig viele Szenarien anlegen, berechnen und vergleichen. Eine Variante wird
-                  ausgewählt.
-                </p>
                 <div className={styles.actions}>
                   <FormControl type="text" id="scenarioLabel" label="Neues Szenario" value={scenarioLabel} onChange={(event) => setScenarioLabel(event.target.value)} />
                   <button type="button" className={styles.primaryAction} onClick={handleAddScenario}>
@@ -1325,7 +1352,7 @@ export function SalesWizardPage() {
                 <dl className={styles.metrics}>
                   <div>
                     <dt>Lead</dt>
-                    <dd>{session.leadDisplayName ?? session.customerLabel ?? 'Ohne Lead'}</dd>
+                    <dd>{getSessionCustomerDisplayName(session)}</dd>
                   </div>
                   <div>
                     <dt>Ist monatlich</dt>
@@ -1392,7 +1419,12 @@ export function SalesWizardPage() {
               Zurück
             </button>
             {step !== 'closing' ? (
-              <button type="button" className={styles.primaryAction} onClick={handleGoNext}>
+              <button
+                type="button"
+                className={styles.primaryAction}
+                onClick={handleGoNext}
+                disabled={busy}
+              >
                 Weiter
               </button>
             ) : (

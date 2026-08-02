@@ -79,9 +79,9 @@ describe('Aufräumblock 3 – Beratungshub', () => {
     const user = userEvent.setup();
     const router = renderAtRoute(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: 'Neuer Kunde' }));
+    await user.click(screen.getByRole('button', { name: 'Neuen Kunden anlegen' }));
     await user.type(screen.getByLabelText('Firma'), 'Resume Café');
-    expect(await screen.findByText('Autosave aktiv')).toBeInTheDocument();
+    expect(await screen.findByText('Automatisch gespeichert')).toBeInTheDocument();
     const persistedId = new URLSearchParams(router.state.location.search).get('session');
     expect(persistedId).toBeTruthy();
 
@@ -103,7 +103,7 @@ describe('Aufräumblock 3 – Beratungshub', () => {
     expect(router.state.location.search).toBe(`?session=${persistedId}`);
     await screen.findByRole('heading', { name: 'Kunde' });
     expect(screen.getAllByText('Beratung fortgesetzt').length).toBeGreaterThan(0);
-    expect(screen.getByText('Autosave aktiv')).toBeInTheDocument();
+    expect(screen.getByText('Automatisch gespeichert')).toBeInTheDocument();
   });
 
   it('zeigt maximal sechs sichtbare Schritte ohne Wizard/Abschluss', async () => {
@@ -121,14 +121,16 @@ describe('Aufräumblock 3 – Beratungshub', () => {
   it('erhält Kundenbezug über leadId', async () => {
     renderAtRoute(`${ADVICE_PATH}?leadId=lead_001`);
     expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
-    const select = await screen.findByLabelText('Kunde auswählen');
-    expect(select).toHaveAttribute('data-value', 'lead_001');
+    expect(await screen.findByRole('button', { name: /Café Sonnenschein/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('ermöglicht Beratung ohne Kundenbezug', async () => {
     renderAtRoute(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    expect(screen.getByRole('button', { name: 'Ohne Kunde rechnen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ohne Kunden rechnen' })).toBeInTheDocument();
   });
 
   it('leitet parallele Rechner-Deep-Links auf /advice um', async () => {

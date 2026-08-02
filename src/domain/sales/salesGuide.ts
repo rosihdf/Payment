@@ -70,33 +70,38 @@ export const SALES_GUIDE_PHASES: Record<SalesGuideContext, SalesGuidePhase> = {
   prospect: {
     phase: 2,
     title: 'Kennenlernen',
-    summary: 'Nicht sofort verkaufen – erst verstehen.',
-    hints: ['Fragen stellen, bevor Sie Produkte vorstellen', 'Den Ist-Zustand verstehen'],
+    summary: 'Wählen Sie einen bestehenden Kunden, legen Sie kurz einen neuen an – oder rechnen Sie ohne Kundenbezug.',
+    hints: [
+      'Fragen Sie zuerst, bevor Sie Produkte vorstellen.',
+      'Mit Weiter wird die Auswahl automatisch übernommen.',
+    ],
     examples: [
       'Wie kassieren Sie heute?',
       'Welche Kartenzahlungen nutzen Sie?',
-      'Was gefällt Ihnen an Ihrem aktuellen Anbieter?',
       'Was könnte besser laufen?',
     ],
   },
   costs: {
     phase: 1,
     title: 'Ausgangslage verstehen',
-    summary: 'Die Ist-Situation bildet die Basis für einen fairen Vergleich.',
+    summary: 'Erfassen Sie die Ist-Kosten als Basis für einen fairen Vergleich.',
     hints: [
-      'Abrechnung oder manuelle Kosten erfassen',
-      'Laufende und einmalige Kosten getrennt betrachten',
-      'Noch keine Tarifempfehlung – zuerst die Ausgangslage klären',
+      'Abrechnung einlesen oder Kosten manuell erfassen.',
+      'Erst die Ausgangslage klären – dann weiter zum Bedarf.',
     ],
   },
   need: {
     phase: 3,
     title: 'Bedarf',
-    summary: 'Der Außendienst erfasst zunächst den Bedarf – noch ohne Tarifempfehlung.',
+    summary: 'Ermitteln Sie zunächst den Bedarf des Kunden.',
     hints: [
-      'Umsatz, Terminals und Kartenmix erfragen',
-      'Besonderheiten und Wachstumspläne notieren',
-      'Erst wenn der Bedarf klar ist, geht es in den Vergleich',
+      'Fragen Sie nach Umsatz, Terminals und Kartenmix.',
+      'Notieren Sie, welche Probleme der Kunde lösen möchte.',
+    ],
+    examples: [
+      'Welche Kartenzahlungen nutzt Ihr Kunde heute?',
+      'Welche Probleme möchte der Kunde lösen?',
+      'Wie viele Terminals werden benötigt?',
     ],
   },
   variants: {
