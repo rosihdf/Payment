@@ -6,29 +6,35 @@ export const SALES_GUIDE_PRINCIPLE = {
   summary:
     'AMRtech Payment verkauft keine Terminals – sondern Beratung, Transparenz, Service und langfristige Partnerschaft.',
   reminders: [
-    'Vertrauen schaffen, nicht unter Druck setzen.',
-    'Transparenz schaffen – Kosten und Bedingungen klar erklären.',
-    'Dem Kunden Zeit geben – eine Prüfung zuhause ist ausdrücklich erwünscht.',
-    'Seriös beraten – langfristige Kundenbeziehungen statt Schnellabschluss.',
+    'Transparenz statt Verkaufsdruck.',
+    'Kein Kunde muss vor Ort unterschreiben.',
+    'Der Kunde soll das Angebot in Ruhe prüfen.',
+    'Ein Vergleich mit Mitbewerbern ist ausdrücklich erlaubt.',
+    'Fragen und Änderungen sind erwünscht.',
+    'Ein Vertrag entsteht erst nach Annahme.',
+    'Langfristige Kundenzufriedenheit vor schnellem Abschluss.',
   ],
 } as const;
 
 export const NO_SIGNATURE_REQUIRED_MESSAGE =
-  'Dieses Angebot muss heute NICHT unterschrieben werden.';
+  'Dieses Angebot muss heute nicht unterschrieben werden.';
 
 export const OFFER_REVIEW_TIME_MESSAGE =
-  'Geben Sie dem Kunden Zeit, das Angebot in Ruhe zu prüfen.';
+  'Geben Sie dem Kunden ausreichend Zeit zur Prüfung.';
 
 export const CUSTOMER_MAY_REVIEW_AT_HOME =
-  '„Ich möchte das Angebot zuhause noch einmal prüfen." – das ist ausdrücklich gewünscht.';
+  '„Ich möchte das Angebot zuhause noch einmal prüfen.“ – das ist ausdrücklich gewünscht.';
 
 export const COMPETITOR_COMPARISON_ALLOWED =
-  'Mitbewerbervergleich ist ausdrücklich erlaubt – der Kunde darf Angebote in Ruhe vergleichen.';
+  'Ein Vergleich mit anderen Anbietern ist ausdrücklich möglich.';
 
 export const APPROVAL_DEVIATION_FIELD_MESSAGE =
   'Dieses Angebot weicht vom Standard ab und muss vor der Kundenvorlage freigegeben werden.';
 
 export const APPROVAL_WAITING_STATUS_LABEL = 'Wartet auf Freigabe';
+export const APPROVAL_CHANGES_STATUS_LABEL = 'Änderung erforderlich';
+export const APPROVAL_APPROVED_STATUS_LABEL = 'Freigegeben';
+export const APPROVAL_REJECTED_STATUS_LABEL = 'Abgelehnt';
 
 export type SalesGuideContext =
   | 'hub'
@@ -85,7 +91,7 @@ export const SALES_GUIDE_PHASES: Record<SalesGuideContext, SalesGuidePhase> = {
   },
   need: {
     phase: 3,
-    title: 'Bedarf aufnehmen',
+    title: 'Bedarf',
     summary: 'Der Außendienst erfasst zunächst den Bedarf – noch ohne Tarifempfehlung.',
     hints: [
       'Umsatz, Terminals und Kartenmix erfragen',
@@ -107,54 +113,55 @@ export const SALES_GUIDE_PHASES: Record<SalesGuideContext, SalesGuidePhase> = {
   },
   offer: {
     phase: 5,
-    title: 'Angebot',
-    summary: 'Das Angebot wird erstellt – ohne Zeitdruck.',
+    title: 'Angebot erstellen',
+    summary: 'Das Angebot wird erstellt – ohne Zeitdruck und ohne Sofortunterschrift.',
     hints: [
       NO_SIGNATURE_REQUIRED_MESSAGE,
       OFFER_REVIEW_TIME_MESSAGE,
+      COMPETITOR_COMPARISON_ALLOWED,
       'Standardempfehlung: PDF per E-Mail senden, optional Ausdruck',
     ],
     emphasis: CUSTOMER_MAY_REVIEW_AT_HOME,
   },
   approval: {
     phase: 9,
-    title: 'Abweichung vom Standard',
+    title: 'Freigabe',
     summary:
-      'Bei Abweichungen von Preis, Gebühren, Hardware, Provision, Sonderleistung oder Laufzeit ist keine Kundenunterschrift möglich.',
+      'Bei Abweichungen von Preis, Gebühren, Hardware, Provision, Sonderleistung oder Laufzeit ist keine Kundenannahme möglich.',
     hints: [
-      'Status: Wartet auf Freigabe',
-      'Keine Kundenunterschrift, Annahme oder Vertragserzeugung vor Freigabe',
-      'Administrator prüft und gibt frei oder fordert Änderungen an',
-      'Erst nach Freigabe darf das Angebot unterschrieben werden',
+      'Status: Wartet auf Freigabe, Änderung erforderlich, freigegeben oder abgelehnt',
+      'Keine Kundenannahme und keine Vertragserzeugung vor Freigabe',
+      'Administrator prüft Kunde, Außendienst und Abweichungen',
     ],
     emphasis: APPROVAL_DEVIATION_FIELD_MESSAGE,
   },
   closing: {
     phase: 7,
-    title: 'Prüfung & Nachfassen',
-    summary: 'Der Kunde prüft in Ruhe – Sie planen das Nachfassen.',
+    title: 'Kunde prüft',
+    summary: 'Der Kunde prüft in Ruhe – Sie planen genau eine Wiedervorlage.',
     hints: [
-      'Nachfassvorschläge: morgen, in drei Tagen, in einer Woche',
-      'Der Außendienst entscheidet über den Zeitpunkt',
+      'Genau eine Option: morgen, in drei Tagen, in einer Woche, eigenes Datum, Kunde meldet sich selbst oder kein Nachfassen',
+      'Keine automatischen Mehrfach-Wiedervorlagen',
       'Nicht jeder Termin endet mit einer Unterschrift – das ist völlig in Ordnung',
     ],
   },
   offer_send: {
     phase: 6,
-    title: 'Angebot versenden',
+    title: 'Angebot bereitstellen',
     summary: 'Standardempfehlung: PDF per E-Mail senden, optional Ausdruck.',
     hints: [
       NO_SIGNATURE_REQUIRED_MESSAGE,
       OFFER_REVIEW_TIME_MESSAGE,
+      COMPETITOR_COMPARISON_ALLOWED,
       'Beratungsgrundsätze bestätigen, bevor das Angebot bereitgestellt wird',
-      'Nachfassdatum festlegen oder automatische Wiedervorlagen nutzen',
+      'Genau eine Nachfassoption wählen',
     ],
-    emphasis: 'Status nach Versand: Angebot versendet.',
+    emphasis: 'Status nach Versand: Angebot versendet – Kunde prüft.',
   },
   offer_accept: {
     phase: 10,
-    title: 'Kundenunterschrift',
-    summary: 'Erst jetzt – nicht früher. Die App drängt nicht zum sofortigen Abschluss.',
+    title: 'Annahme / Unterschrift',
+    summary: 'Erst jetzt – nicht früher. Die App drängt nicht zum Abschluss.',
     hints: [
       'Unterschrift nur nach Freigabe und ausreichender Prüfzeit',
       'Digitale oder spätere Unterschrift ist möglich',
@@ -163,20 +170,20 @@ export const SALES_GUIDE_PHASES: Record<SalesGuideContext, SalesGuidePhase> = {
   },
   offer_approval: {
     phase: 9,
-    title: 'Interne Freigabe',
+    title: 'Freigabe',
     summary:
       'Abweichungen vom Standard erfordern eine Administrator-Freigabe vor der Kundenvorlage.',
     hints: [
       'Preis, Gebühren, Hardware, Provision oder Laufzeit weichen ab',
-      'Keine Kundenunterschrift vor Freigabe',
+      'Keine Kundenannahme und keine Vertragserzeugung vor Freigabe',
       'Nach Freigabe kann das Angebot bereitgestellt werden',
     ],
     emphasis: APPROVAL_DEVIATION_FIELD_MESSAGE,
   },
   offer_sent: {
     phase: 8,
-    title: 'Fragen beantworten',
-    summary: 'Der Kunde kann Rückfragen stellen – Sie bleiben erreichbar.',
+    title: 'Rückfragen / Änderungen',
+    summary: 'Der Kunde kann Rückfragen stellen – Änderungen sind erwünscht.',
     hints: [
       'Angebot aktualisieren oder neues Angebot erstellen',
       'Versionierung bleibt erhalten',
@@ -186,7 +193,7 @@ export const SALES_GUIDE_PHASES: Record<SalesGuideContext, SalesGuidePhase> = {
   contract: {
     phase: 11,
     title: 'Vertrag',
-    summary: 'Nach Unterschrift – ohne doppelte Datenerfassung.',
+    summary: 'Erst nach Annahme – ohne doppelte Datenerfassung.',
     hints: ['Vertragsdaten stammen aus dem angenommenen Angebot', 'Änderungen werden versioniert'],
   },
   activation: {
@@ -215,16 +222,22 @@ export const SALES_GUIDE_TIPS: readonly string[] = [
   'Lassen Sie dem Kunden Zeit für seine Entscheidung.',
   'Ein ehrlicher Rat schafft langfristiges Vertrauen.',
   'Nicht jeder Termin endet mit einer Unterschrift – das ist völlig in Ordnung.',
+  COMPETITOR_COMPARISON_ALLOWED,
+  NO_SIGNATURE_REQUIRED_MESSAGE,
 ];
 
+/** Beratungsworkflow ohne zweite Navigation – Orientierung im bestehenden Flow. */
 export const SALES_PROCESS_FLOW = [
-  'Beratung',
-  'Angebot',
-  'Kunde prüft in Ruhe',
-  'Nachfassen',
-  'Fragen beantworten',
-  'gegebenenfalls Freigabe',
-  'digitale oder spätere Unterschrift',
+  'Vorbereitung',
+  'Kennenlernen',
+  'Bedarf',
+  'Vergleich',
+  'Angebot erstellen',
+  'Angebot bereitstellen',
+  'Kunde prüft',
+  'Rückfragen / Änderungen',
+  'Freigabe (wenn notwendig)',
+  'Annahme / Unterschrift',
   'Vertrag',
   'Aktivierung',
   'Provision',
@@ -256,6 +269,25 @@ export function resolveSalesGuideContextFromOfferStatus(
   }
 }
 
+export function resolveFieldApprovalStatusLabel(status: OfferWorkflowStatus): string | null {
+  switch (status) {
+    case 'approval_required':
+    case 'in_approval':
+      return APPROVAL_WAITING_STATUS_LABEL;
+    case 'changes_requested':
+      return APPROVAL_CHANGES_STATUS_LABEL;
+    case 'approved':
+    case 'ready_to_send':
+    case 'sent':
+      return APPROVAL_APPROVED_STATUS_LABEL;
+    case 'declined':
+    case 'cancelled':
+      return APPROVAL_REJECTED_STATUS_LABEL;
+    default:
+      return null;
+  }
+}
+
 export function pickSalesGuideTip(seed: string): string {
   if (SALES_GUIDE_TIPS.length === 0) {
     return '';
@@ -265,4 +297,13 @@ export function pickSalesGuideTip(seed: string): string {
     hash = (hash + seed.charCodeAt(index) * (index + 1)) % SALES_GUIDE_TIPS.length;
   }
   return SALES_GUIDE_TIPS[hash] ?? SALES_GUIDE_TIPS[0]!;
+}
+
+export function containsForbiddenSalesPressure(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('heute unterschreiben') ||
+    normalized.includes('sofort entscheiden') ||
+    normalized.includes('jetzt abschließen')
+  );
 }

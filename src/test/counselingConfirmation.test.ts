@@ -143,6 +143,6 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
         customerContactsSelf: false,
         noFollowUpDesired: false,
       }),
-    ).toMatch(/Nachfassdatum/);
+    ).toMatch(/Nachfassoption|Nachfassdatum/);
   });
 });

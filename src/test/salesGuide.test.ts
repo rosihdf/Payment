@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   APPROVAL_DEVIATION_FIELD_MESSAGE,
   COMPETITOR_COMPARISON_ALLOWED,
+  containsForbiddenSalesPressure,
   CUSTOMER_MAY_REVIEW_AT_HOME,
   NO_SIGNATURE_REQUIRED_MESSAGE,
+  OFFER_REVIEW_TIME_MESSAGE,
   pickSalesGuideTip,
+  resolveFieldApprovalStatusLabel,
   resolveSalesGuideContextFromOfferStatus,
   SALES_GUIDE_PHASES,
+  SALES_GUIDE_PRINCIPLE,
   SALES_GUIDE_TIPS,
   SALES_PROCESS_FLOW,
 } from '../domain/sales/salesGuide';
+import { validateOfferFollowUpPreferences } from '../domain/offer/offerWorkflowValidation';
 import {
   buildSalesGuideNotifications,
   type SalesGuideNotification,
@@ -45,10 +50,15 @@ describe('Verkaufsleitfaden', () => {
 
   it('betont ausdrücklich keine sofortige Unterschrift und Mitbewerbervergleich', () => {
     expect(SALES_GUIDE_PHASES.offer.hints).toContain(NO_SIGNATURE_REQUIRED_MESSAGE);
+    expect(SALES_GUIDE_PHASES.offer.hints).toContain(OFFER_REVIEW_TIME_MESSAGE);
+    expect(SALES_GUIDE_PHASES.offer.hints).toContain(COMPETITOR_COMPARISON_ALLOWED);
     expect(SALES_GUIDE_PHASES.offer_send.hints).toContain(NO_SIGNATURE_REQUIRED_MESSAGE);
     expect(SALES_GUIDE_PHASES.offer.emphasis).toBe(CUSTOMER_MAY_REVIEW_AT_HOME);
     expect(SALES_GUIDE_PHASES.variants.hints).toContain(COMPETITOR_COMPARISON_ALLOWED);
     expect(SALES_GUIDE_PHASES.approval.emphasis).toBe(APPROVAL_DEVIATION_FIELD_MESSAGE);
+    expect(SALES_GUIDE_PRINCIPLE.reminders.join(' ')).toMatch(/Transparenz statt Verkaufsdruck/);
+    expect(containsForbiddenSalesPressure(NO_SIGNATURE_REQUIRED_MESSAGE)).toBe(false);
+    expect(containsForbiddenSalesPressure('Bitte heute unterschreiben')).toBe(true);
   });
 
   it('liefert deterministische Verkaufstipps', () => {
@@ -65,9 +75,16 @@ describe('Verkaufsleitfaden', () => {
   });
 
   it('beschreibt den Standardprozess ohne Druck', () => {
-    expect(SALES_PROCESS_FLOW).toContain('Kunde prüft in Ruhe');
-    expect(SALES_PROCESS_FLOW).toContain('Nachfassen');
+    expect(SALES_PROCESS_FLOW).toHaveLength(13);
+    expect(SALES_PROCESS_FLOW).toContain('Kunde prüft');
+    expect(SALES_PROCESS_FLOW).toContain('Freigabe (wenn notwendig)');
     expect(SALES_PROCESS_FLOW.at(-1)).toBe('Provision');
+  });
+
+  it('ordnet Freigabestatus für den Außendienst', () => {
+    expect(resolveFieldApprovalStatusLabel('in_approval')).toBe('Wartet auf Freigabe');
+    expect(resolveFieldApprovalStatusLabel('changes_requested')).toBe('Änderung erforderlich');
+    expect(resolveFieldApprovalStatusLabel('approved')).toBe('Freigegeben');
   });
 });
 
@@ -104,6 +121,26 @@ describe('Wiedervorlage-Plan', () => {
     expect(shouldScheduleFollowUpTask({ noFollowUpDesired: false, customerContactsSelf: false })).toBe(
       true,
     );
+    expect(
+      validateOfferFollowUpPreferences({
+        providedAt: '2026-08-01T10:00:00.000Z',
+        followUpDate: null,
+        comparesOffers: false,
+        openQuestions: '',
+        customerContactsSelf: true,
+        noFollowUpDesired: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      validateOfferFollowUpPreferences({
+        providedAt: '2026-08-01T10:00:00.000Z',
+        followUpDate: null,
+        comparesOffers: false,
+        openQuestions: '',
+        customerContactsSelf: false,
+        noFollowUpDesired: false,
+      }),
+    ).toMatch(/genau eine Nachfassoption/i);
   });
 });
 
@@ -194,17 +231,18 @@ describe('Verkaufs-Benachrichtigungen', () => {
     expect(notifications[0]?.description).toContain('Version 2');
   });
 
-  it('zeigt Außendienst Freigabe und Unterschrift', () => {
+  it('zeigt Außendienst Freigabe und Annahme', () => {
     const notifications = buildSalesGuideNotifications(
       [
         baseActivity({ title: 'Angebot freigegeben', type: 'approval_completed' }),
-        baseActivity({ id: 'act_2', title: 'Kunde hat unterschrieben', type: 'offer_accepted' }),
+        baseActivity({ id: 'act_2', title: 'Kunde angenommen', type: 'offer_accepted' }),
+        baseActivity({ id: 'act_3', title: 'Änderung erforderlich', type: 'status_change' }),
       ],
       'field_service',
       [],
     );
     expect(notifications.map((entry) => entry.title)).toEqual(
-      expect.arrayContaining(['Angebot freigegeben', 'Kunde hat unterschrieben']),
+      expect.arrayContaining(['Angebot freigegeben', 'Kunde angenommen', 'Änderung erforderlich']),
     );
   });
 });

@@ -4,9 +4,10 @@ import { FormField, textareaClassName } from '../../components/common/FormField'
 import { SalesGuidePanel } from '../../components/sales/SalesGuidePanel';
 import {
   APPROVAL_DEVIATION_FIELD_MESSAGE,
-  APPROVAL_WAITING_STATUS_LABEL,
+  COMPETITOR_COMPARISON_ALLOWED,
   NO_SIGNATURE_REQUIRED_MESSAGE,
   OFFER_REVIEW_TIME_MESSAGE,
+  resolveFieldApprovalStatusLabel,
   resolveSalesGuideContextFromOfferStatus,
 } from '../../domain/sales/salesGuide';
 import {
@@ -248,8 +249,8 @@ export function OfferWorkflowSection({
         <div className={styles.approvalNotice}>
           <p className={styles.guideEmphasis}>{APPROVAL_DEVIATION_FIELD_MESSAGE}</p>
           <p className={styles.guideHint}>
-            Status: {APPROVAL_WAITING_STATUS_LABEL} – keine Annahme, Unterschrift oder Vertrag vor
-            Freigabe.
+            Status: {resolveFieldApprovalStatusLabel(offer.workflowStatus) ?? 'Wartet auf Freigabe'}{' '}
+            – keine Annahme und keine Vertragserzeugung vor Freigabe.
           </p>
         </div>
       ) : null}
@@ -428,6 +429,7 @@ export function OfferWorkflowSection({
           <SalesGuidePanel context="offer_send" tipSeed={offer.id} compact />
           <p className={styles.guideEmphasis}>{NO_SIGNATURE_REQUIRED_MESSAGE}</p>
           <p className={styles.guideHint}>{OFFER_REVIEW_TIME_MESSAGE}</p>
+          <p className={styles.guideHint}>{COMPETITOR_COMPARISON_ALLOWED}</p>
           <fieldset>
             <legend>Beratungsgrundsätze</legend>
             <ul className={styles.checklist}>
@@ -461,8 +463,7 @@ export function OfferWorkflowSection({
           <fieldset>
             <legend>Bedenkzeit / Nachfassen</legend>
             <p className={styles.guideHint}>
-              Wählen Sie genau einen Nachfasszeitpunkt (Vorschläge: morgen, in drei Tagen, in einer
-              Woche) oder ein eigenes Datum:
+              Genau eine aktive Wiedervorlage – wählen Sie eine Option:
             </p>
             <div className={styles.quickPicks}>
               {FOLLOW_UP_QUICK_PICKS.map((pick) => (
@@ -470,8 +471,12 @@ export function OfferWorkflowSection({
                   key={pick.days}
                   type="button"
                   className={styles.secondaryAction}
-                  disabled={noFollowUpDesired}
-                  onClick={() => setFollowUpDate(followUpDateInputValue(pick.days))}
+                  disabled={noFollowUpDesired || customerContactsSelf}
+                  onClick={() => {
+                    setFollowUpDate(followUpDateInputValue(pick.days));
+                    setCustomerContactsSelf(false);
+                    setNoFollowUpDesired(false);
+                  }}
                 >
                   {pick.label}
                 </button>
@@ -480,10 +485,16 @@ export function OfferWorkflowSection({
             <FormControl
               id="follow-up-date"
               type="date"
-              label="Nachfassdatum"
+              label="Eigenes Datum"
               value={followUpDate}
-              disabled={noFollowUpDesired}
-              onChange={(event) => setFollowUpDate(event.target.value)}
+              disabled={noFollowUpDesired || customerContactsSelf}
+              onChange={(event) => {
+                setFollowUpDate(event.target.value);
+                if (event.target.value) {
+                  setCustomerContactsSelf(false);
+                  setNoFollowUpDesired(false);
+                }
+              }}
             />
             <label>
               <input
@@ -497,7 +508,14 @@ export function OfferWorkflowSection({
               <input
                 type="checkbox"
                 checked={customerContactsSelf}
-                onChange={(event) => setCustomerContactsSelf(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setCustomerContactsSelf(checked);
+                  if (checked) {
+                    setNoFollowUpDesired(false);
+                    setFollowUpDate('');
+                  }
+                }}
               />
               Kunde meldet sich selbst
             </label>
@@ -505,9 +523,16 @@ export function OfferWorkflowSection({
               <input
                 type="checkbox"
                 checked={noFollowUpDesired}
-                onChange={(event) => setNoFollowUpDesired(event.target.checked)}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setNoFollowUpDesired(checked);
+                  if (checked) {
+                    setCustomerContactsSelf(false);
+                    setFollowUpDate('');
+                  }
+                }}
               />
-              Kein Nachfassen gewünscht
+              Kein Nachfassen
             </label>
             <FormField id="open-questions" label="Offene Fragen">
               <textarea

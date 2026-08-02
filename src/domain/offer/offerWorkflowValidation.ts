@@ -59,11 +59,11 @@ export function validateCounselingPrinciples(principles: CounselingPrincipleFlag
 export function validateOfferFollowUpPreferences(
   preferences: OfferFollowUpPreferences,
 ): string | undefined {
-  if (preferences.noFollowUpDesired) {
+  if (preferences.noFollowUpDesired || preferences.customerContactsSelf) {
     return undefined;
   }
   if (!preferences.followUpDate?.trim()) {
-    return 'Bitte geben Sie ein Nachfassdatum an oder wählen Sie „Kein Nachfassen gewünscht“.';
+    return 'Bitte wählen Sie genau eine Nachfassoption: Datum, „Kunde meldet sich selbst“ oder „Kein Nachfassen“.';
   }
   return undefined;
 }

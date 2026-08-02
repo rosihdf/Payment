@@ -17,6 +17,7 @@ export interface SalesGuideNotification {
 
 const ADMIN_NOTIFICATION_TITLES = new Set([
   'Angebot wartet auf Freigabe',
+  'Änderung erneut eingereicht',
   'Freigabe angefordert',
   'Außendienst hat Änderungen vorgenommen',
   'Sonderprovision beantragt',
@@ -26,6 +27,7 @@ const FIELD_SERVICE_NOTIFICATION_TITLES = new Set([
   'Angebot freigegeben',
   'Angebot abgelehnt',
   'Änderung erforderlich',
+  'Kunde angenommen',
   'Kunde hat unterschrieben',
   'Provision freigegeben',
   'Provision ausgezahlt',

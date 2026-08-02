@@ -229,10 +229,18 @@ export class OfferWorkflowService {
       });
       return { ok: true, offer: saved };
     }
+    const resubmission = offer.workflowStatus === 'changes_requested';
     const result = await this.transition(offerId, 'submit_for_approval', context);
     if (!result.ok) return result;
     await this.event({ id: generateId('offer_approval'), schemaVersion: OFFER_WORKFLOW_EVENT_SCHEMA_VERSION, type: 'approval', status: 'submitted', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note, requestedByUserId: context.userId, approvedByUserId: null });
-    await this.record('approval_requested', 'Angebot wartet auf Freigabe', note, result.offer, context, `approval_requested:${offerId}:${result.offer.currentVersionId}`);
+    await this.record(
+      'approval_requested',
+      resubmission ? 'Änderung erneut eingereicht' : 'Angebot wartet auf Freigabe',
+      note,
+      result.offer,
+      context,
+      `approval_requested:${offerId}:${result.offer.currentVersionId}`,
+    );
     if (this.taskService) await this.taskService.ensureAutomaticTask({ title: 'Angebot freigeben', type: 'review_approval', priority: 'high', dueAt: endOfDayIso(), leadId: result.offer.leadId, offerId, sourceKey: `auto:review_approval:${offerId}` }, context);
     return result;
   }
@@ -429,7 +437,7 @@ export class OfferWorkflowService {
     const result = await this.transition(offerId, 'accept', context);
     if (result.ok) {
       await this.event({ id: generateId('offer_acceptance'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: acceptance.note, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
-      await this.record('offer_accepted', 'Kunde hat unterschrieben', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
+      await this.record('offer_accepted', 'Kunde angenommen', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
       if (this.contractService) {
         await this.contractService.createFromAcceptedOffer(offerId, {
           userId: context.userId,

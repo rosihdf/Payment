@@ -8,7 +8,7 @@ describe('SalesGuidePanel', () => {
     render(<SalesGuidePanel context="offer" tipSeed="test-session" />);
 
     expect(screen.getByText(/Phase 5/)).toBeInTheDocument();
-    expect(screen.getByText('Angebot')).toBeInTheDocument();
+    expect(screen.getByText('Angebot erstellen')).toBeInTheDocument();
     expect(screen.getByText(NO_SIGNATURE_REQUIRED_MESSAGE)).toBeInTheDocument();
     expect(screen.getByLabelText('Verkaufstipps')).toBeChecked();
     expect(screen.getByText(/^Tipp:/)).toBeInTheDocument();
