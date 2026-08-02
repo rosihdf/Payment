@@ -3,6 +3,8 @@ import type { CommissionAssignmentVersion } from './commissionAssignmentVersion'
 import type { CommissionPlan, CommissionPlanVersion } from './commissionPlan';
 import type { CommissionRule } from './commissionRule';
 import type { CommissionRuleOverride } from './commissionRuleOverride';
+import { isIndividualOverride } from './commissionRuleOverride';
+import { COMMISSION_SHARE_DEFAULT } from './commissionShare';
 import {
   DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID,
   DEFAULT_COMMISSION_PLAN_VERSION_VARIABLE_ID,
@@ -109,28 +111,23 @@ export function getRuleOverridesForAssignment(
   return version?.ruleOverrides ?? [];
 }
 
+/** Standard = 100 % je Regel – kein fester Eurobetrag, damit Standardänderungen durchschlagen. */
 export function buildDefaultOverridesForRules(rules: CommissionRule[]): CommissionRuleOverride[] {
   return rules.map((rule) => ({
     ruleId: rule.id,
-    fixedAmountCents: rule.fixedAmountCents,
-    percentTenthsOfBasisPoint: rule.percentTenthsOfBasisPoint,
+    sharePercent: COMMISSION_SHARE_DEFAULT,
+    fixedAmountCents: null,
+    percentTenthsOfBasisPoint: null,
   }));
 }
 
 export function diffRuleOverrides(
-  standard: CommissionRuleOverride[],
+  _standard: CommissionRuleOverride[],
   current: CommissionRuleOverride[],
 ): CommissionRuleOverride[] {
-  const currentByRule = new Map(current.map((entry) => [entry.ruleId, entry]));
-  return standard.filter((entry) => {
-    const override = currentByRule.get(entry.ruleId);
-    if (!override) {
-      return false;
-    }
-    return (
-      override.disabled === true ||
-      override.fixedAmountCents !== entry.fixedAmountCents ||
-      override.percentTenthsOfBasisPoint !== entry.percentTenthsOfBasisPoint
-    );
-  });
+  return current.filter((entry) => isIndividualOverride(entry));
+}
+
+export function hasIndividualAgreement(overrides: CommissionRuleOverride[]): boolean {
+  return overrides.some((entry) => isIndividualOverride(entry));
 }

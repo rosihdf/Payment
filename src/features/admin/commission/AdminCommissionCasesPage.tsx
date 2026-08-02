@@ -7,15 +7,12 @@ import { useAdminContext } from '../AdminLayout';
 import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout, formatEuro } from './AdminCommissionLayout';
 import type { CommissionCaseStatus } from '../../../domain/commission/commissionCase';
+import type { CommissionOverviewRow } from '../../../services/commissionAdminService';
 
 export function AdminCommissionCasesPage() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
-  const [rows, setRows] = useState<Awaited<ReturnType<typeof commissionAdminService.getOverview>> extends infer T
-    ? T extends { rows: infer R }
-      ? R
-      : never
-    : never>([]);
+  const [rows, setRows] = useState<CommissionOverviewRow[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [reductionAmount, setReductionAmount] = useState('');
   const [reductionReason, setReductionReason] = useState('');
@@ -36,6 +33,8 @@ export function AdminCommissionCasesPage() {
     void load();
   }, [context]);
 
+  const selected = rows.find((row) => row.caseId === selectedCaseId) ?? null;
+
   const runTransition = async (targetStatus: CommissionCaseStatus, extra?: Record<string, unknown>) => {
     if (!context || !selectedCaseId) return;
     const result = await commissionAdminService.transitionCase(context, selectedCaseId, targetStatus, extra);
@@ -55,8 +54,13 @@ export function AdminCommissionCasesPage() {
                 <th>Mitarbeiter</th>
                 <th>Kunde</th>
                 <th>Angebot</th>
+                <th>Standard</th>
+                <th>Anteil</th>
+                <th>Endbetrag</th>
+                <th>Sonderzahlung</th>
+                <th>Kürzung</th>
+                <th>Version</th>
                 <th>Status</th>
-                <th>Betrag</th>
                 <th>Aktion</th>
               </tr>
             </thead>
@@ -68,8 +72,13 @@ export function AdminCommissionCasesPage() {
                   <td>
                     <Link to={`/offers/${row.offerId}`}>{row.offerId.slice(0, 8)}…</Link>
                   </td>
+                  <td title={row.appliedRuleNames}>{row.standardLabel}</td>
+                  <td>{row.shareSummary}</td>
+                  <td>{formatEuro(row.endAmountCents)}</td>
+                  <td>{formatEuro(row.bonusAmountCents)}</td>
+                  <td>{formatEuro(row.reductionAmountCents)}</td>
+                  <td>{row.planVersionLabel}</td>
                   <td>{row.statusLabel}</td>
-                  <td>{formatEuro(row.amountCents)}</td>
                   <td>
                     <button type="button" onClick={() => setSelectedCaseId(row.caseId)}>
                       Bearbeiten
@@ -82,9 +91,18 @@ export function AdminCommissionCasesPage() {
         )}
       </section>
 
-      {selectedCaseId ? (
+      {selected ? (
         <section className={styles.panel}>
           <h2>Fall bearbeiten</h2>
+          <ul>
+            <li>Standard: {selected.standardLabel}</li>
+            <li>Anteil / Prozent: {selected.shareSummary}</li>
+            <li>Endbetrag: {formatEuro(selected.endAmountCents)}</li>
+            <li>Sonderzahlung in Berechnung: {formatEuro(selected.bonusAmountCents)}</li>
+            <li>Kürzung: {formatEuro(selected.reductionAmountCents)}</li>
+            <li>Version: {selected.planVersionLabel}</li>
+            <li>Regeln: {selected.appliedRuleNames}</li>
+          </ul>
           <div className={styles.toolbar}>
             <button type="button" onClick={() => void runTransition('reserved')}>
               Reservieren
@@ -145,7 +163,12 @@ export function AdminCommissionCasesPage() {
               value={accountingReference}
               onChange={(e) => setAccountingReference(e.target.value)}
             />
-            <FormControl type="date" label="Zahlungsdatum" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+            <FormControl
+              type="date"
+              label="Zahlungsdatum"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+            />
             <FormControl
               type="text"
               label="Zahlungsreferenz"

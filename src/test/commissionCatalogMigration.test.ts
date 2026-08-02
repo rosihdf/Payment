@@ -11,5 +11,6 @@ describe('commission catalog migration', () => {
     expect(readStorageItem(STORAGE_KEYS.commissionPlanVersions)).toEqual([]);
     expect(readStorageItem(STORAGE_KEYS.commissionRules)).toEqual([]);
     expect(readStorageItem(STORAGE_KEYS.commissionAssignments)).toEqual([]);
+    expect(readStorageItem(STORAGE_KEYS.commissionCatalogVersion)).toBe(3);
   });
 });

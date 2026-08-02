@@ -3,8 +3,8 @@ import type { SalesRepresentativeCommissionAssignment } from '../domain/commissi
 import {
   assignmentsOverlap,
   buildDefaultOverridesForRules,
-  diffRuleOverrides,
   getActiveAssignmentForRepresentative,
+  hasIndividualAgreement,
   resolveModelFromPlanVersion,
   resolvePlanVersionIdForModel,
 } from '../domain/commission/commissionAssignmentHelpers';
@@ -17,6 +17,16 @@ import { commissionBusinessStatusLabel } from '../domain/commission/commissionBu
 import type { CommissionCase, CommissionCaseStatus, CommissionEventType } from '../domain/commission/commissionCase';
 import type { CommissionPaymentRecord } from '../domain/commission/commissionPaymentRecord';
 import type { CommissionRuleOverride } from '../domain/commission/commissionRuleOverride';
+import {
+  isIndividualOverride,
+  normalizeOverrideToShareTruth,
+  resolveSharePercent,
+} from '../domain/commission/commissionRuleOverride';
+import {
+  calculateAmountFromShare,
+  formatEuroCents,
+  isValidCommissionSharePercent,
+} from '../domain/commission/commissionShare';
 import { evaluateCommission } from '../domain/commissionEngine/commissionCalculationEngine';
 import type { UserContext } from '../domain/user/user';
 import type { ActivationBlockerRepository } from '../repositories/interfaces/ActivationBlockerRepository';
@@ -46,6 +56,19 @@ export interface RepresentativeAssignmentRow {
   lastChangedByUserId: string | null;
 }
 
+export interface AssignmentRuleView {
+  ruleId: string;
+  ruleName: string;
+  standardAmountCents: number | null;
+  /** Anzeige des Unternehmensstandards (Euro oder Basis-%). */
+  standardLabel: string;
+  sharePercent: number;
+  calculatedAmountCents: number | null;
+  /** Anzeige des abgeleiteten Mitarbeiterwerts. */
+  calculatedLabel: string;
+  isIndividual: boolean;
+}
+
 export interface AssignmentDetailView {
   assignment: SalesRepresentativeCommissionAssignment | null;
   currentVersion: CommissionAssignmentVersion | null;
@@ -53,6 +76,7 @@ export interface AssignmentDetailView {
   standardOverrides: CommissionRuleOverride[];
   currentOverrides: CommissionRuleOverride[];
   model: 'classic' | 'variable' | null;
+  ruleViews: AssignmentRuleView[];
 }
 
 export interface CommissionOverviewRow {
@@ -69,6 +93,14 @@ export interface CommissionOverviewRow {
   statusLabel: string;
   dueDate: string | null;
   nextAction: string;
+  /** Provision 2.0: eingefrorene Berechnungsdetails */
+  standardLabel: string;
+  shareSummary: string;
+  endAmountCents: number;
+  bonusAmountCents: number;
+  reductionAmountCents: number;
+  planVersionLabel: string;
+  appliedRuleNames: string;
 }
 
 export interface CommissionOverviewSummary {
@@ -81,6 +113,16 @@ export interface CommissionOverviewSummary {
   bonusPaidCents: number;
   reductionCents: number;
   totalCents: number;
+  /** Provision 2.0 Kennzahlen */
+  classicRuleCount: number;
+  variableRuleCount: number;
+  individualAgreementCount: number;
+  expectedCaseCount: number;
+  pendingReleaseCaseCount: number;
+  releasedCaseCount: number;
+  settledCaseCount: number;
+  paidCaseCount: number;
+  bonusCount: number;
 }
 
 export interface SalesCommissionSummary {
@@ -212,15 +254,8 @@ export class CommissionAdminService {
       const currentVersion = assignment?.currentVersionId
         ? versions.find((version) => version.id === assignment.currentVersionId) ?? null
         : null;
-      const planRules = assignment
-        ? catalog.commissionRules.filter(
-            (rule) => rule.commissionPlanVersionId === assignment.commissionPlanVersionId,
-          )
-        : [];
-      const standardOverrides = buildDefaultOverridesForRules(planRules);
       const currentOverrides = currentVersion?.ruleOverrides ?? [];
-      const hasIndividualOverrides =
-        diffRuleOverrides(standardOverrides, currentOverrides).length > 0;
+      const hasIndividualOverrides = hasIndividualAgreement(currentOverrides);
 
       return {
         userId: user.id,
@@ -242,6 +277,7 @@ export class CommissionAdminService {
   async getAssignmentDetail(
     context: UserContext,
     salesRepresentativeId: string,
+    options?: { model?: 'classic' | 'variable' },
   ): Promise<AssignmentDetailView | { error: 'forbidden' }> {
     const guard = await this.requireAdmin(context);
     if (!guard.ok) {
@@ -265,13 +301,62 @@ export class CommissionAdminService {
     const currentVersion = assignment?.currentVersionId
       ? allVersions.find((version) => version.id === assignment.currentVersionId) ?? null
       : null;
-    const planRules = assignment
-      ? catalog.commissionRules.filter(
-          (rule) => rule.commissionPlanVersionId === assignment.commissionPlanVersionId,
+    const assignedModel = assignment
+      ? resolveModelFromPlanVersion(
+          assignment.commissionPlanVersionId,
+          catalog.commissionPlans,
+          catalog.commissionPlanVersions,
         )
-      : [];
+      : 'classic';
+    const model = options?.model ?? assignedModel ?? 'classic';
+    const planVersionId = resolvePlanVersionIdForModel(model);
+    const modelChanged = options?.model != null && options.model !== assignedModel;
+    const planRules = catalog.commissionRules.filter(
+      (rule) => rule.commissionPlanVersionId === planVersionId && rule.status === 'active',
+    );
     const standardOverrides = buildDefaultOverridesForRules(planRules);
-    const currentOverrides = currentVersion?.ruleOverrides ?? standardOverrides;
+    const currentOverrides =
+      !modelChanged && currentVersion?.ruleOverrides?.length
+        ? currentVersion.ruleOverrides
+        : standardOverrides;
+    const overrideByRule = new Map(
+      currentOverrides.map((entry) => {
+        const rule = planRules.find((item) => item.id === entry.ruleId);
+        return [entry.ruleId, normalizeOverrideToShareTruth(entry, rule)] as const;
+      }),
+    );
+    const ruleViews: AssignmentRuleView[] = planRules.map((rule) => {
+      const override = overrideByRule.get(rule.id);
+      const sharePercent = resolveSharePercent(override);
+      const hasLeadingShare =
+        override?.sharePercent != null && isValidCommissionSharePercent(override.sharePercent);
+      const calculatedAmountCents =
+        !hasLeadingShare && override?.fixedAmountCents != null
+          ? override.fixedAmountCents
+          : calculateAmountFromShare(rule.fixedAmountCents, sharePercent);
+      const standardLabel =
+        rule.fixedAmountCents != null
+          ? formatEuroCents(rule.fixedAmountCents)
+          : rule.percentTenthsOfBasisPoint != null
+            ? `${rule.percentTenthsOfBasisPoint / 100} % der Basis`
+            : '—';
+      const calculatedLabel =
+        calculatedAmountCents != null
+          ? formatEuroCents(calculatedAmountCents)
+          : rule.percentTenthsOfBasisPoint != null
+            ? `${((rule.percentTenthsOfBasisPoint / 100) * sharePercent) / 100} % der Basis (${sharePercent} %)`
+            : '—';
+      return {
+        ruleId: rule.id,
+        ruleName: rule.name,
+        standardAmountCents: rule.fixedAmountCents,
+        standardLabel,
+        sharePercent,
+        calculatedAmountCents,
+        calculatedLabel,
+        isIndividual: override ? isIndividualOverride(override) : false,
+      };
+    });
 
     return {
       assignment,
@@ -279,13 +364,8 @@ export class CommissionAdminService {
       versions: assignmentVersions,
       standardOverrides,
       currentOverrides,
-      model: assignment
-        ? resolveModelFromPlanVersion(
-            assignment.commissionPlanVersionId,
-            catalog.commissionPlans,
-            catalog.commissionPlanVersions,
-          )
-        : null,
+      model,
+      ruleViews,
     };
   }
 
@@ -308,6 +388,23 @@ export class CommissionAdminService {
     const catalog = await this.catalogRepository.getCatalog();
     const planVersionId = resolvePlanVersionIdForModel(input.model);
     const timestamp = nowIso();
+
+    for (const override of input.ruleOverrides) {
+      if (
+        override.sharePercent != null &&
+        !isValidCommissionSharePercent(override.sharePercent)
+      ) {
+        return { ok: false, error: 'share_range' };
+      }
+    }
+
+    const planRules = catalog.commissionRules.filter(
+      (rule) => rule.commissionPlanVersionId === planVersionId,
+    );
+    const ruleById = new Map(planRules.map((rule) => [rule.id, rule]));
+    const normalizedOverrides = input.ruleOverrides.map((override) =>
+      normalizeOverrideToShareTruth(override, ruleById.get(override.ruleId)),
+    );
 
     const overlapping = catalog.assignments.some(
       (assignment) =>
@@ -379,7 +476,7 @@ export class CommissionAdminService {
       commissionPlanVersionId: planVersionId,
       validFrom: input.validFrom,
       validUntil: input.validUntil,
-      ruleOverrides: input.ruleOverrides,
+      ruleOverrides: normalizedOverrides,
       changeNote: input.changeNote,
       createdByUserId: context.userId,
       createdAt: timestamp,
@@ -497,16 +594,19 @@ export class CommissionAdminService {
       return { error: 'forbidden' };
     }
 
-    const [cases, users, catalog, bonuses, offers] = await Promise.all([
+    const [cases, users, catalog, bonuses, offers, calculations] = await Promise.all([
       this.calculationRepository.getAllCases(),
       this.userRepository.getAll(),
       this.catalogRepository.getCatalog(),
       this.workflowRepository.getBonusPayments(),
       this.offerRepository.getAll(),
+      this.calculationRepository.getCalculations(),
     ]);
 
     const userById = new Map(users.map((user) => [user.id, user]));
     const offerById = new Map(offers.map((offer) => [offer.id, offer]));
+    const calculationById = new Map(calculations.map((entry) => [entry.id, entry]));
+    const ruleById = new Map(catalog.commissionRules.map((rule) => [rule.id, rule]));
     const assignmentRows = await this.listRepresentativeAssignments(context);
     const missingAssignments = Array.isArray(assignmentRows)
       ? assignmentRows.filter((row) => !row.assignmentId).length
@@ -525,6 +625,35 @@ export class CommissionAdminService {
             catalog.commissionPlanVersions,
           )
         : null;
+      const calculation = calculationById.get(commissionCase.commissionCalculationId);
+      const result = calculation?.result;
+      const appliedRuleNames =
+        result?.components
+          .map((component) => {
+            if (component.commissionRuleId) {
+              return ruleById.get(component.commissionRuleId)?.name ?? component.label;
+            }
+            return component.label;
+          })
+          .filter(Boolean)
+          .join(', ') || '—';
+      const shareHints = (result?.findings ?? [])
+        .map((finding) => finding.internalDescription)
+        .filter((text) => text.includes('% vom Standard') || text.includes('Ausnahme'))
+        .slice(0, 3);
+      const componentShareSummary =
+        result?.components
+          .map((component) => {
+            const match = component.internalExplanation.match(/\[(\d+)% vom Standard\]/);
+            if (match) {
+              return `${component.label}: ${match[1]} %`;
+            }
+            if (component.internalExplanation.includes('Ausnahme')) {
+              return `${component.label}: Euro-Ausnahme`;
+            }
+            return `${component.label}: 100 %`;
+          })
+          .join('; ') || '100 %';
 
       return {
         caseId: commissionCase.id,
@@ -540,6 +669,16 @@ export class CommissionAdminService {
         statusLabel: commissionBusinessStatusLabel(commissionCase.status),
         dueDate: commissionCase.dueDate,
         nextAction: this.nextActionForCase(commissionCase),
+        standardLabel: model === 'classic' ? 'Classic' : model === 'variable' ? 'Variable' : '—',
+        shareSummary: shareHints.length > 0 ? shareHints.join('; ') : componentShareSummary,
+        endAmountCents: commissionCase.approvedAmountCents - commissionCase.reductionAmountCents,
+        bonusAmountCents: result?.bonusAmountCents ?? 0,
+        reductionAmountCents: commissionCase.reductionAmountCents,
+        planVersionLabel:
+          result?.commissionPlanVersionNumber != null
+            ? `v${result.commissionPlanVersionNumber}`
+            : result?.commissionPlanVersionId ?? '—',
+        appliedRuleNames,
       };
     });
 
@@ -553,6 +692,12 @@ export class CommissionAdminService {
       const label = filters.model === 'classic' ? 'Classic' : 'Variable';
       rows = rows.filter((row) => row.model === label);
     }
+
+    const classicVersionId = resolvePlanVersionIdForModel('classic');
+    const variableVersionId = resolvePlanVersionIdForModel('variable');
+    const individualAgreementCount = Array.isArray(assignmentRows)
+      ? assignmentRows.filter((row) => row.hasIndividualOverrides).length
+      : 0;
 
     const summary: CommissionOverviewSummary = {
       calculatedCents: cases
@@ -578,9 +723,67 @@ export class CommissionAdminService {
       totalCents:
         cases.reduce((sum, item) => sum + item.paidAmountCents, 0) +
         bonuses.filter((item) => item.status === 'paid').reduce((sum, item) => sum + item.amountCents, 0),
+      classicRuleCount: catalog.commissionRules.filter(
+        (rule) => rule.commissionPlanVersionId === classicVersionId && rule.status === 'active',
+      ).length,
+      variableRuleCount: catalog.commissionRules.filter(
+        (rule) => rule.commissionPlanVersionId === variableVersionId && rule.status === 'active',
+      ).length,
+      individualAgreementCount,
+      expectedCaseCount: cases.filter((item) => item.status === 'expected').length,
+      pendingReleaseCaseCount: cases.filter((item) => item.status === 'reserved').length,
+      releasedCaseCount: cases.filter((item) => item.status === 'released').length,
+      settledCaseCount: cases.filter((item) => item.status === 'settled').length,
+      paidCaseCount: cases.filter((item) => item.status === 'paid' || item.status === 'partially_paid')
+        .length,
+      bonusCount: bonuses.filter((item) => item.status !== 'cancelled').length,
     };
 
     return { rows, summary, missingAssignments };
+  }
+
+  /** Stellt sicher, dass jeder aktive Außendienst Classic mit 100 % ohne Pflichtpflege hat. */
+  async ensureDefaultAssignments(context: UserContext): Promise<{ ok: true; created: number } | { ok: false; error: string }> {
+    const guard = await this.requireAdmin(context);
+    if (!guard.ok) {
+      return { ok: false, error: 'forbidden' };
+    }
+
+    const [users, catalog] = await Promise.all([
+      this.userRepository.getAll(),
+      this.catalogRepository.getCatalog(),
+    ]);
+
+    if (catalog.commissionRules.length === 0) {
+      return { ok: false, error: 'no_catalog' };
+    }
+
+    let created = 0;
+    for (const user of users.filter((entry) => entry.role === 'field_service' && entry.status === 'active')) {
+      const existing = getActiveAssignmentForRepresentative(catalog.assignments, user.id, nowIso());
+      if (existing) {
+        continue;
+      }
+      const result = await this.saveAssignment(context, {
+        salesRepresentativeId: user.id,
+        model: 'classic',
+        validFrom: '2026-01-01',
+        validUntil: null,
+        ruleOverrides: buildDefaultOverridesForRules(
+          catalog.commissionRules.filter(
+            (rule) =>
+              rule.commissionPlanVersionId === resolvePlanVersionIdForModel('classic') &&
+              rule.status === 'active',
+          ),
+        ),
+        changeNote: 'Automatische Standardzuordnung 100 %',
+      });
+      if (result.ok) {
+        created += 1;
+      }
+    }
+
+    return { ok: true, created };
   }
 
   private nextActionForCase(commissionCase: CommissionCase): string {

@@ -21,7 +21,7 @@ export function AdminCommissionPaymentsPage() {
   }, [commissionAdminService, context]);
 
   return (
-    <AdminCommissionLayout title="Provision – Abrechnungen & Zahlungen">
+    <AdminCommissionLayout title="Provision – Abrechnung & Zahlungen">
       <section className={styles.panel}>
         {payments.length === 0 ? (
           <EmptyState title="Keine Zahlungen" description="Noch keine Auszahlungen dokumentiert." />

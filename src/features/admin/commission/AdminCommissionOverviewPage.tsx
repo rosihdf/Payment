@@ -17,9 +17,14 @@ export function AdminCommissionOverviewPage() {
 
   useEffect(() => {
     if (!context) return;
-    void commissionAdminService
-      .getOverview(context, { status: statusFilter, model: modelFilter })
-      .then(setData);
+    void (async () => {
+      await commissionAdminService.ensureDefaultAssignments(context);
+      const overview = await commissionAdminService.getOverview(context, {
+        status: statusFilter,
+        model: modelFilter,
+      });
+      setData(overview);
+    })();
   }, [commissionAdminService, context, statusFilter, modelFilter]);
 
   if (!context) {
@@ -94,17 +99,32 @@ export function AdminCommissionOverviewPage() {
       </div>
 
       <section className={styles.panel}>
-        <h2>Summen</h2>
+        <h2>Kennzahlen</h2>
         <ul>
-          <li>Berechnet / erwartet: {formatEuro(data.summary.calculatedCents)}</li>
-          <li>Freigegeben: {formatEuro(data.summary.releasedCents)}</li>
-          <li>Abgerechnet: {formatEuro(data.summary.settledCents)}</li>
-          <li>Ausgezahlt: {formatEuro(data.summary.paidCents)}</li>
-          <li>Sonderzahlungen offen: {formatEuro(data.summary.bonusOpenCents)}</li>
-          <li>Sonderzahlungen freigegeben: {formatEuro(data.summary.bonusApprovedCents)}</li>
-          <li>Sonderzahlungen ausgezahlt: {formatEuro(data.summary.bonusPaidCents)}</li>
+          <li>Standardmodell Classic: {data.summary.classicRuleCount} aktive Regeln</li>
+          <li>Standardmodell Variable: {data.summary.variableRuleCount} aktive Regeln</li>
+          <li>Individuelle Vereinbarungen: {data.summary.individualAgreementCount}</li>
+          <li>
+            Heute berechnet / erwartet: {data.summary.expectedCaseCount} (
+            {formatEuro(data.summary.calculatedCents)})
+          </li>
+          <li>Wartet auf Freigabe: {data.summary.pendingReleaseCaseCount}</li>
+          <li>
+            Freigegeben: {data.summary.releasedCaseCount} ({formatEuro(data.summary.releasedCents)})
+          </li>
+          <li>
+            Abgerechnet: {data.summary.settledCaseCount} ({formatEuro(data.summary.settledCents)})
+          </li>
+          <li>
+            Ausgezahlt: {data.summary.paidCaseCount} ({formatEuro(data.summary.paidCents)})
+          </li>
+          <li>
+            Sonderzahlungen: {data.summary.bonusCount} (offen {formatEuro(data.summary.bonusOpenCents)},
+            freigegeben {formatEuro(data.summary.bonusApprovedCents)}, ausgezahlt{' '}
+            {formatEuro(data.summary.bonusPaidCents)})
+          </li>
           <li>Kürzungen: {formatEuro(data.summary.reductionCents)}</li>
-          <li>Gesamt ausgezahlt: {formatEuro(data.summary.totalCents)}</li>
+          <li>Gesamtauszahlung: {formatEuro(data.summary.totalCents)}</li>
         </ul>
       </section>
 

@@ -115,6 +115,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/commission/bonus', element: <AdminCommissionBonusPage /> },
       { path: 'admin/commission/payments', element: <AdminCommissionPaymentsPage /> },
       { path: 'admin/commission/models', element: <AdminCommissionModelsPage /> },
+      { path: 'admin/commission/standards', element: <AdminCommissionModelsPage /> },
       { path: 'admin/commission/history', element: <AdminCommissionHistoryPage /> },
       { path: 'admin/approvals', element: <AdminApprovalsPage /> },
       { path: 'admin/templates', element: <AdminTemplatesPage /> },

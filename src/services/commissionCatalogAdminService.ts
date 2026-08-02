@@ -1,13 +1,21 @@
 import type { CommissionCalculationInput } from '../domain/commission/commissionCalculationInput';
+import type { CommissionRule } from '../domain/commission/commissionRule';
 import type { PricingEvaluationResult } from '../domain/pricing/pricingEvaluation';
 import { PRICING_ENGINE_VERSION } from '../domain/pricing/pricingEvaluation';
 import { evaluateCommission } from '../domain/commissionEngine/commissionCalculationEngine';
 import type { UserContext } from '../domain/user/user';
-import { nowIso } from '../utils/id';
+import { generateId, nowIso } from '../utils/id';
 import type { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import type { AuditService } from './auditService';
 import { requirePermission } from './auditService';
-import { createDefaultCommissionCatalog } from './commissionCatalogSeed';
+import {
+  createDefaultCommissionCatalog,
+  DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID,
+} from './commissionCatalogSeed';
+import {
+  COMMISSION_SHARE_DEFAULT,
+  isValidCommissionSharePercent,
+} from '../domain/commission/commissionShare';
 
 export interface CommissionPreviewInput {
   contractTypeCode: string;
@@ -134,39 +142,154 @@ export class CommissionCatalogAdminService {
 
     const seed = createDefaultCommissionCatalog(context.userId);
     const catalog = await this.commissionCatalogRepository.getCatalog();
-    await this.commissionCatalogRepository.saveCatalog({
-      ...catalog,
-      commissionPlans: seed.plans,
-      commissionPlanVersions: seed.planVersions,
-      commissionRules: seed.rules,
-      assignments: [
-        {
-          id: 'commission_assignment_default',
-          salesRepresentativeId: context.userId,
-          commissionPlanVersionId: seed.planVersions[0]!.id,
-          currentVersionId: null,
-          validFrom: '2026-01-01',
-          validUntil: null,
-          isPrimary: true,
-          status: 'active',
-          reason: 'Standard',
-          createdByUserId: context.userId,
-          approvedByUserId: context.userId,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        },
-      ],
-    });
+
+    if (catalog.commissionPlans.length === 0 && catalog.commissionRules.length === 0) {
+      await this.commissionCatalogRepository.saveCatalog({
+        ...catalog,
+        commissionPlans: seed.plans,
+        commissionPlanVersions: seed.planVersions,
+        commissionRules: seed.rules,
+        assignments: catalog.assignments,
+      });
+    } else {
+      const planById = new Map(catalog.commissionPlans.map((plan) => [plan.id, plan]));
+      for (const plan of seed.plans) {
+        if (!planById.has(plan.id)) {
+          planById.set(plan.id, plan);
+        }
+      }
+      const versionById = new Map(
+        catalog.commissionPlanVersions.map((version) => [version.id, version]),
+      );
+      for (const version of seed.planVersions) {
+        if (!versionById.has(version.id)) {
+          versionById.set(version.id, version);
+        }
+      }
+      const ruleById = new Map(catalog.commissionRules.map((rule) => [rule.id, rule]));
+      for (const rule of seed.rules) {
+        if (!ruleById.has(rule.id)) {
+          ruleById.set(rule.id, rule);
+        }
+      }
+      await this.commissionCatalogRepository.saveCatalog({
+        ...catalog,
+        commissionPlans: Array.from(planById.values()),
+        commissionPlanVersions: Array.from(versionById.values()),
+        commissionRules: Array.from(ruleById.values()),
+      });
+    }
 
     await this.auditService.logChange({
       context,
       action: 'commission_activated',
       entityType: 'commission_plan',
       entityId: seed.plans[0]?.id ?? 'classic',
-      summary: 'Standard-Provisionskatalog Classic/Variable aktiviert',
+      summary: 'Standard-Provisionskatalog Classic/Variable aktiviert bzw. ergänzt',
     });
 
     return { ok: true };
+  }
+
+  /**
+   * Speichert/aktualisiert eine Standardprovisionsregel.
+   * fixedAmountCents = Standardbetrag (100 %). displaySharePercent steuert die Anzeige.
+   */
+  async upsertStandardRule(
+    context: UserContext,
+    input: {
+      id?: string;
+      commissionPlanVersionId: string;
+      name: string;
+      internalDescription: string;
+      status: 'active' | 'inactive';
+      commissionType: CommissionRule['commissionType'];
+      calculationBasis: CommissionRule['calculationBasis'];
+      contractTypeCode: string | null;
+      fixedAmountCents: number | null;
+      percentTenthsOfBasisPoint: number | null;
+      displaySharePercent?: number;
+      validFrom: string | null;
+      validUntil: string | null;
+      minTermMonthsExclusive?: number | null;
+      maxTermMonthsExclusive?: number | null;
+      accessoryOnly?: boolean;
+      priority?: number;
+      combinable?: boolean;
+    },
+  ): Promise<{ ok: true; rule: CommissionRule } | { ok: false; error: string }> {
+    const guard = requirePermission(context, 'admin.commission');
+    if (!guard.ok) {
+      return { ok: false, error: 'forbidden' };
+    }
+
+    const name = input.name.trim();
+    if (!name) {
+      return { ok: false, error: 'validation' };
+    }
+
+    const share = input.displaySharePercent ?? COMMISSION_SHARE_DEFAULT;
+    if (!isValidCommissionSharePercent(share)) {
+      return { ok: false, error: 'share_range' };
+    }
+
+    const catalog = await this.commissionCatalogRepository.getCatalog();
+    const timestamp = nowIso();
+    const existing = input.id
+      ? catalog.commissionRules.find((rule) => rule.id === input.id)
+      : undefined;
+
+    // Standardbetrag wird immer als 100%-Basis gespeichert.
+    const rule: CommissionRule = {
+      id: existing?.id ?? input.id ?? generateId('commission_rule'),
+      commissionPlanVersionId: input.commissionPlanVersionId,
+      name,
+      status: input.status,
+      commissionType: input.commissionType,
+      calculationBasis: input.calculationBasis,
+      contractTypeCode: input.contractTypeCode,
+      productId: existing?.productId ?? null,
+      tariffId: existing?.tariffId ?? null,
+      contractTermId: existing?.contractTermId ?? null,
+      accessoryOnly: input.accessoryOnly ?? existing?.accessoryOnly ?? false,
+      minTermMonthsExclusive: input.minTermMonthsExclusive ?? existing?.minTermMonthsExclusive ?? null,
+      maxTermMonthsExclusive: input.maxTermMonthsExclusive ?? existing?.maxTermMonthsExclusive ?? null,
+      exactTermMonths: existing?.exactTermMonths ?? null,
+      priority: input.priority ?? existing?.priority ?? 10,
+      combinable: input.combinable ?? existing?.combinable ?? true,
+      fixedAmountCents: input.fixedAmountCents,
+      percentTenthsOfBasisPoint: input.percentTenthsOfBasisPoint,
+      thresholdTenthsOfCent: existing?.thresholdTenthsOfCent ?? null,
+      currency: 'EUR',
+      validFrom: input.validFrom,
+      validUntil: input.validUntil,
+      internalDescription: input.internalDescription.trim(),
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+
+    const rules = existing
+      ? catalog.commissionRules.map((entry) => (entry.id === rule.id ? rule : entry))
+      : [...catalog.commissionRules, rule];
+
+    await this.commissionCatalogRepository.saveCatalog({ ...catalog, commissionRules: rules });
+
+    await this.auditService.logChange({
+      context,
+      action: 'commission_updated',
+      entityType: 'commission_plan',
+      entityId: rule.id,
+      summary: `Standardregel „${rule.name}“ gespeichert`,
+      changes: [
+        {
+          field: 'fixedAmountCents',
+          before: existing?.fixedAmountCents != null ? String(existing.fixedAmountCents) : null,
+          after: rule.fixedAmountCents != null ? String(rule.fixedAmountCents) : null,
+        },
+      ],
+    });
+
+    return { ok: true, rule };
   }
 
   async previewCommission(context: UserContext, input: CommissionPreviewInput) {
@@ -190,11 +313,40 @@ export class CommissionCatalogAdminService {
           : [],
     };
 
+    const hasAssignment = catalog.assignments.some(
+      (assignment) =>
+        assignment.salesRepresentativeId === context.userId &&
+        assignment.status === 'active' &&
+        assignment.isPrimary,
+    );
+
+    // Vorschau nutzt ohne Pflege Classic 100 % (Unternehmensstandard).
+    const assignments = hasAssignment
+      ? catalog.assignments
+      : [
+          ...catalog.assignments,
+          {
+            id: 'commission_assignment_preview_default',
+            salesRepresentativeId: context.userId,
+            commissionPlanVersionId: DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID,
+            currentVersionId: null,
+            validFrom: '2020-01-01',
+            validUntil: null,
+            isPrimary: true,
+            status: 'active' as const,
+            reason: 'Vorschau Standard 100 %',
+            createdByUserId: context.userId,
+            approvedByUserId: context.userId,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          },
+        ];
+
     return evaluateCommission(calculationInput, {
       commissionPlans: catalog.commissionPlans,
       commissionPlanVersions: catalog.commissionPlanVersions,
       commissionRules: catalog.commissionRules,
-      assignments: catalog.assignments,
+      assignments,
     });
   }
 }
