@@ -17,6 +17,7 @@ export type AdminUserApiErrorCode =
   | 'invite_not_relevant'
   | 'rate_limited'
   | 'misconfigured'
+  | 'mail_failed'
   | 'update_failed'
   | 'network'
   | 'unknown';

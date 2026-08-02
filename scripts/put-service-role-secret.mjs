@@ -12,9 +12,12 @@ const listed = spawnSync(
 );
 
 if (listed.status !== 0) {
-  console.error('Supabase API-Keys konnten nicht gelesen werden. Bitte lokal ausführen:');
-  console.error('  npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(listed.status ?? 1);
+  console.error('Supabase API-Keys konnten nicht gelesen werden.');
+  const fix = spawnSync('node', ['scripts/fix-service-role-secret-name.mjs'], {
+    encoding: 'utf8',
+    stdio: 'inherit',
+  });
+  process.exit(fix.status === 0 ? 0 : (listed.status ?? 1));
 }
 
 let rows;

@@ -121,4 +121,55 @@ describe('Admin Benutzerverwaltung UI', () => {
     expect(screen.queryByRole('button', { name: 'Benutzer anlegen' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Benutzer einladen' })).toBeInTheDocument();
   });
+
+  it('zeigt Fehler im Einladungsformular und behält Eingaben', async () => {
+    vi.stubEnv('VITE_DATA_MODE', 'supabase');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://vohnqrftkuefkugabcob.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
+    const inviteUser = vi.fn().mockResolvedValue({
+      ok: false,
+      error: 'misconfigured',
+      message: 'Benutzerverwaltung ist noch nicht vollständig konfiguriert.',
+    });
+    const user = userEvent.setup();
+    renderUsersPage({ invite: inviteUser });
+
+    await user.click(screen.getByRole('button', { name: 'Benutzer einladen' }));
+    await user.type(screen.getByLabelText('Anzeigename'), 'Test Außendienst');
+    await user.type(screen.getByLabelText('E-Mail'), 'post@amrtech.de');
+    await user.click(screen.getByRole('button', { name: 'Einladung senden' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Benutzerverwaltung ist noch nicht vollständig konfiguriert.',
+    );
+    expect(screen.getByLabelText('Anzeigename')).toHaveValue('Test Außendienst');
+    expect(screen.getByLabelText('E-Mail')).toHaveValue('post@amrtech.de');
+  });
+
+  it('bestätigt erfolgreiche Einladung und lädt die Liste neu', async () => {
+    vi.stubEnv('VITE_DATA_MODE', 'supabase');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://vohnqrftkuefkugabcob.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
+    const inviteUser = vi.fn().mockResolvedValue({
+      ok: true,
+      user: {
+        ...adminUser,
+        id: 'new-1',
+        name: 'Test Außendienst',
+        email: 'post@amrtech.de',
+        role: 'field_service',
+        status: 'invited',
+      },
+    });
+    const user = userEvent.setup();
+    const { inviteUser: inviteMock } = renderUsersPage({ invite: inviteUser });
+
+    await user.click(screen.getByRole('button', { name: 'Benutzer einladen' }));
+    await user.type(screen.getByLabelText('Anzeigename'), 'Test Außendienst');
+    await user.type(screen.getByLabelText('E-Mail'), 'post@amrtech.de');
+    await user.click(screen.getByRole('button', { name: 'Einladung senden' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/eingeladen/i);
+    expect(inviteMock).toHaveBeenCalled();
+  });
 });

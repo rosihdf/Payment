@@ -218,6 +218,9 @@ export function AdminUsersPage() {
             <button type="submit" disabled={submitting}>
               {submitting ? 'Einladung wird gesendet…' : 'Einladung senden'}
             </button>
+            {error && showInvite ? (
+              <p role="alert">{error}</p>
+            ) : null}
           </div>
         </form>
       ) : null}
@@ -225,7 +228,7 @@ export function AdminUsersPage() {
       {message ? (
         <p role="status">{message}</p>
       ) : null}
-      {error ? (
+      {error && !showInvite ? (
         <p role="alert">{error}</p>
       ) : null}
 

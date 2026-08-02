@@ -47,6 +47,7 @@ function buildClient(options: {
   inviteUserId?: string;
   inviteError?: string | null;
   insertError?: string | null;
+  authUsers?: { id: string; email?: string }[];
   targetProfile?: ProfileRow | null;
   allProfiles?: ProfileRow[];
 }) {
@@ -56,6 +57,10 @@ function buildClient(options: {
     error: options.inviteError ? { message: options.inviteError } : null,
   });
   const updateUserById = vi.fn().mockResolvedValue({ error: null });
+  const listUsers = vi.fn().mockResolvedValue({
+    data: { users: options.authUsers ?? [] },
+    error: null,
+  });
 
   const client = {
     auth: {
@@ -65,7 +70,7 @@ function buildClient(options: {
         },
         error: options.authError || !options.caller ? { message: 'invalid' } : null,
       }),
-      admin: { inviteUserByEmail, deleteUser, updateUserById },
+      admin: { inviteUserByEmail, deleteUser, updateUserById, listUsers },
     },
     from: vi.fn(() => {
       const ctx = {
@@ -95,7 +100,7 @@ function buildClient(options: {
       builder.maybeSingle = vi.fn(async () => {
         if (ctx.filters.email) {
           return {
-            data: options.existingEmail ? { user_id: 'dup' } : null,
+            data: options.existingEmail ? { user_id: 'dup', status: 'active' } : null,
             error: null,
           };
         }
@@ -238,6 +243,39 @@ describe('admin users worker API', () => {
     expect(body.user.role).toBe('field_service');
     expect(body.auditAction).toBe('user_invited');
     expect(inviteUserByEmail).toHaveBeenCalled();
+    expect(createClientMock).toHaveBeenCalledWith(
+      'https://vohnqrftkuefkugabcob.supabase.co',
+      'service-test-key',
+      expect.objectContaining({
+        auth: { autoRefreshToken: false, persistSession: false },
+      }),
+    );
+  });
+
+  it('maps smtp failures to a safe mail error response', async () => {
+    const { client } = buildClient({
+      caller: adminProfile(),
+      inviteError: 'Error sending invite email: SMTP authentication failed',
+    });
+    createClientMock.mockReturnValue(client);
+
+    const response = await handleInviteUser(
+      new Request('https://example.com/api/admin/users/invite', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer admin-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'smtp@example.com',
+          displayName: 'SMTP Test',
+          role: 'field_service',
+        }),
+      }),
+      env(),
+    );
+
+    expect(response.status).toBe(502);
+    const body = (await response.json()) as { error: string; message: string };
+    expect(body.error).toBe('mail_failed');
+    expect(body.message).toContain('SMTP-Konfiguration');
   });
 
   it('blocks duplicate email', async () => {

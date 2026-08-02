@@ -187,11 +187,33 @@ async function getProfile(
 
 function mapAuthError(message: string): { error: string; message: string; status: number } {
   const lower = message.toLowerCase();
+  if (
+    lower.includes('smtp') ||
+    lower.includes('mail send') ||
+    lower.includes('email send') ||
+    lower.includes('mailer') ||
+    lower.includes('email provider')
+  ) {
+    return {
+      status: 502,
+      error: 'mail_failed',
+      message:
+        'Die Einladung konnte nicht versendet werden. Bitte prüfen Sie die SMTP-Konfiguration.',
+    };
+  }
+  if (lower.includes('redirect') && lower.includes('url')) {
+    return {
+      status: 502,
+      error: 'misconfigured',
+      message:
+        'Die Einladung konnte nicht versendet werden. Redirect-URL ist nicht freigegeben.',
+    };
+  }
   if (lower.includes('already') || lower.includes('registered') || lower.includes('exists')) {
     return {
       status: 409,
       error: 'duplicate',
-      message: 'Diese E-Mail-Adresse ist bereits registriert.',
+      message: 'Für diese E-Mail-Adresse existiert bereits ein Benutzer.',
     };
   }
   if (lower.includes('rate') || lower.includes('limit')) {
@@ -201,11 +223,11 @@ function mapAuthError(message: string): { error: string; message: string; status
       message: 'Zu viele Einladungen. Bitte später erneut versuchen.',
     };
   }
-  if (lower.includes('email')) {
+  if (lower.includes('invalid') && lower.includes('email')) {
     return {
       status: 400,
       error: 'validation',
-      message: 'Die E-Mail-Adresse ist ungültig oder kann nicht eingeladen werden.',
+      message: 'Die E-Mail-Adresse ist ungültig.',
     };
   }
   return {
@@ -213,6 +235,30 @@ function mapAuthError(message: string): { error: string; message: string; status
     error: 'invite_failed',
     message: 'Einladung fehlgeschlagen. Bitte Eingaben prüfen und erneut versuchen.',
   };
+}
+
+async function findAuthUserByEmail(
+  service: SupabaseClient,
+  email: string,
+): Promise<{ id: string; email?: string } | null> {
+  let page = 1;
+  while (page <= 20) {
+    const { data, error } = await service.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) {
+      console.error('auth listUsers failed', error.message);
+      return null;
+    }
+    const users = data?.users ?? [];
+    const found = users.find((user) => user.email?.trim().toLowerCase() === email);
+    if (found) {
+      return { id: found.id, email: found.email ?? undefined };
+    }
+    if (users.length < 200) {
+      break;
+    }
+    page += 1;
+  }
+  return null;
 }
 
 export async function handleInviteUser(request: Request, env: AdminEnv): Promise<Response> {
@@ -239,11 +285,72 @@ export async function handleInviteUser(request: Request, env: AdminEnv): Promise
 
   const { data: existingProfile } = await gate.service
     .from('profiles')
-    .select('user_id')
+    .select('user_id, status')
     .eq('email', email)
     .maybeSingle();
   if (existingProfile) {
-    return errorResponse(409, 'duplicate', 'Diese E-Mail-Adresse ist bereits registriert.');
+    if (existingProfile.status === 'invited') {
+      return errorResponse(
+        409,
+        'duplicate',
+        'Für diese E-Mail existiert bereits eine offene Einladung. Bitte „Einladung erneut senden“ verwenden.',
+      );
+    }
+    return errorResponse(
+      409,
+      'duplicate',
+      'Für diese E-Mail-Adresse existiert bereits ein Benutzer.',
+    );
+  }
+
+  const orphanAuth = await findAuthUserByEmail(gate.service, email);
+  if (orphanAuth) {
+    const userId = orphanAuth.id;
+    const now = new Date().toISOString();
+    const profile: ProfileRow = {
+      user_id: userId,
+      display_name: displayName,
+      email,
+      role,
+      status: 'invited',
+      sales_team_id: null,
+      schema_version: SCHEMA_VERSION,
+      deactivated_at: null,
+      last_access_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { data: inserted, error: insertError } = await gate.service
+      .from('profiles')
+      .insert(profile)
+      .select('*')
+      .single();
+
+    if (insertError || !inserted) {
+      console.error('orphan profile insert failed', insertError?.message ?? 'unknown');
+      return errorResponse(
+        409,
+        'duplicate',
+        'Für diese E-Mail-Adresse existiert bereits ein Benutzer.',
+      );
+    }
+
+    const { error: resendError } = await gate.service.auth.admin.inviteUserByEmail(email, {
+      data: { display_name: displayName, role },
+      redirectTo: INVITE_REDIRECT,
+    });
+    if (resendError) {
+      console.error('orphan invite resend failed', resendError.message);
+      const mapped = mapAuthError(resendError.message);
+      return errorResponse(mapped.status, mapped.error, mapped.message);
+    }
+
+    return jsonResponse({
+      ok: true,
+      user: inserted,
+      auditAction: 'user_invited',
+    });
   }
 
   const { data: invited, error: inviteError } = await gate.service.auth.admin.inviteUserByEmail(
@@ -255,6 +362,7 @@ export async function handleInviteUser(request: Request, env: AdminEnv): Promise
   );
 
   if (inviteError || !invited.user) {
+    console.error('inviteUserByEmail failed', inviteError?.message ?? 'unknown');
     const mapped = mapAuthError(inviteError?.message ?? 'invite failed');
     return errorResponse(mapped.status, mapped.error, mapped.message);
   }
@@ -282,6 +390,7 @@ export async function handleInviteUser(request: Request, env: AdminEnv): Promise
     .single();
 
   if (insertError || !inserted) {
+    console.error('profile insert failed', insertError?.message ?? 'unknown');
     await gate.service.auth.admin.deleteUser(userId);
     return errorResponse(
       500,
