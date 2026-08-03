@@ -5,6 +5,7 @@ import {
   DEFAULT_SALES_WIZARD_STATE,
 } from '../domain/bestPayComparison/bestPayComparisonSession';
 import { resolveBestPayComparisonTitle } from '../domain/bestPayComparison/bestPayComparisonSummary';
+import type { CostCaptureMode } from '../domain/bestPayComparison/costCaptureMode';
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 
 export const CURRENT_BESTPAY_COMPARISON_STORAGE_VERSION = 3;
@@ -24,6 +25,13 @@ function asStringOrNull(value: unknown): string | null {
 
 function asNumberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function asCostCaptureMode(value: unknown): CostCaptureMode | null {
+  if (value === 'manual' || value === 'billing_import' || value === 'no_current_costs') {
+    return value;
+  }
+  return null;
 }
 
 export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparisonSession | null {
@@ -80,6 +88,7 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
         typeof wizardRaw?.currentStep === 'string'
           ? (wizardRaw.currentStep as BestPayComparisonSession['wizard']['currentStep'])
           : DEFAULT_SALES_WIZARD_STATE.currentStep,
+      costCaptureMode: asCostCaptureMode(wizardRaw?.costCaptureMode),
       prospectDraft: {
         companyName: typeof prospectRaw?.companyName === 'string' ? prospectRaw.companyName : '',
         contactFirstName:

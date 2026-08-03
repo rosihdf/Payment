@@ -10,6 +10,13 @@ import {
   APPROVAL_WAITING_STATUS_LABEL,
 } from '../../domain/sales/salesGuide';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
+import {
+  COST_CAPTURE_MODE_LABELS,
+  formatCurrentCostsLabel,
+  formatVariantComparisonLabel,
+  resolveCostCaptureMode,
+  type CostCaptureMode,
+} from '../../domain/bestPayComparison/costCaptureMode';
 import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import {
   getNextSalesWizardStep,
@@ -35,6 +42,16 @@ const OfferBillingImportSection = lazy(async () => {
 
 type ProspectMode = 'existing' | 'new' | 'anonymous';
 
+function parseOptionalEuroField(
+  value: string,
+  fallback: number | null,
+): number | null {
+  if (value.trim() !== '') {
+    return parseEuroToCents(value);
+  }
+  return fallback;
+}
+
 function formatEuro(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) {
     return '—';
@@ -56,6 +73,14 @@ function centsToInput(cents: number | null): string {
     return '';
   }
   return String(cents / 100).replace('.', ',');
+}
+
+function parseOptionalIntField(value: string, fallback: number | null): number | null {
+  if (value.trim() !== '') {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
 }
 
 function formatLeadResultLines(lead: Lead): {
@@ -307,6 +332,7 @@ export function SalesWizardPage() {
 
   const step = session.wizard.currentStep;
   const stepIndex = getVisibleWizardStepIndex(step);
+  const costCaptureMode = resolveCostCaptureMode(session);
   const selectedScenario =
     session.wizard.scenarios.find((entry) => entry.id === session.wizard.selectedScenarioId) ??
     null;
@@ -343,11 +369,18 @@ export function SalesWizardPage() {
 
   const persistNeed = async (): Promise<BestPayComparisonSession | null> => {
     const patch = {
-      monthlyCardVolumeCents: parseEuroToCents(monthlyVolume),
-      monthlyTransactions: monthlyTransactions
-        ? Number.parseInt(monthlyTransactions, 10)
-        : null,
-      monthlyTotalCostsCents: parseEuroToCents(monthlyTotal),
+      monthlyCardVolumeCents: parseOptionalEuroField(
+        monthlyVolume,
+        session.manualInput.monthlyCardVolumeCents,
+      ),
+      monthlyTransactions: parseOptionalIntField(
+        monthlyTransactions,
+        session.manualInput.monthlyTransactions,
+      ),
+      monthlyTotalCostsCents: parseOptionalEuroField(
+        monthlyTotal,
+        session.manualInput.monthlyTotalCostsCents,
+      ),
       terminalCount: Math.max(1, Number.parseInt(terminalCount, 10) || 1),
       girocardPercent: Number.parseInt(girocardPercent, 10) || null,
       debitPercent: Number.parseInt(debitPercent, 10) || null,
@@ -357,8 +390,19 @@ export function SalesWizardPage() {
       industry,
       paymentUsage: { ...session.manualInput.paymentUsage },
     };
+    const inferredMode =
+      session.wizard.costCaptureMode ??
+      (patch.monthlyTotalCostsCents === 0
+        ? 'no_current_costs'
+        : patch.monthlyTotalCostsCents !== null
+          ? 'manual'
+          : null);
     const next: BestPayComparisonSession = {
       ...session,
+      wizard: {
+        ...session.wizard,
+        costCaptureMode: inferredMode,
+      },
       manualInput: {
         ...session.manualInput,
         ...patch,
@@ -557,14 +601,57 @@ export function SalesWizardPage() {
 
   const handleStartBilling = async () => {
     setBusy(true);
-    const current = await ensurePersisted(session);
-    const result = await salesWizardService.startBillingImport(current.id, userContext);
-    setBusy(false);
-    if (!result.ok) {
-      showToast('Abrechnungsimport konnte nicht gestartet werden', 'error');
+    try {
+      const current = await ensurePersisted(session);
+      const result = await salesWizardService.startBillingImport(current.id, userContext);
+      if (!result.ok) {
+        showToast('Abrechnungsimport konnte nicht gestartet werden', 'error');
+        return;
+      }
+      setSession(result.session);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyCostCaptureMode = async (mode: CostCaptureMode): Promise<void> => {
+    if (mode === 'billing_import') {
+      await handleStartBilling();
       return;
     }
-    setSession(result.session);
+
+    const manualPatch =
+      mode === 'no_current_costs'
+        ? { monthlyTotalCostsCents: 0 as number | null }
+        : {};
+    const next: BestPayComparisonSession = {
+      ...session,
+      wizard: { ...session.wizard, costCaptureMode: mode },
+      manualInput: { ...session.manualInput, ...manualPatch },
+      source: mode === 'no_current_costs' ? 'manual' : session.source,
+    };
+
+    if (!sessionPersisted) {
+      if (isEmptyAdviceSession(next)) {
+        setSession(next);
+        syncNeedFields(next);
+        return;
+      }
+      const saved = await ensurePersisted(next);
+      setSession(saved);
+      syncNeedFields(saved);
+      return;
+    }
+
+    const updated = await salesWizardService.updateCostCaptureMode(session.id, mode, userContext);
+    if (updated) {
+      setSession(updated);
+      syncNeedFields(updated);
+    }
+  };
+
+  const handleSelectCostMode = (mode: CostCaptureMode) => {
+    void applyCostCaptureMode(mode);
   };
 
   const handleAddScenario = () => {
@@ -816,81 +903,87 @@ export function SalesWizardPage() {
             <div className={styles.stack}>
               <article className={styles.heroCard}>
                 <h2>Ausgangslage</h2>
-                <div className={styles.actions}>
-                  {!session.billingImportSessionId ? (
+                <p className={styles.hint}>Wie möchten Sie die aktuelle Situation erfassen?</p>
+                <div className={styles.choiceRow}>
+                  {(
+                    [
+                      ['manual', COST_CAPTURE_MODE_LABELS.manual],
+                      ['billing_import', COST_CAPTURE_MODE_LABELS.billing_import],
+                      ['no_current_costs', COST_CAPTURE_MODE_LABELS.no_current_costs],
+                    ] as const
+                  ).map(([mode, label]) => (
                     <button
+                      key={mode}
                       type="button"
-                      className={styles.primaryAction}
+                      className={
+                        costCaptureMode === mode ? styles.choiceButtonActive : styles.choiceButton
+                      }
                       disabled={busy}
-                      onClick={() => void handleStartBilling()}
+                      onClick={() => handleSelectCostMode(mode)}
                     >
-                      Abrechnung einlesen
+                      {label}
                     </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className={styles.secondaryAction}
-                    onClick={() => {
-                      void (async () => {
-                        const patch = {
-                          monthlyTotalCostsCents:
-                            session.manualInput.monthlyTotalCostsCents ?? 250_00,
-                          monthlyCardVolumeCents:
-                            session.manualInput.monthlyCardVolumeCents ?? 50_000_00,
-                        };
-                        const next: BestPayComparisonSession = {
-                          ...session,
-                          manualInput: { ...session.manualInput, ...patch },
-                        };
-                        if (!sessionPersisted) {
-                          const saved = await ensurePersisted(next);
-                          setSession(saved);
-                          syncNeedFields(saved);
-                          showToast('Manuelle Ist-Kosten vorbereitet', 'success');
-                          return;
-                        }
-                        const updated = await salesWizardService.updateNeed(session.id, patch, userContext);
-                        if (updated) {
-                          setSession(updated);
-                          syncNeedFields(updated);
-                          showToast('Manuelle Ist-Kosten vorbereitet', 'success');
-                        }
-                      })();
-                    }}
-                  >
-                    Manuelle Ist-Kosten
-                  </button>
+                  ))}
                 </div>
               </article>
 
-              {session.billingImportSessionId ? (
-                <Suspense fallback={<p className={styles.hint}>Abrechnungsimport wird vorbereitet…</p>}>
-                  <OfferBillingImportSection
-                    sessionId={session.billingImportSessionId}
-                    userContext={userContext}
-                    billingImportService={billingImportService}
-                    showToast={showToast}
-                    title="Abrechnung prüfen und bestätigen"
-                    onBaselineConfirmed={() => {
-                      void bestPayComparisonService
-                        .syncBaselineFromBilling(session.id, userContext)
-                        .then((updated) => {
-                          if (updated) {
-                            setSession(updated);
-                            syncNeedFields(updated);
-                          }
-                        });
-                    }}
-                  />
-                </Suspense>
-              ) : (
+              {costCaptureMode === 'manual' ? (
                 <article className={styles.card}>
                   <div className={styles.formGrid}>
-                    <FormControl type="text" id="manualTotalCosts" label="Monatliche Ist-Gesamtkosten (EUR)" inputMode="decimal" value={monthlyTotal} onChange={(event) => setMonthlyTotal(event.target.value)} />
-                    <FormControl type="text" id="manualVolumeCosts" label="Monatlicher Kartenumsatz (EUR)" inputMode="decimal" value={monthlyVolume} onChange={(event) => setMonthlyVolume(event.target.value)} />
+                    <FormControl
+                      type="text"
+                      id="manualTotalCosts"
+                      label="Monatliche Ist-Gesamtkosten (EUR)"
+                      inputMode="decimal"
+                      value={monthlyTotal}
+                      onChange={(event) => setMonthlyTotal(event.target.value)}
+                    />
+                    <FormControl
+                      type="text"
+                      id="manualVolumeCosts"
+                      label="Monatlicher Kartenumsatz (EUR, optional)"
+                      inputMode="decimal"
+                      value={monthlyVolume}
+                      onChange={(event) => setMonthlyVolume(event.target.value)}
+                    />
                   </div>
                 </article>
-              )}
+              ) : null}
+
+              {costCaptureMode === 'billing_import' ? (
+                session.billingImportSessionId ? (
+                  <Suspense fallback={<p className={styles.hint}>Abrechnungsimport wird vorbereitet…</p>}>
+                    <OfferBillingImportSection
+                      sessionId={session.billingImportSessionId}
+                      userContext={userContext}
+                      billingImportService={billingImportService}
+                      showToast={showToast}
+                      title="Abrechnung prüfen und bestätigen"
+                      onBaselineConfirmed={() => {
+                        void bestPayComparisonService
+                          .syncBaselineFromBilling(session.id, userContext)
+                          .then((updated) => {
+                            if (updated) {
+                              setSession(updated);
+                              syncNeedFields(updated);
+                            }
+                          });
+                      }}
+                    />
+                  </Suspense>
+                ) : (
+                  <p className={styles.hint}>Abrechnungsimport wird vorbereitet…</p>
+                )
+              ) : null}
+
+              {costCaptureMode === 'no_current_costs' ? (
+                <article className={styles.card}>
+                  <p className={styles.hint}>
+                    Es liegen keine bisherigen Payment-Kosten vor. Der Vergleich zeigt nur die neuen
+                    monatlichen Kosten – ohne Ersparnisberechnung.
+                  </p>
+                </article>
+              ) : null}
             </div>
           ) : null}
 
@@ -1108,7 +1201,9 @@ export function SalesWizardPage() {
                             <dl className={styles.metrics}>
                               <div>
                                 <dt>Ist monatlich</dt>
-                                <dd>{formatEuro(scenario.result.currentMonthlyCostsCents)}</dd>
+                                <dd>
+                                  {formatCurrentCostsLabel(scenario.result.currentMonthlyCostsCents)}
+                                </dd>
                               </div>
                               <div>
                                 <dt>Varianten</dt>
@@ -1140,8 +1235,10 @@ export function SalesWizardPage() {
                                   >
                                     <strong>{variant.tariffName}</strong>
                                     <span>
-                                      BestPay {formatEuro(variant.monthlyTotalCostsCents)} / Monat ·
-                                      Ersparnis {formatEuro(variant.savingsMonthlyCents)}
+                                      {formatVariantComparisonLabel(
+                                        variant,
+                                        scenario.result?.currentMonthlyCostsCents ?? null,
+                                      )}
                                     </span>
                                     <span>
                                       Laufzeit {variant.termMonths ?? '—'} Monate · Hardware{' '}

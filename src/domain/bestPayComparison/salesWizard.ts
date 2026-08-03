@@ -3,6 +3,7 @@ import type {
   BestPayComparisonVariantSummary,
   BestPayManualInput,
 } from './bestPayComparisonSession';
+import type { CostCaptureMode } from './costCaptureMode';
 
 export type SalesWizardStepId =
   | 'prospect'
@@ -97,6 +98,7 @@ export interface SalesWizardScenario {
 export interface SalesWizardState {
   enabled: boolean;
   currentStep: SalesWizardStepId;
+  costCaptureMode: CostCaptureMode | null;
   prospectDraft: SalesWizardProspectDraft;
   scenarios: SalesWizardScenario[];
   selectedScenarioId: string | null;
@@ -118,6 +120,7 @@ export const DEFAULT_SALES_WIZARD_PROSPECT: SalesWizardProspectDraft = {
 export const DEFAULT_SALES_WIZARD_STATE: SalesWizardState = {
   enabled: false,
   currentStep: 'prospect',
+  costCaptureMode: null,
   prospectDraft: { ...DEFAULT_SALES_WIZARD_PROSPECT },
   scenarios: [],
   selectedScenarioId: null,

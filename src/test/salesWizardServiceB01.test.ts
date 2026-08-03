@@ -59,6 +59,26 @@ describe('B01 Sales Wizard Service', () => {
     expect(moved?.wizard.currentStep).toBe('costs');
   });
 
+  it('blockiert Weiter ohne Kostenmodus und erlaubt 0 € ohne bisherige Kosten', async () => {
+    const { wizard } = createWizardService();
+    const session = await wizard.startWizard(context);
+    await wizard.setStep(session.id, 'costs', context);
+
+    const blocked = await wizard.goNext(session.id, context);
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) {
+      expect(blocked.message).toContain('Bitte wählen Sie');
+    }
+
+    await wizard.updateCostCaptureMode(session.id, 'no_current_costs', context);
+    const allowed = await wizard.goNext(session.id, context);
+    expect(allowed.ok).toBe(true);
+    if (allowed.ok) {
+      expect(allowed.session.wizard.currentStep).toBe('need');
+      expect(allowed.session.manualInput.monthlyTotalCostsCents).toBe(0);
+    }
+  });
+
   it('legt Lead aus minimalem Prospect mit nur Firma an', async () => {
     const { wizard } = createWizardService();
     const session = await wizard.startWizard(context);

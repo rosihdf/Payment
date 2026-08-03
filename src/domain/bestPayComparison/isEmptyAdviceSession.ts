@@ -1,6 +1,7 @@
 import type { BestPayComparisonSession } from './bestPayComparisonSession';
 import { DEFAULT_BESTPAY_MANUAL_INPUT } from './bestPayComparisonSession';
 import { formatBestPayComparisonFallbackTitle } from './bestPayComparisonSummary';
+import { hasMeaningfulCostCapture, resolveCostCaptureMode } from './costCaptureMode';
 import { DEFAULT_SALES_WIZARD_PROSPECT } from './salesWizard';
 
 function hasText(value: string | null | undefined): boolean {
@@ -68,6 +69,15 @@ export function isEmptyAdviceSession(session: BestPayComparisonSession): boolean
     return false;
   }
   if (session.wizard.wizardCompletedAt) {
+    return false;
+  }
+
+  if (hasMeaningfulCostCapture(session)) {
+    return false;
+  }
+
+  const inferredMode = resolveCostCaptureMode(session);
+  if (inferredMode === 'billing_import') {
     return false;
   }
 

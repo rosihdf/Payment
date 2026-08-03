@@ -5,6 +5,8 @@ import {
   summarizeComparisonVariant,
   summarizePrimaryCandidate,
 } from '../domain/bestPayComparison/comparisonSummary';
+import { validateCostCaptureStep, type CostCaptureMode } from '../domain/bestPayComparison/costCaptureMode';
+import { mergeManualInput } from '../domain/bestPayComparison/createBestPayComparisonSession';
 import {
   DEFAULT_SALES_WIZARD_PROSPECT,
   getNextSalesWizardStep,
@@ -120,6 +122,7 @@ export class SalesWizardService {
     session.wizard = {
       enabled: true,
       currentStep: 'prospect',
+      costCaptureMode: null,
       prospectDraft: { ...DEFAULT_SALES_WIZARD_PROSPECT },
       scenarios: [],
       selectedScenarioId: null,
@@ -308,15 +311,17 @@ export class SalesWizardService {
     switch (step) {
       case 'prospect':
         return { ok: true };
-      case 'costs':
-        if (!session.costBaselineId && session.manualInput.monthlyTotalCostsCents === null) {
+      case 'costs': {
+        const validation = validateCostCaptureStep(session);
+        if (!validation.ok) {
           return {
             ok: false,
             error: 'incomplete_input',
-            message: 'Bitte Abrechnung bestätigen oder Ist-Kosten manuell erfassen.',
+            message: validation.message,
           };
         }
         return { ok: true };
+      }
       case 'need':
         if (
           session.manualInput.monthlyCardVolumeCents === null &&
@@ -494,7 +499,44 @@ export class SalesWizardService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession; billingSessionId: string } | { ok: false; error: SalesWizardError }> {
-    return this.bestPayComparisonService.startBillingImport(sessionId, context);
+    const result = await this.bestPayComparisonService.startBillingImport(sessionId, context);
+    if (!result.ok) {
+      return result;
+    }
+    result.session.wizard.costCaptureMode = 'billing_import';
+    result.session.wizard.enabled = true;
+    result.session.entryMode = 'wizard';
+    return {
+      ok: true,
+      session: await this.persist(result.session),
+      billingSessionId: result.billingSessionId,
+    };
+  }
+
+  async updateCostCaptureMode(
+    sessionId: string,
+    mode: CostCaptureMode,
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession | null> {
+    const session = await this.getSession(sessionId, context);
+    if (!session) {
+      return null;
+    }
+
+    session.wizard.costCaptureMode = mode;
+    if (mode === 'no_current_costs') {
+      session.manualInput = mergeManualInput(session.manualInput, {
+        monthlyTotalCostsCents: 0,
+      });
+      session.source = 'manual';
+    } else if (mode === 'manual') {
+      session.source =
+        session.billingImportSessionId || session.costBaselineId ? 'mixed' : 'manual';
+    }
+
+    session.wizard.enabled = true;
+    session.entryMode = 'wizard';
+    return this.persist(session);
   }
 
   async updateNeed(

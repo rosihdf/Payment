@@ -89,13 +89,17 @@ describe('Beratungsentwurf Persistenz', () => {
     expect(wizardSessionCount()).toBe(before + 1);
   });
 
-  it('erzeugt bei erster manueller Kosteneingabe genau eine Session', async () => {
+  it('erzeugt bei erster fachlicher Kostenauswahl genau eine Session', async () => {
     const user = userEvent.setup();
     const before = wizardSessionCount();
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
-    await user.click(screen.getByRole('button', { name: 'Manuelle Ist-Kosten' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Noch keine Payment-Lösung / aktuelle Kosten 0 €',
+      }),
+    );
     await waitFor(() => {
       expect(wizardSessionCount()).toBe(before + 1);
     });
