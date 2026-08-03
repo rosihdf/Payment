@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -7,29 +6,7 @@ import { loadAppRuntimeConfig } from '../../config/appRuntimeConfig';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { createUserContext } from '../../services/auditService';
-import styles from './AdminLayout.module.css';
-
-const ADMIN_NAV = [
-  { to: '/admin', label: 'Übersicht', end: true },
-  { to: '/admin/users', label: 'Benutzer' },
-  { to: '/admin/roles', label: 'Rollen' },
-  { to: '/admin/catalog', label: 'Produkte & Konditionen' },
-  { to: '/admin/commission', label: 'Provision' },
-  { to: '/admin/approvals', label: 'Freigaberegeln' },
-  { to: '/admin/templates', label: 'Vorlagen' },
-  { to: '/admin/data', label: 'Daten & Sicherung' },
-  { to: '/admin/audit', label: 'Audit' },
-  { to: '/admin/system', label: 'Systemstatus' },
-] as const;
-
-function isCatalogRelatedPath(pathname: string): boolean {
-  return (
-    pathname.startsWith('/admin/catalog') ||
-    pathname.startsWith('/admin/pricing') ||
-    pathname.startsWith('/admin/tariffs') ||
-    pathname.startsWith('/admin/products')
-  );
-}
+import { AdminShell, ADMIN_SHELL_NAV } from '../../v2/layout/AdminShell';
 
 interface AdminLayoutProps {
   title: string;
@@ -38,11 +15,23 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
+function buildModeBanner(): string {
+  const config = loadAppRuntimeConfig();
+  const parts = [
+    config.persistenceMode === 'supabase'
+      ? 'Supabase-Kernbereiche · übrige Domains lokal · '
+      : 'Lokaler Datenmodus · ',
+    config.demoMode ? 'Demo-Modus aktiv' : 'Produktionskonfiguration',
+  ];
+  if (config.persistenceMode === 'local') {
+    parts.push(' · nicht cloud-synchronisiert');
+  }
+  return parts.join('');
+}
+
 export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutProps) {
   const { currentUser, isLoading } = useCurrentUser();
   const { adminOverviewService } = useServices();
-  const location = useLocation();
-  const config = loadAppRuntimeConfig();
 
   const context =
     currentUser &&
@@ -74,41 +63,15 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
   }
 
   return (
-    <section className={styles.section}>
-      <PageHeader
-        title={title}
-        subtitle={subtitle ?? 'Zentrale Stammdaten, Betrieb und Datenschutz'}
-        actions={actions}
-      />
-      <p className={styles.modeBanner}>
-        {config.persistenceMode === 'supabase'
-          ? 'Supabase-Kernbereiche · übrige Domains lokal · '
-          : 'Lokaler Datenmodus · '}
-        {config.demoMode ? 'Demo-Modus aktiv' : 'Produktionskonfiguration'}
-        {config.persistenceMode === 'local' ? ' · nicht cloud-synchronisiert' : ''}
-      </p>
-      <nav className={styles.subnav} aria-label="Administration">
-        {ADMIN_NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={'end' in item ? item.end : false}
-            className={({ isActive }) => {
-              const active =
-                item.to === '/admin/catalog'
-                  ? isCatalogRelatedPath(location.pathname)
-                  : isActive || (item.to !== '/admin' && location.pathname.startsWith(item.to));
-              return active
-                ? `${styles.subnavLink} ${styles.subnavLinkActive}`
-                : styles.subnavLink;
-            }}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className={styles.content}>{children}</div>
-    </section>
+    <AdminShell
+      title={title}
+      description={subtitle ?? 'Zentrale Stammdaten, Betrieb und Datenschutz'}
+      actions={actions}
+      banner={buildModeBanner()}
+      navItems={ADMIN_SHELL_NAV}
+    >
+      {children}
+    </AdminShell>
   );
 }
 

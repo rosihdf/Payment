@@ -12,7 +12,7 @@ import { useAdminContext } from '../AdminLayout';
 import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout, formatEuro } from './AdminCommissionLayout';
 
-export function AdminCommissionBonusPage() {
+export function CommissionBonusPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [bonuses, setBonuses] = useState<CommissionBonusPayment[]>([]);
@@ -61,7 +61,7 @@ export function AdminCommissionBonusPage() {
   };
 
   return (
-    <AdminCommissionLayout title="Provision – Sonderzahlungen">
+    <>
       <section className={styles.panel}>
         <h2>Neue Sonderzahlung</h2>
         <div className={styles.formGrid}>
@@ -142,6 +142,14 @@ export function AdminCommissionBonusPage() {
           </div>
         )}
       </section>
+    </>
+  );
+}
+
+export function AdminCommissionBonusPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Sonderzahlungen">
+      <CommissionBonusPanel />
     </AdminCommissionLayout>
   );
 }

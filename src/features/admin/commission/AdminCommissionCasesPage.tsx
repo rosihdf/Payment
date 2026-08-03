@@ -10,7 +10,7 @@ import { AdminCommissionLayout, formatEuro } from './AdminCommissionLayout';
 import type { CommissionCaseStatus } from '../../../domain/commission/commissionCase';
 import type { CommissionOverviewRow } from '../../../services/commissionAdminService';
 
-export function AdminCommissionCasesPage() {
+export function CommissionCasesPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [rows, setRows] = useState<CommissionOverviewRow[]>([]);
@@ -88,7 +88,7 @@ export function AdminCommissionCasesPage() {
   };
 
   return (
-    <AdminCommissionLayout title="Provision – Provisionsfälle">
+    <>
       <section className={styles.panel}>
         <ResponsiveTable
           columns={caseColumns}
@@ -194,6 +194,14 @@ export function AdminCommissionCasesPage() {
           {message ? <p role="status">{message}</p> : null}
         </section>
       ) : null}
+    </>
+  );
+}
+
+export function AdminCommissionCasesPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Provisionsfälle">
+      <CommissionCasesPanel />
     </AdminCommissionLayout>
   );
 }

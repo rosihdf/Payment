@@ -3,6 +3,17 @@ import { FormField } from '../../ui/FormField';
 import { centsToInput, parseEuroToCents, parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
+const INDUSTRY_OPTIONS = [
+  'Gastronomie',
+  'Einzelhandel',
+  'Handwerk',
+  'Hotel',
+  'Apotheke',
+  'Tankstelle',
+  'Dienstleistung',
+  'Sonstige',
+] as const;
+
 interface NeedStepProps {
   session: BestPayComparisonSession;
   busy: boolean;
@@ -18,13 +29,20 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
       <p className={styles.hint}>Einmalig erfassen – keine Doppelabfragen in späteren Schritten.</p>
       <div className={styles.formGrid}>
         <FormField
-          type="text"
+          type="select"
           id="needIndustry"
           label="Branche"
-          value={input.industry}
+          value={input.industry || ''}
           disabled={busy}
           onChange={(event) => onPatch({ industry: event.target.value })}
-        />
+        >
+          <option value="">Bitte wählen…</option>
+          {INDUSTRY_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </FormField>
         <FormField
           type="text"
           id="needVolume"

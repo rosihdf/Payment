@@ -15,7 +15,7 @@ import { OffersPage } from '../features/offer/OffersPage';
 import { ContractDetailPage } from '../features/contract/ContractDetailPage';
 import { ContractsPage } from '../features/contract/ContractsPage';
 import { ActivationDetailPage } from '../features/activation/ActivationDetailPage';
-import { ActivationsPage } from '../features/activation/ActivationsPage';
+import { ActivationsPage } from '../v2/activation/ActivationsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
@@ -31,17 +31,15 @@ import {
   AdminProductsManageRedirect,
   AdminTariffsListRedirect,
 } from '../features/admin/AdminCatalogPages';
-import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
 import {
-  AdminCommissionOverviewPage,
-} from '../features/admin/commission/AdminCommissionOverviewPage';
-import { AdminCommissionAssignmentsPage } from '../features/admin/commission/AdminCommissionAssignmentsPage';
-import { AdminCommissionCasesPage } from '../features/admin/commission/AdminCommissionCasesPage';
-import { AdminCommissionBonusPage } from '../features/admin/commission/AdminCommissionBonusPage';
-import { AdminCommissionPaymentsPage } from '../features/admin/commission/AdminCommissionPaymentsPage';
-import { AdminCommissionModelsPage } from '../features/admin/commission/AdminCommissionModelsPage';
-import { AdminCommissionHistoryPage } from '../features/admin/commission/AdminCommissionHistoryPage';
-import { SalesCommissionPage } from '../features/sales/SalesCommissionPage';
+  CommissionOverviewPage,
+  CommissionStandardsPage,
+  CommissionCasesPage,
+  CommissionBonusPage,
+  CommissionSettlementPage,
+  SalesCommissionPage,
+} from '../v2/commission';
+import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
 import { AdminApprovalsPage } from '../features/admin/AdminApprovalsPage';
 import { AdminTemplatesPage } from '../features/admin/AdminTemplatesPage';
 import { AdminDataPage } from '../features/admin/AdminDataPage';
@@ -111,14 +109,15 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/products/manage/new', element: <NewProductPage /> },
       { path: 'admin/products/manage/:id/edit', element: <EditProductPage /> },
       { path: 'admin/commission', element: <AdminCommissionPage /> },
-      { path: 'admin/commission/overview', element: <AdminCommissionOverviewPage /> },
-      { path: 'admin/commission/assignments', element: <AdminCommissionAssignmentsPage /> },
-      { path: 'admin/commission/cases', element: <AdminCommissionCasesPage /> },
-      { path: 'admin/commission/bonus', element: <AdminCommissionBonusPage /> },
-      { path: 'admin/commission/payments', element: <AdminCommissionPaymentsPage /> },
-      { path: 'admin/commission/models', element: <AdminCommissionModelsPage /> },
-      { path: 'admin/commission/standards', element: <AdminCommissionModelsPage /> },
-      { path: 'admin/commission/history', element: <AdminCommissionHistoryPage /> },
+      { path: 'admin/commission/overview', element: <CommissionOverviewPage /> },
+      { path: 'admin/commission/standards', element: <CommissionStandardsPage /> },
+      { path: 'admin/commission/cases', element: <CommissionCasesPage /> },
+      { path: 'admin/commission/bonus', element: <CommissionBonusPage /> },
+      { path: 'admin/commission/settlement', element: <CommissionSettlementPage /> },
+      { path: 'admin/commission/models', element: <Navigate to="/admin/commission/standards" replace /> },
+      { path: 'admin/commission/assignments', element: <Navigate to="/admin/commission/standards" replace /> },
+      { path: 'admin/commission/payments', element: <Navigate to="/admin/commission/settlement" replace /> },
+      { path: 'admin/commission/history', element: <Navigate to="/admin/commission/settlement" replace /> },
       { path: 'admin/approvals', element: <AdminApprovalsPage /> },
       { path: 'admin/templates', element: <AdminTemplatesPage /> },
       { path: 'admin/data', element: <AdminDataPage /> },

@@ -5,12 +5,10 @@ import styles from '../AdminLayout.module.css';
 
 export const COMMISSION_NAV = [
   { to: '/admin/commission/overview', label: 'Übersicht' },
-  { to: '/admin/commission/models', label: 'Standardprovisionen' },
-  { to: '/admin/commission/assignments', label: 'Mitarbeiter & Vereinbarungen' },
+  { to: '/admin/commission/standards', label: 'Standard & Vereinbarungen' },
   { to: '/admin/commission/cases', label: 'Provisionsfälle' },
   { to: '/admin/commission/bonus', label: 'Sonderzahlungen' },
-  { to: '/admin/commission/payments', label: 'Abrechnung & Zahlungen' },
-  { to: '/admin/commission/history', label: 'Historie & Audit' },
+  { to: '/admin/commission/settlement', label: 'Abrechnung & Historie' },
 ] as const;
 
 interface AdminCommissionLayoutProps {

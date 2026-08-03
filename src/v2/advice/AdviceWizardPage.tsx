@@ -305,6 +305,7 @@ function AdviceWizardInner({
               billingImportService={services.billingImportService}
               onSelectMode={(mode) => void advice.setCostCaptureMode(mode)}
               onPatchCosts={(cents) => void advice.patchManualInput({ monthlyTotalCostsCents: cents })}
+              onPatchCurrentProvider={(provider) => void advice.patchProspect({ notes: provider })}
               onBaselineConfirmed={() => void advice.syncBillingBaseline()}
               showToast={showToast}
             />
@@ -371,6 +372,11 @@ function AdviceWizardInner({
               busy={advice.busy}
               canSeeCommission={canSeeCommission}
               workflowView={workflowView}
+              userContext={userContext}
+              offerShareService={services.offerShareService}
+              offerWorkflowService={services.offerWorkflowService}
+              followUpNote={advice.session.wizard.approvalNotes}
+              onFollowUpNoteChange={(value) => advice.patchApprovalNotes(value)}
               onComplete={() =>
                 void advice.completeWizard().then((updated) => {
                   if (updated) {
@@ -378,6 +384,15 @@ function AdviceWizardInner({
                   }
                 })
               }
+              onWorkflowUpdated={() => {
+                const offerId = advice.session?.offerId;
+                if (offerId) {
+                  void services.offerWorkflowService
+                    .getWizardWorkflowView(offerId)
+                    .then(setWorkflowView);
+                }
+              }}
+              showToast={showToast}
             />
           ) : null}
 

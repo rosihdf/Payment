@@ -143,12 +143,12 @@ export function useAdviceSession({
       if (!session) {
         return;
       }
-      setSessionState({
+      setSession({
         ...session,
         wizard: { ...session.wizard, approvalNotes: notes },
       });
     },
-    [session],
+    [session, setSession],
   );
 
   const setCostCaptureMode = useCallback(
@@ -275,14 +275,25 @@ export function useAdviceSession({
   const completeWizard = useCallback(
     () =>
       withPersist(async (current) => {
-        const result = await salesWizardService.completeWizard(current.id, userContext);
+        const merged = {
+          ...current,
+          wizard: {
+            ...current.wizard,
+            approvalNotes: session?.wizard.approvalNotes ?? current.wizard.approvalNotes,
+          },
+        };
+        const saved =
+          merged.wizard.approvalNotes !== current.wizard.approvalNotes
+            ? await salesWizardService.persistWizardSession(merged, userContext)
+            : current;
+        const result = await salesWizardService.completeWizard(saved.id, userContext);
         if (!result.ok) {
           setError(result.message ?? 'Abschluss nicht möglich.');
           return null;
         }
         return result.session;
       }),
-    [salesWizardService, userContext, withPersist],
+    [salesWizardService, session?.wizard.approvalNotes, userContext, withPersist],
   );
 
   const syncBillingBaseline = useCallback(async () => {

@@ -55,11 +55,24 @@ export function AdminShell({
   );
 }
 
+function isCatalogRelatedPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/admin/catalog') ||
+    pathname.startsWith('/admin/pricing') ||
+    pathname.startsWith('/admin/tariffs') ||
+    pathname.startsWith('/admin/products')
+  );
+}
+
 export const ADMIN_SHELL_NAV: AdminShellNavItem[] = [
   { to: '/admin', label: 'Übersicht', end: true },
   { to: '/admin/users', label: 'Benutzer' },
   { to: '/admin/roles', label: 'Rollen' },
-  { to: '/admin/catalog', label: 'Produkte & Konditionen' },
+  {
+    to: '/admin/catalog',
+    label: 'Produkte & Konditionen',
+    isActive: (pathname) => isCatalogRelatedPath(pathname),
+  },
   { to: '/admin/commission', label: 'Provision' },
   { to: '/admin/approvals', label: 'Freigaberegeln' },
   { to: '/admin/templates', label: 'Vorlagen' },

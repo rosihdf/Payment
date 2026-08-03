@@ -1,4 +1,3 @@
-import type { ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
 import { resolveSelectedScenarioVariant } from '../../../domain/bestPayComparison/salesWizard';
@@ -9,7 +8,8 @@ import {
 import type { Offer } from '../../../domain/offer/offer';
 import type { OfferVersion } from '../../../domain/offer/offerVersion';
 import { Button } from '../../ui/Button';
-import { FormField as LegacyFormField, textareaClassName } from '../../../components/common/FormField';
+import { textareaClassName } from '../../ui/FormField';
+import formFieldStyles from '../../ui/FormField.module.css';
 import { formatEuro } from '../formatters';
 import { StatusBadge } from '../../ui/StatusBadge';
 import styles from '../AdviceWizard.module.css';
@@ -31,6 +31,10 @@ interface OfferStepProps {
   onCreateOffer: () => void;
   onSubmitApproval: () => void;
   onBackToRecommendation: () => void;
+}
+
+function offerWorkflowTabPath(offerId: string): string {
+  return `/offers/${offerId}?tab=workflow`;
 }
 
 export function OfferStep({
@@ -72,23 +76,23 @@ export function OfferStep({
             </div>
           </dl>
         ) : null}
-        <LegacyFormField label="Hinweise zur Freigabe (optional)" id="approvalNotes">
+        <div className={formFieldStyles.field}>
+          <label htmlFor="approvalNotes">Hinweise zur Freigabe (optional)</label>
           <textarea
             id="approvalNotes"
             className={textareaClassName()}
             value={approvalNotes}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-              onApprovalNotesChange(event.target.value)
-            }
+            disabled={busy}
+            onChange={(event) => onApprovalNotesChange(event.target.value)}
           />
-        </LegacyFormField>
+        </div>
         <div className={styles.actions}>
           <Button loading={busy} onClick={onSubmitApproval}>
             Freigabe anfordern
           </Button>
           {session.offerId ? (
-            <Link className={styles.choiceButton} to={`/offers/${session.offerId}`}>
-              Entwurf öffnen
+            <Link className={styles.choiceButton} to={offerWorkflowTabPath(session.offerId)}>
+              Freigabe & Versand öffnen
             </Link>
           ) : null}
         </div>
@@ -134,9 +138,14 @@ export function OfferStep({
             Angebotsentwurf erzeugen
           </Button>
           {session.offerId ? (
-            <Link className={styles.choiceButton} to={`/offers/${session.offerId}`}>
-              Entwurf öffnen
-            </Link>
+            <>
+              <Link className={styles.choiceButton} to={`/offers/${session.offerId}`}>
+                Entwurf öffnen
+              </Link>
+              <Link className={styles.choiceButton} to={offerWorkflowTabPath(session.offerId)}>
+                Freigabe & Versand öffnen
+              </Link>
+            </>
           ) : null}
           <Button variant="text" onClick={onBackToRecommendation}>
             Zurück zur Empfehlung

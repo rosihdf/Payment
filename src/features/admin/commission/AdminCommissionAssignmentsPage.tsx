@@ -19,7 +19,7 @@ import { AdminCommissionLayout } from './AdminCommissionLayout';
 import { commissionErrorLabel } from './commissionErrorLabel';
 import { formatPersistError } from '../../../utils/persistError';
 
-export function AdminCommissionAssignmentsPage() {
+export function CommissionAssignmentsPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [rows, setRows] = useState<RepresentativeAssignmentRow[]>([]);
@@ -242,7 +242,7 @@ export function AdminCommissionAssignmentsPage() {
   ];
 
   return (
-    <AdminCommissionLayout title="Provision – Mitarbeiter & Vereinbarungen">
+    <>
       <section className={styles.panel}>
         <h2>Außendienst</h2>
         <p>
@@ -337,6 +337,14 @@ export function AdminCommissionAssignmentsPage() {
       ) : message ? (
         <p role="status">{message}</p>
       ) : null}
+    </>
+  );
+}
+
+export function AdminCommissionAssignmentsPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Mitarbeiter & Vereinbarungen">
+      <CommissionAssignmentsPanel />
     </AdminCommissionLayout>
   );
 }

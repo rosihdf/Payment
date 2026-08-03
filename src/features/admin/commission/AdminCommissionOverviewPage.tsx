@@ -8,7 +8,7 @@ import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout, formatEuro } from './AdminCommissionLayout';
 import type { CommissionCaseStatus } from '../../../domain/commission/commissionCase';
 
-export function AdminCommissionOverviewPage() {
+export function CommissionOverviewPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [statusFilter, setStatusFilter] = useState<CommissionCaseStatus | 'all'>('all');
@@ -32,37 +32,11 @@ export function AdminCommissionOverviewPage() {
   }
 
   if (!data || 'error' in data) {
-    return (
-      <AdminCommissionLayout title="Provision – Übersicht">
-        <EmptyState title="Keine Berechtigung" description="Administration erforderlich." />
-      </AdminCommissionLayout>
-    );
+    return <EmptyState title="Keine Berechtigung" description="Administration erforderlich." />;
   }
 
   return (
-    <AdminCommissionLayout
-      title="Provision – Übersicht"
-      actions={
-        <button
-          type="button"
-          onClick={() => {
-            void commissionAdminService.exportOverviewCsv(context).then((csv) => {
-              if (typeof csv === 'string') {
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const anchor = document.createElement('a');
-                anchor.href = url;
-                anchor.download = 'provision-uebersicht.csv';
-                anchor.click();
-                URL.revokeObjectURL(url);
-              }
-            });
-          }}
-        >
-          Export CSV
-        </button>
-      }
-    >
+    <>
       {data.missingAssignments > 0 ? (
         <p className={styles.warningText} role="status">
           {data.missingAssignments} Außendienstmitarbeiter ohne Provisionszuordnung
@@ -165,6 +139,43 @@ export function AdminCommissionOverviewPage() {
           </div>
         )}
       </section>
+    </>
+  );
+}
+
+export function AdminCommissionOverviewPage() {
+  const context = useAdminContext();
+  const { commissionAdminService } = useServices();
+
+  if (!context) {
+    return null;
+  }
+
+  return (
+    <AdminCommissionLayout
+      title="Provision – Übersicht"
+      actions={
+        <button
+          type="button"
+          onClick={() => {
+            void commissionAdminService.exportOverviewCsv(context).then((csv) => {
+              if (typeof csv === 'string') {
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = 'provision-uebersicht.csv';
+                anchor.click();
+                URL.revokeObjectURL(url);
+              }
+            });
+          }}
+        >
+          Export CSV
+        </button>
+      }
+    >
+      <CommissionOverviewPanel />
     </AdminCommissionLayout>
   );
 }

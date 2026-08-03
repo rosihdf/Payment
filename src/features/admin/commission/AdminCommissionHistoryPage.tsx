@@ -6,7 +6,7 @@ import { useAdminContext } from '../AdminLayout';
 import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout } from './AdminCommissionLayout';
 
-export function AdminCommissionHistoryPage() {
+export function CommissionHistoryPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [events, setEvents] = useState<CommissionEvent[]>([]);
@@ -21,8 +21,7 @@ export function AdminCommissionHistoryPage() {
   }, [commissionAdminService, context]);
 
   return (
-    <AdminCommissionLayout title="Provision – Historie & Audit">
-      <section className={styles.panel}>
+    <section className={styles.panel}>
         {events.length === 0 ? (
           <EmptyState title="Keine Ereignisse" description="Noch keine Provisionsereignisse protokolliert." />
         ) : (
@@ -55,7 +54,14 @@ export function AdminCommissionHistoryPage() {
           </table>
           </div>
         )}
-      </section>
+    </section>
+  );
+}
+
+export function AdminCommissionHistoryPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Historie & Audit">
+      <CommissionHistoryPanel />
     </AdminCommissionLayout>
   );
 }

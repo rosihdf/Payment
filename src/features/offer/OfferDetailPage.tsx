@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { FormField, textareaClassName } from '../../components/common/FormField';
@@ -77,7 +77,16 @@ export function OfferDetailPage() {
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancellationError, setCancellationError] = useState<string | undefined>();
-  const [tab, setTab] = useState<TabId>('overview');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState<TabId>(
+    initialTab === 'workflow' ||
+      initialTab === 'positions' ||
+      initialTab === 'versions' ||
+      initialTab === 'commission'
+      ? initialTab
+      : 'overview',
+  );
 
   const loadOffer = useCallback(async () => {
     if (!id || !currentUser) {

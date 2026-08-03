@@ -2,6 +2,7 @@ import type { BestPayComparisonSession } from '../../../domain/bestPayComparison
 import { formatVariantComparisonLabel } from '../../../domain/bestPayComparison/costCaptureMode';
 import { resolveSelectedScenarioVariant } from '../../../domain/bestPayComparison/salesWizard';
 import { Button } from '../../ui/Button';
+import { StatusBadge } from '../../ui/StatusBadge';
 import { formatEuro } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
@@ -24,8 +25,15 @@ export function RecommendationStep({
     session.wizard.scenarios.find((entry) => entry.id === session.wizard.selectedScenarioId) ??
     session.wizard.scenarios[0] ??
     null;
+  const result = scenario?.result ?? null;
   const selectedVariant = resolveSelectedScenarioVariant(scenario);
-  const currentCosts = scenario?.result?.currentMonthlyCostsCents ?? null;
+  const currentCosts = result?.currentMonthlyCostsCents ?? null;
+  const primaryVariant =
+    result?.variants.find((variant) => variant.candidateId === result.primaryCandidateId) ??
+    result?.variants[0] ??
+    null;
+  const alternatives =
+    result?.variants.filter((variant) => variant.candidateId !== primaryVariant?.candidateId) ?? [];
 
   return (
     <div className={styles.stack}>
@@ -39,46 +47,84 @@ export function RecommendationStep({
         </Button>
       </article>
 
-      {scenario?.result ? (
-        <article className={styles.card}>
-          <h3 className={styles.sectionTitle}>Varianten</h3>
-          <ul className={styles.variantList}>
-            {scenario.result.variants.map((variant) => {
-              const isSelected = scenario.selectedCandidateId === variant.candidateId;
-              const isPrimary = variant.candidateId === scenario.result?.primaryCandidateId;
-              return (
-                <li key={variant.candidateId}>
-                  <button
-                    type="button"
-                    className={isSelected ? styles.variantSelected : styles.variantItem}
-                    disabled={busy}
-                    onClick={() => onSelectVariant(scenario.id, variant.candidateId)}
-                  >
-                    <strong>
-                      {variant.tariffName}
-                      {isPrimary ? ' · Hauptempfehlung' : ''}
-                    </strong>
-                    <span className={styles.hint}>
-                      {formatVariantComparisonLabel(variant, currentCosts)}
-                    </span>
-                    {canSeeCommission && variant.commissionTotalCents !== null ? (
-                      <span className={styles.hint}>
-                        Provision intern: {formatEuro(variant.commissionTotalCents)}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+      {result && primaryVariant ? (
+        <>
+          <article className={styles.card}>
+            <div className={styles.recommendationHeader}>
+              <h3 className={styles.sectionTitle}>Hauptempfehlung</h3>
+              <StatusBadge variant="success" label="Empfohlen" />
+            </div>
+            <p className={styles.recommendationTitle}>{primaryVariant.tariffName}</p>
+            <p className={styles.hint}>
+              {formatVariantComparisonLabel(primaryVariant, currentCosts)} ·{' '}
+              {formatEuro(primaryVariant.monthlyTotalCostsCents)} / Monat
+            </p>
+            {canSeeCommission && primaryVariant.commissionTotalCents !== null ? (
+              <p className={styles.hint}>
+                Provision intern: {formatEuro(primaryVariant.commissionTotalCents)}
+              </p>
+            ) : null}
+            {primaryVariant.primaryReasons.length > 0 ? (
+              <>
+                <h4 className={styles.subheading}>Begründung</h4>
+                <ul className={styles.reasonList}>
+                  {primaryVariant.primaryReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {scenario && selectedVariant?.candidateId !== primaryVariant.candidateId ? (
+              <Button
+                variant="secondary"
+                loading={busy}
+                onClick={() => onSelectVariant(scenario.id, primaryVariant.candidateId)}
+              >
+                Hauptempfehlung übernehmen
+              </Button>
+            ) : null}
+          </article>
+
+          {alternatives.length > 0 ? (
+            <article className={styles.card}>
+              <h3 className={styles.sectionTitle}>Alternativen</h3>
+              <ul className={styles.variantList}>
+                {alternatives.map((variant) => {
+                  const isSelected = scenario?.selectedCandidateId === variant.candidateId;
+                  return (
+                    <li key={variant.candidateId}>
+                      <button
+                        type="button"
+                        className={isSelected ? styles.variantSelected : styles.variantItem}
+                        disabled={busy || !scenario}
+                        onClick={() => scenario && onSelectVariant(scenario.id, variant.candidateId)}
+                      >
+                        <strong>{variant.tariffName}</strong>
+                        <span className={styles.hint}>
+                          {formatVariantComparisonLabel(variant, currentCosts)}
+                        </span>
+                        {canSeeCommission && variant.commissionTotalCents !== null ? (
+                          <span className={styles.hint}>
+                            Provision intern: {formatEuro(variant.commissionTotalCents)}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </article>
+          ) : null}
+
           {selectedVariant ? (
             <p className={styles.hint}>
-              Gewählt: {selectedVariant.tariffName} · {formatEuro(selectedVariant.monthlyTotalCostsCents)} / Monat
+              Gewählt: {selectedVariant.tariffName} ·{' '}
+              {formatEuro(selectedVariant.monthlyTotalCostsCents)} / Monat
             </p>
           ) : (
             <p className={styles.hint}>Bitte eine Variante auswählen.</p>
           )}
-        </article>
+        </>
       ) : (
         <article className={styles.card}>
           <p className={styles.hint}>Noch keine Empfehlung berechnet.</p>

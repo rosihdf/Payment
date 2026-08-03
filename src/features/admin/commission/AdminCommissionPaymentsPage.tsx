@@ -6,7 +6,7 @@ import { useAdminContext } from '../AdminLayout';
 import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout, formatEuro } from './AdminCommissionLayout';
 
-export function AdminCommissionPaymentsPage() {
+export function CommissionPaymentsPanel() {
   const context = useAdminContext();
   const { commissionAdminService } = useServices();
   const [payments, setPayments] = useState<CommissionPaymentRecord[]>([]);
@@ -21,8 +21,7 @@ export function AdminCommissionPaymentsPage() {
   }, [commissionAdminService, context]);
 
   return (
-    <AdminCommissionLayout title="Provision – Abrechnung & Zahlungen">
-      <section className={styles.panel}>
+    <section className={styles.panel}>
         {payments.length === 0 ? (
           <EmptyState title="Keine Zahlungen" description="Noch keine Auszahlungen dokumentiert." />
         ) : (
@@ -51,7 +50,14 @@ export function AdminCommissionPaymentsPage() {
           </table>
           </div>
         )}
-      </section>
+    </section>
+  );
+}
+
+export function AdminCommissionPaymentsPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Abrechnung & Zahlungen">
+      <CommissionPaymentsPanel />
     </AdminCommissionLayout>
   );
 }

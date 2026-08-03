@@ -23,6 +23,7 @@ interface CostsStepProps {
   billingImportService: BillingImportService;
   onSelectMode: (mode: CostCaptureMode) => void;
   onPatchCosts: (monthlyTotalCostsCents: number | null) => void;
+  onPatchCurrentProvider: (provider: string) => void;
   onBaselineConfirmed: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
@@ -35,6 +36,7 @@ export function CostsStep({
   billingImportService,
   onSelectMode,
   onPatchCosts,
+  onPatchCurrentProvider,
   onBaselineConfirmed,
   showToast,
 }: CostsStepProps) {
@@ -111,6 +113,19 @@ export function CostsStep({
             Es liegen keine bisherigen Payment-Kosten vor. Der Vergleich zeigt nur die neuen
             monatlichen Kosten – ohne Ersparnisberechnung.
           </p>
+        </article>
+      ) : null}
+
+      {costCaptureMode ? (
+        <article className={styles.card}>
+          <FormField
+            type="text"
+            id="currentProvider"
+            label="Aktueller Anbieter (optional)"
+            value={session.wizard.prospectDraft.notes}
+            disabled={busy}
+            onChange={(event) => onPatchCurrentProvider(event.target.value)}
+          />
         </article>
       ) : null}
     </div>

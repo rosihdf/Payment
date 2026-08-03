@@ -78,7 +78,7 @@ function toDraft(rule: CommissionRule): RuleDraft {
   };
 }
 
-export function AdminCommissionModelsPage() {
+export function CommissionModelsPanel() {
   const context = useAdminContext();
   const { commissionCatalogAdminService } = useServices();
   const [rules, setRules] = useState<CommissionRule[]>([]);
@@ -242,14 +242,12 @@ export function AdminCommissionModelsPage() {
   const selectedRule = selectedId ? rules.find((rule) => rule.id === selectedId) : null;
 
   return (
-    <AdminCommissionLayout
-      title="Provision – Standardprovisionen"
-      actions={
+    <>
+      <div className={styles.toolbar}>
         <button type="button" onClick={() => void handleSeed()}>
           Standardkatalog ergänzen
         </button>
-      }
-    >
+      </div>
       {message ? <p role="status">{message}</p> : null}
       <p>
         Unternehmensweite Standardprovisionen. Alle Außendienstmitarbeiter erhalten standardmäßig
@@ -386,6 +384,14 @@ export function AdminCommissionModelsPage() {
           </div>
         </section>
       ) : null}
+    </>
+  );
+}
+
+export function AdminCommissionModelsPage() {
+  return (
+    <AdminCommissionLayout title="Provision – Standardprovisionen">
+      <CommissionModelsPanel />
     </AdminCommissionLayout>
   );
 }
