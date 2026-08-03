@@ -37,9 +37,12 @@ export function useAdviceSession({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const persistPromiseRef = useRef<Promise<BestPayComparisonSession | null> | null>(null);
+  const sessionRef = useRef<BestPayComparisonSession | null>(initialSession);
+  const prospectWriteRef = useRef(0);
 
   const setSession = useCallback(
     (next: BestPayComparisonSession | null) => {
+      sessionRef.current = next;
       setSessionState(next);
       if (next) {
         onSessionChange?.(next);
@@ -51,26 +54,40 @@ export function useAdviceSession({
   const ensurePersisted = useCallback(
     async (current: BestPayComparisonSession): Promise<BestPayComparisonSession> => {
       if (persisted) {
-        return current;
+        return sessionRef.current ?? current;
       }
       if (persistPromiseRef.current) {
         const result = await persistPromiseRef.current;
-        return result ?? current;
+        return sessionRef.current ?? result ?? current;
       }
       setBusy(true);
       persistPromiseRef.current = salesWizardService
         .persistWizardSession(current, userContext)
         .then((saved) => {
           setPersisted(true);
-          setSession(saved);
-          return saved;
+          const latest = sessionRef.current;
+          const merged =
+            latest && latest.id === saved.id
+              ? {
+                  ...saved,
+                  wizard: {
+                    ...saved.wizard,
+                    prospectDraft: latest.wizard.prospectDraft,
+                    currentStep: latest.wizard.currentStep,
+                    approvalNotes: latest.wizard.approvalNotes,
+                  },
+                  manualInput: latest.manualInput,
+                }
+              : saved;
+          setSession(merged);
+          return merged;
         })
         .finally(() => {
           persistPromiseRef.current = null;
           setBusy(false);
         });
       const saved = await persistPromiseRef.current;
-      return saved ?? current;
+      return sessionRef.current ?? saved ?? current;
     },
     [persisted, salesWizardService, setSession, userContext],
   );
@@ -79,13 +96,14 @@ export function useAdviceSession({
     async (
       updater: (current: BestPayComparisonSession) => Promise<BestPayComparisonSession | null>,
     ): Promise<BestPayComparisonSession | null> => {
-      if (!session) {
+      const active = sessionRef.current;
+      if (!active) {
         return null;
       }
       setBusy(true);
       setError(null);
       try {
-        const base = await ensurePersisted(session);
+        const base = await ensurePersisted(active);
         const updated = await updater(base);
         if (updated) {
           setSession(updated);
@@ -95,15 +113,54 @@ export function useAdviceSession({
         setBusy(false);
       }
     },
-    [ensurePersisted, session, setSession],
+    [ensurePersisted, setSession],
   );
 
   const patchProspect = useCallback(
-    (patch: Partial<SalesWizardProspectDraft>) =>
-      withPersist(async (current) =>
-        salesWizardService.updateProspectDraft(current.id, patch, userContext),
-      ),
-    [salesWizardService, userContext, withPersist],
+    async (patch: Partial<SalesWizardProspectDraft>) => {
+      const active = sessionRef.current;
+      if (!active) {
+        return null;
+      }
+      const writeId = ++prospectWriteRef.current;
+      const optimistic: BestPayComparisonSession = {
+        ...active,
+        wizard: {
+          ...active.wizard,
+          prospectDraft: { ...active.wizard.prospectDraft, ...patch },
+        },
+      };
+      setSession(optimistic);
+
+      const base = await ensurePersisted(optimistic);
+      if (prospectWriteRef.current !== writeId) {
+        return sessionRef.current;
+      }
+      const latestDraft = sessionRef.current?.wizard.prospectDraft ?? optimistic.wizard.prospectDraft;
+      const updated = await salesWizardService.updateProspectDraft(
+        base.id,
+        latestDraft,
+        userContext,
+      );
+      if (updated && prospectWriteRef.current === writeId) {
+        const current = sessionRef.current;
+        const merged =
+          current && current.id === updated.id
+            ? {
+                ...updated,
+                wizard: {
+                  ...updated.wizard,
+                  prospectDraft: current.wizard.prospectDraft,
+                  currentStep: current.wizard.currentStep,
+                },
+              }
+            : updated;
+        setSession(merged);
+        return merged;
+      }
+      return sessionRef.current;
+    },
+    [ensurePersisted, salesWizardService, setSession, userContext],
   );
 
   const patchContactName = useCallback(

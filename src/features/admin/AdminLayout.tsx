@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { loadAppRuntimeConfig } from '../../config/appRuntimeConfig';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
@@ -44,33 +43,39 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
 
   const isAuthorized = context ? adminOverviewService.canAccessAdmin(context) : false;
 
-  if (isLoading) {
-    return (
-      <section>
-        <PageHeader title={title} subtitle="Berechtigungen werden geprüft…" />
-        <EmptyState title="Administration wird geladen" description="Benutzerberechtigungen werden geprüft." />
-      </section>
-    );
-  }
+  let body: ReactNode;
+  let description = subtitle ?? 'Zentrale Stammdaten, Betrieb und Datenschutz';
+  let shellActions = actions;
+  let banner: ReactNode;
 
-  if (!isAuthorized || !context) {
-    return (
-      <section>
-        <PageHeader title={title} />
-        <AccessDenied description="Die Administration ist nur für berechtigte Benutzer zugänglich." />
-      </section>
+  if (isLoading) {
+    description = 'Berechtigungen werden geprüft…';
+    shellActions = undefined;
+    body = (
+      <EmptyState
+        title="Administration wird geladen"
+        description="Benutzerberechtigungen werden geprüft."
+      />
     );
+  } else if (!isAuthorized || !context) {
+    shellActions = undefined;
+    body = (
+      <AccessDenied description="Die Administration ist nur für berechtigte Benutzer zugänglich." />
+    );
+  } else {
+    banner = buildModeBanner();
+    body = children;
   }
 
   return (
     <AdminShell
       title={title}
-      description={subtitle ?? 'Zentrale Stammdaten, Betrieb und Datenschutz'}
-      actions={actions}
-      banner={buildModeBanner()}
+      description={description}
+      actions={shellActions}
+      banner={banner}
       navItems={ADMIN_SHELL_NAV}
     >
-      {children}
+      {body}
     </AdminShell>
   );
 }

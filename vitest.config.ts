@@ -10,5 +10,6 @@ export default defineConfig({
     css: true,
     // localStorage-basierte Domain-Tests teilen sonst Worker-Zustand und werden flaky.
     fileParallelism: false,
+    maxWorkers: 1,
   },
 });

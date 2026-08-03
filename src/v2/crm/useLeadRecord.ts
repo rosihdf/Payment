@@ -68,7 +68,8 @@ export function useLeadRecord(activeTab: LeadRecordTab) {
       status: currentUser.status,
     };
 
-    if (activeTab === 'contacts' || activeTab === 'overview' || activeTab === 'cases') {
+    if (activeTab === 'contacts') {
+      // Primärkontakt nur im Kontakt-Tab sicherstellen – sonst Side Effects beim bloßen Öffnen.
       void services.contactService.ensurePrimaryFromLead(id, userContext).then(async () => {
         const listed = await services.contactService.listByLead(id, userContext, {
           includeInactive: true,
@@ -77,6 +78,14 @@ export function useLeadRecord(activeTab: LeadRecordTab) {
           setContacts(listed.contacts);
         }
       });
+    } else if (activeTab === 'overview' || activeTab === 'cases') {
+      void services.contactService
+        .listByLead(id, userContext, { includeInactive: true })
+        .then((listed) => {
+          if (listed.ok) {
+            setContacts(listed.contacts);
+          }
+        });
     }
 
     if (activeTab === 'cases' || activeTab === 'overview') {

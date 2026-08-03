@@ -176,13 +176,16 @@ function AdviceWizardInner({
   }, [services.leadService, userContext]);
 
   // Nach erster Persistenz Session in die URL schreiben (kein Mirror-State).
+  // bootstrappedRef vorher setzen, damit der Bootstrap die laufende Eingabe nicht neu lädt.
   useEffect(() => {
     if (!advice.persisted || !advice.session) {
       return;
     }
     if (searchParams.get('session') === advice.session.id) {
+      bootstrappedRef.current = `session:${advice.session.id}`;
       return;
     }
+    bootstrappedRef.current = `session:${advice.session.id}`;
     bindSessionToUrl(advice.session.id);
   }, [advice.persisted, advice.session, bindSessionToUrl, searchParams]);
 
