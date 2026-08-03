@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ResponsiveTable } from '../../../components/common/ResponsiveTable';
 import { FormControl } from '../../../components/common/FormControl';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import { useServices } from '../../../hooks/useServices';
@@ -35,6 +36,50 @@ export function AdminCommissionCasesPage() {
 
   const selected = rows.find((row) => row.caseId === selectedCaseId) ?? null;
 
+  const caseColumns = useMemo(
+    () => [
+      {
+        id: 'rep',
+        header: 'Mitarbeiter',
+        render: (row: CommissionOverviewRow) => row.salesRepresentativeName,
+      },
+      { id: 'customer', header: 'Kunde', render: (row: CommissionOverviewRow) => row.customerName },
+      {
+        id: 'offer',
+        header: 'Angebot',
+        render: (row: CommissionOverviewRow) => (
+          <Link to={`/offers/${row.offerId}`}>{row.offerId.slice(0, 8)}…</Link>
+        ),
+      },
+      {
+        id: 'standard',
+        header: 'Standard',
+        render: (row: CommissionOverviewRow) => (
+          <span title={row.appliedRuleNames}>{row.standardLabel}</span>
+        ),
+      },
+      { id: 'share', header: 'Anteil', render: (row: CommissionOverviewRow) => row.shareSummary },
+      {
+        id: 'end',
+        header: 'Endbetrag',
+        render: (row: CommissionOverviewRow) => formatEuro(row.endAmountCents),
+      },
+      {
+        id: 'bonus',
+        header: 'Sonderzahlung',
+        render: (row: CommissionOverviewRow) => formatEuro(row.bonusAmountCents),
+      },
+      {
+        id: 'reduction',
+        header: 'Kürzung',
+        render: (row: CommissionOverviewRow) => formatEuro(row.reductionAmountCents),
+      },
+      { id: 'version', header: 'Version', render: (row: CommissionOverviewRow) => row.planVersionLabel },
+      { id: 'status', header: 'Status', render: (row: CommissionOverviewRow) => row.statusLabel },
+    ],
+    [],
+  );
+
   const runTransition = async (targetStatus: CommissionCaseStatus, extra?: Record<string, unknown>) => {
     if (!context || !selectedCaseId) return;
     const result = await commissionAdminService.transitionCase(context, selectedCaseId, targetStatus, extra);
@@ -45,50 +90,20 @@ export function AdminCommissionCasesPage() {
   return (
     <AdminCommissionLayout title="Provision – Provisionsfälle">
       <section className={styles.panel}>
-        {rows.length === 0 ? (
-          <EmptyState title="Keine Provisionsfälle" description="Noch keine eingefrorenen Berechnungen." />
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Mitarbeiter</th>
-                <th>Kunde</th>
-                <th>Angebot</th>
-                <th>Standard</th>
-                <th>Anteil</th>
-                <th>Endbetrag</th>
-                <th>Sonderzahlung</th>
-                <th>Kürzung</th>
-                <th>Version</th>
-                <th>Status</th>
-                <th>Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.caseId}>
-                  <td>{row.salesRepresentativeName}</td>
-                  <td>{row.customerName}</td>
-                  <td>
-                    <Link to={`/offers/${row.offerId}`}>{row.offerId.slice(0, 8)}…</Link>
-                  </td>
-                  <td title={row.appliedRuleNames}>{row.standardLabel}</td>
-                  <td>{row.shareSummary}</td>
-                  <td>{formatEuro(row.endAmountCents)}</td>
-                  <td>{formatEuro(row.bonusAmountCents)}</td>
-                  <td>{formatEuro(row.reductionAmountCents)}</td>
-                  <td>{row.planVersionLabel}</td>
-                  <td>{row.statusLabel}</td>
-                  <td>
-                    <button type="button" onClick={() => setSelectedCaseId(row.caseId)}>
-                      Bearbeiten
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <ResponsiveTable
+          columns={caseColumns}
+          rows={rows}
+          rowKey={(row) => row.caseId}
+          emptyState={
+            <EmptyState title="Keine Provisionsfälle" description="Noch keine eingefrorenen Berechnungen." />
+          }
+          renderActions={(row) => (
+            <button type="button" onClick={() => setSelectedCaseId(row.caseId)}>
+              Bearbeiten
+            </button>
+          )}
+          tableClassName={styles.table}
+        />
       </section>
 
       {selected ? (

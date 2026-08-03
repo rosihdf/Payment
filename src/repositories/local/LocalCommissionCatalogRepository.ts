@@ -14,6 +14,8 @@ export interface CommissionCatalogData {
 export interface CommissionCatalogRepository {
   getCatalog(): Promise<CommissionCatalogData>;
   saveCatalog(catalog: CommissionCatalogData): Promise<void>;
+  saveRules(rules: CommissionRule[]): Promise<void>;
+  saveAssignments(assignments: SalesRepresentativeCommissionAssignment[]): Promise<void>;
 }
 
 export class LocalCommissionCatalogRepository implements CommissionCatalogRepository {
@@ -42,5 +44,13 @@ export class LocalCommissionCatalogRepository implements CommissionCatalogReposi
     writeStorageItem(STORAGE_KEYS.commissionPlanVersions, catalog.commissionPlanVersions);
     writeStorageItem(STORAGE_KEYS.commissionRules, catalog.commissionRules);
     writeStorageItem(STORAGE_KEYS.commissionAssignments, catalog.assignments);
+  }
+
+  async saveRules(rules: CommissionRule[]): Promise<void> {
+    writeStorageItem(STORAGE_KEYS.commissionRules, rules);
+  }
+
+  async saveAssignments(assignments: SalesRepresentativeCommissionAssignment[]): Promise<void> {
+    writeStorageItem(STORAGE_KEYS.commissionAssignments, assignments);
   }
 }

@@ -26,7 +26,8 @@ export function AdminCommissionHistoryPage() {
         {events.length === 0 ? (
           <EmptyState title="Keine Ereignisse" description="Noch keine Provisionsereignisse protokolliert." />
         ) : (
-          <table className={styles.table}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
             <thead>
               <tr>
                 <th>Datum</th>
@@ -52,6 +53,7 @@ export function AdminCommissionHistoryPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </AdminCommissionLayout>

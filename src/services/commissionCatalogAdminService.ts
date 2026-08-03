@@ -16,6 +16,7 @@ import {
   COMMISSION_SHARE_DEFAULT,
   isValidCommissionSharePercent,
 } from '../domain/commission/commissionShare';
+import { formatPersistError } from '../utils/persistError';
 
 export interface CommissionPreviewInput {
   contractTypeCode: string;
@@ -272,22 +273,30 @@ export class CommissionCatalogAdminService {
       ? catalog.commissionRules.map((entry) => (entry.id === rule.id ? rule : entry))
       : [...catalog.commissionRules, rule];
 
-    await this.commissionCatalogRepository.saveCatalog({ ...catalog, commissionRules: rules });
+    try {
+      await this.commissionCatalogRepository.saveRules(rules);
+    } catch (error) {
+      return { ok: false, error: formatPersistError(error) };
+    }
 
-    await this.auditService.logChange({
-      context,
-      action: 'commission_updated',
-      entityType: 'commission_plan',
-      entityId: rule.id,
-      summary: `Standardregel „${rule.name}“ gespeichert`,
-      changes: [
-        {
-          field: 'fixedAmountCents',
-          before: existing?.fixedAmountCents != null ? String(existing.fixedAmountCents) : null,
-          after: rule.fixedAmountCents != null ? String(rule.fixedAmountCents) : null,
-        },
-      ],
-    });
+    try {
+      await this.auditService.logChange({
+        context,
+        action: 'commission_updated',
+        entityType: 'commission_plan',
+        entityId: rule.id,
+        summary: `Standardregel „${rule.name}“ gespeichert`,
+        changes: [
+          {
+            field: 'fixedAmountCents',
+            before: existing?.fixedAmountCents != null ? String(existing.fixedAmountCents) : null,
+            after: rule.fixedAmountCents != null ? String(rule.fixedAmountCents) : null,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error(formatPersistError(error));
+    }
 
     return { ok: true, rule };
   }

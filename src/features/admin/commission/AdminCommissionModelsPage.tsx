@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormControl } from '../../../components/common/FormControl';
+import { ResponsiveTable } from '../../../components/common/ResponsiveTable';
 import { EmptyState } from '../../../components/feedback/EmptyState';
 import type { CommissionRule } from '../../../domain/commission/commissionRule';
 import {
@@ -16,6 +17,8 @@ import { useServices } from '../../../hooks/useServices';
 import { useAdminContext } from '../AdminLayout';
 import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout } from './AdminCommissionLayout';
+import { commissionErrorLabel } from './commissionErrorLabel';
+import { formatPersistError } from '../../../utils/persistError';
 
 interface RuleDraft {
   id: string;
@@ -85,20 +88,30 @@ export function AdminCommissionModelsPage() {
 
   const load = async () => {
     if (!context) return;
-    let catalog = await commissionCatalogAdminService.getCatalog(context);
-    if ('error' in catalog) return;
-    if (catalog.commissionRules.length === 0) {
-      await commissionCatalogAdminService.seedDefaultCatalog(context);
-      catalog = await commissionCatalogAdminService.getCatalog(context);
-      if ('error' in catalog) return;
-      setMessage('Standardkatalog automatisch aktiviert');
+    try {
+      let catalog = await commissionCatalogAdminService.getCatalog(context);
+      if ('error' in catalog) {
+        setMessage(commissionErrorLabel(catalog.error));
+        return;
+      }
+      if (catalog.commissionRules.length === 0) {
+        await commissionCatalogAdminService.seedDefaultCatalog(context);
+        catalog = await commissionCatalogAdminService.getCatalog(context);
+        if ('error' in catalog) {
+          setMessage(commissionErrorLabel(catalog.error));
+          return;
+        }
+        setMessage('Standardkatalog automatisch aktiviert');
+      }
+      setRules(catalog.commissionRules);
+      const next: Record<string, RuleDraft> = {};
+      for (const rule of catalog.commissionRules) {
+        next[rule.id] = toDraft(rule);
+      }
+      setDrafts(next);
+    } catch (error) {
+      setMessage(`Fehler: ${formatPersistError(error)}`);
     }
-    setRules(catalog.commissionRules);
-    const next: Record<string, RuleDraft> = {};
-    for (const rule of catalog.commissionRules) {
-      next[rule.id] = toDraft(rule);
-    }
-    setDrafts(next);
   };
 
   useEffect(() => {
@@ -117,31 +130,86 @@ export function AdminCommissionModelsPage() {
     const draft = drafts[ruleId];
     if (!draft) return;
     const share = Number(draft.displaySharePercent);
-    const fixedAmountCents = draft.fixedAmountEuro
+    const fixedAmountCents = draft.fixedAmountEuro.trim()
       ? Math.round(Number(draft.fixedAmountEuro.replace(',', '.')) * 100)
       : null;
-    const percentTenthsOfBasisPoint = draft.percentOfBasis
+    const percentTenthsOfBasisPoint = draft.percentOfBasis.trim()
       ? Math.round(Number(draft.percentOfBasis.replace(',', '.')) * 100)
       : null;
 
-    const result = await commissionCatalogAdminService.upsertStandardRule(context, {
-      id: draft.id,
-      commissionPlanVersionId: draft.commissionPlanVersionId,
-      name: draft.name,
-      internalDescription: draft.internalDescription,
-      status: draft.status,
-      commissionType: draft.commissionType,
-      calculationBasis: draft.calculationBasis,
-      contractTypeCode: draft.contractTypeCode || null,
-      fixedAmountCents,
-      percentTenthsOfBasisPoint,
-      displaySharePercent: share,
-      validFrom: draft.validFrom || null,
-      validUntil: draft.validUntil || null,
-    });
-    setMessage(result.ok ? `Standardregel „${draft.name}“ gespeichert` : `Fehler: ${result.error}`);
-    await load();
+    try {
+      const result = await commissionCatalogAdminService.upsertStandardRule(context, {
+        id: draft.id,
+        commissionPlanVersionId: draft.commissionPlanVersionId,
+        name: draft.name,
+        internalDescription: draft.internalDescription,
+        status: draft.status,
+        commissionType: draft.commissionType,
+        calculationBasis: draft.calculationBasis,
+        contractTypeCode: draft.contractTypeCode || null,
+        fixedAmountCents,
+        percentTenthsOfBasisPoint,
+        displaySharePercent: share,
+        validFrom: draft.validFrom || null,
+        validUntil: draft.validUntil || null,
+      });
+      if (result.ok) {
+        setMessage(`Standardregel „${draft.name}“ gespeichert`);
+        setSelectedId(null);
+      } else {
+        setMessage(`Fehler: ${commissionErrorLabel(result.error)}`);
+      }
+      await load();
+    } catch (error) {
+      setMessage(`Fehler: ${formatPersistError(error)}`);
+    }
   };
+
+  const ruleColumns = useMemo(
+    () => [
+      {
+        id: 'name',
+        header: 'Name',
+        render: (rule: CommissionRule) => rule.name,
+      },
+      {
+        id: 'description',
+        header: 'Beschreibung',
+        render: (rule: CommissionRule) => rule.internalDescription || rule.name,
+      },
+      {
+        id: 'amount',
+        header: 'Standardbetrag',
+        render: (rule: CommissionRule) => standardAmountLabel(rule),
+      },
+      {
+        id: 'share',
+        header: 'Prozentsatz',
+        render: () => formatSharePercent(COMMISSION_SHARE_DEFAULT),
+      },
+      {
+        id: 'calculated',
+        header: 'Berechnet',
+        render: (rule: CommissionRule) => calculatedAmountLabel(rule),
+      },
+      {
+        id: 'active',
+        header: 'Aktiv',
+        render: (rule: CommissionRule) => (rule.status === 'active' ? 'Ja' : 'Nein'),
+      },
+      {
+        id: 'validFrom',
+        header: 'Gültig ab',
+        render: (rule: CommissionRule) => rule.validFrom?.slice(0, 10) || 'offen',
+      },
+      {
+        id: 'validUntil',
+        header: 'Gültig bis',
+        render: (rule: CommissionRule) => rule.validUntil?.slice(0, 10) || 'unbefristet',
+      },
+    ],
+    [],
+  );
 
   const classicRules = rules.filter(
     (rule) => rule.commissionPlanVersionId === DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID,
@@ -153,44 +221,20 @@ export function AdminCommissionModelsPage() {
   const renderRuleTable = (title: string, sectionRules: CommissionRule[]) => (
     <section className={styles.panel}>
       <h2>{title}</h2>
-      {sectionRules.length === 0 ? (
-        <EmptyState title="Keine Regeln" description="Bitte Standardkatalog aktivieren." />
-      ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Beschreibung</th>
-              <th>Standardbetrag</th>
-              <th>Prozentsatz</th>
-              <th>Berechnet</th>
-              <th>Aktiv</th>
-              <th>Gültig ab</th>
-              <th>Gültig bis</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sectionRules.map((rule) => (
-              <tr key={rule.id}>
-                <td>{rule.name}</td>
-                <td>{rule.internalDescription || rule.name}</td>
-                <td>{standardAmountLabel(rule)}</td>
-                <td>{formatSharePercent(COMMISSION_SHARE_DEFAULT)}</td>
-                <td>{calculatedAmountLabel(rule)}</td>
-                <td>{rule.status === 'active' ? 'Ja' : 'Nein'}</td>
-                <td>{rule.validFrom?.slice(0, 10) || 'offen'}</td>
-                <td>{rule.validUntil?.slice(0, 10) || 'unbefristet'}</td>
-                <td>
-                  <button type="button" onClick={() => setSelectedId(rule.id)}>
-                    Bearbeiten
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <ResponsiveTable
+        columns={ruleColumns}
+        rows={sectionRules}
+        rowKey={(rule) => rule.id}
+        emptyState={
+          <EmptyState title="Keine Regeln" description="Bitte Standardkatalog aktivieren." />
+        }
+        renderActions={(rule) => (
+          <button type="button" onClick={() => setSelectedId(rule.id)}>
+            Bearbeiten
+          </button>
+        )}
+        tableClassName={styles.table}
+      />
     </section>
   );
 

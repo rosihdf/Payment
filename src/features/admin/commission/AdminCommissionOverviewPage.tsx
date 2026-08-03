@@ -133,7 +133,8 @@ export function AdminCommissionOverviewPage() {
         {data.rows.length === 0 ? (
           <EmptyState title="Keine Fälle" description="Noch keine Provisionsfälle vorhanden." />
         ) : (
-          <table className={styles.table}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
             <thead>
               <tr>
                 <th>Mitarbeiter</th>
@@ -161,6 +162,7 @@ export function AdminCommissionOverviewPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </AdminCommissionLayout>

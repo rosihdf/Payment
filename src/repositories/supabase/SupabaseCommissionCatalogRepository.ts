@@ -89,4 +89,12 @@ export class SupabaseCommissionCatalogRepository implements CommissionCatalogRep
       sbUpsertMany('commission_assignments', catalog.assignments.map(assignmentToRow)),
     ]);
   }
+
+  async saveRules(rules: CommissionCatalogData['commissionRules']): Promise<void> {
+    await sbUpsertMany('commission_rules', rules.map(ruleToRow));
+  }
+
+  async saveAssignments(assignments: CommissionCatalogData['assignments']): Promise<void> {
+    await sbUpsertMany('commission_assignments', assignments.map(assignmentToRow));
+  }
 }

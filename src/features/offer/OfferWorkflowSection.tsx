@@ -703,6 +703,7 @@ export function OfferWorkflowSection({
             ))}
           </ul>
           {diffEntries.length > 0 ? (
+            <div className={styles.tableWrap}>
             <table className={styles.diffTable}>
               <caption>Unterschiede zur aktuellen Version</caption>
               <thead>
@@ -725,6 +726,7 @@ export function OfferWorkflowSection({
                 ))}
               </tbody>
             </table>
+            </div>
           ) : null}
         </section>
 

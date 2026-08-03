@@ -88,6 +88,18 @@
 
 .tableWrap {
   overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 720px) {
+  .tableWrap .table {
+    min-width: 36rem;
+  }
+
+  .toolbar :global(button) {
+    min-height: var(--touch-target);
+  }
 }
 
 .table {

@@ -475,6 +475,7 @@ export function OfferBillingImportSection({
           {view.periods.length > 0 ? (
             <div>
               <h3 className={styles.cardTitle}>Abrechnungsperioden</h3>
+              <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
@@ -497,6 +498,7 @@ export function OfferBillingImportSection({
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ) : null}
 

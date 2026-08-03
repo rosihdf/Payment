@@ -89,7 +89,8 @@ export function AdminCommissionBonusPage() {
         {bonuses.length === 0 ? (
           <EmptyState title="Keine Sonderzahlungen" description="Noch keine Sonderzahlungen erfasst." />
         ) : (
-          <table className={styles.table}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
             <thead>
               <tr>
                 <th>Bezeichnung</th>
@@ -138,6 +139,7 @@ export function AdminCommissionBonusPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </AdminCommissionLayout>

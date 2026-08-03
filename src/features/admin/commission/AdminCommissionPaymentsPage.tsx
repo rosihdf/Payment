@@ -26,7 +26,8 @@ export function AdminCommissionPaymentsPage() {
         {payments.length === 0 ? (
           <EmptyState title="Keine Zahlungen" description="Noch keine Auszahlungen dokumentiert." />
         ) : (
-          <table className={styles.table}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
             <thead>
               <tr>
                 <th>Fall</th>
@@ -48,6 +49,7 @@ export function AdminCommissionPaymentsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </AdminCommissionLayout>

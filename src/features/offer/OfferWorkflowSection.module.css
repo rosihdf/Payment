@@ -135,6 +135,12 @@
   color: var(--color-primary);
 }
 
+.tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
 .diffTable {
   width: 100%;
   border-collapse: collapse;

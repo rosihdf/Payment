@@ -39,6 +39,7 @@ import type { OfferRepository } from '../repositories/interfaces/OfferRepository
 import type { UserRepository } from '../repositories/interfaces/UserRepository';
 import type { CommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
 import { generateId, nowIso } from '../utils/id';
+import { formatPersistError } from '../utils/persistError';
 import type { AuditService } from './auditService';
 import { requirePermission } from './auditService';
 import type { SalesActivityService } from './salesActivityService';
@@ -488,29 +489,37 @@ export class CommissionAdminService {
       createdByUserId: context.userId,
       createdAt: timestamp,
     };
-    await this.workflowRepository.createAssignmentVersion(version);
+    try {
+      await this.workflowRepository.createAssignmentVersion(version);
 
-    assignment = { ...assignment, currentVersionId: version.id };
-    const assignmentIndex = assignments.findIndex((entry) => entry.id === assignment.id);
-    assignments[assignmentIndex] = assignment;
+      assignment = { ...assignment, currentVersionId: version.id };
+      const assignmentIndex = assignments.findIndex((entry) => entry.id === assignment.id);
+      assignments[assignmentIndex] = assignment;
 
-    await this.catalogRepository.saveCatalog({ ...catalog, assignments });
+      await this.catalogRepository.saveAssignments(assignments);
+    } catch (error) {
+      return { ok: false, error: formatPersistError(error) };
+    }
 
-    await this.logCommissionEvent('commission_assignment_changed', context, {
-      reason: input.changeNote || 'Provisionszuordnung geändert',
-      metadata: {
-        salesRepresentativeId: input.salesRepresentativeId,
-        planVersionId,
-      },
-    });
+    try {
+      await this.logCommissionEvent('commission_assignment_changed', context, {
+        reason: input.changeNote || 'Provisionszuordnung geändert',
+        metadata: {
+          salesRepresentativeId: input.salesRepresentativeId,
+          planVersionId,
+        },
+      });
 
-    await this.auditService.logChange({
-      context,
-      action: 'commission_updated',
-      entityType: 'commission_plan',
-      entityId: assignment.id,
-      summary: `Provisionszuordnung für ${input.salesRepresentativeId} gespeichert`,
-    });
+      await this.auditService.logChange({
+        context,
+        action: 'commission_updated',
+        entityType: 'commission_plan',
+        entityId: assignment.id,
+        summary: `Provisionszuordnung für ${input.salesRepresentativeId} gespeichert`,
+      });
+    } catch (error) {
+      console.error(formatPersistError(error));
+    }
 
     return { ok: true, assignment };
   }
