@@ -7,15 +7,13 @@ import { FormControl } from '../components/common/FormControl';
 import styles from '../components/common/FormControl.module.css';
 
 const FEATURE_PAGES = [
-  'src/features/sales/SalesWorkspacePage.tsx',
   'src/features/admin/AdminUsersPage.tsx',
-  'src/features/activation/ActivationsPage.tsx',
-  'src/features/calculator/BestPayComparisonHistoryPage.tsx',
   'src/features/lead/LeadForm.tsx',
   'src/features/tariff/TariffForm.tsx',
   'src/features/product/ProductForm.tsx',
   'src/features/offer/OfferCustomerSection.tsx',
-  'src/features/calculator/SalesWizardPage.tsx',
+  'src/features/offer/OffersPage.tsx',
+  'src/features/contract/ContractsPage.tsx',
   'src/components/navigation/RoleSwitcher.tsx',
   'src/features/auth/LoginPage.tsx',
 ];
@@ -108,10 +106,10 @@ describe('FormControl', () => {
     expect(source).toMatch(/FormControl/);
   });
 
-  it('Arbeitsplatz-Filter nutzt FormControl für Suche und Sicht', () => {
-    const source = readSource('src/features/sales/SalesWorkspacePage.tsx');
+  it('Arbeitsplatz-Filter nutzt FormField für Suche und Ansicht', () => {
+    const source = readSource('src/v2/workspace/WorkspacePage.tsx');
     expect(source).toContain('type="search"');
     expect(source).toContain('type="select"');
-    expect(source).toContain('label="Sicht"');
+    expect(source).toContain('label="Ansicht"');
   });
 });
