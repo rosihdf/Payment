@@ -1,0 +1,127 @@
+.tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table caption {
+  caption-side: top;
+  padding-bottom: var(--space-3);
+  text-align: left;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.table th,
+.table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.numeric {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.desktopTable {
+  display: block;
+}
+
+.scrollContainer {
+  display: block;
+}
+
+.mobileList {
+  display: none;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobileCard {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.mobileRow {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.mobileRow:last-of-type {
+  margin-bottom: 0;
+}
+
+.mobileLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.mobileValue {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.mobileActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.mobileActions :global(button),
+.mobileActions :global(a) {
+  min-height: var(--control-height);
+}
+
+.compact th,
+.compact td {
+  padding: var(--space-2) var(--space-3);
+}
+
+@media (max-width: 719px) {
+  .desktopTable {
+    display: none;
+  }
+
+  .mobileList {
+    display: grid;
+  }
+
+  .scrollContainer .table {
+    min-width: 36rem;
+  }
+}
+
+@media (min-width: 720px) {
+  .scrollContainer .table {
+    min-width: 100%;
+  }
+}

@@ -45,8 +45,8 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebote' }));
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
+    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
     expect(await screen.findByRole('heading', { name: 'Angebote' })).toBeInTheDocument();
     expect(screen.getByText(offer.offerNumber)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
@@ -58,9 +58,9 @@ describe('Lead offer integration UI', () => {
   it('shows empty state when lead has no offers', async () => {
     const user = userEvent.setup();
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`);
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebote' }));
-    expect(await screen.findByText('Noch kein Angebot vorhanden.')).toBeInTheDocument();
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
+    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
+    expect(await screen.findByText('Noch kein Angebot erstellt.')).toBeInTheDocument();
   });
 
   it('links offer detail from lead page', async () => {
@@ -73,8 +73,8 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Angebote' }));
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
+    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
     expect(await screen.findByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
       'href',
       `/offers/${offer.id}`,

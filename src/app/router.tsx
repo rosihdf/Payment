@@ -1,10 +1,12 @@
 import type { RouteObject } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
-import { AppShell } from '../components/layout/AppShell';
-import { AdviceEntry } from '../features/calculator/AdviceEntry';
+import { AppShell } from '../v2/layout/AppShell';
+import { AdviceEntry } from '../v2/advice/AdviceEntry';
+import { LeadsPage } from '../v2/crm/LeadsPage';
+import { LeadRecordPage } from '../v2/crm/LeadRecordPage';
+import { WorkspacePage } from '../v2/workspace/WorkspacePage';
 import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
 import { PreserveSearchRedirect } from './PreserveSearchRedirect';
-import { SalesWorkspacePage } from '../features/sales/SalesWorkspacePage';
 import { ADVICE_PATH, adminCatalogPath } from '../utils/routes';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
@@ -18,9 +20,7 @@ import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
 } from '../features/offerDocument/OfferDocumentDetailPage';
-import { LeadDetailPage } from '../features/lead/LeadDetailPage';
 import { EditLeadPage } from '../features/lead/EditLeadPage';
-import { LeadsPage } from '../features/lead/LeadsPage';
 import { NewLeadPage } from '../features/lead/NewLeadPage';
 import { AdminOverviewPage } from '../features/admin/AdminOverviewPage';
 import { AdminUsersPage, AdminRolesPage } from '../features/admin/AdminUsersPage';
@@ -74,8 +74,8 @@ export const appRoutes: RouteObject[] = [
       { path: 'leads', element: <LeadsPage /> },
       { path: 'leads/new', element: <NewLeadPage /> },
       { path: 'leads/:id/edit', element: <EditLeadPage /> },
-      { path: 'leads/:id', element: <LeadDetailPage /> },
-      { path: 'sales', element: <SalesWorkspacePage /> },
+      { path: 'leads/:id', element: <LeadRecordPage /> },
+      { path: 'sales', element: <WorkspacePage /> },
       { path: 'sales/commission', element: <SalesCommissionPage /> },
       { path: 'advice', element: <AdviceEntry /> },
       { path: 'advice/quick', element: <Navigate to={ADVICE_PATH} replace /> },

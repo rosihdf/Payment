@@ -1,0 +1,8 @@
+/**
+ * v2 breakpoint tokens – use matching literal values in @media queries.
+ */
+:root {
+  --bp-mobile-max: 719px;
+  --bp-desktop-min: 768px;
+  --bp-wide-min: 960px;
+}

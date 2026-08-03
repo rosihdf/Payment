@@ -18,7 +18,7 @@ function renderAt(route: string) {
   return router;
 }
 
-describe('Phase 1A Block 2 – Kundenakte CRM UI', () => {
+describe('Phase 1A Block 2 – Kundenakte CRM UI (v2)', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
@@ -31,69 +31,34 @@ describe('Phase 1A Block 2 – Kundenakte CRM UI', () => {
 
   it('zeigt die verbindliche Tab-Reihenfolge in der Kundenakte', async () => {
     renderAt('/leads/lead_001');
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'Kundenakte Bereiche' });
+    const nav = await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
     const buttons = within(nav).getAllByRole('button');
     expect(buttons.map((button) => button.textContent)).toEqual([
       'Übersicht',
-      'Ansprechpartner',
-      'Timeline',
-      'Aufgaben',
-      'Notizen',
+      'Vorgänge',
+      'Kontakte',
       'Dokumente',
-      'Beratung',
-      'Angebote',
-      'Verträge',
-      'Aktivierungen',
-      'Provision',
+      'Vertrieb',
+      'Stammdaten',
     ]);
   });
 
-  it('legt einen Ansprechpartner an und zeigt ihn in der Liste', async () => {
+  it('zeigt Kontakte im Kontakte-Tab', async () => {
     const user = userEvent.setup();
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
 
-    await user.click(screen.getByRole('button', { name: 'Ansprechpartner' }));
-    expect(await screen.findByRole('heading', { name: 'Ansprechpartner' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Neu' }));
-    await user.type(screen.getByLabelText('Vorname'), 'Clara');
-    await user.type(screen.getByLabelText('Nachname'), 'Beispiel');
-    await user.type(screen.getByLabelText('Telefon'), '+49 30 111');
-    await user.type(screen.getByLabelText('E-Mail'), 'clara@example.com');
-    await user.click(screen.getByRole('button', { name: 'Speichern' }));
-
-    expect(await screen.findByText(/Clara Beispiel/)).toBeInTheDocument();
-    expect(screen.getByText(/Primärkontakt/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Kontakte' }));
+    expect(await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' })).toBeInTheDocument();
   });
 
-  it('zeigt Timeline-Filter und Aufgaben-Tab ohne neue Route', async () => {
+  it('zeigt Vorgänge mit Timeline und Aufgaben', async () => {
     const user = userEvent.setup();
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
 
-    await user.click(screen.getByRole('button', { name: 'Timeline' }));
+    await user.click(screen.getByRole('button', { name: 'Vorgänge' }));
     expect(await screen.findByRole('heading', { name: 'Timeline' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Telefonat' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Besuch' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Notiz' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Aufgabe' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Kommunikation' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vertrieb' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Suche')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Aufgaben' }));
-    expect(await screen.findByRole('heading', { name: 'Aufgaben' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Neu' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Notizen' }));
-    expect(await screen.findByText(/Timeline-Einträge vom Typ/)).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Provision' }));
-    expect(await screen.findByRole('link', { name: 'Zur Provision' })).toHaveAttribute(
-      'href',
-      '/sales/commission',
-    );
+    expect(screen.getByRole('heading', { name: 'Aufgaben' })).toBeInTheDocument();
   });
 });

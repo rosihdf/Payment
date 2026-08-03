@@ -1,0 +1,45 @@
+/**
+ * v2 design tokens – extends src/styles/variables.css.
+ * Import variables.css before this file in the app entry.
+ */
+:root {
+  /* Semantic surfaces */
+  --color-text-secondary: #4b5563;
+  --color-surface-muted: #f4f6f8;
+  --color-primary-soft: var(--color-primary-light);
+  --color-success-light: #dcfce7;
+  --color-warning-light: #fef3c7;
+  --color-danger-light: #fee2e2;
+  --color-info-light: #dbeafe;
+  --color-neutral-light: #f3f4f6;
+
+  /* Semantic status (background + foreground pairs) */
+  --status-success-bg: var(--color-success-light);
+  --status-success-text: var(--color-success);
+  --status-success-border: #bbf7d0;
+
+  --status-warning-bg: var(--color-warning-light);
+  --status-warning-text: var(--color-warning);
+  --status-warning-border: #fcd34d;
+
+  --status-danger-bg: var(--color-danger-light);
+  --status-danger-text: var(--color-danger);
+  --status-danger-border: #fecaca;
+
+  --status-neutral-bg: var(--color-neutral-light);
+  --status-neutral-text: var(--color-text-secondary);
+  --status-neutral-border: var(--color-border-light);
+
+  --status-info-bg: var(--color-info-light);
+  --status-info-text: var(--color-accent);
+  --status-info-border: #93c5fd;
+
+  /* Controls */
+  --control-height: var(--touch-target);
+
+  /* Safe area (Capacitor / viewport-fit=cover) */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+}

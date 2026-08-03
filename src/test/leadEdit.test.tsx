@@ -118,7 +118,7 @@ describe('Lead edit UI', () => {
     renderAtRoute('/leads/lead_save_ui', 'user_001', false);
 
     expect((await screen.findAllByRole('heading', { name: 'Neu GmbH' })).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText('Angebote')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Vertrieb')).length).toBeGreaterThan(0);
   });
 
   it('shows AccessDenied for foreign lead edit url', async () => {
