@@ -267,9 +267,24 @@ export function useAdviceSession({
   }, [salesWizardService, session, setSession, userContext]);
 
   const jumpToStep = useCallback(
-    (step: SalesWizardStepId) =>
-      withPersist(async (current) => salesWizardService.setStep(current.id, step, userContext)),
-    [salesWizardService, userContext, withPersist],
+    async (step: SalesWizardStepId) => {
+      if (!session) {
+        return null;
+      }
+      // Ohne Persistenz nur lokal springen – sonst entstehen leere Entwürfe beim Navigieren.
+      if (!persisted) {
+        const next = {
+          ...session,
+          wizard: { ...session.wizard, currentStep: step },
+        };
+        setSession(next);
+        return next;
+      }
+      return withPersist(async (current) =>
+        salesWizardService.setStep(current.id, step, userContext),
+      );
+    },
+    [persisted, salesWizardService, session, setSession, userContext, withPersist],
   );
 
   const completeWizard = useCallback(

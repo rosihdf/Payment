@@ -62,32 +62,40 @@ export function DataListCard({
     .filter(Boolean)
     .join(' ');
 
-  const content = (
+  const body = (
     <>
       <div className={styles.cardHeader}>
         <div className={styles.cardTitle}>{title}</div>
         {badge}
       </div>
       {meta ? <div className={styles.cardMeta}>{meta}</div> : null}
-      {footer ? <div className={styles.cardFooter}>{footer}</div> : null}
     </>
   );
 
   if (href) {
     return (
-      <Link className={cardClass} to={href}>
-        {content}
-      </Link>
+      <article className={cardClass}>
+        <Link className={styles.cardLink} to={href}>
+          {body}
+        </Link>
+        {footer ? <div className={styles.cardFooter}>{footer}</div> : null}
+      </article>
     );
   }
 
   if (onClick) {
     return (
       <button type="button" className={cardClass} onClick={onClick}>
-        {content}
+        {body}
+        {footer ? <div className={styles.cardFooter}>{footer}</div> : null}
       </button>
     );
   }
 
-  return <article className={cardClass}>{content}</article>;
+  return (
+    <article className={cardClass}>
+      {body}
+      {footer ? <div className={styles.cardFooter}>{footer}</div> : null}
+    </article>
+  );
 }

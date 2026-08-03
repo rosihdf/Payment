@@ -9,6 +9,7 @@ interface ProspectStepProps {
   prospectMode: ProspectMode;
   leads: Lead[];
   leadSearch: string;
+  selectedLeadId: string;
   busy: boolean;
   onLeadSearchChange: (value: string) => void;
   onProspectModeChange: (mode: ProspectMode) => void;
@@ -22,6 +23,7 @@ export function ProspectStep({
   prospectMode,
   leads,
   leadSearch,
+  selectedLeadId,
   busy,
   onLeadSearchChange,
   onProspectModeChange,
@@ -72,7 +74,7 @@ export function ProspectStep({
           ) : (
             <ul className={styles.leadResults} aria-label="Kundentreffer">
               {leads.map((lead) => {
-                const isSelected = session.leadId === lead.id;
+                const isSelected = session.leadId === lead.id || selectedLeadId === lead.id;
                 const lines = formatLeadSearchResult(lead);
                 return (
                   <li key={lead.id}>

@@ -21,7 +21,7 @@ import styles from './AdviceHub.module.css';
 
 function sessionTitle(session: BestPayComparisonSession): string {
   if (isEmptyAdviceSession(session)) {
-    return 'Unbenannter Entwurf';
+    return 'Leerer Entwurf';
   }
   return getSessionCustomerDisplayName(session) || 'Unbenannter Entwurf';
 }
@@ -117,11 +117,19 @@ export function AdviceHubPage() {
               return (
                 <DataListCard
                   title={sessionTitle(session)}
+                  badge="Fortsetzen"
                   meta={`${formatDate(session.updatedAt)} · ${step.label}`}
                   href={adviceSessionPath(session.id)}
                   footer={
                     empty ? (
-                      <Button variant="text" onClick={() => setPendingDeleteId(session.id)}>
+                      <Button
+                        variant="text"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setPendingDeleteId(session.id);
+                        }}
+                      >
                         Löschen
                       </Button>
                     ) : undefined
@@ -135,7 +143,7 @@ export function AdviceHubPage() {
 
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
-        title="Entwurf löschen?"
+        title="Leeren Entwurf löschen?"
         message="Nur leere Entwürfe können verworfen werden."
         confirmLabel="Löschen"
         cancelLabel="Abbrechen"

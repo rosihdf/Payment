@@ -74,6 +74,11 @@ function AdviceWizardInner({
     },
   });
 
+  const setSessionRef = useRef(advice.setSession);
+  const setPersistedRef = useRef(advice.setPersisted);
+  setSessionRef.current = advice.setSession;
+  setPersistedRef.current = advice.setPersisted;
+
   const bindSessionToUrl = useCallback(
     (sessionId: string) => {
       setSearchParams(
@@ -89,71 +94,97 @@ function AdviceWizardInner({
     [setSearchParams],
   );
 
-  const bootstrap = useCallback(async () => {
+  useEffect(() => {
     const sessionId = searchParams.get('session');
-    if (sessionId && bootstrappedRef.current === sessionId && initialSession) {
+    const leadId = searchParams.get('leadId');
+    const isNew = searchParams.get('new') === '1';
+    const bootKey = sessionId ? `session:${sessionId}` : leadId ? `lead:${leadId}` : isNew ? 'new' : 'none';
+    if (bootstrappedRef.current === bootKey) {
       return;
     }
 
-    let active: BestPayComparisonSession | null = null;
-    let persisted = false;
+    let cancelled = false;
 
-    if (sessionId) {
-      const resumed = await services.salesWizardService.resumeWizard(sessionId, userContext);
-      if (!resumed.ok) {
-        showToast('Gespeicherter Vorgang nicht gefunden', 'error');
+    void (async () => {
+      let active: BestPayComparisonSession | null = null;
+      let persisted = false;
+
+      if (sessionId) {
+        const resumed = await services.salesWizardService.resumeWizard(sessionId, userContext);
+        if (cancelled) {
+          return;
+        }
+        if (!resumed.ok) {
+          showToast('Gespeicherter Vorgang nicht gefunden', 'error');
+          active = services.salesWizardService.createTransientWizard(userContext);
+        } else {
+          active = resumed.session;
+          persisted = true;
+          showToast('Beratung fortgesetzt', 'info');
+        }
+      } else if (leadId) {
+        active = services.salesWizardService.createTransientWizard(userContext);
+        active = await services.salesWizardService.persistWizardSession(active, userContext);
+        if (cancelled) {
+          return;
+        }
+        persisted = true;
+        const assigned = await services.salesWizardService.assignLead(active.id, leadId, userContext);
+        if (cancelled) {
+          return;
+        }
+        if (assigned.ok) {
+          active = assigned.session;
+        }
+        bindSessionToUrl(active.id);
+      } else if (isNew) {
         active = services.salesWizardService.createTransientWizard(userContext);
       } else {
-        active = resumed.session;
-        persisted = true;
-        showToast('Beratung fortgesetzt', 'info');
+        navigate(ADVICE_PATH, { replace: true });
+        return;
       }
-    } else if (searchParams.get('leadId')) {
-      active = services.salesWizardService.createTransientWizard(userContext);
-      active = await services.salesWizardService.persistWizardSession(active, userContext);
-      persisted = true;
-      const assigned = await services.salesWizardService.assignLead(
-        active.id,
-        searchParams.get('leadId')!,
-        userContext,
-      );
-      if (assigned.ok) {
-        active = assigned.session;
-      }
-      bindSessionToUrl(active.id);
-    } else if (searchParams.get('new') === '1') {
-      active = services.salesWizardService.createTransientWizard(userContext);
-    } else {
-      navigate(ADVICE_PATH, { replace: true });
-      return;
-    }
 
-    bootstrappedRef.current = active.id;
-    advice.setPersisted(persisted);
-    setInitialSession(active);
-    advice.setSession(active);
-    setSelectedLeadId(active.leadId ?? '');
-    if (active.offerId) {
-      setWorkflowView(await services.offerWorkflowService.getWizardWorkflowView(active.offerId));
-    }
+      if (cancelled || !active) {
+        return;
+      }
+
+      bootstrappedRef.current = bootKey;
+      setPersistedRef.current(persisted);
+      setInitialSession(active);
+      setSessionRef.current(active);
+      setSelectedLeadId(active.leadId ?? '');
+      if (active.offerId) {
+        setWorkflowView(await services.offerWorkflowService.getWizardWorkflowView(active.offerId));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
-    advice,
     bindSessionToUrl,
-    initialSession,
     navigate,
     searchParams,
-    services,
+    services.offerWorkflowService,
+    services.salesWizardService,
     showToast,
     userContext,
   ]);
 
   useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
-
-  useEffect(() => {
     void services.leadService.getVisibleLeads(userContext).then(setLeads);
   }, [services.leadService, userContext]);
+
+  // Nach erster Persistenz Session in die URL schreiben (kein Mirror-State).
+  useEffect(() => {
+    if (!advice.persisted || !advice.session) {
+      return;
+    }
+    if (searchParams.get('session') === advice.session.id) {
+      return;
+    }
+    bindSessionToUrl(advice.session.id);
+  }, [advice.persisted, advice.session, bindSessionToUrl, searchParams]);
 
   const filteredLeads = useMemo(() => {
     const q = leadSearch.trim().toLowerCase();
@@ -259,9 +290,14 @@ function AdviceWizardInner({
         title="Beratung"
         description="Sechs Schritte vom Kunden bis zum BestPay-Handoff"
         actions={
-          <Link className={styles.choiceButton} to={ADVICE_PATH}>
-            Zur Übersicht
-          </Link>
+          <div className={styles.choiceRow}>
+            <Link className={styles.choiceButton} to={ADVICE_PATH}>
+              Zur Übersicht
+            </Link>
+            <Link className={styles.choiceButton} to="/sales">
+              Zum Arbeitsplatz
+            </Link>
+          </div>
         }
       />
 
@@ -287,6 +323,7 @@ function AdviceWizardInner({
               prospectMode={prospectMode}
               leads={filteredLeads}
               leadSearch={leadSearch}
+              selectedLeadId={selectedLeadId}
               busy={advice.busy}
               onLeadSearchChange={setLeadSearch}
               onProspectModeChange={setProspectModeOverride}
