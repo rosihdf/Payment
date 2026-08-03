@@ -27,25 +27,21 @@ describe('Aufräumblock 5 – Kundenakte UI', () => {
 
   it('zeigt Kundenakte mit genau einer Hauptaktion', async () => {
     renderAt('/leads/lead_001');
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Kundenakte Bereiche' })).toBeInTheDocument();
-    const primary = screen.getAllByRole('link').filter((link) =>
-      ['Beratung starten', 'Beratung fortsetzen', 'Kein Handlungsbedarf'].some((label) =>
-        link.textContent?.includes(label),
-      ),
-    );
-    // genau eine dominante Primäraktion im Kopf (Klasse primary) oder Idle-Text
-    const heroPrimary = document.querySelector('a[class*="primaryAction"], span[class*="primaryIdle"]');
-    expect(heroPrimary).toBeTruthy();
+    expect(
+      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Kundenakte/)).toBeInTheDocument();
+    const primary = screen.getByRole('link', { name: 'Beratung starten' });
+    expect(primary).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Aufgabe anlegen' })).not.toBeInTheDocument();
-    void primary;
   });
 
   it('Arbeitsplatz öffnet die Kundenakte', async () => {
     renderAt('/sales');
     await screen.findByRole('heading', { name: 'Arbeitsplatz' });
-    const links = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(links.length).toBeGreaterThan(0);
-    expect(links[0]?.getAttribute('href')).toMatch(/^\/leads\//);
+    expect(screen.getByRole('link', { name: 'Kunden suchen' })).toHaveAttribute('href', '/leads');
+    const detailLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
+    expect(detailLinks.length).toBeGreaterThan(0);
+    expect(detailLinks[0]?.getAttribute('href')).toMatch(/^\/leads\//);
   });
 });

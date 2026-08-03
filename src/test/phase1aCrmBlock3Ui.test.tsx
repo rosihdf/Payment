@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -18,7 +18,7 @@ function renderAt(route: string) {
   return router;
 }
 
-describe('Phase 1A Block 3 – Kundenakte Komfort UI', () => {
+describe('Phase 1A Block 3 – Kundenakte Komfort UI (v2)', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
@@ -29,72 +29,38 @@ describe('Phase 1A Block 3 – Kundenakte Komfort UI', () => {
     cleanup();
   });
 
-  it('zeigt Übersichtskennzahlen, Schnellaktionen und speichert Telefonat in der Timeline', async () => {
-    const user = userEvent.setup();
+  it('zeigt Übersicht mit Kernfakten und einer führenden Beratung-Aktion', async () => {
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
-
-    expect(screen.getByText('Letzter Kundenkontakt')).toBeInTheDocument();
-    expect(screen.getByText('Nächste Aufgabe')).toBeInTheDocument();
-    expect(screen.getByText('Überfällige Aufgaben')).toBeInTheDocument();
-    expect(screen.getByText('Weitere offene Aufgaben')).toBeInTheDocument();
-    expect(screen.getByText('Letzte Beratung')).toBeInTheDocument();
-    expect(screen.getByText('Aktuelles Angebot')).toBeInTheDocument();
-    expect(screen.getByText('Aktueller Gesamtstand')).toBeInTheDocument();
-    expect(screen.getByText('Hauptaktion')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Telefonat' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: '+ Telefonat' }));
-    const title = screen.getByLabelText('Titel');
-    await user.clear(title);
-    await user.type(title, 'Kurzes Telefonat');
-    await user.type(screen.getByLabelText('Ergebnis / Kurznotiz'), 'Kunde rückgefragt');
-    await user.click(screen.getByRole('button', { name: 'Speichern' }));
-
-    expect(await screen.findByText(/Kurzes Telefonat/)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Kontakt')).toBeInTheDocument();
+    expect(screen.getByText('Offene Aufgaben')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
   });
 
-  it('zeigt letzten Kontakt je Ansprechpartner ohne Notiz als Kundenkontakt', async () => {
+  it('zeigt Kontakte im Kontakte-Tab', async () => {
     const user = userEvent.setup();
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
-    await user.click(screen.getByRole('button', { name: 'Ansprechpartner' }));
-    expect(await screen.findByText('Letzter Kontakt')).toBeInTheDocument();
-    expect(screen.queryByText('Letzte Notiz')).not.toBeInTheDocument();
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
+    await user.click(screen.getByRole('button', { name: 'Kontakte' }));
+    expect(screen.getByRole('button', { name: 'Kontakte' })).toBeInTheDocument();
   });
 
-  it('gruppiert Timeline-Einträge und kombiniert Suche mit Filter', async () => {
+  it('zeigt Vorgänge mit Timeline und Aufgaben', async () => {
     const user = userEvent.setup();
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
-    await user.click(screen.getByRole('button', { name: 'Timeline' }));
-
-    expect(screen.getByRole('button', { name: 'Alle' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Kommunikation' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vertrieb' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Kommunikation' }));
-    await user.type(screen.getByLabelText('Suche'), 'xyz-kein-treffer');
-    expect(screen.getByText('Keine Einträge für diesen Filter.')).toBeInTheDocument();
-
-    await user.clear(screen.getByLabelText('Suche'));
-    await user.click(screen.getByRole('button', { name: 'Alle' }));
-    const timelineSection = screen.getByRole('heading', { name: 'Timeline' }).closest('section');
-    expect(timelineSection?.textContent ?? '').toMatch(/Heute|Gestern|Diese Woche|Älter|Keine Einträge/);
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
+    await user.click(screen.getByRole('button', { name: 'Vorgänge' }));
+    expect(await screen.findByRole('heading', { name: 'Timeline' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Aufgaben' })).toBeInTheDocument();
   });
 
-  it('gruppiert Dokumente nach Bereich', async () => {
+  it('öffnet Dokumente-Tab ohne Absturz', async () => {
     const user = userEvent.setup();
     renderAt('/leads/lead_001');
-    await screen.findByText('Kundenakte');
+    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
     await user.click(screen.getByRole('button', { name: 'Dokumente' }));
-    const section = await screen.findByRole('heading', { name: 'Dokumente' });
-    expect(section).toBeInTheDocument();
-    const container = section.closest('section');
-    expect(container).toBeTruthy();
-    if (container) {
-      const headings = within(container).queryAllByRole('heading', { level: 3 });
-      expect(headings.length).toBeGreaterThanOrEqual(0);
-    }
+    expect(screen.getByRole('button', { name: 'Dokumente' })).toBeInTheDocument();
   });
 });

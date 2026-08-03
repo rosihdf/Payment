@@ -98,7 +98,9 @@ describe('Aufräumblock 5 – Links zur Kundenakte', () => {
     const beforeActivities = (readStorageItem<unknown[]>(STORAGE_KEYS.salesActivities) ?? []).length;
 
     renderAt('/leads/lead_001');
-    expect(await screen.findByText('Kundenakte')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
+    ).toBeInTheDocument();
 
     expect((readStorageItem<unknown[]>(STORAGE_KEYS.salesTasks) ?? []).length).toBe(beforeTasks);
     expect((readStorageItem<unknown[]>(STORAGE_KEYS.salesActivities) ?? []).length).toBe(

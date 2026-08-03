@@ -49,11 +49,14 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
   it('öffnet Kundenakte von den Karten und zeigt Empty States', async () => {
     renderAt('/sales');
     await screen.findByRole('heading', { name: 'Arbeitsplatz' });
-    const links = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(links.length).toBeGreaterThan(0);
-    expect(links[0]?.getAttribute('href')).toMatch(/^\/leads\//);
+    const detailLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
+    expect(detailLinks.length).toBeGreaterThan(0);
+    expect(detailLinks[0]?.getAttribute('href')).toMatch(/^\/leads\//);
     expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
-    expect(screen.getAllByText(/Nichts überfällig|Heute nichts geplant|Keine blockierten Fälle/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Keine Einträge|Nichts überfällig|Heute nichts geplant|Keine blockierten Fälle/i)
+        .length,
+    ).toBeGreaterThan(0);
   });
 
   it('Außendienst sieht nur eigene Fälle, Admin kann Team sehen', async () => {
@@ -75,8 +78,8 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
 
     renderAt('/sales', 'user_004');
     const user = userEvent.setup();
-    expect(await screen.findByLabelText('Sicht')).toBeInTheDocument();
-    await openFormSelect(user, 'Sicht');
+    expect(await screen.findByLabelText('Ansicht')).toBeInTheDocument();
+    await openFormSelect(user, 'Ansicht');
     expect(screen.getByRole('option', { name: 'Team' })).toBeInTheDocument();
   });
 

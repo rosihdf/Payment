@@ -48,7 +48,10 @@ describe('Admin catalog unification', () => {
     const user = userEvent.setup();
     renderAtRoute('/admin/catalog');
 
-    expect(await screen.findByRole('heading', { name: 'Produkte & Konditionen' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Produkte & Konditionen' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Produkte/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Tarife' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Produkte' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Preisregeln' })).toBeInTheDocument();
@@ -129,7 +132,9 @@ describe('Admin catalog unification', () => {
 
   it('does not create redirect loops on catalog', async () => {
     const router = renderAtRoute('/admin/catalog?tab=products');
-    expect(await screen.findByRole('heading', { name: 'Produkte & Konditionen' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Produkte & Konditionen' }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/admin/catalog');
     expect(router.state.location.search).toBe('?tab=products');
   });

@@ -17,7 +17,6 @@ function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
   return (
     <DataListCard
       title={entry.companyName}
-      href={entry.customerHref ?? undefined}
       meta={
         <>
           <span>{entry.standLabel}</span>
@@ -25,6 +24,11 @@ function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
           <span>Fälligkeit: {entry.dueAt ? formatDateTime(entry.dueAt) : '–'}</span>
           {entry.warning ? <span>{entry.warning}</span> : null}
         </>
+      }
+      footer={
+        entry.customerHref ? (
+          <Link to={entry.customerHref}>Zur Kundenakte</Link>
+        ) : undefined
       }
     />
   );
@@ -74,8 +78,11 @@ export function WorkspacePage() {
             <Link to={ADVICE_NEW_PATH}>
               <Button>Neue Beratung</Button>
             </Link>
+            <Link to="/leads">
+              <Button variant="secondary">Kunden suchen</Button>
+            </Link>
             <Link to="/sales/commission">
-              <Button variant="secondary">Meine Provision</Button>
+              <Button variant="text">Meine Provision</Button>
             </Link>
           </div>
         }
