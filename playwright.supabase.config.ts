@@ -43,7 +43,7 @@ export default defineConfig({
   webServer: {
     command: `npx vite --port ${PORT} --strictPort --host 0.0.0.0`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 90_000,
     stdout: 'pipe',
     stderr: 'pipe',

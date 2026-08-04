@@ -199,6 +199,12 @@ describe('publicOfferApi worker routes', () => {
       env(),
     );
     expect(client.insertActivity).toHaveBeenCalledTimes(1);
+    const activityPayload = client.insertActivity.mock.calls[0]?.[0] as {
+      id: string;
+      data: { id: string };
+    };
+    expect(activityPayload.id).toBe(activityPayload.data.id);
+    expect(activityPayload.id).toMatch(/^sales_activity_/);
   });
 
   it('validiert Rückfrage-POST', async () => {

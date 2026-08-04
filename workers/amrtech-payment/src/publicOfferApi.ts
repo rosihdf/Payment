@@ -96,12 +96,14 @@ async function recordFirstAccess(service: SupabaseClient, share: ShareRow, offer
   if (existing) return;
 
   const timestamp = new Date().toISOString();
+  const activityId = `sales_activity_${crypto.randomUUID()}`;
   await service.from('sales_activities').insert({
-    id: `sales_activity_${crypto.randomUUID()}`,
+    id: activityId,
     created_by_user_id: share.created_by_user_id,
     lead_id: offer.lead_id ?? null,
     offer_id: share.offer_id,
     data: {
+      id: activityId,
       schemaVersion: 1,
       type: 'status_change',
       title: 'Kunde hat Angebot geöffnet',
@@ -313,12 +315,14 @@ async function handlePostQuestion(request: Request, env: AdminEnv, token: string
   });
 
   const { data: offer } = await service.from('offers').select('lead_id, data').eq('id', share.offer_id).maybeSingle();
+  const activityId = `sales_activity_${crypto.randomUUID()}`;
   await service.from('sales_activities').insert({
-    id: `sales_activity_${crypto.randomUUID()}`,
+    id: activityId,
     created_by_user_id: share.created_by_user_id,
     lead_id: offer?.lead_id ?? null,
     offer_id: share.offer_id,
     data: {
+      id: activityId,
       schemaVersion: 1,
       type: 'status_change',
       title: 'Kunde hat Rückfrage gestellt',
@@ -403,12 +407,14 @@ async function handlePostChangeRequest(request: Request, env: AdminEnv, token: s
   });
 
   const { data: offer } = await service.from('offers').select('lead_id').eq('id', share.offer_id).maybeSingle();
+  const activityId = `sales_activity_${crypto.randomUUID()}`;
   await service.from('sales_activities').insert({
-    id: `sales_activity_${crypto.randomUUID()}`,
+    id: activityId,
     created_by_user_id: share.created_by_user_id,
     lead_id: offer?.lead_id ?? null,
     offer_id: share.offer_id,
     data: {
+      id: activityId,
       schemaVersion: 1,
       type: 'status_change',
       title: 'Kunde wünscht Änderung',

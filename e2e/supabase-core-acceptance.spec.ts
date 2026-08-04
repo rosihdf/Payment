@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoSidebar } from './helpers';
+import { gotoSidebar, chooseCustomOption } from './helpers';
 import { loadSupabaseEnv, requireSupabaseCredentials } from './loadSupabaseEnv';
 import {
   ACCEPTANCE_TAG,
@@ -12,6 +12,8 @@ import {
   fillNeedStep,
   loginWithSupabaseCredentials,
   startAdviceWithCustomer,
+  waitForWorkspaceReady,
+  waitForLeadsReady,
 } from './supabase-auth.helpers';
 
 const env = loadSupabaseEnv();
@@ -51,9 +53,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(adminPage.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveCount(0);
 
       await adminPage.reload();
-      await expect(adminPage.getByRole('heading', { name: 'Arbeitsplatz' })).toBeVisible({
-        timeout: 20_000,
-      });
+      await waitForWorkspaceReady(adminPage);
 
       await adminPage.goto('/admin/users');
       await expect(adminPage.getByRole('heading', { name: 'Benutzer', level: 1 })).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
 
       await gotoSidebar(page, 'Kunden');
-      await expect(page.getByRole('heading', { name: 'Kunden' })).toBeVisible();
+      await waitForLeadsReady(page);
 
       const rows = page.getByRole('link').filter({ hasText: TEST_COMPANY });
       if ((await rows.count()) > 0) {
@@ -91,15 +91,16 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(page.getByRole('heading', { name: TEST_COMPANY })).toBeVisible();
 
       await gotoSidebar(page, 'Kunden');
+      await waitForLeadsReady(page);
       await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill(ACCEPTANCE_TAG);
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
       await assertNoTechnicalIds(page);
 
-      const testCard = page.locator('li, article, div').filter({ hasText: TEST_COMPANY }).first();
+      const testCard = page.getByRole('article').filter({ hasText: TEST_COMPANY }).first();
       await testCard.getByRole('button', { name: 'Bearbeiten' }).click();
       await expect(page.getByRole('heading', { name: 'Kunde bearbeiten' })).toBeVisible();
       await page.getByLabel('Branche').fill('Einzelhandel Remote');
-      await page.getByRole('button', { name: 'Speichern' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Speichern', exact: true }).click();
       await expect(page.getByText('Änderungen wurden gespeichert')).toBeVisible();
 
       await page.reload();
@@ -107,37 +108,33 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(page.getByText('Einzelhandel Remote')).toBeVisible();
 
       await page
-        .locator('li, article, div')
+        .getByRole('article')
         .filter({ hasText: TEST_COMPANY })
         .first()
         .getByRole('button', { name: 'Bearbeiten' })
         .click();
-      const advisorSelect = page.getByLabel('Betreuer');
-      await expect(advisorSelect).toBeVisible();
-      const options = advisorSelect.locator('option');
-      const optionCount = await options.count();
-      for (let i = 0; i < optionCount; i += 1) {
-        const text = (await options.nth(i).textContent())?.trim() ?? '';
-        if (text && !text.includes('Bitte wählen')) {
-          fieldAdvisorLabel = text;
-          await advisorSelect.selectOption({ index: i });
-          break;
-        }
-      }
+      const advisorCombobox = page.getByRole('dialog').getByRole('combobox', { name: 'Betreuer' });
+      await expect(advisorCombobox).toBeVisible();
+      await chooseCustomOption(page, advisorCombobox, /^test \(/);
+      fieldAdvisorLabel = (await advisorCombobox.textContent())?.trim() ?? '';
       expect(fieldAdvisorLabel.length).toBeGreaterThan(0);
-      await page.getByRole('button', { name: 'Speichern' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Speichern', exact: true }).click();
       await expect(page.getByText('Änderungen wurden gespeichert')).toBeVisible();
 
       await page.reload();
+      await waitForLeadsReady(page);
       await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill(ACCEPTANCE_TAG);
-      await expect(page.getByText(/Betreuer:/)).toBeVisible();
+      await expect(
+        page.getByRole('article').filter({ hasText: TEST_COMPANY }).first(),
+      ).toContainText(/Betreuer: test/i);
 
       await gotoSidebar(page, 'Arbeitsplatz');
       await page.getByLabel('Suche').fill(ACCEPTANCE_TAG);
       await expect(page.getByRole('heading', { name: 'Suchtreffer' })).toBeVisible();
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
 
       await gotoSidebar(page, 'Kunden');
+      await waitForLeadsReady(page);
       const leadCount = await page.getByRole('link', { name: /GmbH|AG|KG|e\.K\.|Handel/i }).count();
       if (leadCount > 1) {
         for (let i = 0; i < leadCount; i += 1) {
@@ -179,6 +176,10 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)')).toHaveValue(/12,50\s*€/);
 
       await page.reload();
+      await page
+        .getByRole('navigation', { name: 'Beratungsschritte' })
+        .getByRole('button', { name: /Ausgangslage/ })
+        .click();
       await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible({
         timeout: 20_000,
       });
@@ -215,6 +216,10 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(page.getByText(/Ist-Kosten:\s*0,00\s*€/)).toBeVisible();
 
       await page.reload();
+      await page
+        .getByRole('navigation', { name: 'Beratungsschritte' })
+        .getByRole('button', { name: /Ausgangslage/ })
+        .click();
       await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible({
         timeout: 20_000,
       });
@@ -285,7 +290,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await page.goto(`/offers/${offerId}`);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
       await assertNoTechnicalIds(page);
 
       await page.getByRole('button', { name: 'Angebot abschließen' }).click();
@@ -313,7 +318,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       }
 
       await page.reload();
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
       if (await approvalButton.isVisible().catch(() => false)) {
         await expect(page.getByText(/Freigabe|Wartet|Freigabe anfordern/i)).toBeVisible();
       } else {
@@ -334,8 +339,9 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(page.getByRole('combobox', { name: 'Demo-Benutzer wechseln' })).toHaveCount(0);
 
       await gotoSidebar(page, 'Kunden');
+      await waitForLeadsReady(page);
       await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill(ACCEPTANCE_TAG);
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
 
       if (foreignLeadId) {
         await page.goto(`/leads/${foreignLeadId}`);
@@ -348,7 +354,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await gotoSidebar(page, 'Arbeitsplatz');
       await page.getByLabel('Suche').fill(ACCEPTANCE_TAG);
-      await expect(page.getByText(TEST_COMPANY)).toBeVisible();
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
 
       await page.goto('/admin/commission/standards');
       await expect(page.getByRole('heading', { name: 'Zugriff verweigert' })).toBeVisible();

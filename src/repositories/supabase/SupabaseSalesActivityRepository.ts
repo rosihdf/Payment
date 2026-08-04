@@ -26,7 +26,7 @@ function activityToRow(activity: SalesActivity): Record<string, unknown> {
   };
 }
 
-function rowToActivity(row: JsonTableRow): SalesActivity {
+function rowToActivity(row: JsonTableRow): SalesActivity | null {
   const normalized = normalizeSalesActivity(
     rowData(row, {
       id: row.id,
@@ -39,7 +39,8 @@ function rowToActivity(row: JsonTableRow): SalesActivity {
     }),
   );
   if (!normalized) {
-    throw new Error(`SalesActivity konnte nicht normalisiert werden: ${row.id}`);
+    console.warn(`SalesActivity konnte nicht normalisiert werden: ${row.id}`);
+    return null;
   }
   return normalized;
 }
@@ -59,7 +60,11 @@ export class SupabaseSalesActivityRepository implements SalesActivityRepository 
 
   async create(activity: SalesActivity): Promise<SalesActivity> {
     const row = await sbInsert(TABLE, activityToRow(activity));
-    return rowToActivity(row);
+    const normalized = rowToActivity(row);
+    if (!normalized) {
+      throw new Error(`SalesActivity konnte nach Anlage nicht normalisiert werden: ${activity.id}`);
+    }
+    return normalized;
   }
 
   async update(activity: SalesActivity): Promise<SalesActivity> {
@@ -68,7 +73,11 @@ export class SupabaseSalesActivityRepository implements SalesActivityRepository 
       throw new Error(`SalesActivity not found: ${activity.id}`);
     }
     const row = await sbUpdate(TABLE, activity.id, activityToRow(activity));
-    return rowToActivity(row);
+    const normalized = rowToActivity(row);
+    if (!normalized) {
+      throw new Error(`SalesActivity konnte nach Update nicht normalisiert werden: ${activity.id}`);
+    }
+    return normalized;
   }
 
   async delete(id: string): Promise<boolean> {

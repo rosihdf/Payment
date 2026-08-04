@@ -67,8 +67,19 @@ export function LeadsPage() {
   }, [currentUser, leadService, query]);
 
   useEffect(() => {
+    if (!currentUser) {
+      setUsers([]);
+      return;
+    }
     void userService.getAllUsers().then(setUsers);
-  }, [userService]);
+  }, [currentUser, userService]);
+
+  useEffect(() => {
+    if (!canAssignAdvisor || !editingLeadId) {
+      return;
+    }
+    void userService.getAllUsers().then(setUsers);
+  }, [canAssignAdvisor, editingLeadId, userService]);
 
   useEffect(() => {
     reloadLeads();

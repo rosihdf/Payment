@@ -81,5 +81,8 @@ export async function sbUpsertMany(table: string, rows: Record<string, unknown>[
 }
 
 export function rowData<T>(row: JsonTableRow, fallback: T): T {
-  return (row.data ?? fallback) as T;
+  if (row.data && typeof row.data === 'object' && !Array.isArray(row.data)) {
+    return { ...fallback, ...(row.data as Record<string, unknown>) } as T;
+  }
+  return fallback;
 }

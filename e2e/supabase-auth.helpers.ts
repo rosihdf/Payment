@@ -27,6 +27,28 @@ export async function withFreshPage(
   }
 }
 
+export async function waitForLeadsReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Kunden', exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByRole('heading', { name: 'Kunden werden geladen' })).toHaveCount(0, {
+    timeout: 20_000,
+  });
+  await expect(page.getByRole('searchbox', { name: 'Kunden-Suche' })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
+export async function waitForWorkspaceReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Arbeitsplatz', exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByRole('heading', { name: 'Arbeitsplatz wird geladen' })).toHaveCount(0, {
+    timeout: 20_000,
+  });
+  await expect(page.getByLabel('Suche')).toBeVisible({ timeout: 20_000 });
+}
+
 export async function loginWithPassword(
   page: Page,
   email: string,
@@ -38,9 +60,7 @@ export async function loginWithPassword(
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page).toHaveURL(/\/sales$/, { timeout: 20_000 });
-  await expect(page.getByRole('heading', { name: 'Arbeitsplatz' })).toBeVisible({
-    timeout: 20_000,
-  });
+  await waitForWorkspaceReady(page);
 }
 
 /** Alias für Supabase-Acceptance-Tests. */
