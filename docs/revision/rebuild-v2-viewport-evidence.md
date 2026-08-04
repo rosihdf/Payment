@@ -1,58 +1,37 @@
-# Rebuild Frontend v2 – Viewport- und Mobile-Nachweis
+# Rebuild Frontend v2 – Viewport-/Mobile-/PWA-/Android-Nachweis
 
-**Branch:** `rebuild/frontend-v2`  
-**Stand:** Phase 7–9 abgeschlossen (ohne Push/Deploy)
+**Branch:** rebuild/frontend-v2  
+**Stand:** Abnahmeabschluss (ohne Push/Deploy)
 
-## Automatisierte Viewport-Prüfung
+## Responsive
 
-Datei: `src/test/v2ResponsiveViewport.test.tsx`
+Automatisiert: `src/test/v2ResponsiveViewport.test.tsx`  
+Breiten: 360 · 390 · 412 · 768 · 960 · 1280 px  
+Routen u. a.: Arbeitsplatz, Kundenliste, Kunde neu, Kundenakte, Beratung, Angebotsliste, Aktivierungen, Provision, Admin Benutzer/Katalog, Profil.
 
-Geprüfte Breiten: **360 · 390 · 412 · 768 · 960 · 1280 px**
+Screenshots: `docs/revision/screenshots/` (66 PNGs).
 
-Pro Breite:
-- Arbeitsplatz (`/sales`) – Heading + `scrollWidth <= clientWidth`
-- Kundenliste (`/leads`) – Heading + Overflow-Check
+## PWA (real geprüft gegen Production-Preview)
 
-Zusätzlich bei 360 px:
-- Beratungshub (`/advice`)
-- Kundenakte (`/leads/lead_001`) mit Navigation „Kundenakte Bereiche“
+- `dist/sw.js` erzeugt und unter Preview mit HTTP 200 erreichbar
+- Manifest `manifest.webmanifest` verlinkt (`display: standalone`)
+- Browser-Check: Service Worker registered, active, controller nach Reload vorhanden
+- Kernrouten Preview HTTP 200: `/`, `/sales`, `/leads`, `/advice`, `/admin/commission/overview`, `/profile`
 
-## Screenshots
+## Android
 
-Ablage: `docs/revision/screenshots/`
+- `android/` aus Release-Worktree integriert (ohne Keystore/Artefakte)
+- `npx cap sync android` erfolgreich
+- Release-APK: versionName 1.0.2, versionCode 10002, applicationId de.amrtech.paymentleads
+- Signaturprüfung `apksigner verify` EXIT 0 (derselbe Release-Keystore via `~/.amrtech/keystore.properties`)
+- Emulator `amrtech_rebuild_api35`: Install Success, MainActivity startet mit WebView
+- Download-Manifest erreichbar: https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json (HTTP 200)
+- Kein produktiver APK-Upload
 
-| Seite | 360 | 390 | 412 | 768 | Desktop 1280 |
-|-------|-----|-----|-----|-----|--------------|
-| Arbeitsplatz | sales-360.png | sales-390.png | sales-412.png | sales-768.png | sales-desktop.png |
-| Kundenliste | leads-*.png | … | … | … | … |
-| Beratung | advice-*.png | … | … | … | … |
-| Kundenakte | lead-record-*.png | … | … | … | … |
-| Profil / App-Info | profile-*.png | … | … | … | … |
+## Provision Persistenz
 
-Erzeugt gegen lokalen Production-Preview (`vite preview`, kein Deploy).
+Tests: `commissionProvisionPersistence.test.ts`, `commissionAdminUiPersistence.test.tsx` sowie E2E Admin-Flow.
 
-## PWA
+## Browser-E2E
 
-- Production-Build erzeugt Service Worker (`dist/sw.js`, Workbox).
-- `vite-plugin-pwa` mit `registerType: autoUpdate`, `skipWaiting`, `clientsClaim`.
-- Kein produktiver Deploy in diesem Rebuild.
-
-## APK / Capacitor
-
-- `capacitor.config.ts` vorhanden (`appId: de.amrtech.paymentleads`, `webDir: dist`).
-- Kein `android/`-Verzeichnis in diesem Worktree → **kein APK-Build ausgeführt**.
-- Profil → **App-Info**: Version sichtbar, Aktion „Auf Update prüfen“, Download-Link auf Downloads-Worker (`…/android/latest.apk`).
-- Keine separate APK-CSS-Welt.
-
-## Quality Gates (letzter Gesamtlauf)
-
-| Gate | Ergebnis |
-|------|----------|
-| Vitest gesamt | 148 Dateien / 1005 Tests, EXIT 0 |
-| Lint (oxlint) | EXIT 0 |
-| `tsc -b` | EXIT 0 |
-| `build:production` | EXIT 0 |
-| `verify:ocr-build` | EXIT 0 |
-| `secretscan:dist` | EXIT 0 |
-| `git diff --check` | EXIT 0 |
-| `.only` / `.skip` | keine |
+`npm run test:e2e` → 8 Playwright-Tests grün (Außendienst, Admin, öffentlicher Kundenlink).
