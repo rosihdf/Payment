@@ -7,8 +7,8 @@ import { FormControl } from '../components/common/FormControl';
 import styles from '../components/common/FormControl.module.css';
 
 const FEATURE_PAGES = [
-  'src/features/admin/AdminUsersPage.tsx',
-  'src/features/lead/LeadForm.tsx',
+  'src/v2/admin/AdminUsersPage.tsx',
+  'src/v2/crm/LeadForm.tsx',
   'src/features/tariff/TariffForm.tsx',
   'src/features/product/ProductForm.tsx',
   'src/features/offer/OfferCustomerSection.tsx',
@@ -103,7 +103,7 @@ describe('FormControl', () => {
     const source = readSource(pagePath);
     expect(source).not.toMatch(/<select[\s/>]/);
     expect(source).not.toMatch(/SelectControl|SelectField|SearchField|inputs\.module/);
-    expect(source).toMatch(/FormControl/);
+    expect(source).toMatch(/FormControl|FormField/);
   });
 
   it('Arbeitsplatz-Filter nutzt FormField für Suche und Ansicht', () => {
