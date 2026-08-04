@@ -116,7 +116,8 @@
   }
 
   .scrollContainer .table {
-    min-width: 36rem;
+    min-width: 0;
+    width: 100%;
   }
 }
 

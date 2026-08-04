@@ -67,16 +67,11 @@ function isCatalogRelatedPath(pathname: string): boolean {
 export const ADMIN_SHELL_NAV: AdminShellNavItem[] = [
   { to: '/admin', label: 'Übersicht', end: true },
   { to: '/admin/users', label: 'Benutzer' },
-  { to: '/admin/roles', label: 'Rollen' },
   {
     to: '/admin/catalog',
     label: 'Produkte & Konditionen',
     isActive: (pathname) => isCatalogRelatedPath(pathname),
   },
   { to: '/admin/commission', label: 'Provision' },
-  { to: '/admin/approvals', label: 'Freigaberegeln' },
-  { to: '/admin/templates', label: 'Vorlagen' },
-  { to: '/admin/data', label: 'Daten & Sicherung' },
-  { to: '/admin/audit', label: 'Audit' },
   { to: '/admin/system', label: 'Systemstatus' },
 ];

@@ -94,7 +94,8 @@
 
 @media (max-width: 720px) {
   .tableWrap .table {
-    min-width: 36rem;
+    min-width: 0;
+    width: 100%;
   }
 
   .toolbar :global(button) {

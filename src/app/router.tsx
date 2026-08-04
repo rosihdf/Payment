@@ -12,10 +12,6 @@ import { EditOfferPage } from '../v2/offer/EditOfferPage';
 import { NewOfferPage } from '../v2/offer/NewOfferPage';
 import { OfferDetailPage } from '../v2/offer/OfferDetailPage';
 import { OffersPage } from '../v2/offer/OffersPage';
-import { ContractDetailPage } from '../v2/contract/ContractDetailPage';
-import { ContractsPage } from '../v2/contract/ContractsPage';
-import { ActivationDetailPage } from '../v2/activation/ActivationDetailPage';
-import { ActivationsPage } from '../v2/activation/ActivationsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
@@ -23,7 +19,7 @@ import {
 import { EditLeadPage } from '../v2/crm/EditLeadPage';
 import { NewLeadPage } from '../v2/crm/NewLeadPage';
 import { AdminOverviewPage } from '../v2/admin/AdminOverviewPage';
-import { AdminUsersPage, AdminRolesPage } from '../v2/admin/AdminUsersPage';
+import { AdminUsersPage } from '../v2/admin/AdminUsersPage';
 import { AdminCatalogPage } from '../v2/admin/AdminCatalogPage';
 import {
   AdminPricingPage,
@@ -35,15 +31,10 @@ import {
   CommissionOverviewPage,
   CommissionStandardsPage,
   CommissionCasesPage,
-  CommissionBonusPage,
   CommissionSettlementPage,
   SalesCommissionPage,
 } from '../v2/commission';
 import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
-import { AdminApprovalsPage } from '../v2/admin/AdminApprovalsPage';
-import { AdminTemplatesPage } from '../v2/admin/AdminTemplatesPage';
-import { AdminDataPage } from '../v2/admin/AdminDataPage';
-import { AdminAuditPage } from '../v2/admin/AdminAuditPage';
 import { AdminSystemPage } from '../v2/admin/AdminSystemPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
@@ -94,14 +85,14 @@ export const appRoutes: RouteObject[] = [
       { path: 'offers/:id/preview', element: <OfferDocumentPreviewPage /> },
       { path: 'offers/:offerId/documents/:documentId', element: <OfferDocumentDetailPage /> },
       { path: 'offers/:id', element: <OfferDetailPage /> },
-      { path: 'contracts', element: <ContractsPage /> },
-      { path: 'contracts/:contractId', element: <ContractDetailPage /> },
-      { path: 'activations', element: <ActivationsPage /> },
-      { path: 'activations/:activationId', element: <ActivationDetailPage /> },
+      { path: 'contracts', element: <Navigate to="/offers" replace /> },
+      { path: 'contracts/:contractId', element: <Navigate to="/offers" replace /> },
+      { path: 'activations', element: <Navigate to="/offers" replace /> },
+      { path: 'activations/:activationId', element: <Navigate to="/offers" replace /> },
       { path: 'products', element: <Navigate to={adminCatalogPath('products')} replace /> },
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },
-      { path: 'admin/roles', element: <AdminRolesPage /> },
+      { path: 'admin/roles', element: <Navigate to="/admin/users" replace /> },
       { path: 'admin/catalog', element: <AdminCatalogPage /> },
       { path: 'admin/pricing', element: <AdminPricingPage /> },
       { path: 'admin/products', element: <AdminProductsPage /> },
@@ -112,16 +103,16 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/commission/overview', element: <CommissionOverviewPage /> },
       { path: 'admin/commission/standards', element: <CommissionStandardsPage /> },
       { path: 'admin/commission/cases', element: <CommissionCasesPage /> },
-      { path: 'admin/commission/bonus', element: <CommissionBonusPage /> },
+      { path: 'admin/commission/bonus', element: <Navigate to="/admin/commission" replace /> },
       { path: 'admin/commission/settlement', element: <CommissionSettlementPage /> },
       { path: 'admin/commission/models', element: <Navigate to="/admin/commission/standards" replace /> },
       { path: 'admin/commission/assignments', element: <Navigate to="/admin/commission/standards" replace /> },
       { path: 'admin/commission/payments', element: <Navigate to="/admin/commission/settlement" replace /> },
       { path: 'admin/commission/history', element: <Navigate to="/admin/commission/settlement" replace /> },
-      { path: 'admin/approvals', element: <AdminApprovalsPage /> },
-      { path: 'admin/templates', element: <AdminTemplatesPage /> },
-      { path: 'admin/data', element: <AdminDataPage /> },
-      { path: 'admin/audit', element: <AdminAuditPage /> },
+      { path: 'admin/approvals', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/templates', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/data', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/audit', element: <Navigate to="/admin" replace /> },
       { path: 'admin/system', element: <AdminSystemPage /> },
       { path: 'admin/tariffs', element: <AdminTariffsListRedirect /> },
       { path: 'admin/tariffs/new', element: <NewTariffPage /> },
