@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormControl } from '../../components/common/FormControl';
-import { PageHeader } from '../../components/layout/PageHeader';
+import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import {
   OFFER_STATUS_LABELS,
   type Offer,
   type OfferFilters,
+  type OfferStatus,
   type OfferStatusFilter,
 } from '../../domain/offer/offer';
 import {
   OFFER_WORKFLOW_STATUS_LABELS,
   type OfferWorkflowStatusFilter,
 } from '../../domain/offer/offerWorkflow';
+import { getOfferWorkflowDisplayLabel } from '../../features/offer/offerWorkflowDisplay';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
-import { OfferCard } from './OfferCard';
+import { formatContactName, formatDate } from '../../utils/format';
+import { Button } from '../ui/Button';
+import { DataList, DataListCard } from '../ui/DataList';
+import { FormField } from '../ui/FormField';
+import { PageHeader } from '../ui/PageHeader';
+import { StatusBadge, type StatusBadgeVariant } from '../ui/StatusBadge';
 import styles from './OffersPage.module.css';
 
 const STATUS_FILTER_OPTIONS: Array<{ value: OfferStatusFilter; label: string }> = [
@@ -47,6 +53,12 @@ const OWNER_FILTER_OPTIONS: Array<{ value: OfferFilters['owner']; label: string 
   { value: 'all', label: 'Alle' },
   { value: 'mine', label: 'Meine Angebote' },
 ];
+
+const OFFER_STATUS_VARIANT: Record<OfferStatus, StatusBadgeVariant> = {
+  draft: 'info',
+  completed: 'success',
+  cancelled: 'neutral',
+};
 
 export function OffersPage() {
   const { currentUser } = useCurrentUser();
@@ -95,16 +107,16 @@ export function OffersPage() {
     <section>
       <PageHeader
         title="Angebote"
-        subtitle="Angebote zum Kunden – bevorzugt über Beratung und Kundenakte öffnen"
+        description="Angebote zum Kunden – bevorzugt über Beratung und Kundenakte öffnen"
         actions={
-          <Link className={styles.primaryAction} to="/offers/new">
-            Neues Angebot
+          <Link to="/offers/new">
+            <Button>Neues Angebot</Button>
           </Link>
         }
       />
 
-      <div className={styles.toolbar}>
-        <FormControl
+      <div className={styles.search}>
+        <FormField
           type="search"
           label="Suche"
           value={filters.search}
@@ -113,69 +125,69 @@ export function OffersPage() {
           }
           placeholder="Angebotsnummer, Titel, Kunde, Tarif…"
         />
+      </div>
 
-        <div className={styles.filters}>
+      <div className={styles.filters}>
+        <fieldset className={styles.filterGroup}>
+          <legend className={styles.filterLegend}>Status</legend>
+          <div className={styles.filterOptions}>
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`${styles.filterButton} ${
+                  filters.status === option.value ? styles.filterButtonActive : ''
+                }`}
+                aria-pressed={filters.status === option.value}
+                onClick={() => setFilters((current) => ({ ...current, status: option.value }))}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className={styles.filterGroup}>
+          <legend className={styles.filterLegend}>Workflow</legend>
+          <div className={styles.filterOptions}>
+            {WORKFLOW_FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`${styles.filterButton} ${
+                  filters.workflowStatus === option.value ? styles.filterButtonActive : ''
+                }`}
+                aria-pressed={filters.workflowStatus === option.value}
+                onClick={() =>
+                  setFilters((current) => ({ ...current, workflowStatus: option.value }))
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {currentUser?.role === 'admin' ? (
           <fieldset className={styles.filterGroup}>
-            <legend className={styles.filterLegend}>Status</legend>
+            <legend className={styles.filterLegend}>Ersteller</legend>
             <div className={styles.filterOptions}>
-              {STATUS_FILTER_OPTIONS.map((option) => (
+              {OWNER_FILTER_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   className={`${styles.filterButton} ${
-                    filters.status === option.value ? styles.filterButtonActive : ''
+                    filters.owner === option.value ? styles.filterButtonActive : ''
                   }`}
-                  aria-pressed={filters.status === option.value}
-                  onClick={() => setFilters((current) => ({ ...current, status: option.value }))}
+                  aria-pressed={filters.owner === option.value}
+                  onClick={() => setFilters((current) => ({ ...current, owner: option.value }))}
                 >
                   {option.label}
                 </button>
               ))}
             </div>
           </fieldset>
-
-          <fieldset className={styles.filterGroup}>
-            <legend className={styles.filterLegend}>Workflow</legend>
-            <div className={styles.filterOptions}>
-              {WORKFLOW_FILTER_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`${styles.filterButton} ${
-                    filters.workflowStatus === option.value ? styles.filterButtonActive : ''
-                  }`}
-                  aria-pressed={filters.workflowStatus === option.value}
-                  onClick={() =>
-                    setFilters((current) => ({ ...current, workflowStatus: option.value }))
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          {currentUser?.role === 'admin' ? (
-            <fieldset className={styles.filterGroup}>
-              <legend className={styles.filterLegend}>Ersteller</legend>
-              <div className={styles.filterOptions}>
-                {OWNER_FILTER_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`${styles.filterButton} ${
-                      filters.owner === option.value ? styles.filterButtonActive : ''
-                    }`}
-                    aria-pressed={filters.owner === option.value}
-                    onClick={() => setFilters((current) => ({ ...current, owner: option.value }))}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -185,26 +197,49 @@ export function OffersPage() {
           title="Keine Angebote gefunden"
           description="Für die aktuelle Suche oder Filterkombination liegen keine Angebote vor."
           action={
-            <Link className={styles.primaryAction} to="/offers/new">
-              Neues Angebot
+            <Link to="/offers/new">
+              <Button>Neues Angebot</Button>
             </Link>
           }
         />
       ) : (
-        <ul className={styles.list}>
-          {filteredOffers.map((offer) => (
-            <li key={offer.id}>
-              <OfferCard
-                offer={offer}
-                actions={
-                  <Link className={styles.secondaryAction} to={`/offers/${offer.id}`}>
-                    Details anzeigen
-                  </Link>
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <DataList
+          items={filteredOffers}
+          getKey={(offer) => offer.id}
+          aria-label="Angebotsliste"
+          renderItem={(offer) => (
+            <DataListCard
+              href={`/offers/${offer.id}`}
+              title={offer.title}
+              badge={
+                <div className={styles.badges}>
+                  <StatusBadge
+                    variant={OFFER_STATUS_VARIANT[offer.status]}
+                    label={OFFER_STATUS_LABELS[offer.status]}
+                  />
+                  <StatusBadge
+                    variant="neutral"
+                    label={getOfferWorkflowDisplayLabel(offer.workflowStatus)}
+                  />
+                </div>
+              }
+              meta={
+                <>
+                  <span>{offer.offerNumber}</span>
+                  <span>{getLeadDisplayName(offer.customerSnapshot)}</span>
+                  <span>
+                    {formatContactName(
+                      offer.customerSnapshot.contactFirstName,
+                      offer.customerSnapshot.contactLastName,
+                    )}
+                  </span>
+                  {offer.tariffSnapshot ? <span>Tarif: {offer.tariffSnapshot.name}</span> : null}
+                  <span>Aktualisiert: {formatDate(offer.updatedAt)}</span>
+                </>
+              }
+            />
+          )}
+        />
       )}
     </section>
   );

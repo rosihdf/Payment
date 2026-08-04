@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
-import { PageHeader } from '../../components/layout/PageHeader';
+import { EmptyState } from '../../components/feedback/EmptyState';
 import { DEFAULT_CREATE_OFFER_INPUT } from '../../domain/offer/offerDefaults';
 import type { CreateOfferInput } from '../../domain/offer/offer';
 import { isSameOfferInput } from '../../domain/offer/offerFormMapping';
 import type { Lead } from '../../domain/lead/lead';
 import type { Product } from '../../domain/product/product';
 import type { Tariff } from '../../domain/tariff/tariff';
+import { OfferForm } from '../../features/offer/OfferForm';
 import { useBeforeUnload } from '../../hooks/useBeforeUnload';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateOfferErrors } from '../../services/offerValidation';
-import { OfferForm } from './OfferForm';
-import styles from './OfferForm.module.css';
+import { Button } from '../ui/Button';
+import { PageHeader } from '../ui/PageHeader';
 
 export function NewOfferPage() {
   const navigate = useNavigate();
@@ -119,16 +120,16 @@ export function NewOfferPage() {
     <section>
       <PageHeader
         title="Neues Angebot"
-        subtitle="BestPay-Angebot für einen Lead konfigurieren"
+        description="BestPay-Angebot für einen Lead konfigurieren"
         actions={
-          <Link className={styles.secondary} to="/offers">
-            Zur Angebotsübersicht
+          <Link to="/offers">
+            <Button variant="secondary">Zur Angebotsübersicht</Button>
           </Link>
         }
       />
 
       {isLoading ? (
-        <p className={styles.sectionHint}>Formular wird vorbereitet…</p>
+        <EmptyState title="Formular wird vorbereitet" description="Angebotsdaten werden geladen." />
       ) : (
         <OfferForm
           mode="create"

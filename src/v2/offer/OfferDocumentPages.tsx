@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { PageHeader } from '../../components/layout/PageHeader';
-import type { OfferDocument } from '../../domain/offerDocument/offerDocument';
+import {
+  OFFER_DOCUMENT_STATUS_LABELS,
+  type OfferDocument,
+  type OfferDocumentStatus,
+} from '../../domain/offerDocument/offerDocument';
+import { OfferPdfPreview } from '../../features/offerDocument/OfferPdfPreview';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import { displayDateTime, displayText } from '../../utils/format';
-import { OfferDocumentStatusBadge } from './OfferDocumentStatusBadge';
-import { OfferPdfPreview } from './OfferPdfPreview';
-import styles from './OfferDocumentDetailPage.module.css';
+import { Button } from '../ui/Button';
+import { PageHeader } from '../ui/PageHeader';
+import { StatusBadge, type StatusBadgeVariant } from '../ui/StatusBadge';
+import styles from './OfferDocumentPages.module.css';
+
+const DOCUMENT_STATUS_VARIANT: Record<OfferDocumentStatus, StatusBadgeVariant> = {
+  generated: 'success',
+  superseded: 'neutral',
+};
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -122,7 +132,7 @@ export function OfferDocumentDetailPage() {
   if (isLoading) {
     return (
       <section>
-        <PageHeader title="PDF-Dokument" subtitle="Daten werden geladen…" />
+        <PageHeader title="PDF-Dokument" description="Daten werden geladen…" />
         <EmptyState title="Dokument wird geladen" description="Die Dokumentdetails werden abgerufen." />
       </section>
     );
@@ -137,12 +147,12 @@ export function OfferDocumentDetailPage() {
           description="Das angeforderte PDF-Dokument existiert nicht oder Sie haben keinen Zugriff."
           action={
             offerId ? (
-              <Link className={styles.link} to={`/offers/${offerId}`}>
-                Zurück zum Angebot
+              <Link to={`/offers/${offerId}`}>
+                <Button variant="secondary">Zurück zum Angebot</Button>
               </Link>
             ) : (
-              <Link className={styles.link} to="/offers">
-                Zur Angebotsübersicht
+              <Link to="/offers">
+                <Button variant="secondary">Zur Angebotsübersicht</Button>
               </Link>
             )
           }
@@ -155,33 +165,27 @@ export function OfferDocumentDetailPage() {
     <section>
       <PageHeader
         title={document.documentNumber}
-        subtitle={`${document.offerNumber} · Version ${document.version}`}
+        description={`${document.offerNumber} · Version ${document.version}`}
         actions={
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.primaryAction}
-              disabled={isDownloading}
-              onClick={handleDownload}
-            >
+            <Button disabled={isDownloading} loading={isDownloading} onClick={handleDownload}>
               PDF herunterladen
-            </button>
-            <Link className={styles.secondaryAction} to={`/offers/${document.offerId}`}>
-              Zum Angebot
+            </Button>
+            <Link to={`/offers/${document.offerId}`}>
+              <Button variant="secondary">Zum Angebot</Button>
             </Link>
-            <button
-              type="button"
-              className={styles.linkButton}
-              onClick={() => navigate(-1)}
-            >
+            <Button variant="text" onClick={() => navigate(-1)}>
               Zurück
-            </button>
+            </Button>
           </div>
         }
       />
 
       <div className={styles.statusRow}>
-        <OfferDocumentStatusBadge status={document.status} />
+        <StatusBadge
+          variant={DOCUMENT_STATUS_VARIANT[document.status]}
+          label={OFFER_DOCUMENT_STATUS_LABELS[document.status]}
+        />
         {integrityValid === true ? (
           <span className={styles.integrityOk}>Integrität geprüft</span>
         ) : integrityValid === false ? (
@@ -283,7 +287,7 @@ export function OfferDocumentPreviewPage() {
   if (isLoading) {
     return (
       <section>
-        <PageHeader title="PDF-Vorschau" subtitle="Vorschau wird erzeugt…" />
+        <PageHeader title="PDF-Vorschau" description="Vorschau wird erzeugt…" />
         <EmptyState title="Vorschau wird geladen" description="Das PDF wird erzeugt." />
       </section>
     );
@@ -298,8 +302,8 @@ export function OfferDocumentPreviewPage() {
           description={loadError ?? 'Die PDF-Vorschau konnte nicht erzeugt werden.'}
           action={
             id ? (
-              <Link className={styles.link} to={`/offers/${id}`}>
-                Zurück zum Angebot
+              <Link to={`/offers/${id}`}>
+                <Button variant="secondary">Zurück zum Angebot</Button>
               </Link>
             ) : undefined
           }
@@ -312,11 +316,11 @@ export function OfferDocumentPreviewPage() {
     <section>
       <PageHeader
         title="PDF-Vorschau"
-        subtitle="Unverbindliche Vorschau – nicht gespeichert"
+        description="Unverbindliche Vorschau – nicht gespeichert"
         actions={
           id ? (
-            <Link className={styles.secondaryAction} to={`/offers/${id}`}>
-              Zum Angebot
+            <Link to={`/offers/${id}`}>
+              <Button variant="secondary">Zum Angebot</Button>
             </Link>
           ) : undefined
         }

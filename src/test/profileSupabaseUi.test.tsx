@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ProfilePage } from '../features/profile/ProfilePage';
+import { ProfilePage } from '../v2/profile/ProfilePage';
 import { CurrentUserContext } from '../app/providers/currentUserContext';
 import { AppUpdateProvider } from '../app/providers/AppUpdateProvider';
 

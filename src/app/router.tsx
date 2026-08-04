@@ -8,23 +8,23 @@ import { WorkspacePage } from '../v2/workspace/WorkspacePage';
 import { CalculatorWizardRedirect } from './CalculatorWizardRedirect';
 import { PreserveSearchRedirect } from './PreserveSearchRedirect';
 import { ADVICE_PATH, adminCatalogPath } from '../utils/routes';
-import { EditOfferPage } from '../features/offer/EditOfferPage';
-import { NewOfferPage } from '../features/offer/NewOfferPage';
+import { EditOfferPage } from '../v2/offer/EditOfferPage';
+import { NewOfferPage } from '../v2/offer/NewOfferPage';
 import { OfferDetailPage } from '../v2/offer/OfferDetailPage';
-import { OffersPage } from '../features/offer/OffersPage';
+import { OffersPage } from '../v2/offer/OffersPage';
 import { ContractDetailPage } from '../v2/contract/ContractDetailPage';
-import { ContractsPage } from '../features/contract/ContractsPage';
+import { ContractsPage } from '../v2/contract/ContractsPage';
 import { ActivationDetailPage } from '../v2/activation/ActivationDetailPage';
 import { ActivationsPage } from '../v2/activation/ActivationsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
-} from '../features/offerDocument/OfferDocumentDetailPage';
+} from '../v2/offer/OfferDocumentPages';
 import { EditLeadPage } from '../v2/crm/EditLeadPage';
 import { NewLeadPage } from '../v2/crm/NewLeadPage';
-import { AdminOverviewPage } from '../features/admin/AdminOverviewPage';
+import { AdminOverviewPage } from '../v2/admin/AdminOverviewPage';
 import { AdminUsersPage, AdminRolesPage } from '../v2/admin/AdminUsersPage';
-import { AdminCatalogPage } from '../features/admin/AdminCatalogPage';
+import { AdminCatalogPage } from '../v2/admin/AdminCatalogPage';
 import {
   AdminPricingPage,
   AdminProductsPage,
@@ -47,7 +47,7 @@ import { AdminAuditPage } from '../v2/admin/AdminAuditPage';
 import { AdminSystemPage } from '../v2/admin/AdminSystemPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
-import { ProfilePage } from '../features/profile/ProfilePage';
+import { ProfilePage } from '../v2/profile/ProfilePage';
 import { EditTariffPage } from '../features/tariff/EditTariffPage';
 import { NewTariffPage } from '../features/tariff/NewTariffPage';
 import { LoginPage } from '../features/auth/LoginPage';

@@ -53,7 +53,7 @@
 
 .integrityError {
   font-size: var(--font-size-sm);
-  color: var(--color-error, #b42318);
+  color: var(--color-danger, #b42318);
   font-weight: var(--font-weight-medium);
 }
 
@@ -62,45 +62,6 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   justify-content: flex-end;
-}
-
-.link,
-.primaryAction,
-.secondaryAction,
-.linkButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.link,
-.primaryAction {
-  border: none;
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.primaryAction:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.secondaryAction {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.linkButton {
-  border: none;
-  background: transparent;
-  color: var(--color-primary);
 }
 
 @media (min-width: 640px) {

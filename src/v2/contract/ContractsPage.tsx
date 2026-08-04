@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EmptyState } from '../../components/feedback/EmptyState';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
-import { FormControl } from '../../components/common/FormControl';
-import { PageHeader } from '../../components/layout/PageHeader';
+import { EmptyState } from '../../components/feedback/EmptyState';
 import type { ContractListItem, ContractMetrics } from '../../domain/contract/contract';
+import type { ContractStatus } from '../../domain/contract/contractStatus';
 import { CONTRACT_STATUS_LABELS } from '../../domain/contract/contractStatus';
+import { getContractDisplayGroup, getContractDisplayLabel } from '../../features/contract/contractStatusDisplay';
 import { hasPermission } from '../../domain/permission/permission';
+import type { UserRole, UserStatus } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
-import { ContractStatusBadge } from './ContractStatusBadge';
+import { Button } from '../ui/Button';
+import { DataList, DataListCard } from '../ui/DataList';
+import { FormField } from '../ui/FormField';
+import { PageHeader } from '../ui/PageHeader';
+import { StatusBadge, type StatusBadgeVariant } from '../ui/StatusBadge';
 import styles from './ContractsPage.module.css';
 
-function toUserContext(user: { id: string; role: import('../../domain/user/user').UserRole; name: string; status: import('../../domain/user/user').UserStatus }) {
+function toUserContext(user: { id: string; role: UserRole; name: string; status: UserStatus }) {
   return {
     userId: user.id,
     role: user.role,
@@ -20,6 +25,36 @@ function toUserContext(user: { id: string; role: import('../../domain/user/user'
     status: user.status,
   };
 }
+
+function contractStatusVariant(status: ContractStatus): StatusBadgeVariant {
+  switch (getContractDisplayGroup(status)) {
+    case 'preparation':
+      return 'info';
+    case 'activation':
+      return 'warning';
+    case 'active':
+      return 'success';
+    case 'change_or_termination':
+      return 'warning';
+    case 'ended':
+    case 'archived':
+      return 'neutral';
+    default:
+      return 'neutral';
+  }
+}
+
+const STATUS_OPTIONS: Array<{
+  value: 'all' | 'active_group' | 'activation_group' | 'expiring' | 'termination' | 'ended_group';
+  label: string;
+}> = [
+  { value: 'all', label: 'Alle' },
+  { value: 'active_group', label: 'Aktiv' },
+  { value: 'activation_group', label: 'Aktivierung' },
+  { value: 'expiring', label: 'Auslaufend' },
+  { value: 'termination', label: 'Kündigung' },
+  { value: 'ended_group', label: 'Beendet' },
+];
 
 export function ContractsPage() {
   const { currentUser } = useCurrentUser();
@@ -76,7 +111,7 @@ export function ContractsPage() {
     <section>
       <PageHeader
         title="Verträge"
-        subtitle="Vertragsbeziehung zum Kunden – Einstieg bevorzugt über die Kundenakte"
+        description="Vertragsbeziehung zum Kunden – Einstieg bevorzugt über die Kundenakte"
       />
 
       {metrics ? (
@@ -100,36 +135,28 @@ export function ContractsPage() {
         </div>
       ) : null}
 
-      <div className={styles.toolbar}>
-        <FormControl
+      <div className={styles.search}>
+        <FormField
           type="search"
           label="Suche"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Vertragsnummer, Firma, Tarif, Angebot suchen"
         />
-        <div className={styles.filters} role="group" aria-label="Statusfilter">
-          {(
-            [
-              ['all', 'Alle'],
-              ['active_group', 'Aktiv'],
-              ['activation_group', 'Aktivierung'],
-              ['expiring', 'Auslaufend'],
-              ['termination', 'Kündigung'],
-              ['ended_group', 'Beendet'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={`${styles.filterButton} ${status === value ? styles.filterButtonActive : ''}`}
-              aria-pressed={status === value}
-              onClick={() => setStatus(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      </div>
+
+      <div className={styles.filters} role="group" aria-label="Statusfilter">
+        {STATUS_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={`${styles.filterButton} ${status === option.value ? styles.filterButtonActive : ''}`}
+            aria-pressed={status === option.value}
+            onClick={() => setStatus(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {message ? <p role="status">{message}</p> : null}
@@ -144,9 +171,9 @@ export function ContractsPage() {
                 <li key={entry.offerId}>
                   <Link to={`/offers/${entry.offerId}`}>{entry.offerNumber}</Link>{' '}
                   {hasPermission(currentUser.role, 'contracts.create') ? (
-                    <button type="button" onClick={() => void createMissing(entry.offerId)}>
+                    <Button size="compact" variant="secondary" onClick={() => void createMissing(entry.offerId)}>
                       Vertrag anlegen
-                    </button>
+                    </Button>
                   ) : null}
                 </li>
               ))}
@@ -165,17 +192,27 @@ export function ContractsPage() {
           }
         />
       ) : (
-        <ul className={styles.list}>
-          {items.map((contract) => (
-            <li key={contract.id}>
-              <Link className={styles.card} to={`/contracts/${contract.id}`}>
-                <div className={styles.cardHeader}>
-                  <strong>
-                    {contract.contractNumber} · {contract.customerCompanyName}
-                  </strong>
-                  <ContractStatusBadge status={contract.status} />
-                </div>
-                <div className={styles.cardMeta}>
+        <DataList
+          items={items}
+          getKey={(contract) => contract.id}
+          aria-label="Vertragsliste"
+          renderItem={(contract) => (
+            <DataListCard
+              href={`/contracts/${contract.id}`}
+              title={
+                <>
+                  {contract.contractNumber} · {contract.customerCompanyName}
+                </>
+              }
+              badge={
+                <StatusBadge
+                  variant={contractStatusVariant(contract.status)}
+                  label={getContractDisplayLabel(contract.status)}
+                  technicalLabel={CONTRACT_STATUS_LABELS[contract.status]}
+                />
+              }
+              meta={
+                <>
                   <span>Tarif: {contract.tariffName ?? '–'}</span>
                   <span>
                     Laufzeit: {contract.startDate ?? '–'} bis {contract.endDate ?? '–'}
@@ -186,9 +223,10 @@ export function ContractsPage() {
                   </span>
                   <span>Hardware: {contract.hardwareCount}</span>
                   <span>Nächste Aufgabe: {contract.nextTaskTitle ?? '–'}</span>
-                  <span>Status: {CONTRACT_STATUS_LABELS[contract.status]}</span>
-                </div>
-                {contract.warningLabels.length > 0 ? (
+                </>
+              }
+              footer={
+                contract.warningLabels.length > 0 ? (
                   <div className={styles.warnings}>
                     {contract.warningLabels.map((warning) => (
                       <span key={warning} className={styles.warning}>
@@ -196,11 +234,11 @@ export function ContractsPage() {
                       </span>
                     ))}
                   </div>
-                ) : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                ) : undefined
+              }
+            />
+          )}
+        />
       )}
     </section>
   );

@@ -12,8 +12,8 @@ const FEATURE_PAGES = [
   'src/features/tariff/TariffForm.tsx',
   'src/features/product/ProductForm.tsx',
   'src/features/offer/OfferCustomerSection.tsx',
-  'src/features/offer/OffersPage.tsx',
-  'src/features/contract/ContractsPage.tsx',
+  'src/v2/offer/OffersPage.tsx',
+  'src/v2/contract/ContractsPage.tsx',
   'src/components/navigation/RoleSwitcher.tsx',
   'src/features/auth/LoginPage.tsx',
 ];

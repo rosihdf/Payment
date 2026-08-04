@@ -3,19 +3,19 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { PageHeader } from '../../components/layout/PageHeader';
 import type { CreateOfferInput } from '../../domain/offer/offer';
 import { offerToFormInput, isSameOfferInput } from '../../domain/offer/offerFormMapping';
 import type { Lead } from '../../domain/lead/lead';
 import type { Product } from '../../domain/product/product';
 import type { Tariff } from '../../domain/tariff/tariff';
+import { OfferForm } from '../../features/offer/OfferForm';
 import { useBeforeUnload } from '../../hooks/useBeforeUnload';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateOfferErrors } from '../../services/offerValidation';
-import { OfferForm } from './OfferForm';
-import styles from './OfferForm.module.css';
+import { Button } from '../ui/Button';
+import { PageHeader } from '../ui/PageHeader';
 
 export function EditOfferPage() {
   const { id } = useParams<{ id: string }>();
@@ -131,7 +131,7 @@ export function EditOfferPage() {
   if (isLoading) {
     return (
       <section>
-        <PageHeader title="Angebot bearbeiten" subtitle="Daten werden geladen…" />
+        <PageHeader title="Angebot bearbeiten" description="Daten werden geladen…" />
         <EmptyState title="Angebot wird geladen" description="Die Angebotsdaten werden abgerufen." />
       </section>
     );
@@ -145,8 +145,8 @@ export function EditOfferPage() {
           title="Angebot nicht gefunden"
           description="Das angeforderte Angebot existiert nicht oder Sie haben keinen Zugriff."
           action={
-            <Link className={styles.secondary} to="/offers">
-              Zur Angebotsübersicht
+            <Link to="/offers">
+              <Button variant="secondary">Zur Angebotsübersicht</Button>
             </Link>
           }
         />
@@ -158,10 +158,10 @@ export function EditOfferPage() {
     <section>
       <PageHeader
         title="Angebot bearbeiten"
-        subtitle={isDraft ? 'Entwurf aktualisieren' : 'Nur Ansicht – Bearbeitung nicht möglich'}
+        description={isDraft ? 'Entwurf aktualisieren' : 'Nur Ansicht – Bearbeitung nicht möglich'}
         actions={
-          <Link className={styles.secondary} to={`/offers/${id}`}>
-            Zur Detailansicht
+          <Link to={`/offers/${id}`}>
+            <Button variant="secondary">Zur Detailansicht</Button>
           </Link>
         }
       />

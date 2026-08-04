@@ -1,14 +1,13 @@
-.toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin-bottom: var(--space-6);
+.search {
+  margin-bottom: var(--space-5);
+  max-width: 36rem;
 }
 
 .filters {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .filterGroup {
@@ -47,40 +46,8 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.list {
-  display: grid;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.primaryAction,
-.secondaryAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--touch-target);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
-}
-
-.primaryAction {
-  border: none;
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-}
-
-.secondaryAction {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-@media (min-width: 768px) {
-  .list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }

@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { OnlineIndicator } from '../../components/feedback/OnlineIndicator';
-import { PageHeader } from '../../components/layout/PageHeader';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { USER_ROLE_LABELS } from '../../domain/user/user';
+import { AppInfoSection } from '../../features/profile/AppInfoSection';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { createSupabaseAuthService } from '../../services/supabaseAuthService';
-import { AppInfoSection } from './AppInfoSection';
-import styles from './ProfilePage.module.css';
+import { PageHeader } from '../ui/PageHeader';
+import styles from '../../features/profile/ProfilePage.module.css';
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export function ProfilePage() {
   if (isLoading) {
     return (
       <section>
-        <PageHeader title="Profil" subtitle="Benutzerdaten werden geladen…" />
+        <PageHeader title="Profil" description="Benutzerdaten werden geladen…" />
         <EmptyState
           title="Profil wird geladen"
           description="Die Benutzerinformationen werden abgerufen."
@@ -34,7 +34,7 @@ export function ProfilePage() {
     <section>
       <PageHeader
         title="Profil"
-        subtitle={
+        description={
           supabaseMode
             ? 'Angemeldeter Benutzer'
             : 'Angemeldeter Demo-Benutzer und App-Informationen'

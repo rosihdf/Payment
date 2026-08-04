@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { AdminLayout, useAdminContext } from './AdminLayout';
+import { AdminLayout, useAdminContext } from '../../features/admin/AdminLayout';
 import { useServices } from '../../hooks/useServices';
 import type { AdminOverviewMetrics } from '../../services/adminOverviewService';
-import styles from './AdminLayout.module.css';
+import styles from '../../features/admin/AdminLayout.module.css';
 
 export function AdminOverviewPage() {
   const context = useAdminContext();

@@ -1,11 +1,11 @@
 import { NavLink, useSearchParams } from 'react-router-dom';
-import { AdminProductsPage } from '../product/AdminProductsPage';
-import { AdminTariffsPage } from '../tariff/AdminTariffsPage';
+import { AdminProductsPage } from '../../features/product/AdminProductsPage';
+import { AdminTariffsPage } from '../../features/tariff/AdminTariffsPage';
 import type { AdminCatalogTab } from '../../utils/routes';
 import { adminCatalogPath } from '../../utils/routes';
-import { AdminLayout } from './AdminLayout';
-import { AdminPriceRulesPanel } from './AdminPriceRulesPanel';
-import styles from './AdminLayout.module.css';
+import { AdminLayout } from '../../features/admin/AdminLayout';
+import { AdminPriceRulesPanel } from '../../features/admin/AdminPriceRulesPanel';
+import styles from '../../features/admin/AdminLayout.module.css';
 
 const CATALOG_TABS: Array<{ id: AdminCatalogTab; label: string }> = [
   { id: 'tariffs', label: 'Tarife' },
