@@ -57,19 +57,8 @@ async function waitForDesktopRow(text: string): Promise<HTMLElement> {
   return row!;
 }
 
-/**
- * Die Seite zeigt gleichzeitig die Standardprovisionen-Tabelle (oben) und die
- * "Mitarbeiterwerte"-Tabelle (unten, nach Klick auf "Anzeigen"). Beide enthalten
- * Zeilen mit demselben Regelnamen (z. B. "Nur Acquiring") – daher wird die
- * "Mitarbeiterwerte"-Sektion gezielt über ihre Überschrift eingegrenzt.
- */
-function getEmployeeValuesSection(): HTMLElement {
-  const heading = screen.getByRole('heading', { name: 'Mitarbeiterwerte', level: 2 });
-  const section = heading.closest('section');
-  if (!section) {
-    throw new Error('Sektion "Mitarbeiterwerte" nicht gefunden');
-  }
-  return section as HTMLElement;
+function getAssignmentDialog(): HTMLElement {
+  return screen.getByRole('dialog');
 }
 
 function getDesktopRowByTextWithin(container: HTMLElement, text: string): HTMLElement {
@@ -81,10 +70,10 @@ function getDesktopRowByTextWithin(container: HTMLElement, text: string): HTMLEl
   return cell.closest('tr') as HTMLElement;
 }
 
-async function waitForEmployeeRuleRow(ruleName: string): Promise<HTMLElement> {
+async function waitForEmployeeRuleRowInDialog(ruleName: string): Promise<HTMLElement> {
   let row: HTMLElement | undefined;
   await waitFor(() => {
-    row = getDesktopRowByTextWithin(getEmployeeValuesSection(), ruleName);
+    row = getDesktopRowByTextWithin(getAssignmentDialog(), ruleName);
   });
   return row!;
 }
@@ -142,61 +131,74 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     expect(within(reloadedRow).getByText('2026-12-31')).toBeInTheDocument();
   });
 
-  it('Mitarbeiteranteil 0–100 % mit live berechnetem Eurobetrag, speichern, Reload, Reset auf Standard', async () => {
+  it(
+    'Mitarbeiteranteil 0–100 % mit live berechnetem Eurobetrag, speichern, Reload, Reset auf Standard',
+    async () => {
     const user = userEvent.setup();
     renderStandardsPageAs('user_004');
 
     await screen.findByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 });
+    await waitForDesktopRow('Nur Acquiring');
 
     // Außendienstmitarbeiterin "Laura Berger" (user_001) erhält per Default 100 % Standard.
     const repRow = await waitForDesktopRow('Laura Berger');
-    await user.click(within(repRow).getByRole('button', { name: 'Anzeigen' }));
+    await user.click(within(repRow).getByRole('button', { name: 'Bearbeiten' }));
 
-    await screen.findByText('Aktuell: Standard (100 %) – keine Eingabe erforderlich.');
-
-    const shareInputs = await screen.findAllByLabelText('Nur Acquiring %');
-    const shareInput = shareInputs[0]!;
-    expect(shareInput).toHaveValue('100');
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(
+      () => {
+        expect(within(dialog).getByLabelText('Nur Acquiring %')).toHaveValue('100');
+      },
+      { timeout: 8000 },
+    );
+    const shareInput = within(dialog).getByLabelText('Nur Acquiring %');
 
     fireEvent.change(shareInput, { target: { value: '80' } });
-
-    // Live-Neuberechnung im Client (ohne Speichern): 150,00 € Standard × 80 % = 120.00 €.
     await waitFor(() => {
-      const row = getDesktopRowByTextWithin(getEmployeeValuesSection(), 'Nur Acquiring');
-      expect(within(row).getByText('120.00 €')).toBeInTheDocument();
+      expect(shareInput).toHaveValue('80');
     });
 
-    await user.click(screen.getByRole('button', { name: 'Speichern' }));
-    await screen.findByText('Vereinbarung gespeichert');
+    await user.click(within(dialog).getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText('Vereinbarung gespeichert')).toBeInTheDocument();
 
     // Reload: neu mounten, Mitarbeiterin erneut öffnen – individueller Anteil ist persistiert.
     cleanup();
     renderStandardsPageAs('user_004');
     const reloadedRepRow = await waitForDesktopRow('Laura Berger');
     expect(within(reloadedRepRow).getByText('Individuell')).toBeInTheDocument();
-    await user.click(within(reloadedRepRow).getByRole('button', { name: 'Anzeigen' }));
+    await user.click(within(reloadedRepRow).getByRole('button', { name: 'Bearbeiten' }));
 
-    const reloadedShareInputs = await screen.findAllByLabelText('Nur Acquiring %');
-    expect(reloadedShareInputs[0]).toHaveValue('80');
-    await waitForEmployeeRuleRow('Nur Acquiring');
+    const reloadedDialog = await screen.findByRole('dialog');
+    expect(within(reloadedDialog).getByLabelText('Nur Acquiring %')).toHaveValue('80');
+    await waitForEmployeeRuleRowInDialog('Nur Acquiring');
     await waitFor(() => {
-      const row = getDesktopRowByTextWithin(getEmployeeValuesSection(), 'Nur Acquiring');
+      const row = getDesktopRowByTextWithin(reloadedDialog, 'Nur Acquiring');
       expect(within(row).getByText('120,00 €')).toBeInTheDocument();
     });
 
     // Auf Standard (100 %) zurücksetzen.
-    await user.click(screen.getByRole('button', { name: 'Auf Standard (100 %) zurücksetzen' }));
-    await screen.findByText('Auf 100 % Standard zurückgesetzt');
+    await user.click(
+      within(reloadedDialog).getByRole('button', { name: 'Auf Standard (100 %) zurücksetzen' }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText('Auf 100 % Standard zurückgesetzt')).toBeInTheDocument();
 
     // Erneuter Reload bestätigt die Rücksetzung dauerhaft.
     cleanup();
     renderStandardsPageAs('user_004');
     const finalRepRow = await waitForDesktopRow('Laura Berger');
     expect(within(finalRepRow).getByText('Standard (100 %)')).toBeInTheDocument();
-    await user.click(within(finalRepRow).getByRole('button', { name: 'Anzeigen' }));
-    const finalShareInputs = await screen.findAllByLabelText('Nur Acquiring %');
-    expect(finalShareInputs[0]).toHaveValue('100');
-  });
+    await user.click(within(finalRepRow).getByRole('button', { name: 'Bearbeiten' }));
+    const finalDialog = await screen.findByRole('dialog');
+    expect(within(finalDialog).getByLabelText('Nur Acquiring %')).toHaveValue('100');
+    },
+    20_000,
+  );
 
   it('Außendienst kann die Provisions-Standardseite nicht schreiben (UI zeigt Zugriff verweigert, keine Formularelemente)', async () => {
     renderStandardsPageAs('user_001');

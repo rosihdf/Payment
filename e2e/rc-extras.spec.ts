@@ -71,21 +71,25 @@ test.describe('RC1 Extra: Admin Produkt und Mitarbeitervereinbarung', () => {
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Mitarbeiter & Vereinbarungen' })).toBeVisible();
 
-    // Außendienst-Zeile öffnen (Button „Anzeigen“, nicht die Standardregel-„Bearbeiten“).
-    await page.getByRole('button', { name: 'Anzeigen' }).first().click();
-    await expect(page.getByRole('heading', { name: 'Mitarbeiterwerte' })).toBeVisible();
+    // Außendienst-Zeile „Laura Berger“ öffnen (nicht Standardregel-„Bearbeiten“).
+    const employeeRow = page.getByRole('row').filter({ hasText: 'Laura Berger' });
+    await employeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Laura Berger');
 
-    const shareInput = page.getByLabel(/%$/).first();
+    const shareInput = dialog.getByLabel(/%$/).first();
     await shareInput.fill('42');
-    await page.getByRole('button', { name: 'Speichern' }).click();
+    await dialog.getByRole('button', { name: 'Speichern' }).click();
     await expect(page.getByText('Vereinbarung gespeichert')).toBeVisible();
+    await expect(dialog).toBeHidden();
 
     await page.reload();
     await expect(
       page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Anzeigen' }).first().click();
-    await expect(page.getByLabel(/%$/).first()).toHaveValue('42');
+    await page.getByRole('row').filter({ hasText: 'Laura Berger' }).getByRole('button', { name: 'Bearbeiten' }).click();
+    await expect(page.getByRole('dialog').getByLabel(/%$/).first()).toHaveValue('42');
   });
 });
 
