@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:supabase-acceptance": "node scripts/run-supabase-browser-acceptance.mjs",
     "deploy": "npm run build:production && npm run deploy:cloudflare",
     "deploy:cloudflare": "wrangler deploy",
     "keepalive:test": "wrangler deploy --dry-run && curl -sS -X POST \"${KEEPALIVE_TEST_URL:-http://127.0.0.1:8787/__keepalive}\"",
