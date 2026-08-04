@@ -6,6 +6,7 @@ import {
   TEST_COMPANY,
   assertNoTechnicalIds,
   assertProtectedRouteRedirectsToLogin,
+  assertSecureForeignLeadAccess,
   calculateRecommendation,
   createFreshContext,
   createOfferDraft,
@@ -28,6 +29,7 @@ test.beforeAll(() => {
 test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
   let testLeadId: string | null = null;
   let foreignLeadId: string | null = null;
+  let foreignLeadCompany = '';
   let offerId: string | null = null;
   let fieldAdvisorLabel = '';
   let standardOriginalAmount = '';
@@ -148,6 +150,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
           const text = await link.innerText();
           if (href?.includes('/leads/') && !text.includes(ACCEPTANCE_TAG)) {
             foreignLeadId = href.match(/\/leads\/([^/?#]+)/)?.[1] ?? null;
+            foreignLeadCompany = text.trim().split('\n')[0]?.trim() ?? text.trim();
             break;
           }
         }
@@ -356,6 +359,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
   test('Außendienst: Login, RLS, Sichtbarkeit, Schreibschutz', async ({ browser }) => {
     test.skip(!testLeadId, 'Kein Testkunde');
+    test.skip(!foreignLeadId, 'Kein fremder Kunde in Admin-Vorlauf gefunden');
 
     const context = await createFreshContext(browser);
     const page = await context.newPage();
@@ -368,10 +372,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill(ACCEPTANCE_TAG);
       await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
 
-      if (foreignLeadId) {
-        await page.goto(`/leads/${foreignLeadId}`);
-        await expect(page.getByRole('heading', { name: 'Zugriff verweigert' })).toBeVisible();
-      }
+      await assertSecureForeignLeadAccess(page, foreignLeadId!, foreignLeadCompany);
 
       await page.goto(`/leads/${testLeadId}`);
       await expect(page.getByRole('heading', { name: TEST_COMPANY })).toBeVisible();

@@ -84,6 +84,24 @@ export async function assertNoTechnicalIds(page: Page): Promise<void> {
   expect(body).not.toMatch(/\blead_[0-9a-z_]+\b/i);
 }
 
+/** Direkter Lead-Zugriff ohne Berechtigung: RLS liefert null → „Kunde nicht gefunden“ (kein Datenleck). */
+export async function assertSecureForeignLeadAccess(
+  page: Page,
+  leadId: string,
+  forbiddenCompanyLabel = '',
+): Promise<void> {
+  await page.goto(`/leads/${leadId}`);
+  await expect(page).toHaveURL(new RegExp(`/leads/${leadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  await expect(
+    page.getByRole('heading', { name: /Zugriff verweigert|Kunde nicht gefunden/ }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('navigation', { name: 'Kundenakte Bereiche' })).toHaveCount(0);
+  if (forbiddenCompanyLabel.trim()) {
+    await expect(page.getByText(forbiddenCompanyLabel)).toHaveCount(0);
+  }
+  await assertNoTechnicalIds(page);
+}
+
 export async function startAdviceWithCustomer(page: Page, companyName: string): Promise<void> {
   await gotoSidebar(page, 'Beratung');
   await page.getByRole('link', { name: 'Beratung starten' }).click();
