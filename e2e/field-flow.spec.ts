@@ -56,15 +56,9 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // 5) Ausgangslage: OCR-Bereich ("Abrechnung einlesen") öffnen und wieder verlassen (Cancel-Ersatz),
-    // dann manuelle Kosten inkl. 0 € eingeben. Der echte "Abbrechen"-Button im OCR-Bereich erscheint
-    // erst nach gestarteter Extraktion (echter Bild-Upload + Tesseract) – das ist in einem headless
-    // E2E-Lauf zu instabil/langsam. Stattdessen wird der OCR-Bereich sichtbar geöffnet und durch
-    // Wechsel auf "Kosten manuell eingeben" wieder verlassen, was denselben Effekt hat (kein OCR-Datensatz
-    // wird übernommen) und den vom Auftrag verlangten "kürzeren, aber gleichwertigen Pfad" darstellt.
+    // 5) Ausgangslage: manuelle Kosten inkl. 0 € eingeben (Abrechnungsimport ist nicht sichtbar,
+    // bis der vollständige OCR-/Importpfad produktionsseitig nachgewiesen ist).
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
-    await page.getByRole('button', { name: 'Abrechnung einlesen' }).click();
-    await expect(page.getByText('Abrechnungsimport wird vorbereitet…')).toBeVisible();
     await page.getByRole('button', { name: 'Kosten manuell eingeben' }).click();
     const costsInput = page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)');
     await costsInput.fill('0');

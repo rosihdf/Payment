@@ -62,7 +62,6 @@ export function CostsStep({
           {(
             [
               ['manual', COST_CAPTURE_MODE_LABELS.manual],
-              ['billing_import', COST_CAPTURE_MODE_LABELS.billing_import],
               ['no_current_costs', COST_CAPTURE_MODE_LABELS.no_current_costs],
             ] as const
           ).map(([mode, label]) => (
