@@ -1,0 +1,9 @@
+name = "amrtech-payment-downloads"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+preview_urls = false
+
+[[r2_buckets]]
+binding = "RELEASES"
+bucket_name = "amrtech-payment-releases"

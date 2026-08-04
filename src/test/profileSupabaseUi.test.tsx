@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { CurrentUserContext } from '../app/providers/currentUserContext';
+import { AppUpdateProvider } from '../app/providers/AppUpdateProvider';
 
 describe('Profilseite Supabase-Modus', () => {
   afterEach(() => {
@@ -38,7 +39,9 @@ describe('Profilseite Supabase-Modus', () => {
             refresh: async () => undefined,
           }}
         >
-          <ProfilePage />
+          <AppUpdateProvider>
+            <ProfilePage />
+          </AppUpdateProvider>
         </CurrentUserContext.Provider>
       </MemoryRouter>,
     );

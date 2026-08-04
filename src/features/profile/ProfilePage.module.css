@@ -87,3 +87,40 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.appInfoActions {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.appInfoMessage {
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+@media (min-width: 640px) {
+  .details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+@media (min-width: 640px) {
+  .details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "amrtech-payment-leads",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "deploy": "npm run build:production && npm run deploy:cloudflare",
     "deploy:cloudflare": "wrangler deploy",
     "keepalive:test": "wrangler deploy --dry-run && curl -sS -X POST \"${KEEPALIVE_TEST_URL:-http://127.0.0.1:8787/__keepalive}\"",
@@ -22,6 +23,7 @@
     "secretscan:dist": "node scripts/secretscan-dist.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.8",
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
     "@supabase/supabase-js": "^2.111.0",
@@ -36,6 +38,7 @@
     "workbox-window": "^7.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tesseract.js-data/deu": "^1.0.0",
     "@tesseract.js-data/eng": "^1.0.0",
     "@testing-library/jest-dom": "^6.6.4",

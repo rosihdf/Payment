@@ -32,3 +32,18 @@ public/ocr/
 *.njsproj
 *.sln
 *.sw?
+
+# Android / release artifacts
+release-artifacts/
+.wrangler/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+
+# Playwright E2E
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

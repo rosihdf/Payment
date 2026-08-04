@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'AMRtech Payment Leads',
-        short_name: 'Payment Leads',
+        name: 'AMRtech Payment',
+        short_name: 'AMRtech Payment',
         description: 'Außendienst-App zur Aufnahme und zum Vergleich von Payment-Leads',
         theme_color: '#1e3a5f',
         background_color: '#f4f6f9',
