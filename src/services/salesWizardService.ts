@@ -784,6 +784,15 @@ export class SalesWizardService {
     target.approval = approval;
     target.updatedAt = nowIso();
     fresh.wizard.selectedScenarioId = target.id;
+    // Wie in selectScenarioVariant(): Hauptempfehlung wird automatisch als Szenario-Auswahl
+    // übernommen (siehe RecommendationStep.tsx) – daher hier ebenfalls sofort in das
+    // Session-Ergebnis promoten, sonst blockiert createOffer()/createOfferFromScenario() mit
+    // "Bitte zuerst eine Variante auswählen.", obwohl die UI bereits "Gewählt: …" anzeigt.
+    if (target.selectedCandidateId) {
+      fresh.result = target.result;
+      fresh.selectedCandidateId = target.selectedCandidateId;
+      fresh.status = 'recommendation_selected';
+    }
     return { ok: true, session: await this.persist(fresh) };
   }
 

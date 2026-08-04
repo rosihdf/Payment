@@ -10,20 +10,20 @@ import { PreserveSearchRedirect } from './PreserveSearchRedirect';
 import { ADVICE_PATH, adminCatalogPath } from '../utils/routes';
 import { EditOfferPage } from '../features/offer/EditOfferPage';
 import { NewOfferPage } from '../features/offer/NewOfferPage';
-import { OfferDetailPage } from '../features/offer/OfferDetailPage';
+import { OfferDetailPage } from '../v2/offer/OfferDetailPage';
 import { OffersPage } from '../features/offer/OffersPage';
-import { ContractDetailPage } from '../features/contract/ContractDetailPage';
+import { ContractDetailPage } from '../v2/contract/ContractDetailPage';
 import { ContractsPage } from '../features/contract/ContractsPage';
-import { ActivationDetailPage } from '../features/activation/ActivationDetailPage';
+import { ActivationDetailPage } from '../v2/activation/ActivationDetailPage';
 import { ActivationsPage } from '../v2/activation/ActivationsPage';
 import {
   OfferDocumentDetailPage,
   OfferDocumentPreviewPage,
 } from '../features/offerDocument/OfferDocumentDetailPage';
-import { EditLeadPage } from '../features/lead/EditLeadPage';
-import { NewLeadPage } from '../features/lead/NewLeadPage';
+import { EditLeadPage } from '../v2/crm/EditLeadPage';
+import { NewLeadPage } from '../v2/crm/NewLeadPage';
 import { AdminOverviewPage } from '../features/admin/AdminOverviewPage';
-import { AdminUsersPage, AdminRolesPage } from '../features/admin/AdminUsersPage';
+import { AdminUsersPage, AdminRolesPage } from '../v2/admin/AdminUsersPage';
 import { AdminCatalogPage } from '../features/admin/AdminCatalogPage';
 import {
   AdminPricingPage,
@@ -40,11 +40,11 @@ import {
   SalesCommissionPage,
 } from '../v2/commission';
 import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
-import { AdminApprovalsPage } from '../features/admin/AdminApprovalsPage';
-import { AdminTemplatesPage } from '../features/admin/AdminTemplatesPage';
-import { AdminDataPage } from '../features/admin/AdminDataPage';
-import { AdminAuditPage } from '../features/admin/AdminAuditPage';
-import { AdminSystemPage } from '../features/admin/AdminSystemPage';
+import { AdminApprovalsPage } from '../v2/admin/AdminApprovalsPage';
+import { AdminTemplatesPage } from '../v2/admin/AdminTemplatesPage';
+import { AdminDataPage } from '../v2/admin/AdminDataPage';
+import { AdminAuditPage } from '../v2/admin/AdminAuditPage';
+import { AdminSystemPage } from '../v2/admin/AdminSystemPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
 import { ProfilePage } from '../features/profile/ProfilePage';
