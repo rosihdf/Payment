@@ -16,6 +16,7 @@ import {
   PRODUCT_STATUS_OPTIONS,
 } from '../../domain/product/product';
 import type { CreateProductErrors } from '../../services/productValidation';
+import { Button } from '../../v2/ui/Button';
 import { TerminalTypeSelector } from '../tariff/TerminalTypeSelector';
 import styles from './ProductForm.module.css';
 
@@ -316,12 +317,12 @@ export function ProductForm({
       </section>
 
       <div className={styles.actions}>
-        <button type="submit" className={styles.primary} disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
           {isSubmitting ? submittingLabel : submitLabel}
-        </button>
-        <button type="button" className={styles.secondary} disabled={isSubmitting} onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
           Abbrechen
-        </button>
+        </Button>
       </div>
     </form>
   );

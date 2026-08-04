@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormControl } from '../../components/common/FormControl';
 import type { Tariff, TariffStatusFilter, TerminalTypeFilter } from '../../domain/tariff/tariff';
 import {
   monthlyFixedCostsForOneTerminalCents,
@@ -20,9 +18,13 @@ import {
   formatValidityRange,
 } from '../../utils/formatTariff';
 import { formatTenthsOfCentToCurrency } from '../../utils/tenthsOfCent';
-import { AdminTariffLayout } from './AdminTariffLayout';
+import { AdminLayout } from '../admin/AdminLayout';
 import { formatTerminalTypes } from '../../utils/formatTerminalTypes';
-import { TariffStatusBadge } from './TariffStatusBadge';
+import { Button } from '../../v2/ui/Button';
+import { DataList, DataListCard } from '../../v2/ui/DataList';
+import { Dialog } from '../../v2/ui/Dialog';
+import { FormField } from '../../v2/ui/FormField';
+import { StatusBadge } from '../../v2/ui/StatusBadge';
 import styles from './AdminTariffsPage.module.css';
 
 const STATUS_FILTER_OPTIONS: Array<{ value: TariffStatusFilter; label: string }> = [
@@ -138,8 +140,8 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
   };
 
   const createAction = (
-    <Link className={styles.primaryAction} to="/admin/tariffs/new">
-      Tarif anlegen
+    <Link to="/admin/tariffs/new">
+      <Button>Tarif anlegen</Button>
     </Link>
   );
 
@@ -147,7 +149,7 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
     <>
       {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
-        <FormControl
+        <FormField
           type="search"
           label="Suche"
           value={query}
@@ -160,17 +162,16 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
             <legend className={styles.filterLegend}>Status</legend>
             <div className={styles.filterOptions}>
               {STATUS_FILTER_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
-                  className={`${styles.filterButton} ${
-                    statusFilter === option.value ? styles.filterButtonActive : ''
-                  }`}
+                  size="compact"
+                  variant={statusFilter === option.value ? 'primary' : 'secondary'}
                   aria-pressed={statusFilter === option.value}
                   onClick={() => setStatusFilter(option.value)}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </fieldset>
@@ -179,17 +180,16 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
             <legend className={styles.filterLegend}>Einsatzart</legend>
             <div className={styles.filterOptions}>
               {TERMINAL_FILTER_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
-                  className={`${styles.filterButton} ${
-                    terminalFilter === option.value ? styles.filterButtonActive : ''
-                  }`}
+                  size="compact"
+                  variant={terminalFilter === option.value ? 'primary' : 'secondary'}
                   aria-pressed={terminalFilter === option.value}
                   onClick={() => setTerminalFilter(option.value)}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </fieldset>
@@ -205,123 +205,123 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
         <EmptyState
           title="Keine Tarife gefunden"
           description="Für die aktuelle Suche oder Filterkombination liegen keine Tarife vor."
-          action={
-            <Link className={styles.primaryAction} to="/admin/tariffs/new">
-              Tarif anlegen
-            </Link>
-          }
+          action={createAction}
         />
       ) : (
-        <ul className={styles.list}>
-          {tariffs.map((tariff) => (
-            <li key={tariff.id} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <div>
-                  <h2 className={styles.cardTitle}>{tariff.name}</h2>
+        <DataList
+          items={tariffs}
+          getKey={(tariff) => tariff.id}
+          aria-label="Tarifliste"
+          renderItem={(tariff) => (
+            <DataListCard
+              title={tariff.name}
+              badge={<StatusBadge variant={tariff.status === 'active' ? 'success' : 'neutral'} label={TARIFF_STATUS_LABELS[tariff.status]} />}
+              meta={
+                <>
                   <p className={styles.productCode}>{tariff.productCode} (intern)</p>
+                  <dl className={styles.details}>
+                    <div className={styles.detailRow}>
+                      <dt>Einsatzarten</dt>
+                      <dd>{formatTerminalTypes(tariff.supportedTerminalTypes)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Grundgebühr je Vertrag</dt>
+                      <dd>{formatCentsToCurrency(tariff.monthlyAccountBaseFeeCents)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Terminalmiete je Terminal</dt>
+                      <dd>{formatCentsToCurrency(tariff.monthlyTerminalRentalCents)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Servicepauschale je Terminal</dt>
+                      <dd>{formatCentsToCurrency(tariff.monthlyServiceFeePerTerminalCents)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Fixkosten bei 1 Terminal</dt>
+                      <dd>{formatCentsToCurrency(monthlyFixedCostsForOneTerminalCents(tariff))}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Transaktionspreis</dt>
+                      <dd>{formatTenthsOfCentToCurrency(tariff.additionalTransactionFeeTenthsOfCent)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Girocard-Clearing</dt>
+                      <dd>
+                        {formatGirocardClearing(
+                          tariff.girocardClearingIncluded,
+                          tariff.girocardClearingFeeTenthsOfCent,
+                        )}
+                      </dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Girocard</dt>
+                      <dd>{formatCardRate(tariff.cardRates.girocard)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Debitkarten</dt>
+                      <dd>{formatCardRate(tariff.cardRates.debit)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Kreditkarten</dt>
+                      <dd>{formatCardRate(tariff.cardRates.credit)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Einrichtungsgebühr</dt>
+                      <dd>{formatCentsToCurrency(tariff.setupFeeCents)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Vertragslaufzeit</dt>
+                      <dd>{formatOptionalMonths(tariff.minimumContractMonths)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Kündigungsfrist</dt>
+                      <dd>{formatOptionalMonths(tariff.noticePeriodMonths)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Gültigkeit</dt>
+                      <dd>{formatValidityRange(tariff.validFrom, tariff.validUntil)}</dd>
+                    </div>
+                    <div className={styles.detailRow}>
+                      <dt>Zuletzt geändert</dt>
+                      <dd>{formatUpdatedAt(tariff.updatedAt)}</dd>
+                    </div>
+                  </dl>
+                </>
+              }
+              footer={
+                <div className={styles.cardActions}>
+                  <Link to={`/admin/tariffs/${tariff.id}/edit`}>
+                    <Button variant="secondary">Bearbeiten</Button>
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={statusUpdatingId === tariff.id}
+                    loading={statusUpdatingId === tariff.id}
+                    onClick={() => handleStatusToggle(tariff)}
+                  >
+                    {statusUpdatingId === tariff.id
+                      ? 'Wird aktualisiert…'
+                      : tariff.status === 'active'
+                        ? 'Deaktivieren'
+                        : 'Aktivieren'}
+                  </Button>
                 </div>
-                <TariffStatusBadge status={tariff.status} />
-              </div>
-
-              <dl className={styles.details}>
-                <div className={styles.detailRow}>
-                  <dt>Einsatzarten</dt>
-                  <dd>{formatTerminalTypes(tariff.supportedTerminalTypes)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Grundgebühr je Vertrag</dt>
-                  <dd>{formatCentsToCurrency(tariff.monthlyAccountBaseFeeCents)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Terminalmiete je Terminal</dt>
-                  <dd>{formatCentsToCurrency(tariff.monthlyTerminalRentalCents)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Servicepauschale je Terminal</dt>
-                  <dd>{formatCentsToCurrency(tariff.monthlyServiceFeePerTerminalCents)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Fixkosten bei 1 Terminal</dt>
-                  <dd>{formatCentsToCurrency(monthlyFixedCostsForOneTerminalCents(tariff))}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Transaktionspreis</dt>
-                  <dd>{formatTenthsOfCentToCurrency(tariff.additionalTransactionFeeTenthsOfCent)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Girocard-Clearing</dt>
-                  <dd>
-                    {formatGirocardClearing(
-                      tariff.girocardClearingIncluded,
-                      tariff.girocardClearingFeeTenthsOfCent,
-                    )}
-                  </dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Girocard</dt>
-                  <dd>{formatCardRate(tariff.cardRates.girocard)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Debitkarten</dt>
-                  <dd>{formatCardRate(tariff.cardRates.debit)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Kreditkarten</dt>
-                  <dd>{formatCardRate(tariff.cardRates.credit)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Einrichtungsgebühr</dt>
-                  <dd>{formatCentsToCurrency(tariff.setupFeeCents)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Vertragslaufzeit</dt>
-                  <dd>{formatOptionalMonths(tariff.minimumContractMonths)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Kündigungsfrist</dt>
-                  <dd>{formatOptionalMonths(tariff.noticePeriodMonths)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Gültigkeit</dt>
-                  <dd>{formatValidityRange(tariff.validFrom, tariff.validUntil)}</dd>
-                </div>
-                <div className={styles.detailRow}>
-                  <dt>Zuletzt geändert</dt>
-                  <dd>{formatUpdatedAt(tariff.updatedAt)}</dd>
-                </div>
-              </dl>
-
-              <div className={styles.cardActions}>
-                <Link className={styles.secondaryAction} to={`/admin/tariffs/${tariff.id}/edit`}>
-                  Bearbeiten
-                </Link>
-                <button
-                  type="button"
-                  className={styles.secondaryAction}
-                  disabled={statusUpdatingId === tariff.id}
-                  onClick={() => handleStatusToggle(tariff)}
-                >
-                  {statusUpdatingId === tariff.id
-                    ? 'Wird aktualisiert…'
-                    : tariff.status === 'active'
-                      ? 'Deaktivieren'
-                      : 'Aktivieren'}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+              }
+            />
+          )}
+        />
       )}
 
-      <ConfirmDialog
+      <Dialog
         isOpen={Boolean(deactivateTarget)}
         title="Tarif deaktivieren"
-        message="Der Tarif steht anschließend nicht mehr für neue Vergleiche zur Verfügung."
-        cancelLabel="Abbrechen"
-        confirmLabel="Tarif deaktivieren"
-        onCancel={() => setDeactivateTarget(null)}
-        onConfirm={handleDeactivateConfirmed}
-      />
+        onClose={() => setDeactivateTarget(null)}
+        secondaryAction={{ label: 'Abbrechen', onClick: () => setDeactivateTarget(null) }}
+        primaryAction={{ label: 'Tarif deaktivieren', variant: 'destructive', onClick: handleDeactivateConfirmed }}
+      >
+        <p>Der Tarif steht anschließend nicht mehr für neue Vergleiche zur Verfügung.</p>
+      </Dialog>
     </>
   );
 
@@ -330,12 +330,8 @@ export function AdminTariffsPage({ embedded = false }: AdminTariffsPageProps) {
   }
 
   return (
-    <AdminTariffLayout
-      title="Tarife"
-      subtitle="BestPay-Tarife für Vergleich und Beratung verwalten"
-      actions={createAction}
-    >
+    <AdminLayout title="Tarife" subtitle="BestPay-Tarife für Vergleich und Beratung verwalten" actions={createAction}>
       {content}
-    </AdminTariffLayout>
+    </AdminLayout>
   );
 }

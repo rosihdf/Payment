@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import type { CreateProductInput } from '../../domain/product/product';
 import { productToFormInput, isSameProductInput } from '../../domain/product/productFormMapping';
@@ -9,7 +8,8 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateProductErrors } from '../../services/productValidation';
-import { AdminProductLayout } from './AdminProductLayout';
+import { AdminLayout } from '../admin/AdminLayout';
+import { Dialog } from '../../v2/ui/Dialog';
 import { ProductForm } from './ProductForm';
 
 export function EditProductPage() {
@@ -81,25 +81,25 @@ export function EditProductPage() {
 
   if (isLoading) {
     return (
-      <AdminProductLayout title="Produkt bearbeiten">
+      <AdminLayout title="Produkt bearbeiten">
         <EmptyState title="Produkt wird geladen" description="Die Produktdaten werden abgerufen." />
-      </AdminProductLayout>
+      </AdminLayout>
     );
   }
 
   if (!values) {
     return (
-      <AdminProductLayout title="Produkt bearbeiten">
+      <AdminLayout title="Produkt bearbeiten">
         <EmptyState
           title="Produkt nicht gefunden"
           description="Das angeforderte Produkt existiert nicht oder wurde entfernt."
         />
-      </AdminProductLayout>
+      </AdminLayout>
     );
   }
 
   return (
-    <AdminProductLayout title="Produkt bearbeiten" subtitle="BestPay-Produkt aktualisieren">
+    <AdminLayout title="Produkt bearbeiten" subtitle="BestPay-Produkt aktualisieren">
       <ProductForm
         mode="edit"
         values={values}
@@ -110,18 +110,22 @@ export function EditProductPage() {
         onCancel={() => (isDirty ? setShowLeaveDialog(true) : leaveToOverview())}
       />
 
-      <ConfirmDialog
+      <Dialog
         isOpen={showLeaveDialog}
         title="Ungespeicherte Änderungen"
-        message="Deine Änderungen wurden noch nicht gespeichert."
-        cancelLabel="Weiter bearbeiten"
-        confirmLabel="Änderungen verwerfen"
-        onCancel={() => setShowLeaveDialog(false)}
-        onConfirm={() => {
-          setShowLeaveDialog(false);
-          leaveToOverview();
+        onClose={() => setShowLeaveDialog(false)}
+        secondaryAction={{ label: 'Weiter bearbeiten', onClick: () => setShowLeaveDialog(false) }}
+        primaryAction={{
+          label: 'Änderungen verwerfen',
+          variant: 'destructive',
+          onClick: () => {
+            setShowLeaveDialog(false);
+            leaveToOverview();
+          },
         }}
-      />
-    </AdminProductLayout>
+      >
+        <p>Deine Änderungen wurden noch nicht gespeichert.</p>
+      </Dialog>
+    </AdminLayout>
   );
 }

@@ -66,6 +66,24 @@ interface FormControlSelectProps extends FormControlBaseProps {
 
 export type FormControlProps = FormControlInputProps | FormControlSelectProps;
 
+/**
+ * Wandelt Kinder von `<option>`-Elementen in einen reinen Anzeigetext um.
+ * `<option>{a} ({b})</option>` erzeugt in React mehrere Kind-Knoten (kein
+ * einzelner String) – ohne Flatten würde nur der Options-`value` angezeigt.
+ */
+function optionChildrenToLabel(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') {
+    return '';
+  }
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(optionChildrenToLabel).join('');
+  }
+  return '';
+}
+
 function parseOptionChildren(children: ReactNode): FormControlOption[] {
   const options: FormControlOption[] = [];
   Children.forEach(children, (child) => {
@@ -77,10 +95,7 @@ function parseOptionChildren(children: ReactNode): FormControlOption[] {
       return;
     }
     const optionValue = element.props.value ?? '';
-    const label =
-      typeof element.props.children === 'string' || typeof element.props.children === 'number'
-        ? String(element.props.children)
-        : String(optionValue);
+    const label = optionChildrenToLabel(element.props.children) || String(optionValue);
     options.push({
       value: String(optionValue),
       label,

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CREATE_LEAD_INPUT } from '../domain/lead/defaults';
-import { LeadForm } from '../features/lead/LeadForm';
+import { LeadForm } from '../v2/crm/LeadForm';
 
 describe('LeadForm', () => {
   it('renders labeled inputs', () => {

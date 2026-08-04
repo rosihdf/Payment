@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { DEFAULT_CREATE_TARIFF_INPUT } from '../../domain/tariff/defaults';
 import type { CreateTariffInput } from '../../domain/tariff/tariff';
@@ -10,9 +9,9 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateTariffErrors } from '../../services/tariffValidation';
-import { AdminTariffLayout } from './AdminTariffLayout';
+import { AdminLayout } from '../admin/AdminLayout';
+import { Dialog } from '../../v2/ui/Dialog';
 import { TariffForm } from './TariffForm';
-import styles from './EditTariffPage.module.css';
 
 export function EditTariffPage() {
   const { id } = useParams<{ id: string }>();
@@ -115,33 +114,33 @@ export function EditTariffPage() {
 
   if (notFound) {
     return (
-      <AdminTariffLayout title="Tarif bearbeiten">
+      <AdminLayout title="Tarif bearbeiten">
         <EmptyState
           title="Tarif nicht gefunden"
           description="Der angeforderte Tarif existiert nicht oder wurde entfernt."
           action={
-            <Link className={styles.backLink} to="/admin/catalog?tab=tariffs">
+            <Link to="/admin/catalog?tab=tariffs">
               Zu Tarifen
             </Link>
           }
         />
-      </AdminTariffLayout>
+      </AdminLayout>
     );
   }
 
   if (isLoading) {
     return (
-      <AdminTariffLayout title="Tarif bearbeiten" subtitle="Tarifkonditionen und Verfügbarkeit aktualisieren">
+      <AdminLayout title="Tarif bearbeiten" subtitle="Tarifkonditionen und Verfügbarkeit aktualisieren">
         <EmptyState
           title="Tarif wird geladen"
           description="Die Tarifdaten werden vorbereitet."
         />
-      </AdminTariffLayout>
+      </AdminLayout>
     );
   }
 
   return (
-    <AdminTariffLayout
+    <AdminLayout
       title="Tarif bearbeiten"
       subtitle="Tarifkonditionen und Verfügbarkeit aktualisieren"
     >
@@ -155,18 +154,22 @@ export function EditTariffPage() {
         onCancel={handleCancel}
       />
 
-      <ConfirmDialog
+      <Dialog
         isOpen={showLeaveDialog}
         title="Ungespeicherte Änderungen"
-        message="Deine Änderungen wurden noch nicht gespeichert."
-        cancelLabel="Weiter bearbeiten"
-        confirmLabel="Änderungen verwerfen"
-        onCancel={() => setShowLeaveDialog(false)}
-        onConfirm={() => {
-          setShowLeaveDialog(false);
-          leaveToOverview();
+        onClose={() => setShowLeaveDialog(false)}
+        secondaryAction={{ label: 'Weiter bearbeiten', onClick: () => setShowLeaveDialog(false) }}
+        primaryAction={{
+          label: 'Änderungen verwerfen',
+          variant: 'destructive',
+          onClick: () => {
+            setShowLeaveDialog(false);
+            leaveToOverview();
+          },
         }}
-      />
-    </AdminTariffLayout>
+      >
+        <p>Deine Änderungen wurden noch nicht gespeichert.</p>
+      </Dialog>
+    </AdminLayout>
   );
 }

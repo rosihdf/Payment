@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DEFAULT_CREATE_PRODUCT_INPUT } from '../../domain/product/productDefaults';
 import type { CreateProductInput } from '../../domain/product/product';
 import { isSameProductInput } from '../../domain/product/productFormMapping';
@@ -9,7 +8,8 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateProductErrors } from '../../services/productValidation';
-import { AdminProductLayout } from './AdminProductLayout';
+import { AdminLayout } from '../admin/AdminLayout';
+import { Dialog } from '../../v2/ui/Dialog';
 import { ProductForm } from './ProductForm';
 
 export function NewProductPage() {
@@ -58,7 +58,7 @@ export function NewProductPage() {
   };
 
   return (
-    <AdminProductLayout title="Produkt anlegen" subtitle="Neues BestPay-Produkt erfassen">
+    <AdminLayout title="Produkt anlegen" subtitle="Neues BestPay-Produkt erfassen">
       <ProductForm
         mode="create"
         values={values}
@@ -69,18 +69,22 @@ export function NewProductPage() {
         onCancel={() => (isDirty ? setShowLeaveDialog(true) : leaveToOverview())}
       />
 
-      <ConfirmDialog
+      <Dialog
         isOpen={showLeaveDialog}
         title="Ungespeicherte Änderungen"
-        message="Deine Änderungen wurden noch nicht gespeichert."
-        cancelLabel="Weiter bearbeiten"
-        confirmLabel="Änderungen verwerfen"
-        onCancel={() => setShowLeaveDialog(false)}
-        onConfirm={() => {
-          setShowLeaveDialog(false);
-          leaveToOverview();
+        onClose={() => setShowLeaveDialog(false)}
+        secondaryAction={{ label: 'Weiter bearbeiten', onClick: () => setShowLeaveDialog(false) }}
+        primaryAction={{
+          label: 'Änderungen verwerfen',
+          variant: 'destructive',
+          onClick: () => {
+            setShowLeaveDialog(false);
+            leaveToOverview();
+          },
         }}
-      />
-    </AdminProductLayout>
+      >
+        <p>Deine Änderungen wurden noch nicht gespeichert.</p>
+      </Dialog>
+    </AdminLayout>
   );
 }

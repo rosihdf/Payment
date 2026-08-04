@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { loadAppRuntimeConfig } from '../../config/appRuntimeConfig';
@@ -31,14 +31,21 @@ export function CommissionShell({ title, description, actions, children }: Commi
   const { adminOverviewService } = useServices();
   const config = loadAppRuntimeConfig();
 
-  const context =
-    currentUser &&
-    createUserContext({
-      id: currentUser.id,
-      role: currentUser.role,
-      name: currentUser.name,
-      status: currentUser.status,
-    });
+  // Memoisiert: verhindert, dass abhängige Effekte in Kindkomponenten (z. B.
+  // `CommissionAssignmentsPanel`) bei jedem Render erneut feuern, weil eine neue
+  // Objektreferenz sonst wie eine geänderte Abhängigkeit behandelt wird.
+  const context = useMemo(
+    () =>
+      currentUser
+        ? createUserContext({
+            id: currentUser.id,
+            role: currentUser.role,
+            name: currentUser.name,
+            status: currentUser.status,
+          })
+        : null,
+    [currentUser?.id, currentUser?.role, currentUser?.name, currentUser?.status],
+  );
 
   const isAuthorized = context ? adminOverviewService.canAccessAdmin(context) : false;
 

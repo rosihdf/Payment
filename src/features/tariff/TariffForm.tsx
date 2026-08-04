@@ -15,6 +15,7 @@ import {
   TARIFF_STATUS_OPTIONS,
 } from '../../domain/tariff/tariff';
 import type { CreateTariffErrors } from '../../services/tariffValidation';
+import { Button } from '../../v2/ui/Button';
 import { TerminalTypeSelector } from './TerminalTypeSelector';
 import styles from './TariffForm.module.css';
 
@@ -302,12 +303,12 @@ export function TariffForm({
       </section>
 
       <div className={styles.actions}>
-        <button type="submit" className={styles.primary} disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
           {isSubmitting ? submittingLabel : submitLabel}
-        </button>
-        <button type="button" className={styles.secondary} disabled={isSubmitting} onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
           Abbrechen
-        </button>
+        </Button>
       </div>
     </form>
   );

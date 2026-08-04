@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { loadAppRuntimeConfig } from '../../config/appRuntimeConfig';
@@ -32,14 +32,21 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
   const { currentUser, isLoading } = useCurrentUser();
   const { adminOverviewService } = useServices();
 
-  const context =
-    currentUser &&
-    createUserContext({
-      id: currentUser.id,
-      role: currentUser.role,
-      name: currentUser.name,
-      status: currentUser.status,
-    });
+  // Memoisiert auf die primitiven Feldern: verhindert, dass abhängige `useEffect`s
+  // (z. B. in `CommissionAssignmentsPanel`) bei jedem Render erneut feuern, weil
+  // `createUserContext(...)` sonst bei jedem Aufruf eine neue Objektreferenz liefert.
+  const context = useMemo(
+    () =>
+      currentUser
+        ? createUserContext({
+            id: currentUser.id,
+            role: currentUser.role,
+            name: currentUser.name,
+            status: currentUser.status,
+          })
+        : null,
+    [currentUser?.id, currentUser?.role, currentUser?.name, currentUser?.status],
+  );
 
   const isAuthorized = context ? adminOverviewService.canAccessAdmin(context) : false;
 
@@ -82,13 +89,16 @@ export function AdminLayout({ title, subtitle, actions, children }: AdminLayoutP
 
 export function useAdminContext() {
   const { currentUser } = useCurrentUser();
-  if (!currentUser) {
-    return null;
-  }
-  return createUserContext({
-    id: currentUser.id,
-    role: currentUser.role,
-    name: currentUser.name,
-    status: currentUser.status,
-  });
+  return useMemo(
+    () =>
+      currentUser
+        ? createUserContext({
+            id: currentUser.id,
+            role: currentUser.role,
+            name: currentUser.name,
+            status: currentUser.status,
+          })
+        : null,
+    [currentUser?.id, currentUser?.role, currentUser?.name, currentUser?.status],
+  );
 }

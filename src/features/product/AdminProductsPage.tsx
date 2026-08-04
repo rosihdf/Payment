@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import { FormControl } from '../../components/common/FormControl';
 import {
   PRODUCT_CATEGORY_LABELS,
   PRODUCT_CATEGORY_ORDER,
@@ -17,7 +15,11 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { ProductFilters } from '../../services/productService';
-import { AdminProductLayout } from './AdminProductLayout';
+import { AdminLayout } from '../admin/AdminLayout';
+import { Button } from '../../v2/ui/Button';
+import { DataList } from '../../v2/ui/DataList';
+import { Dialog } from '../../v2/ui/Dialog';
+import { FormField } from '../../v2/ui/FormField';
 import { ProductCard } from './ProductCard';
 import { ProductStatusBadge } from './ProductStatusBadge';
 import styles from './AdminProductsPage.module.css';
@@ -129,8 +131,8 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
   };
 
   const createAction = (
-    <Link className={styles.primaryAction} to="/admin/products/manage/new">
-      Produkt anlegen
+    <Link to="/admin/products/manage/new">
+      <Button>Produkt anlegen</Button>
     </Link>
   );
 
@@ -138,7 +140,7 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
     <>
       {embedded ? <div className={styles.embeddedActions}>{createAction}</div> : null}
       <div className={styles.toolbar}>
-        <FormControl
+        <FormField
           type="search"
           label="Suche"
           value={filters.search}
@@ -153,17 +155,16 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
             <legend className={styles.filterLegend}>Status</legend>
             <div className={styles.filterOptions}>
               {STATUS_FILTER_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
-                  className={`${styles.filterButton} ${
-                    filters.status === option.value ? styles.filterButtonActive : ''
-                  }`}
+                  size="compact"
+                  variant={filters.status === option.value ? 'primary' : 'secondary'}
                   aria-pressed={filters.status === option.value}
                   onClick={() => setFilters((current) => ({ ...current, status: option.value }))}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </fieldset>
@@ -172,17 +173,16 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
             <legend className={styles.filterLegend}>Kategorie</legend>
             <div className={styles.filterOptions}>
               {CATEGORY_FILTER_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
-                  className={`${styles.filterButton} ${
-                    filters.category === option.value ? styles.filterButtonActive : ''
-                  }`}
+                  size="compact"
+                  variant={filters.category === option.value ? 'primary' : 'secondary'}
                   aria-pressed={filters.category === option.value}
                   onClick={() => setFilters((current) => ({ ...current, category: option.value }))}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </fieldset>
@@ -191,19 +191,18 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
             <legend className={styles.filterLegend}>Einsatzart</legend>
             <div className={styles.filterOptions}>
               {TERMINAL_FILTER_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
-                  className={`${styles.filterButton} ${
-                    filters.terminalType === option.value ? styles.filterButtonActive : ''
-                  }`}
+                  size="compact"
+                  variant={filters.terminalType === option.value ? 'primary' : 'secondary'}
                   aria-pressed={filters.terminalType === option.value}
                   onClick={() =>
                     setFilters((current) => ({ ...current, terminalType: option.value }))
                   }
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           </fieldset>
@@ -216,54 +215,54 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
         <EmptyState
           title="Keine Produkte gefunden"
           description="Für die aktuelle Suche oder Filterkombination liegen keine Produkte vor."
-          action={
-            <Link className={styles.primaryAction} to="/admin/products/manage/new">
-              Produkt anlegen
-            </Link>
-          }
+          action={createAction}
         />
       ) : (
-        <ul className={styles.list}>
-          {filteredProducts.map((product) => (
-            <li key={product.id}>
-              <ProductCard
-                product={product}
-                showSource
-                actions={
-                  <>
-                    <ProductStatusBadge status={product.status} />
-                    <Link className={styles.secondaryAction} to={`/admin/products/manage/${product.id}/edit`}>
-                      Bearbeiten
-                    </Link>
-                    <button
-                      type="button"
-                      className={styles.secondaryAction}
-                      disabled={statusUpdatingId === product.id}
-                      onClick={() => handleStatusToggle(product)}
-                    >
-                      {statusUpdatingId === product.id
-                        ? 'Wird aktualisiert…'
-                        : product.status === 'active'
-                          ? 'Deaktivieren'
-                          : 'Aktivieren'}
-                    </button>
-                  </>
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <DataList
+          items={filteredProducts}
+          getKey={(product) => product.id}
+          aria-label="Produktliste"
+          className={styles.list}
+          renderItem={(product) => (
+            <ProductCard
+              product={product}
+              showSource
+              actions={
+                <>
+                  <ProductStatusBadge status={product.status} />
+                  <Link to={`/admin/products/manage/${product.id}/edit`}>
+                    <Button variant="secondary" size="compact">Bearbeiten</Button>
+                  </Link>
+                  <Button
+                    type="button"
+                    size="compact"
+                    variant="secondary"
+                    disabled={statusUpdatingId === product.id}
+                    loading={statusUpdatingId === product.id}
+                    onClick={() => handleStatusToggle(product)}
+                  >
+                    {statusUpdatingId === product.id
+                      ? 'Wird aktualisiert…'
+                      : product.status === 'active'
+                        ? 'Deaktivieren'
+                        : 'Aktivieren'}
+                  </Button>
+                </>
+              }
+            />
+          )}
+        />
       )}
 
-      <ConfirmDialog
+      <Dialog
         isOpen={Boolean(deactivateTarget)}
         title="Produkt deaktivieren"
-        message="Das Produkt steht anschließend nicht mehr in der Außendienst-Produktübersicht zur Verfügung."
-        cancelLabel="Abbrechen"
-        confirmLabel="Produkt deaktivieren"
-        onCancel={() => setDeactivateTarget(null)}
-        onConfirm={handleDeactivateConfirmed}
-      />
+        onClose={() => setDeactivateTarget(null)}
+        secondaryAction={{ label: 'Abbrechen', onClick: () => setDeactivateTarget(null) }}
+        primaryAction={{ label: 'Produkt deaktivieren', variant: 'destructive', onClick: handleDeactivateConfirmed }}
+      >
+        <p>Das Produkt steht anschließend nicht mehr in der Außendienst-Produktübersicht zur Verfügung.</p>
+      </Dialog>
     </>
   );
 
@@ -272,12 +271,12 @@ export function AdminProductsPage({ embedded = false }: AdminProductsPageProps) 
   }
 
   return (
-    <AdminProductLayout
+    <AdminLayout
       title="Produkte"
       subtitle="BestPay-Hardware und Produkte verwalten"
       actions={createAction}
     >
       {content}
-    </AdminProductLayout>
+    </AdminLayout>
   );
 }

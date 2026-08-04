@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { EmptyState } from '../../components/feedback/EmptyState';
+import type { PriceBook, PriceBookVersion } from '../../domain/pricing/priceBook';
+import type { PriceRule } from '../../domain/pricing/priceRule';
 import type { PricingCatalogData } from '../../repositories/interfaces/PricingCatalogRepository';
 import { LocalPricingCatalogRepository } from '../../repositories/local/LocalPricingCatalogRepository';
 import { formatCentsToCurrency } from '../../utils/currency';
+import { ResponsiveTable, type ResponsiveTableColumn } from '../../v2/ui/ResponsiveTable';
 import styles from './AdminLayout.module.css';
 
 const PRICE_RULE_STATUS_LABELS = {
@@ -76,40 +79,12 @@ export function AdminPriceRulesPanel() {
       {catalog.priceBooks.length > 0 ? (
         <section className={styles.panel}>
           <h2>Price Books</h2>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Code</th>
-                  <th>Versionen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {catalog.priceBooks.map((book) => {
-                  const versions = catalog.priceBookVersions.filter(
-                    (version) => version.priceBookId === book.id,
-                  );
-                  return (
-                    <tr key={book.id}>
-                      <td>{book.name}</td>
-                      <td>{book.code}</td>
-                      <td>
-                        {versions.length === 0
-                          ? '—'
-                          : versions
-                              .map(
-                                (version) =>
-                                  `v${version.versionNumber} (${PRICE_BOOK_VERSION_STATUS_LABELS[version.status]})`,
-                              )
-                              .join(', ')}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable
+            ariaLabel="Price Books"
+            rowKey={(book) => book.id}
+            rows={catalog.priceBooks}
+            columns={priceBookColumns(catalog.priceBookVersions)}
+          />
         </section>
       ) : null}
 
@@ -121,34 +96,47 @@ export function AdminPriceRulesPanel() {
       ) : (
         <section className={styles.panel}>
           <h2>Preisregeln</h2>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Priorität</th>
-                  <th>Listenpreis</th>
-                </tr>
-              </thead>
-              <tbody>
-                {catalog.priceRules.map((rule) => (
-                  <tr key={rule.id}>
-                    <td>{rule.name}</td>
-                    <td>{PRICE_RULE_STATUS_LABELS[rule.status]}</td>
-                    <td>{rule.priority}</td>
-                    <td>
-                      {rule.listPriceCents == null
-                        ? '—'
-                        : formatCentsToCurrency(rule.listPriceCents)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable
+            ariaLabel="Preisregeln"
+            rowKey={(rule) => rule.id}
+            rows={catalog.priceRules}
+            columns={priceRuleColumns}
+          />
         </section>
       )}
     </div>
   );
 }
+
+function priceBookColumns(versions: PriceBookVersion[]): ResponsiveTableColumn<PriceBook>[] {
+  return [
+    { id: 'name', header: 'Name', render: (book) => book.name },
+    { id: 'code', header: 'Code', render: (book) => book.code },
+    {
+      id: 'versions',
+      header: 'Versionen',
+      render: (book) => {
+        const bookVersions = versions.filter((version) => version.priceBookId === book.id);
+        return bookVersions.length === 0
+          ? '—'
+          : bookVersions
+              .map(
+                (version) =>
+                  `v${version.versionNumber} (${PRICE_BOOK_VERSION_STATUS_LABELS[version.status]})`,
+              )
+              .join(', ');
+      },
+    },
+  ];
+}
+
+const priceRuleColumns: ResponsiveTableColumn<PriceRule>[] = [
+  { id: 'name', header: 'Name', render: (rule) => rule.name },
+  { id: 'status', header: 'Status', render: (rule) => PRICE_RULE_STATUS_LABELS[rule.status] },
+  { id: 'priority', header: 'Priorität', render: (rule) => rule.priority, numeric: true },
+  {
+    id: 'listPrice',
+    header: 'Listenpreis',
+    render: (rule) => (rule.listPriceCents == null ? '—' : formatCentsToCurrency(rule.listPriceCents)),
+  },
+];

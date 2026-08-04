@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DEFAULT_CREATE_TARIFF_INPUT } from '../../domain/tariff/defaults';
 import type { CreateTariffInput } from '../../domain/tariff/tariff';
 import { isSameTariffInput } from '../../domain/tariff/tariffFormMapping';
@@ -9,7 +8,8 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { useToast } from '../../hooks/useToast';
 import type { CreateTariffErrors } from '../../services/tariffValidation';
-import { AdminTariffLayout } from './AdminTariffLayout';
+import { AdminLayout } from '../admin/AdminLayout';
+import { Dialog } from '../../v2/ui/Dialog';
 import { TariffForm } from './TariffForm';
 
 export function NewTariffPage() {
@@ -80,7 +80,7 @@ export function NewTariffPage() {
   };
 
   return (
-    <AdminTariffLayout
+    <AdminLayout
       title="Tarif anlegen"
       subtitle="Neuen BestPay-Tarif erfassen"
     >
@@ -94,18 +94,22 @@ export function NewTariffPage() {
         onCancel={handleCancel}
       />
 
-      <ConfirmDialog
+      <Dialog
         isOpen={showLeaveDialog}
         title="Ungespeicherte Änderungen"
-        message="Deine Änderungen wurden noch nicht gespeichert."
-        cancelLabel="Weiter bearbeiten"
-        confirmLabel="Änderungen verwerfen"
-        onCancel={() => setShowLeaveDialog(false)}
-        onConfirm={() => {
-          setShowLeaveDialog(false);
-          leaveToOverview();
+        onClose={() => setShowLeaveDialog(false)}
+        secondaryAction={{ label: 'Weiter bearbeiten', onClick: () => setShowLeaveDialog(false) }}
+        primaryAction={{
+          label: 'Änderungen verwerfen',
+          variant: 'destructive',
+          onClick: () => {
+            setShowLeaveDialog(false);
+            leaveToOverview();
+          },
         }}
-      />
-    </AdminTariffLayout>
+      >
+        <p>Deine Änderungen wurden noch nicht gespeichert.</p>
+      </Dialog>
+    </AdminLayout>
   );
 }
