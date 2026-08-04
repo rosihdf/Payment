@@ -129,9 +129,14 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       ).toContainText(/Betreuer: test/i);
 
       await gotoSidebar(page, 'Arbeitsplatz');
+      await waitForWorkspaceReady(page);
       await page.getByLabel('Suche').fill(ACCEPTANCE_TAG);
-      await expect(page.getByRole('heading', { name: 'Suchtreffer' })).toBeVisible();
-      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Arbeitsplatz wird geladen' })).toHaveCount(0, {
+        timeout: 20_000,
+      });
+      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible({
+        timeout: 20_000,
+      });
 
       await gotoSidebar(page, 'Kunden');
       await waitForLeadsReady(page);
@@ -205,6 +210,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await page.getByRole('button', { name: 'Weiter' }).click();
 
       await page.getByRole('button', { name: 'Noch keine Payment-Lösung / aktuelle Kosten 0 €' }).click();
+      await expect(page.getByText('Automatisch gespeichert')).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText(/Ist-Kosten:\s*0,00\s*€/)).toBeVisible();
       await page.getByRole('button', { name: 'Weiter' }).click();
       await fillNeedStep(page);
@@ -247,32 +253,48 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       const amountInput = standardDialog.getByLabel('Standardbetrag (EUR)');
       standardOriginalAmount = await amountInput.inputValue();
       await amountInput.fill('175');
+      await expect(amountInput).toHaveValue('175');
       await standardDialog.getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByText(/Standardregel.*gespeichert/)).toBeVisible();
 
       await page.reload();
-      await standardRow.getByRole('button', { name: 'Bearbeiten' }).click();
+      await expect(
+        page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
+      ).toBeVisible();
+      const reloadedStandardRow = page.getByRole('row', { name: /Nur Acquiring/ }).first();
+      await reloadedStandardRow.getByRole('button', { name: 'Bearbeiten' }).click();
       await expect(page.getByRole('dialog').getByLabel('Standardbetrag (EUR)')).toHaveValue('175');
 
       await page.getByRole('dialog').getByLabel('Standardbetrag (EUR)').fill(standardOriginalAmount);
       await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByText(/Standardregel.*gespeichert/)).toBeVisible();
 
-      const employeeRow = page.getByRole('row').filter({ hasText: fieldAdvisorLabel.split(' (')[0] });
+      const employeeSection = page.locator('section').filter({
+        has: page.getByRole('heading', { name: 'Außendienst', exact: true }),
+      });
+      const employeeMatch = fieldAdvisorLabel.split(' (')[0] || credentials.fieldEmail;
+      const employeeRow = employeeSection.getByRole('row').filter({ hasText: employeeMatch }).first();
+      await expect(employeeRow).toBeVisible({ timeout: 20_000 });
       await employeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
-      const employeeDialog = page.getByRole('dialog');
+      const employeeDialog = page.getByRole('dialog', { name: /Vereinbarung –/ });
       await expect(employeeDialog).toBeVisible();
-      const shareInput = employeeDialog.getByLabel(/%$/).first();
+      const shareInput = employeeDialog.getByLabel('Nur Acquiring %');
+      await expect(shareInput).toHaveValue(/\d+/, { timeout: 20_000 });
       employeeOriginalShare = await shareInput.inputValue();
       await shareInput.fill('42');
+      await expect(shareInput).toHaveValue('42');
       await employeeDialog.getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByText('Vereinbarung gespeichert')).toBeVisible();
 
       await page.reload();
-      await employeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
-      await expect(page.getByRole('dialog').getByLabel(/%$/).first()).toHaveValue('42');
+      await expect(
+        page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
+      ).toBeVisible();
+      const reloadedEmployeeRow = employeeSection.getByRole('row').filter({ hasText: employeeMatch }).first();
+      await reloadedEmployeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
+      await expect(page.getByRole('dialog').getByLabel('Nur Acquiring %')).toHaveValue('42');
 
-      await page.getByRole('dialog').getByLabel(/%$/).first().fill(employeeOriginalShare);
+      await page.getByRole('dialog').getByLabel('Nur Acquiring %').fill(employeeOriginalShare);
       await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByText('Vereinbarung gespeichert')).toBeVisible();
     } finally {
@@ -290,17 +312,20 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await page.goto(`/offers/${offerId}`);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Zur Kundenakte' })).toBeVisible();
       await assertNoTechnicalIds(page);
 
-      await page.getByRole('button', { name: 'Angebot abschließen' }).click();
+      await page.getByRole('button', { name: 'Abschließen' }).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Angebot abschließen' }).click();
-      await expect(page.getByText(/Abgeschlossen|abgeschlossen/)).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('Abgeschlossen', { exact: true }).first()).toBeVisible({
+        timeout: 20_000,
+      });
 
-      const pdfButton = page.getByRole('button', { name: /Finales PDF erzeugen|PDF erzeugen/i });
+      await page.getByRole('tab', { name: 'Versionen & Dokumente' }).click();
+      const pdfButton = page.getByRole('button', { name: 'Finales PDF erzeugen' });
       if (await pdfButton.count()) {
         await pdfButton.first().click();
-        const confirm = page.getByRole('button', { name: /Finales PDF erzeugen|PDF erzeugen/i });
+        const confirm = page.getByRole('button', { name: 'Finales PDF erzeugen' });
         if (await confirm.count()) {
           await confirm.last().click();
         }
@@ -309,7 +334,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
         });
       }
 
-      await page.getByRole('tab', { name: /Workflow|Freigabe/i }).click({ timeout: 5_000 }).catch(() => {});
+      await page.getByRole('tab', { name: 'Freigabe & Versand' }).click();
       const approvalButton = page.getByRole('button', { name: 'Freigabe anfordern' });
       if (await approvalButton.isVisible()) {
         await approvalButton.click();
@@ -318,7 +343,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       }
 
       await page.reload();
-      await expect(page.getByRole('link', { name: TEST_COMPANY }).first()).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Zur Kundenakte' })).toBeVisible();
       if (await approvalButton.isVisible().catch(() => false)) {
         await expect(page.getByText(/Freigabe|Wartet|Freigabe anfordern/i)).toBeVisible();
       } else {

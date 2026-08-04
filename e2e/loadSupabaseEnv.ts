@@ -65,3 +65,29 @@ export function requireSupabaseCredentials(env: Record<string, string>): {
     fieldPassword: fieldPassword!,
   };
 }
+
+/** Prüft Admin- und Außendienst-Login gegen Supabase Auth (ohne Secrets zu loggen). */
+export async function verifySupabaseCredentials(env: Record<string, string>): Promise<void> {
+  const credentials = requireSupabaseCredentials(env);
+  const url = env.VITE_SUPABASE_URL?.trim();
+  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!url || !key) {
+    throw new Error('VITE_SUPABASE_URL oder VITE_SUPABASE_PUBLISHABLE_KEY fehlt');
+  }
+
+  const { createClient } = await import('@supabase/supabase-js');
+  const client = createClient(url, key);
+
+  for (const [label, email, password] of [
+    ['Admin', credentials.adminEmail, credentials.adminPassword],
+    ['Außendienst', credentials.fieldEmail, credentials.fieldPassword],
+  ] as const) {
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw new Error(
+        `${label}-Login fehlgeschlagen für ${email}: ${error.message}. Bitte Zugangsdaten in ~/.amrtech-payment-leads.acceptance.env prüfen.`,
+      );
+    }
+    await client.auth.signOut();
+  }
+}

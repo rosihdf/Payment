@@ -115,9 +115,13 @@ export async function calculateRecommendation(page: Page): Promise<void> {
 export async function createOfferDraft(page: Page): Promise<string | null> {
   await page.getByRole('button', { name: '5 Angebot' }).click();
   await expect(page.getByRole('heading', { name: 'Angebot', level: 2 })).toBeVisible();
-  await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
-  await expect(page.getByText(/^Angebot .+/)).toBeVisible({ timeout: 20_000 });
-  const offerLink = page.getByRole('link', { name: /^Angebot / }).first();
-  const href = await offerLink.getAttribute('href');
+
+  const draftLink = page.getByRole('link', { name: 'Entwurf öffnen' });
+  if (!(await draftLink.isVisible())) {
+    await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
+    await expect(draftLink).toBeVisible({ timeout: 20_000 });
+  }
+
+  const href = await draftLink.getAttribute('href');
   return href?.match(/\/offers\/([^/?#]+)/)?.[1] ?? null;
 }

@@ -47,6 +47,15 @@ for (const key of required) {
   console.log(`${key}: vorhanden`);
 }
 
+const verify = spawnSync('npx', ['tsx', 'scripts/verify-supabase-acceptance-credentials.mjs'], {
+  cwd: ROOT,
+  stdio: 'inherit',
+  env: { ...process.env, ...env },
+});
+if (verify.status !== 0) {
+  process.exit(verify.status ?? 1);
+}
+
 const result = spawnSync(
   'npx',
   ['playwright', 'test', '--config=playwright.supabase.config.ts', '--reporter=line'],

@@ -31,7 +31,8 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     // 2) Kunde suchen (bestehender Demo-Kunde, DEMO_LEAD_ASSIGNMENTS weist "lead_001" Laura Berger
     // (user_001) zu – als Außendienst sieht sie nur ihre eigenen Kunden, siehe normalizeLead.ts).
     await gotoSidebar(page, 'Kunden');
-    await expect(page.getByRole('heading', { name: 'Kunden' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Kunden', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Kunden werden geladen' })).toHaveCount(0);
     await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill('Sonnenschein');
     await expect(page.getByText('Café Sonnenschein GmbH')).toBeVisible();
     await page.getByRole('searchbox', { name: 'Kunden-Suche' }).fill('');
