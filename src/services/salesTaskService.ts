@@ -202,9 +202,7 @@ export class SalesTaskService {
 
     if (input.sourceKey) {
       const existing = (await this.taskRepository.getAll()).find(
-        (task) =>
-          task.sourceKey === input.sourceKey &&
-          (task.status === 'open' || task.status === 'in_progress'),
+        (task) => task.sourceKey === input.sourceKey,
       );
       if (existing) {
         return { ok: true, task: existing };

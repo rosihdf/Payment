@@ -7,6 +7,7 @@ import {
   sbInsert,
   sbSelectAll,
   sbSelectById,
+  sbSelectWhere,
   sbUpdate,
   type JsonTableRow,
 } from './supabaseTable';
@@ -29,7 +30,14 @@ function taskToRow(task: SalesTask): Record<string, unknown> {
   };
 }
 
-function rowToTask(row: JsonTableRow): SalesTask {
+function isDuplicateSourceKeyError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes('duplicate key') || error.message.includes('sales_tasks_source_key_uidx'))
+  );
+}
+
+function rowToTask(row: JsonTableRow): SalesTask | null {
   const normalized = normalizeSalesTask(
     rowData(row, {
       id: row.id,
@@ -45,7 +53,8 @@ function rowToTask(row: JsonTableRow): SalesTask {
     }),
   );
   if (!normalized) {
-    throw new Error(`SalesTask konnte nicht normalisiert werden: ${row.id}`);
+    console.warn(`SalesTask konnte nicht normalisiert werden: ${row.id}`);
+    return null;
   }
   return normalized;
 }
@@ -63,9 +72,36 @@ export class SupabaseSalesTaskRepository implements SalesTaskRepository {
     return row ? rowToTask(row) : null;
   }
 
+  async getBySourceKey(sourceKey: string): Promise<SalesTask | null> {
+    const rows = await sbSelectWhere(TABLE, 'source_key', sourceKey);
+    const task = rows.map((row) => rowToTask(row)).find((entry): entry is SalesTask => entry !== null);
+    return task ?? null;
+  }
+
   async create(task: SalesTask): Promise<SalesTask> {
-    const row = await sbInsert(TABLE, taskToRow(task));
-    return rowToTask(row);
+    if (task.sourceKey) {
+      const existing = await this.getBySourceKey(task.sourceKey);
+      if (existing) {
+        return existing;
+      }
+    }
+
+    try {
+      const row = await sbInsert(TABLE, taskToRow(task));
+      const normalized = rowToTask(row);
+      if (!normalized) {
+        throw new Error(`SalesTask konnte nach Anlage nicht normalisiert werden: ${task.id}`);
+      }
+      return normalized;
+    } catch (error) {
+      if (task.sourceKey && isDuplicateSourceKeyError(error)) {
+        const existing = await this.getBySourceKey(task.sourceKey);
+        if (existing) {
+          return existing;
+        }
+      }
+      throw error;
+    }
   }
 
   async update(task: SalesTask): Promise<SalesTask> {
@@ -74,7 +110,11 @@ export class SupabaseSalesTaskRepository implements SalesTaskRepository {
       throw new Error(`SalesTask not found: ${task.id}`);
     }
     const row = await sbUpdate(TABLE, task.id, taskToRow(task));
-    return rowToTask(row);
+    const normalized = rowToTask(row);
+    if (!normalized) {
+      throw new Error(`SalesTask konnte nach Update nicht normalisiert werden: ${task.id}`);
+    }
+    return normalized;
   }
 
   async delete(id: string): Promise<boolean> {
