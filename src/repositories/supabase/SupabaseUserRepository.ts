@@ -3,6 +3,11 @@ import { getSupabaseClient } from '../../lib/supabaseClient';
 import type { UserRepository } from '../interfaces/UserRepository';
 import { profileRowToUser, userToProfileRow, type ProfileRow } from './mapProfile';
 
+function isMissingAuthSessionError(error: { message?: string }): boolean {
+  const message = error.message?.toLowerCase() ?? '';
+  return message.includes('auth session missing') || message.includes('session missing');
+}
+
 export class SupabaseUserRepository implements UserRepository {
   async getAll(): Promise<User[]> {
     const client = getSupabaseClient();
@@ -30,6 +35,9 @@ export class SupabaseUserRepository implements UserRepository {
     } = await client.auth.getUser();
 
     if (authError) {
+      if (isMissingAuthSessionError(authError)) {
+        return null;
+      }
       throw new Error(`Auth-Sitzung prüfen fehlgeschlagen: ${authError.message}`);
     }
     if (!authUser) {

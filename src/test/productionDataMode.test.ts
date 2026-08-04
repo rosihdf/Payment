@@ -95,6 +95,7 @@ describe('supabase profile access', () => {
 
   function stubAuthClient(options: {
     userId: string | null;
+    authError?: { message: string } | null;
     rpcData?: unknown;
     rpcError?: { message: string } | null;
   }) {
@@ -102,7 +103,7 @@ describe('supabase profile access', () => {
       auth: {
         getUser: vi.fn().mockResolvedValue({
           data: { user: options.userId ? { id: options.userId } : null },
-          error: null,
+          error: options.authError ?? null,
         }),
       },
       rpc: vi.fn().mockResolvedValue({
@@ -117,6 +118,20 @@ describe('supabase profile access', () => {
       from: vi.fn(),
     } as never);
   }
+
+  it('returns null when auth session is missing', async () => {
+    vi.stubEnv('VITE_DATA_MODE', 'supabase');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://vohnqrftkuefkugabcob.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_key');
+
+    const repo = new SupabaseUserRepository();
+    stubAuthClient({
+      userId: null,
+      authError: { message: 'Auth session missing!' },
+    });
+
+    await expect(repo.getCurrentUser()).resolves.toBeNull();
+  });
 
   it('blocks missing profile for authenticated user', async () => {
     vi.stubEnv('VITE_DATA_MODE', 'supabase');

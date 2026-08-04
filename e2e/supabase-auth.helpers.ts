@@ -1,8 +1,31 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { gotoSidebar, chooseCustomOption } from './helpers';
 
 export const ACCEPTANCE_TAG = 'CORE_REPAIR_BROWSER';
 export const TEST_COMPANY = `${ACCEPTANCE_TAG} Test GmbH`;
+
+const EMPTY_STORAGE_STATE = {
+  cookies: [] as [],
+  origins: [] as [],
+};
+
+/** Vollständig leerer Browser-Kontext – keine Cookies, kein Local-/SessionStorage, kein storageState. */
+export async function createFreshContext(browser: Browser): Promise<BrowserContext> {
+  return browser.newContext({ storageState: EMPTY_STORAGE_STATE });
+}
+
+export async function withFreshPage(
+  browser: Browser,
+  run: (page: Page) => Promise<void>,
+): Promise<void> {
+  const context = await createFreshContext(browser);
+  const page = await context.newPage();
+  try {
+    await run(page);
+  } finally {
+    await context.close();
+  }
+}
 
 export async function loginWithPassword(
   page: Page,
@@ -19,6 +42,9 @@ export async function loginWithPassword(
     timeout: 20_000,
   });
 }
+
+/** Alias für Supabase-Acceptance-Tests. */
+export const loginWithSupabaseCredentials = loginWithPassword;
 
 export async function logout(page: Page): Promise<void> {
   await page.goto('/profile');
