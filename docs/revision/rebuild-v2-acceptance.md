@@ -4,10 +4,12 @@
 - 152 Dateien / 1073 Tests, EXIT 0
 
 ## Playwright (`npm run test:e2e`)
-- 8 Tests, EXIT 0
+- 13 Tests, EXIT 0
 - Außendienst: Kundensuche, Neuanlage, Beratung, Angebot, Nachfassen, Provision
-- Admin: Benutzer, Tarif, Standardprovision+Reload, Freigaben/Aktivierungen erreichbar
-- Öffentlicher Kundenlink: gültiger Token zeigt Angebot; ungültiger Token Fehler
+- Admin: Benutzer, Tarif, Produkt, Standardprovision+Reload, Mitarbeitervereinbarung+Reload, Freigaben/Aktivierungen erreichbar
+- Beratung Extra: 0 €, zurück/vor, Reload
+- Öffentlicher Kundenlink: gültiger Token, ungültiger Token, Änderungswunsch
+- BestPay: Closing-Schritt mit Versand-Dialog
 
 ## Quality Gates
 - Lint, tsc, production-build, OCR-verify, secretscan:dist, git diff --check: EXIT 0
@@ -18,6 +20,9 @@
 - Manifest standalone erreichbar
 
 ## Android
-- APK 1.0.2 (10002) signiert gebaut
+- APK 1.0.2 (10002) signiert gebaut (RC1-Rebuild)
 - Emulator-Install und Launch erfolgreich
 - Kein Upload, kein Deploy, kein Push
+
+## RC1
+Siehe `docs/revision/AMRtech-Payment-RC1-Abschluss.md`.

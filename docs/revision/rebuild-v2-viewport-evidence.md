@@ -34,4 +34,10 @@ Tests: `commissionProvisionPersistence.test.ts`, `commissionAdminUiPersistence.t
 
 ## Browser-E2E
 
-`npm run test:e2e` → 8 Playwright-Tests grün (Außendienst, Admin, öffentlicher Kundenlink).
+`npm run test:e2e` → 13 Playwright-Tests grün (Außendienst, Admin, öffentlicher Kundenlink, RC1-Extras).
+
+## RC1-Nachweis
+
+- PWA-Preview erneut grün (SW Controller nach Reload)
+- APK 1.0.2 neu signiert gebaut; Emulator Install/Launch Success
+- Details: `AMRtech-Payment-RC1-Abschluss.md`
