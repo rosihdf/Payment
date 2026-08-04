@@ -50,6 +50,8 @@ export interface CommissionRule {
   validFrom: string | null;
   validUntil: string | null;
   internalDescription: string;
+  /** Anzeige-Prozent für Admin-Oberfläche (z. B. bei transaction_share). */
+  displaySharePercent: number | null;
   createdAt: string;
   updatedAt: string;
 }

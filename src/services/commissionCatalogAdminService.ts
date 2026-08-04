@@ -265,6 +265,7 @@ export class CommissionCatalogAdminService {
       validFrom: input.validFrom,
       validUntil: input.validUntil,
       internalDescription: input.internalDescription.trim(),
+      displaySharePercent: share,
       createdAt: existing?.createdAt ?? timestamp,
       updatedAt: timestamp,
     };

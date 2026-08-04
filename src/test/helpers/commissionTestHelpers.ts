@@ -40,6 +40,7 @@ function baseRule(overrides: Partial<CommissionRule>): CommissionRule {
     validFrom: '2026-01-01',
     validUntil: null,
     internalDescription: 'Demo-Regel',
+    displaySharePercent: null,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     ...overrides,

@@ -19,6 +19,7 @@ import styles from '../AdminLayout.module.css';
 import { AdminCommissionLayout } from './AdminCommissionLayout';
 import { commissionErrorLabel } from './commissionErrorLabel';
 import { formatPersistError } from '../../../utils/persistError';
+import { Dialog } from '../../../v2/ui/Dialog';
 
 interface RuleDraft {
   id: string;
@@ -56,6 +57,10 @@ function calculatedAmountLabel(rule: CommissionRule, sharePercent = COMMISSION_S
   return 'nicht gesetzt';
 }
 
+function ruleSharePercent(rule: CommissionRule): number {
+  return rule.displaySharePercent ?? COMMISSION_SHARE_DEFAULT;
+}
+
 function toDraft(rule: CommissionRule): RuleDraft {
   return {
     id: rule.id,
@@ -64,7 +69,7 @@ function toDraft(rule: CommissionRule): RuleDraft {
     status: rule.status === 'inactive' ? 'inactive' : 'active',
     fixedAmountEuro:
       rule.fixedAmountCents != null ? String(rule.fixedAmountCents / 100) : '',
-    displaySharePercent: String(COMMISSION_SHARE_DEFAULT),
+    displaySharePercent: String(ruleSharePercent(rule)),
     percentOfBasis:
       rule.percentTenthsOfBasisPoint != null
         ? String(rule.percentTenthsOfBasisPoint / 100)
@@ -185,12 +190,12 @@ export function CommissionModelsPanel() {
       {
         id: 'share',
         header: 'Prozentsatz',
-        render: () => formatSharePercent(COMMISSION_SHARE_DEFAULT),
+        render: (rule: CommissionRule) => formatSharePercent(ruleSharePercent(rule)),
       },
       {
         id: 'calculated',
         header: 'Berechnet',
-        render: (rule: CommissionRule) => calculatedAmountLabel(rule),
+        render: (rule: CommissionRule) => calculatedAmountLabel(rule, ruleSharePercent(rule)),
       },
       {
         id: 'active',
@@ -256,9 +261,21 @@ export function CommissionModelsPanel() {
       {renderRuleTable('CLASSIC', classicRules)}
       {renderRuleTable('VARIABLE', variableRules)}
 
-      {selected && selectedRule ? (
-        <section className={styles.panel}>
-          <h2>Regel bearbeiten</h2>
+      <Dialog
+        isOpen={Boolean(selected && selectedRule)}
+        title="Standardregel bearbeiten"
+        onClose={() => setSelectedId(null)}
+        secondaryAction={{ label: 'Abbrechen', onClick: () => setSelectedId(null) }}
+        primaryAction={
+          selected
+            ? {
+                label: 'Speichern',
+                onClick: () => void handleSave(selected.id),
+              }
+            : undefined
+        }
+      >
+        {selected && selectedRule ? (
           <div className={styles.formGrid}>
             <FormControl
               type="text"
@@ -374,16 +391,8 @@ export function CommissionModelsPanel() {
               }
             />
           </div>
-          <div className={styles.toolbar}>
-            <button type="button" onClick={() => void handleSave(selected.id)}>
-              Speichern
-            </button>
-            <button type="button" onClick={() => setSelectedId(null)}>
-              Schließen
-            </button>
-          </div>
-        </section>
-      ) : null}
+        ) : null}
+      </Dialog>
     </>
   );
 }
