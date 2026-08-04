@@ -1,47 +1,138 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
-import type { Lead } from '../../domain/lead/lead';
+import type { EditLeadInput, Lead } from '../../domain/lead/lead';
 import { LEAD_STATUS_LABELS } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
+import { leadToEditInput } from '../../domain/lead/leadFormMapping';
 import type { User } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
+import { useToast } from '../../hooks/useToast';
+import {
+  getCardMixSummary,
+  isCardMixValid,
+  type CreateLeadErrors,
+} from '../../services/leadValidation';
 import { formatContactName } from '../../utils/format';
 import { Button } from '../ui/Button';
 import { DataList, DataListCard } from '../ui/DataList';
+import { Dialog } from '../ui/Dialog';
 import { FormField } from '../ui/FormField';
 import { PageHeader } from '../ui/PageHeader';
 import { StatusBadge } from '../ui/StatusBadge';
+import { LeadForm } from './LeadForm';
 import styles from './LeadsPage.module.css';
 
 export function LeadsPage() {
   const location = useLocation();
   const { currentUser } = useCurrentUser();
   const { leadService, userService } = useServices();
+  const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<EditLeadInput | null>(null);
+  const [editErrors, setEditErrors] = useState<CreateLeadErrors>({});
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
-  useEffect(() => {
-    void userService.getAllUsers().then(setUsers);
-  }, [userService]);
+  const canAssignAdvisor = currentUser?.role === 'admin';
 
-  useEffect(() => {
+  const advisorOptions = useMemo(
+    () =>
+      users
+        .filter((user) => user.role === 'field_service' && user.status === 'active')
+        .map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        })),
+    [users],
+  );
+
+  const reloadLeads = useCallback(() => {
     if (!currentUser) {
       return;
     }
+    setIsLoading(true);
     void leadService
       .searchLeads(query, { userId: currentUser.id, role: currentUser.role })
       .then((result) => {
         setLeads(result);
         setIsLoading(false);
       });
-  }, [leadService, query, currentUser, location.key]);
+  }, [currentUser, leadService, query]);
+
+  useEffect(() => {
+    void userService.getAllUsers().then(setUsers);
+  }, [userService]);
+
+  useEffect(() => {
+    reloadLeads();
+  }, [reloadLeads, location.key]);
+
+  useEffect(() => {
+    if (!editingLeadId) {
+      setEditValues(null);
+      return;
+    }
+    setIsEditLoading(true);
+    setEditErrors({});
+    void leadService.getLeadById(editingLeadId).then((lead) => {
+      if (lead) {
+        setEditValues(leadToEditInput(lead));
+      } else {
+        setEditingLeadId(null);
+        showToast('Kunde nicht gefunden', 'error');
+      }
+      setIsEditLoading(false);
+    });
+  }, [editingLeadId, leadService, showToast]);
 
   const getUserName = (userId: string): string =>
     users.find((user) => user.id === userId)?.name ?? 'Unbekannt';
+
+  const closeEditDialog = () => {
+    if (isEditSubmitting) {
+      return;
+    }
+    setEditingLeadId(null);
+    setEditValues(null);
+    setEditErrors({});
+  };
+
+  const handleEditSubmit = () => {
+    if (!currentUser || !editingLeadId || !editValues || isEditSubmitting) {
+      return;
+    }
+    void (async () => {
+      setIsEditSubmitting(true);
+      setEditErrors({});
+      const result = await leadService.updateLead(editingLeadId, editValues, {
+        userId: currentUser.id,
+        role: currentUser.role,
+      });
+      if (!result.ok) {
+        if ('errors' in result) {
+          setEditErrors(result.errors);
+          showToast('Bitte prüfen Sie die markierten Felder.', 'error');
+        } else {
+          showToast('Änderungen konnten nicht gespeichert werden', 'error');
+        }
+        setIsEditSubmitting(false);
+        return;
+      }
+      showToast('Änderungen wurden gespeichert', 'success');
+      setIsEditSubmitting(false);
+      closeEditDialog();
+      reloadLeads();
+    })();
+  };
+
+  const cardMixSummary = editValues ? getCardMixSummary(editValues.cardMix) : '';
 
   return (
     <section>
@@ -97,10 +188,58 @@ export function LeadsPage() {
                   <span>Betreuer: {getUserName(lead.assignedSalesUserId)}</span>
                 </>
               }
+              footer={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setEditingLeadId(lead.id);
+                  }}
+                >
+                  Bearbeiten
+                </Button>
+              }
             />
           )}
         />
       )}
+
+      <Dialog
+        isOpen={Boolean(editingLeadId)}
+        title="Kunde bearbeiten"
+        onClose={closeEditDialog}
+        secondaryAction={{ label: 'Abbrechen', onClick: closeEditDialog, disabled: isEditSubmitting }}
+        primaryAction={
+          editValues && !isEditLoading
+            ? {
+                label: 'Speichern',
+                onClick: handleEditSubmit,
+                loading: isEditSubmitting,
+                disabled: isEditSubmitting,
+              }
+            : undefined
+        }
+      >
+        {isEditLoading || !editValues ? (
+          <EmptyState title="Kunde wird geladen" description="Die Kundendaten werden abgerufen." />
+        ) : (
+          <LeadForm
+            mode="edit"
+            values={editValues}
+            errors={editErrors}
+            cardMixSummary={cardMixSummary}
+            isCardMixValid={isCardMixValid(editValues.cardMix)}
+            isSubmitting={isEditSubmitting}
+            onChange={setEditValues}
+            onSubmit={handleEditSubmit}
+            onCancel={closeEditDialog}
+            canAssignAdvisor={canAssignAdvisor}
+            advisorOptions={advisorOptions}
+          />
+        )}
+      </Dialog>
     </section>
   );
 }

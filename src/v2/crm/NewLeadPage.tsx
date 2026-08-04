@@ -27,7 +27,7 @@ export function NewLeadPage() {
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
-  const [advisorOptions, setAdvisorOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [advisorOptions, setAdvisorOptions] = useState<Array<{ id: string; name: string; email: string }>>([]);
 
   const canAssignAdvisor = currentUser?.role === 'admin';
 
@@ -39,7 +39,7 @@ export function NewLeadPage() {
       setAdvisorOptions(
         users
           .filter((user) => user.role === 'field_service' && user.status === 'active')
-          .map((user) => ({ id: user.id, name: user.name })),
+          .map((user) => ({ id: user.id, name: user.name, email: user.email })),
       );
     });
   }, [canAssignAdvisor, userService]);

@@ -57,7 +57,7 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('Admin sieht alle Kunden im Arbeitsplatz, Team-Filter entfällt', async () => {
+  it('Admin und Außendienst nutzen dieselbe Sichtbarkeitslogik ohne Team-Filter', async () => {
     const workspace = createTestWorkspace();
 
     const field = await workspace.getWorkspaceView(
@@ -71,12 +71,9 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
       { userId: 'user_004', role: 'admin', displayName: 'Michael' },
       { scope: 'team' },
     );
-    expect(admin.scope).toBe('team');
-    expect(admin.canUseTeamScope).toBe(true);
-
-    renderAt('/sales', 'user_004');
-    expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Ansicht')).not.toBeInTheDocument();
+    expect(admin.scope).toBe('mine');
+    expect(admin.canUseTeamScope).toBe(false);
+    expect(admin.dayWork).toBeDefined();
   });
 
   it('Rendern erzeugt keine zusätzlichen Aufgaben oder Aktivitäten jenseits der Sync-Baseline', async () => {

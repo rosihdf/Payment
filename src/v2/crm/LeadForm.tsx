@@ -26,7 +26,7 @@ interface LeadFormBaseProps {
   onCancel: () => void;
   /** Nur Admin: Betreuer auswählen. */
   canAssignAdvisor?: boolean;
-  advisorOptions?: Array<{ id: string; name: string }>;
+  advisorOptions?: Array<{ id: string; name: string; email: string }>;
 }
 
 interface CreateLeadFormProps extends LeadFormBaseProps {
@@ -279,7 +279,7 @@ export function LeadForm(props: LeadFormProps) {
               <option value="">Bitte wählen…</option>
               {advisorOptions.map((advisor) => (
                 <option key={advisor.id} value={advisor.id}>
-                  {advisor.name}
+                  {advisor.name} ({advisor.email})
                 </option>
               ))}
             </FormField>

@@ -171,23 +171,24 @@ export class SalesWorkspaceService {
     this.changeRequestRepository = changeRequestRepository;
   }
 
-  canUseTeamScope(context: SalesWorkspaceUserContext): boolean {
-    return context.role === 'admin';
+  /** @deprecated Team-Ansicht entfällt – eine fachliche Sichtbarkeitslogik für alle Rollen. */
+  canUseTeamScope(_context: SalesWorkspaceUserContext): boolean {
+    return false;
   }
 
   canSeeCommission(context: SalesWorkspaceUserContext): boolean {
     return context.role === 'admin' || context.role === 'field_service';
   }
 
-  private isLeadVisible(lead: Lead, context: SalesWorkspaceUserContext, _scope: SalesWorkspaceScope): boolean {
+  private isLeadVisible(lead: Lead, context: SalesWorkspaceUserContext): boolean {
     if (context.role === 'admin') {
       return true;
     }
     return lead.assignedSalesUserId === context.userId;
   }
 
-  private isOfferVisible(offer: Offer, context: SalesWorkspaceUserContext, scope: SalesWorkspaceScope): boolean {
-    if (scope === 'team' && context.role === 'admin') {
+  private isOfferVisible(offer: Offer, context: SalesWorkspaceUserContext): boolean {
+    if (context.role === 'admin') {
       return true;
     }
     return offer.createdByUserId === context.userId;
@@ -196,9 +197,8 @@ export class SalesWorkspaceService {
   private isSessionVisible(
     session: BestPayComparisonSession,
     context: SalesWorkspaceUserContext,
-    scope: SalesWorkspaceScope,
   ): boolean {
-    if (scope === 'team' && context.role === 'admin') {
+    if (context.role === 'admin') {
       return true;
     }
     return session.createdByUserId === context.userId;
@@ -225,10 +225,10 @@ export class SalesWorkspaceService {
 
   async syncAutomaticTasks(context: SalesWorkspaceUserContext): Promise<void> {
     const sessions = (await this.bestPayComparisonRepository.getAll()).filter((session) =>
-      this.isSessionVisible(session, context, 'mine'),
+      this.isSessionVisible(session, context),
     );
     const offers = (await this.offerRepository.getAll()).filter((offer) =>
-      this.isOfferVisible(offer, context, 'mine'),
+      this.isOfferVisible(offer, context),
     );
 
     for (const session of sessions) {
@@ -294,9 +294,8 @@ export class SalesWorkspaceService {
     context: SalesWorkspaceUserContext,
     options: { scope?: SalesWorkspaceScope; query?: string } = {},
   ): Promise<SalesWorkspaceView> {
-    const canUseTeamScope = this.canUseTeamScope(context);
-    const scope: SalesWorkspaceScope =
-      options.scope === 'team' && canUseTeamScope ? 'team' : 'mine';
+    const canUseTeamScope = false;
+    const scope: SalesWorkspaceScope = 'mine';
 
     await this.syncAutomaticTasks(context);
 
@@ -315,8 +314,8 @@ export class SalesWorkspaceService {
         this.changeRequestRepository.getAll(),
       ]);
 
-    const leads = allLeads.filter((lead) => this.isLeadVisible(lead, context, scope));
-    const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context, scope));
+    const leads = allLeads.filter((lead) => this.isLeadVisible(lead, context));
+    const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context));
 
     const draftApprovalFlags = new Map<string, boolean>();
     await Promise.all(
@@ -327,13 +326,13 @@ export class SalesWorkspaceService {
         }),
     );
 
-    const sessions = allSessions.filter((session) => this.isSessionVisible(session, context, scope));
+    const sessions = allSessions.filter((session) => this.isSessionVisible(session, context));
     const visibleLeadIds = new Set(leads.map((lead) => lead.id));
     const visibleOfferIds = new Set(offers.map((offer) => offer.id));
     const visibleSessionIds = new Set(sessions.map((session) => session.id));
 
     const tasks = allTasks.filter((task) => {
-      if (scope === 'team' && context.role === 'admin') {
+      if (context.role === 'admin') {
         return true;
       }
       return (
@@ -343,7 +342,7 @@ export class SalesWorkspaceService {
       );
     });
     const activities = allActivities.filter((activity) => {
-      if (scope === 'team' && context.role === 'admin') {
+      if (context.role === 'admin') {
         return true;
       }
       return (
@@ -754,9 +753,7 @@ export class SalesWorkspaceService {
     if (!lead) {
       return null;
     }
-    const scope: SalesWorkspaceScope =
-      context.role === 'admin' ? 'team' : 'mine';
-    if (!this.isLeadVisible(lead, context, scope)) {
+    if (!this.isLeadVisible(lead, context)) {
       return null;
     }
 

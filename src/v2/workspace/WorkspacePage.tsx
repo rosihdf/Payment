@@ -94,9 +94,34 @@ export function WorkspacePage() {
           label="Suche"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Kunde oder Aufgabe suchen…"
+          placeholder="Kunde, Angebot oder Berechnung suchen…"
         />
       </div>
+
+      {!isLoading && view && query.trim() ? (
+        <section className={styles.searchSection} aria-labelledby="workspace-search-results">
+          <h2 id="workspace-search-results" className={styles.searchTitle}>
+            Suchtreffer
+          </h2>
+          {view.searchHits.length === 0 ? (
+            <EmptyState
+              title="Keine Treffer"
+              description="Passen Sie die Suche an oder legen Sie einen neuen Kunden an."
+            />
+          ) : (
+            <ul className={styles.searchHits}>
+              {view.searchHits.map((hit) => (
+                <li key={`${hit.kind}-${hit.id}`}>
+                  <Link className={styles.searchHitLink} to={hit.href}>
+                    <div className={styles.searchHitTitle}>{hit.title}</div>
+                    <div className={styles.searchHitSubtitle}>{hit.subtitle}</div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {isLoading || !view ? (
         <EmptyState title="Arbeitsplatz wird geladen" description="Tagesübersicht wird vorbereitet." />
