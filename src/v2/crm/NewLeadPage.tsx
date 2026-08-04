@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { DEFAULT_CREATE_LEAD_INPUT } from '../../domain/lead/defaults';
 import type { CreateLeadInput } from '../../domain/lead/lead';
@@ -19,7 +19,7 @@ type DialogMode = 'cancel' | 'discard' | null;
 
 export function NewLeadPage() {
   const { currentUser } = useCurrentUser();
-  const { leadService, leadDraftService } = useServices();
+  const { leadService, leadDraftService, userService } = useServices();
   const { showToast } = useToast();
   const [values, setValues] = useState<CreateLeadInput>(DEFAULT_CREATE_LEAD_INPUT);
   const [errors, setErrors] = useState<CreateLeadErrors>({});
@@ -27,6 +27,22 @@ export function NewLeadPage() {
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
+  const [advisorOptions, setAdvisorOptions] = useState<Array<{ id: string; name: string }>>([]);
+
+  const canAssignAdvisor = currentUser?.role === 'admin';
+
+  useEffect(() => {
+    if (!canAssignAdvisor) {
+      return;
+    }
+    void userService.getAllUsers().then((users) => {
+      setAdvisorOptions(
+        users
+          .filter((user) => user.role === 'field_service' && user.status === 'active')
+          .map((user) => ({ id: user.id, name: user.name })),
+      );
+    });
+  }, [canAssignAdvisor, userService]);
 
   const handleDraftRestored = useCallback(() => {
     showToast('Gespeicherter Entwurf wiederhergestellt', 'info');
@@ -61,7 +77,11 @@ export function NewLeadPage() {
       setIsSubmitting(true);
       setErrors({});
 
-      const result = await leadService.createLead(values, currentUser.id);
+      const result = await leadService.createLead(
+        values,
+        currentUser.id,
+        { userId: currentUser.id, role: currentUser.role },
+      );
 
       if (!result.ok) {
         if ('errors' in result) {
@@ -144,6 +164,8 @@ export function NewLeadPage() {
             setDialogMode('discard');
           }
         }}
+        canAssignAdvisor={canAssignAdvisor}
+        advisorOptions={advisorOptions}
       />
 
       <Dialog

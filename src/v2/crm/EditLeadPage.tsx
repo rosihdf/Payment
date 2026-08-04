@@ -44,12 +44,13 @@ const EMPTY_EDIT_BASELINE: EditLeadInput = {
   notes: '',
   nextFollowUpAt: null,
   status: 'new',
+  assignedSalesUserId: '',
 };
 
 export function EditLeadPage() {
   const { id } = useParams<{ id: string }>();
   const { currentUser } = useCurrentUser();
-  const { leadService, leadEditDraftService } = useServices();
+  const { leadService, leadEditDraftService, userService } = useServices();
   const { showToast } = useToast();
 
   const [lead, setLead] = useState<Lead | null>(null);
@@ -63,6 +64,22 @@ export function EditLeadPage() {
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
   const [isFormReady, setIsFormReady] = useState(false);
+  const [advisorOptions, setAdvisorOptions] = useState<Array<{ id: string; name: string }>>([]);
+
+  const canAssignAdvisor = currentUser?.role === 'admin';
+
+  useEffect(() => {
+    if (!canAssignAdvisor) {
+      return;
+    }
+    void userService.getAllUsers().then((users) => {
+      setAdvisorOptions(
+        users
+          .filter((user) => user.role === 'field_service' && user.status === 'active')
+          .map((user) => ({ id: user.id, name: user.name })),
+      );
+    });
+  }, [canAssignAdvisor, userService]);
 
   const editContext = useMemo(
     () =>
@@ -247,6 +264,8 @@ export function EditLeadPage() {
         onChange={setValues}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
+        canAssignAdvisor={canAssignAdvisor}
+        advisorOptions={advisorOptions}
       />
 
       <Dialog

@@ -26,6 +26,7 @@ export function leadToEditInput(lead: Lead): EditLeadInput {
     notes: lead.notes,
     nextFollowUpAt: lead.nextFollowUpAt,
     status: lead.status,
+    assignedSalesUserId: lead.assignedSalesUserId,
   };
 }
 

@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import type { Lead } from '../../domain/lead/lead';
-import { LEAD_INTEREST_LABELS, LEAD_STATUS_LABELS } from '../../domain/lead/lead';
+import { LEAD_STATUS_LABELS } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import type { User } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
-import { formatContactName, formatDate } from '../../utils/format';
+import { formatContactName } from '../../utils/format';
 import { Button } from '../ui/Button';
 import { DataList, DataListCard } from '../ui/DataList';
 import { FormField } from '../ui/FormField';
@@ -91,11 +91,9 @@ export function LeadsPage() {
                 <>
                   <span>{formatContactName(lead.contactFirstName, lead.contactLastName)}</span>
                   <span>{lead.city || 'Ort nicht angegeben'}</span>
-                  <span>{LEAD_INTEREST_LABELS[lead.interest]}</span>
-                  <span>
-                    Nächster Kontakt:{' '}
-                    {lead.nextFollowUpAt ? formatDate(lead.nextFollowUpAt) : 'Nicht angegeben'}
-                  </span>
+                  <span>{lead.phone || 'Telefon nicht angegeben'}</span>
+                  <span>{lead.email || 'E-Mail nicht angegeben'}</span>
+                  <span>{lead.industry || 'Branche nicht angegeben'}</span>
                   <span>Betreuer: {getUserName(lead.assignedSalesUserId)}</span>
                 </>
               }

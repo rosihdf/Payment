@@ -39,7 +39,7 @@ export function WorkspacePage() {
   const { salesWorkspaceService } = useServices();
   const [view, setView] = useState<SalesWorkspaceView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [scope, setScope] = useState<'mine' | 'team'>('mine');
+  const [scope] = useState<'mine'>('mine');
   const [query, setQuery] = useState('');
 
   const userContext = useMemo(
@@ -96,17 +96,6 @@ export function WorkspacePage() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Kunde oder Aufgabe suchen…"
         />
-        {currentUser.role === 'admin' ? (
-          <FormField
-            type="select"
-            label="Ansicht"
-            value={scope}
-            onChange={(event) => setScope(event.target.value as 'mine' | 'team')}
-          >
-            <option value="mine">Meine Kunden</option>
-            <option value="team">Team</option>
-          </FormField>
-        ) : null}
       </div>
 
       {isLoading || !view ? (

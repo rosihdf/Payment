@@ -83,10 +83,14 @@ export interface CreateLeadInput {
   interest: LeadInterest;
   notes: string;
   nextFollowUpAt: string | null;
+  /** Nur Admin: explizite Betreuerzuordnung beim Anlegen. */
+  assignedSalesUserId?: string;
 }
 
 export interface EditLeadInput extends CreateLeadInput {
   status: LeadStatus;
+  /** Nur Admin: Betreuer ändern. */
+  assignedSalesUserId?: string;
 }
 
 export type LeadFormMode = 'create' | 'edit';

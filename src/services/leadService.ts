@@ -128,19 +128,28 @@ export class LeadService {
     });
   }
 
-  async createLead(input: CreateLeadInput, userId: string): Promise<CreateLeadResult> {
+  async createLead(
+    input: CreateLeadInput,
+    userId: string,
+    context?: LeadSearchContext,
+  ): Promise<CreateLeadResult> {
     const errors = validateCreateLeadInput(input);
 
     if (Object.keys(errors).length > 0) {
       return { ok: false, errors };
     }
 
+    const assignedSalesUserId =
+      context?.role === 'admin'
+        ? input.assignedSalesUserId?.trim() || userId
+        : userId;
+
     const timestamp = nowIso();
     const lead: Lead = {
       id: generateId('lead'),
       ...mapInputToFields(input),
       status: 'new',
-      assignedSalesUserId: userId,
+      assignedSalesUserId,
       createdByUserId: userId,
       syncState: 'pending',
       createdAt: timestamp,
@@ -198,7 +207,10 @@ export class LeadService {
       status: input.status,
       createdAt: existing.createdAt,
       createdByUserId: existing.createdByUserId,
-      assignedSalesUserId: existing.assignedSalesUserId,
+      assignedSalesUserId:
+        context.role === 'admin' && input.assignedSalesUserId?.trim()
+          ? input.assignedSalesUserId.trim()
+          : existing.assignedSalesUserId,
       syncState: 'pending',
       updatedAt: nowIso(),
     };
@@ -213,6 +225,10 @@ export class LeadService {
 
       return { ok: false, error: 'storage' };
     }
+  }
+
+  canUserAssignLead(context: LeadSearchContext): boolean {
+    return context.role === 'admin';
   }
 
   private filterLeadsByRole(leads: Lead[], context?: LeadSearchContext): Lead[] {

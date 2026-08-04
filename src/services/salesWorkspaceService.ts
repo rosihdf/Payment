@@ -179,11 +179,11 @@ export class SalesWorkspaceService {
     return context.role === 'admin' || context.role === 'field_service';
   }
 
-  private isLeadVisible(lead: Lead, context: SalesWorkspaceUserContext, scope: SalesWorkspaceScope): boolean {
-    if (scope === 'team' && context.role === 'admin') {
+  private isLeadVisible(lead: Lead, context: SalesWorkspaceUserContext, _scope: SalesWorkspaceScope): boolean {
+    if (context.role === 'admin') {
       return true;
     }
-    return lead.assignedSalesUserId === context.userId || lead.createdByUserId === context.userId;
+    return lead.assignedSalesUserId === context.userId;
   }
 
   private isOfferVisible(offer: Offer, context: SalesWorkspaceUserContext, scope: SalesWorkspaceScope): boolean {

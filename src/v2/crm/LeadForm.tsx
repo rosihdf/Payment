@@ -24,6 +24,9 @@ interface LeadFormBaseProps {
   isSubmitting: boolean;
   onSubmit: () => void;
   onCancel: () => void;
+  /** Nur Admin: Betreuer auswählen. */
+  canAssignAdvisor?: boolean;
+  advisorOptions?: Array<{ id: string; name: string }>;
 }
 
 interface CreateLeadFormProps extends LeadFormBaseProps {
@@ -53,6 +56,8 @@ export function LeadForm(props: LeadFormProps) {
     onChange,
     onSubmit,
     onCancel,
+    canAssignAdvisor = false,
+    advisorOptions = [],
   } = props;
 
   const updateField = <K extends keyof CreateLeadInput>(
@@ -256,6 +261,28 @@ export function LeadForm(props: LeadFormProps) {
                   </option>
                 ))}
               </FormField>
+          ) : null}
+          {canAssignAdvisor ? (
+            <FormField
+              type="select"
+              id="assignedSalesUserId"
+              label="Betreuer"
+              value={values.assignedSalesUserId ?? ''}
+              disabled={isSubmitting}
+              onChange={(event) =>
+                handleChange({
+                  ...values,
+                  assignedSalesUserId: event.target.value || undefined,
+                } as EditLeadInput)
+              }
+            >
+              <option value="">Bitte wählen…</option>
+              {advisorOptions.map((advisor) => (
+                <option key={advisor.id} value={advisor.id}>
+                  {advisor.name}
+                </option>
+              ))}
+            </FormField>
           ) : null}
           <FormField type="text" id="nextFollowUpAt" label="Nächster Kontakt" error={errors.nextFollowUpAt} value={values.nextFollowUpAt ? values.nextFollowUpAt.slice(0, 16) : ''} disabled={isSubmitting} onChange={(event) =>
                 updateField(
