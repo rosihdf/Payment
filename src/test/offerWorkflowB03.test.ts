@@ -149,6 +149,21 @@ describe('B03 Angebotsworkflow', () => {
       expect(canTransitionWorkflowStatus('draft', 'submit_for_approval')).toBe(true);
     });
 
+    it('schließt Entwürfe direkt ab, wenn accept aus draft verboten ist', async () => {
+      const repos = createTestRepositories();
+      const services = createServices(repos);
+      const offer = await repos.offerRepository.create(createTestOffer({ workflowStatus: 'draft' }));
+      await services.offerWorkflowService.ensureInitialVersion(offer);
+
+      const result = await services.offerService.completeOffer(offer.id, owner);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.offer.status).toBe('completed');
+        expect(result.offer.workflowStatus).toBe('accepted');
+      }
+    });
+
     it('erzwingt Vier-Augen-Freigabe', async () => {
       const { offers, service } = createWorkflow();
       const offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));

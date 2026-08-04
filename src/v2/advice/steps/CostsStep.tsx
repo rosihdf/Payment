@@ -8,7 +8,7 @@ import type { BestPayComparisonUserContext } from '../../../services/bestPayComp
 import type { BillingImportService } from '../../../services/billingImportService';
 import { CurrencyInput } from '../../../components/common/CurrencyInput';
 import { FormField } from '../../ui/FormField';
-import { centsToInput } from '../formatters';
+import { formatEuro } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -121,7 +121,8 @@ export function CostsStep({
             monatlichen Kosten – ohne Ersparnisberechnung.
           </p>
           <p className={styles.hint}>
-            Ist-Kosten: {centsToInput(session.manualInput.monthlyTotalCostsCents)} €
+            Ist-Kosten:{' '}
+            {formatEuro(session.manualInput.monthlyTotalCostsCents ?? 0)}
           </p>
         </article>
       ) : null}

@@ -34,7 +34,7 @@ import type { TariffRepository } from '../repositories/interfaces/TariffReposito
 import { OfferNotFoundError } from '../repositories/errors/OfferNotFoundError';
 import type { OfferWorkflowService } from './offerWorkflowService';
 import type { SalesActivityService } from './salesActivityService';
-import { isEditableWorkflowStatus, syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
+import { canTransitionWorkflowStatus, isEditableWorkflowStatus, syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
 import {
   hasOfferValidationErrors,
   sanitizeOfferInput,
@@ -554,16 +554,6 @@ export class OfferService {
   }
 
   async completeOffer(id: string, context: OfferUserContext): Promise<OfferActionResult> {
-    if (this.workflowService) {
-      const result = await this.workflowService.acceptOffer(id, context, {
-        acceptedByName: context.displayName,
-        acceptanceType: 'personal_confirmation',
-        otherText: null,
-        note: 'Abschluss über Legacy-API',
-      });
-      if (result.ok) return result;
-      return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
-    }
     const existing = await this.offerRepository.getById(id);
     if (!existing) {
       return { ok: false, error: 'not_found' };
@@ -575,6 +565,20 @@ export class OfferService {
 
     if (existing.status !== 'draft') {
       return { ok: false, error: 'invalid_status' };
+    }
+
+    if (
+      this.workflowService &&
+      canTransitionWorkflowStatus(existing.workflowStatus, 'accept')
+    ) {
+      const result = await this.workflowService.acceptOffer(id, context, {
+        acceptedByName: context.displayName,
+        acceptanceType: 'personal_confirmation',
+        otherText: null,
+        note: 'Abschluss über Legacy-API',
+      });
+      if (result.ok) return result;
+      return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
     }
 
     const input = {
