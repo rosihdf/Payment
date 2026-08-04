@@ -43,7 +43,7 @@ Lokale Release-Vorbereitung für den Frontend-Rebuild-RC1. **Kein R2-Upload, kei
   "publishedAt": "2026-08-04T00:00:00.000Z",
   "releaseNotes": "Frontend-Rebuild RC1: einheitliche v2-Oberfläche, Beratung, CRM, Provision, Admin.",
   "releaseTag": "v1.0.2",
-  "sourceCommit": "pending-final-head",
+  "sourceCommit": "a278f3a03717cc88c1dcbfa25d544a960dd99183",
   "mandatory": false
 }
 ```

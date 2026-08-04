@@ -8,6 +8,7 @@ Stand: lokal auf `rebuild/frontend-v2`, ohne Push, ohne Deploy, ohne R2-APK-Uplo
 |------|------|
 | Branch | `rebuild/frontend-v2` |
 | Baseline | `c8034d21576046f24f85f6cc11910daf3be08a98` |
+| Commits seit Baseline | `20d5865` Legacy-Cutover · `f509f55` E2E · `46f368a` Docs · `a278f3a` Release-Vorbereitung |
 | Push | nein |
 | Deploy | nein |
 | Tag | nein |
