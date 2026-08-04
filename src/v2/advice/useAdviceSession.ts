@@ -25,6 +25,13 @@ export interface UseAdviceSessionOptions {
   onSessionChange?: (session: BestPayComparisonSession) => void;
 }
 
+function formatAdviceError(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return 'Speichern fehlgeschlagen. Bitte erneut versuchen.';
+}
+
 export function useAdviceSession({
   services,
   userContext,
@@ -51,45 +58,76 @@ export function useAdviceSession({
     [onSessionChange],
   );
 
+  const mergePersistedSession = useCallback(
+    (saved: BestPayComparisonSession): BestPayComparisonSession => {
+      const latest = sessionRef.current;
+      if (!latest || latest.id !== saved.id) {
+        return saved;
+      }
+      return {
+        ...saved,
+        wizard: {
+          ...saved.wizard,
+          prospectDraft: latest.wizard.prospectDraft,
+          currentStep: latest.wizard.currentStep,
+          approvalNotes: latest.wizard.approvalNotes,
+          costCaptureMode: latest.wizard.costCaptureMode ?? saved.wizard.costCaptureMode,
+        },
+        manualInput: latest.manualInput,
+      };
+    },
+    [],
+  );
+
   const ensurePersisted = useCallback(
     async (current: BestPayComparisonSession): Promise<BestPayComparisonSession> => {
       if (persisted) {
         return sessionRef.current ?? current;
       }
       if (persistPromiseRef.current) {
-        const result = await persistPromiseRef.current;
-        return sessionRef.current ?? result ?? current;
+        try {
+          const result = await persistPromiseRef.current;
+          if (!result) {
+            throw new Error('Beratung konnte nicht gespeichert werden.');
+          }
+          return sessionRef.current ?? result ?? current;
+        } catch (persistError) {
+          setError(formatAdviceError(persistError));
+          throw persistError;
+        }
       }
+
       setBusy(true);
+      setError(null);
       persistPromiseRef.current = salesWizardService
         .persistWizardSession(current, userContext)
         .then((saved) => {
           setPersisted(true);
-          const latest = sessionRef.current;
-          const merged =
-            latest && latest.id === saved.id
-              ? {
-                  ...saved,
-                  wizard: {
-                    ...saved.wizard,
-                    prospectDraft: latest.wizard.prospectDraft,
-                    currentStep: latest.wizard.currentStep,
-                    approvalNotes: latest.wizard.approvalNotes,
-                  },
-                  manualInput: latest.manualInput,
-                }
-              : saved;
+          const merged = mergePersistedSession(saved);
           setSession(merged);
           return merged;
+        })
+        .catch((persistError) => {
+          setError(formatAdviceError(persistError));
+          throw persistError;
         })
         .finally(() => {
           persistPromiseRef.current = null;
           setBusy(false);
         });
-      const saved = await persistPromiseRef.current;
-      return sessionRef.current ?? saved ?? current;
+
+      try {
+        const saved = await persistPromiseRef.current;
+        if (!saved) {
+          throw new Error('Beratung konnte nicht gespeichert werden.');
+        }
+        return sessionRef.current ?? saved ?? current;
+      } catch (persistError) {
+        setError(formatAdviceError(persistError));
+        throw persistError;
+      }
     },
-    [persisted, salesWizardService, setSession, userContext],
+    [mergePersistedSession, persisted, salesWizardService, setSession, userContext],
   );
 
   const withPersist = useCallback(
@@ -106,9 +144,27 @@ export function useAdviceSession({
         const base = await ensurePersisted(active);
         const updated = await updater(base);
         if (updated) {
-          setSession(updated);
+          const latest = sessionRef.current;
+          const merged =
+            latest && latest.id === updated.id
+              ? {
+                  ...updated,
+                  wizard: {
+                    ...updated.wizard,
+                    prospectDraft: latest.wizard.prospectDraft,
+                    currentStep: latest.wizard.currentStep,
+                    approvalNotes: latest.wizard.approvalNotes,
+                  },
+                  manualInput: latest.manualInput,
+                }
+              : updated;
+          setSession(merged);
+          return merged;
         }
         return updated;
+      } catch (persistError) {
+        setError(formatAdviceError(persistError));
+        return null;
       } finally {
         setBusy(false);
       }
@@ -132,33 +188,43 @@ export function useAdviceSession({
       };
       setSession(optimistic);
 
-      const base = await ensurePersisted(optimistic);
-      if (prospectWriteRef.current !== writeId) {
+      setBusy(true);
+      setError(null);
+      try {
+        const base = await ensurePersisted(optimistic);
+        if (prospectWriteRef.current !== writeId) {
+          return sessionRef.current;
+        }
+        const latestDraft =
+          sessionRef.current?.wizard.prospectDraft ?? optimistic.wizard.prospectDraft;
+        const updated = await salesWizardService.updateProspectDraft(
+          base.id,
+          latestDraft,
+          userContext,
+        );
+        if (updated && prospectWriteRef.current === writeId) {
+          const current = sessionRef.current;
+          const merged =
+            current && current.id === updated.id
+              ? {
+                  ...updated,
+                  wizard: {
+                    ...updated.wizard,
+                    prospectDraft: current.wizard.prospectDraft,
+                    currentStep: current.wizard.currentStep,
+                  },
+                }
+              : updated;
+          setSession(merged);
+          return merged;
+        }
         return sessionRef.current;
+      } catch (persistError) {
+        setError(formatAdviceError(persistError));
+        return null;
+      } finally {
+        setBusy(false);
       }
-      const latestDraft = sessionRef.current?.wizard.prospectDraft ?? optimistic.wizard.prospectDraft;
-      const updated = await salesWizardService.updateProspectDraft(
-        base.id,
-        latestDraft,
-        userContext,
-      );
-      if (updated && prospectWriteRef.current === writeId) {
-        const current = sessionRef.current;
-        const merged =
-          current && current.id === updated.id
-            ? {
-                ...updated,
-                wizard: {
-                  ...updated.wizard,
-                  prospectDraft: current.wizard.prospectDraft,
-                  currentStep: current.wizard.currentStep,
-                },
-              }
-            : updated;
-        setSession(merged);
-        return merged;
-      }
-      return sessionRef.current;
     },
     [ensurePersisted, salesWizardService, setSession, userContext],
   );
@@ -177,7 +243,11 @@ export function useAdviceSession({
     (leadId: string) =>
       withPersist(async (current) => {
         const result = await salesWizardService.assignLead(current.id, leadId, userContext);
-        return result.ok ? result.session : null;
+        if (!result.ok) {
+          setError('Kunde konnte nicht zugeordnet werden.');
+          return null;
+        }
+        return result.session;
       }),
     [salesWizardService, userContext, withPersist],
   );
@@ -212,11 +282,17 @@ export function useAdviceSession({
     (mode: CostCaptureMode) =>
       withPersist(async (current) => {
         let next = await salesWizardService.updateCostCaptureMode(current.id, mode, userContext);
-        if (mode === 'billing_import' && next && !next.billingImportSessionId) {
+        if (!next) {
+          setError('Kostenmodus konnte nicht gespeichert werden.');
+          return null;
+        }
+        if (mode === 'billing_import' && !next.billingImportSessionId) {
           const started = await salesWizardService.startBillingImport(next.id, userContext);
-          if (started.ok) {
-            next = started.session;
+          if (!started.ok) {
+            setError('Abrechnungsimport konnte nicht gestartet werden.');
+            return null;
           }
+          next = started.session;
         }
         return next;
       }),
@@ -225,7 +301,14 @@ export function useAdviceSession({
 
   const patchManualInput = useCallback(
     (patch: Partial<BestPayComparisonSession['manualInput']>) =>
-      withPersist(async (current) => salesWizardService.updateNeed(current.id, patch, userContext)),
+      withPersist(async (current) => {
+        const updated = await salesWizardService.updateNeed(current.id, patch, userContext);
+        if (!updated) {
+          setError('Eingabe konnte nicht gespeichert werden.');
+          return null;
+        }
+        return updated;
+      }),
     [salesWizardService, userContext, withPersist],
   );
 
@@ -236,12 +319,14 @@ export function useAdviceSession({
         if (active.wizard.scenarios.length === 0) {
           const added = await salesWizardService.addScenario(active.id, userContext);
           if (!added.ok) {
+            setError('Empfehlung konnte nicht vorbereitet werden.');
             return null;
           }
           active = added.session;
         }
         const scenarioId = active.wizard.selectedScenarioId ?? active.wizard.scenarios[0]?.id;
         if (!scenarioId) {
+          setError('Bitte zuerst ein Szenario anlegen.');
           return null;
         }
         const result = await salesWizardService.calculateScenario(active.id, scenarioId, userContext);
@@ -256,9 +341,19 @@ export function useAdviceSession({
 
   const selectVariant = useCallback(
     (scenarioId: string, candidateId: string) =>
-      withPersist(async (current) =>
-        salesWizardService.selectScenarioVariant(current.id, scenarioId, candidateId, userContext),
-      ),
+      withPersist(async (current) => {
+        const updated = await salesWizardService.selectScenarioVariant(
+          current.id,
+          scenarioId,
+          candidateId,
+          userContext,
+        );
+        if (!updated) {
+          setError('Variante konnte nicht gespeichert werden.');
+          return null;
+        }
+        return updated;
+      }),
     [salesWizardService, userContext, withPersist],
   );
 
@@ -303,6 +398,9 @@ export function useAdviceSession({
       }
       setSession(result.session);
       return true;
+    } catch (persistError) {
+      setError(formatAdviceError(persistError));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -313,11 +411,14 @@ export function useAdviceSession({
       return;
     }
     setBusy(true);
+    setError(null);
     try {
       const updated = await salesWizardService.goBack(session.id, userContext);
       if (updated) {
         setSession(updated);
       }
+    } catch (persistError) {
+      setError(formatAdviceError(persistError));
     } finally {
       setBusy(false);
     }
@@ -328,18 +429,18 @@ export function useAdviceSession({
       if (!session) {
         return null;
       }
-      // Ohne Persistenz nur lokal springen – sonst entstehen leere Entwürfe beim Navigieren.
+      const optimistic = {
+        ...session,
+        wizard: { ...session.wizard, currentStep: step },
+      };
+      setSession(optimistic);
       if (!persisted) {
-        const next = {
-          ...session,
-          wizard: { ...session.wizard, currentStep: step },
-        };
-        setSession(next);
-        return next;
+        return optimistic;
       }
-      return withPersist(async (current) =>
+      const result = await withPersist(async (current) =>
         salesWizardService.setStep(current.id, step, userContext),
       );
+      return result ?? optimistic;
     },
     [persisted, salesWizardService, session, setSession, userContext, withPersist],
   );
@@ -372,9 +473,19 @@ export function useAdviceSession({
     if (!session) {
       return;
     }
-    const updated = await bestPayComparisonService.syncBaselineFromBilling(session.id, userContext);
-    if (updated) {
-      setSession(updated);
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await bestPayComparisonService.syncBaselineFromBilling(session.id, userContext);
+      if (updated) {
+        setSession(updated);
+      } else {
+        setError('Abrechnungswerte konnten nicht übernommen werden.');
+      }
+    } catch (persistError) {
+      setError(formatAdviceError(persistError));
+    } finally {
+      setBusy(false);
     }
   }, [bestPayComparisonService, session, setSession, userContext]);
 

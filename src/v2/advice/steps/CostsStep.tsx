@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
 import {
   COST_CAPTURE_MODE_LABELS,
@@ -6,8 +6,9 @@ import {
 } from '../../../domain/bestPayComparison/costCaptureMode';
 import type { BestPayComparisonUserContext } from '../../../services/bestPayComparisonService';
 import type { BillingImportService } from '../../../services/billingImportService';
+import { CurrencyInput } from '../../../components/common/CurrencyInput';
 import { FormField } from '../../ui/FormField';
-import { centsToInput, parseEuroToCents } from '../formatters';
+import { centsToInput } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
 const OfferBillingImportSection = lazy(async () => {
@@ -40,6 +41,18 @@ export function CostsStep({
   onBaselineConfirmed,
   showToast,
 }: CostsStepProps) {
+  const [providerNotes, setProviderNotes] = useState(session.wizard.prospectDraft.notes);
+
+  useEffect(() => {
+    setProviderNotes(session.wizard.prospectDraft.notes);
+  }, [session.wizard.prospectDraft.notes]);
+
+  const commitProviderNotes = () => {
+    if (providerNotes !== session.wizard.prospectDraft.notes) {
+      onPatchCurrentProvider(providerNotes);
+    }
+  };
+
   return (
     <div className={styles.stack}>
       <article className={styles.hero}>
@@ -69,20 +82,15 @@ export function CostsStep({
       {costCaptureMode === 'manual' ? (
         <article className={styles.card}>
           <div className={styles.formGrid}>
-            <FormField
-              type="text"
+            <CurrencyInput
               id="manualTotalCosts"
               label="Monatliche Ist-Gesamtkosten (EUR)"
-              inputMode="decimal"
-              value={centsToInput(session.manualInput.monthlyTotalCostsCents)}
-              onChange={(event) => {
-                const cents = parseEuroToCents(event.target.value);
-                if (cents !== null || event.target.value.trim() === '') {
-                  onPatchCosts(cents);
-                }
-              }}
-              hint="0 € ist zulässig"
+              value={session.manualInput.monthlyTotalCostsCents}
+              disabled={false}
+              commitOnBlur
+              onChange={(cents) => onPatchCosts(cents)}
             />
+            <p className={styles.hint}>0 € ist zulässig. Werte werden beim Verlassen des Feldes gespeichert.</p>
           </div>
         </article>
       ) : null}
@@ -113,6 +121,9 @@ export function CostsStep({
             Es liegen keine bisherigen Payment-Kosten vor. Der Vergleich zeigt nur die neuen
             monatlichen Kosten – ohne Ersparnisberechnung.
           </p>
+          <p className={styles.hint}>
+            Ist-Kosten: {centsToInput(session.manualInput.monthlyTotalCostsCents)} €
+          </p>
         </article>
       ) : null}
 
@@ -122,9 +133,9 @@ export function CostsStep({
             type="text"
             id="currentProvider"
             label="Aktueller Anbieter (optional)"
-            value={session.wizard.prospectDraft.notes}
-            disabled={busy}
-            onChange={(event) => onPatchCurrentProvider(event.target.value)}
+            value={providerNotes}
+            onChange={(event) => setProviderNotes(event.target.value)}
+            onBlur={commitProviderNotes}
           />
         </article>
       ) : null}

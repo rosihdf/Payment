@@ -1,6 +1,7 @@
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
+import { CurrencyInput } from '../../../components/common/CurrencyInput';
 import { FormField } from '../../ui/FormField';
-import { centsToInput, parseEuroToCents, parseOptionalInt } from '../formatters';
+import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
 const INDUSTRY_OPTIONS = [
@@ -43,19 +44,13 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
             </option>
           ))}
         </FormField>
-        <FormField
-          type="text"
+        <CurrencyInput
           id="needVolume"
           label="Monatlicher Kartenumsatz (EUR)"
-          inputMode="decimal"
-          value={centsToInput(input.monthlyCardVolumeCents)}
-          disabled={busy}
-          onChange={(event) => {
-            const cents = parseEuroToCents(event.target.value);
-            if (cents !== null || event.target.value.trim() === '') {
-              onPatch({ monthlyCardVolumeCents: cents });
-            }
-          }}
+          value={input.monthlyCardVolumeCents}
+          disabled={false}
+          commitOnBlur
+          onChange={(cents) => onPatch({ monthlyCardVolumeCents: cents })}
         />
         <FormField
           type="text"
@@ -98,7 +93,7 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
           <option value="60">60 Monate</option>
         </FormField>
       </div>
-      <div className={styles.checkboxRow}>
+      <div className={styles.formGrid}>
         {(
           [
             ['stationary', 'Stationär'],
@@ -107,18 +102,21 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
             ['softPos', 'SoftPOS'],
           ] as const
         ).map(([key, label]) => (
-          <label key={key}>
+          <label key={key} className={styles.checkboxRow}>
             <input
               type="checkbox"
               checked={input.paymentUsage[key]}
               disabled={busy}
               onChange={(event) =>
                 onPatch({
-                  paymentUsage: { ...input.paymentUsage, [key]: event.target.checked },
+                  paymentUsage: {
+                    ...input.paymentUsage,
+                    [key]: event.target.checked,
+                  },
                 })
               }
             />
-            {label}
+            <span>{label}</span>
           </label>
         ))}
       </div>

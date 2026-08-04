@@ -24,6 +24,15 @@ import { OfferStep } from './steps/OfferStep';
 import { ClosingStep } from './steps/ClosingStep';
 import styles from './AdviceWizard.module.css';
 
+async function flushActiveField(): Promise<void> {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
 export function AdviceWizardPage() {
   const { currentUser } = useCurrentUser();
   if (!currentUser) {
@@ -242,6 +251,7 @@ function AdviceWizardInner({
     if (!advice.session) {
       return;
     }
+    await flushActiveField();
     const step = advice.session.wizard.currentStep;
     if (step === 'prospect' && prospectMode !== 'anonymous') {
       const ok = await finalizeProspect();
@@ -263,18 +273,21 @@ function AdviceWizardInner({
   };
 
   const handleJump = (visibleStepId: string) => {
-    const map: Record<string, SalesWizardStepId> = {
-      prospect: 'prospect',
-      costs: 'costs',
-      need: 'need',
-      variants: 'variants',
-      offer: 'offer',
-      closing: 'closing',
-    };
-    const target = map[visibleStepId];
-    if (target) {
-      void advice.jumpToStep(target);
-    }
+    void (async () => {
+      await flushActiveField();
+      const map: Record<string, SalesWizardStepId> = {
+        prospect: 'prospect',
+        costs: 'costs',
+        need: 'need',
+        variants: 'variants',
+        offer: 'offer',
+        closing: 'closing',
+      };
+      const target = map[visibleStepId];
+      if (target) {
+        await advice.jumpToStep(target);
+      }
+    })();
   };
 
   if (!advice.session) {

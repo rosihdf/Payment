@@ -10,6 +10,8 @@ interface CurrencyInputProps {
   error?: string;
   disabled?: boolean;
   required?: boolean;
+  /** Wenn true, wird onChange erst bei Blur ausgelöst – Eingabe bleibt beim Tippen erhalten. */
+  commitOnBlur?: boolean;
 }
 
 export function CurrencyInput({
@@ -20,6 +22,7 @@ export function CurrencyInput({
   error,
   disabled = false,
   required = false,
+  commitOnBlur = false,
 }: CurrencyInputProps) {
   const [displayValue, setDisplayValue] = useState(formatCentsToCurrency(value));
 
@@ -30,11 +33,17 @@ export function CurrencyInput({
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value;
     setDisplayValue(nextValue);
-    onChange(parseCurrencyToCents(nextValue));
+    if (!commitOnBlur) {
+      onChange(parseCurrencyToCents(nextValue));
+    }
   };
 
   const handleBlur = () => {
-    setDisplayValue(formatCentsToCurrency(value));
+    const cents = parseCurrencyToCents(displayValue);
+    if (commitOnBlur) {
+      onChange(cents);
+    }
+    setDisplayValue(formatCentsToCurrency(commitOnBlur ? cents : value));
   };
 
   return (

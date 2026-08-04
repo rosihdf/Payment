@@ -148,6 +148,7 @@ export class SalesWizardService {
 
   /**
    * Speichert eine bisher nur lokale Beratung genau einmal und aktiviert Autosave.
+   * Reihenfolge zwingend: Session zuerst, danach Aktivzeiger (FK auf sessions.id).
    */
   async persistWizardSession(
     session: BestPayComparisonSession,
@@ -155,9 +156,12 @@ export class SalesWizardService {
   ): Promise<BestPayComparisonSession> {
     session.entryMode = 'wizard';
     session.wizard.enabled = true;
-    await this.bestPayComparisonRepository.setActiveSessionId(context.userId, session.id);
+    const alreadyPersisted = await this.isWizardPersisted(session.id);
     const saved = await this.persist(session);
-    await this.recordAdviceStarted(saved, context);
+    await this.bestPayComparisonRepository.setActiveSessionId(context.userId, saved.id);
+    if (!alreadyPersisted) {
+      await this.recordAdviceStarted(saved, context);
+    }
     return saved;
   }
 
@@ -839,6 +843,27 @@ export class SalesWizardService {
     }
     if (!session.wizard.selectedScenarioId || !session.result || !session.selectedCandidateId) {
       return { ok: false, error: 'scenario_required', message: 'Bitte zuerst eine Variante auswählen.' };
+    }
+    // Angebot erfordert leadId; anonyme Beratung erhält bei Bedarf einen Platzhalter-Kunden.
+    if (!session.leadId) {
+      const draft = session.wizard.prospectDraft;
+      if (!draft.companyName.trim() && !draft.contactFirstName.trim()) {
+        session.wizard.prospectDraft = {
+          ...draft,
+          companyName: 'Beratung ohne Kunde',
+          contactFirstName: 'Allgemein',
+          contactLastName: 'Anfrage',
+        };
+        await this.persist(session);
+      }
+      const ensured = await this.createLeadFromProspect(sessionId, context);
+      if (!ensured.ok) {
+        return {
+          ok: false,
+          error: ensured.error,
+          message: ensured.message ?? 'Kunde für Angebot konnte nicht angelegt werden.',
+        };
+      }
     }
     const created = await this.bestPayComparisonService.createOfferFromComparison(sessionId, context);
     if (!created.ok) return created;
