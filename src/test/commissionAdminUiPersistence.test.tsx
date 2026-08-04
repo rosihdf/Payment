@@ -112,8 +112,7 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     await user.click(within(row).getByRole('button', { name: 'Bearbeiten' }));
 
     const amountInput = await screen.findByLabelText('Standardbetrag (EUR)');
-    await user.clear(amountInput);
-    await user.type(amountInput, '175');
+    fireEvent.change(amountInput, { target: { value: '175' } });
 
     const validFromInput = screen.getByLabelText('Gültig ab');
     await user.clear(validFromInput);

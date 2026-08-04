@@ -132,14 +132,8 @@ describe('Aufräumblock 2 – Rollen vereinfacht', () => {
     expect(MOBILE_NAV_ITEMS.some((item) => item.label === 'Profil')).toBe(true);
   });
 
-  it('Rollen-Seite zeigt genau zwei Rollen', async () => {
+  it('Rollen-Verwaltung ist in die Benutzerseite integriert', async () => {
     renderApp('/admin/roles', 'user_004');
-    expect(await screen.findByRole('heading', { name: 'Rollen' })).toBeInTheDocument();
-    expect(screen.getByText('Administrator')).toBeInTheDocument();
-    expect(screen.getByText('Außendienst')).toBeInTheDocument();
-    expect(screen.queryByText('Vertriebsleitung')).not.toBeInTheDocument();
-    expect(screen.queryByText('Prüfer')).not.toBeInTheDocument();
-    expect(screen.queryByText('Nur Lesen')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Permission-Modell/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Benutzer' })).toBeInTheDocument();
   });
 });

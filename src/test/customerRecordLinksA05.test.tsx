@@ -51,7 +51,7 @@ describe('Aufräumblock 5 – Links zur Kundenakte', () => {
     cleanup();
   });
 
-  it('OfferDetail, ContractDetail und ActivationDetail verlinken zur Kundenakte', async () => {
+  it('OfferDetail verlinkt zur Kundenakte; Verträge und Aktivierung sind nicht direkt erreichbar', async () => {
     const harness = createHarness();
     const offer = await harness.offerRepository.create(
       createTestOffer({
@@ -80,16 +80,12 @@ describe('Aufräumblock 5 – Links zur Kundenakte', () => {
     expect(offerLinks.some((link) => link.getAttribute('href') === '/leads/lead_001')).toBe(true);
 
     cleanup();
-    renderAt(`/contracts/${contract.id}`);
-    const contractLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(contractLinks.some((link) => link.getAttribute('href') === '/leads/lead_001')).toBe(true);
+    const contractRouter = renderAt(`/contracts/${contract.id}`);
+    expect(contractRouter.state.location.pathname).toBe('/offers');
 
     cleanup();
-    renderAt(`/activations/${started.value.id}`);
-    const activationLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(activationLinks.some((link) => link.getAttribute('href') === '/leads/lead_001')).toBe(
-      true,
-    );
+    const activationRouter = renderAt(`/activations/${started.value.id}`);
+    expect(activationRouter.state.location.pathname).toBe('/offers');
   });
 
   it('Rendern der Kundenakte erzeugt keine neuen Aufgaben oder Aktivitäten', async () => {

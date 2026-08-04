@@ -36,14 +36,14 @@ test.describe('RC1 Extra: Beratung Reload und Navigation', () => {
       .getByRole('button', { name: /Ausgangslage/ })
       .click();
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
-    await expect(page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)')).toHaveValue('0');
+    await expect(page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)')).toHaveValue(/0,00\s*€/);
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible();
-    await expect(page.getByLabel('Monatlicher Kartenumsatz (EUR)')).toHaveValue('2500');
+    await expect(page.getByLabel('Monatlicher Kartenumsatz (EUR)')).toHaveValue(/2\.500,00\s*€/);
 
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByLabel('Monatlicher Kartenumsatz (EUR)')).toHaveValue('2500');
+    await expect(page.getByLabel('Monatlicher Kartenumsatz (EUR)')).toHaveValue(/2\.500,00\s*€/);
   });
 });
 

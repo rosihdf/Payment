@@ -110,6 +110,7 @@ describe('leadToEditInput', () => {
       notes: lead.notes,
       nextFollowUpAt: lead.nextFollowUpAt,
       status: 'contacted',
+      assignedSalesUserId: lead.assignedSalesUserId,
     });
   });
 });

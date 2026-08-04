@@ -89,19 +89,11 @@ test.describe('Admin: Benutzer, Tarif, Provisionsstandards, Freigabe/Onboarding'
     await expect(reloadedRow.getByText('2026-12-31')).toBeVisible();
   });
 
-  test('Freigaberegeln und Onboarding (Aktivierungen) sind für Admin erreichbar', async ({
-    page,
-  }) => {
+  test('Verwaltung ohne nicht belastbare Zusatzmodule erreichbar', async ({ page }) => {
     await page.goto('/admin/approvals');
-    await expect(page.getByRole('heading', { name: 'Freigaberegeln' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Administration', level: 1 })).toBeVisible();
 
     await page.goto('/activations');
-    await expect(page.getByRole('heading', { name: 'Onboarding' })).toBeVisible();
-    // Ohne im Test erzeugten Vertrag/Aktivierung zeigt die Demo-Instanz konsequent den Leerzustand –
-    // das Anlegen eines vollständigen Angebot→Vertrag→Aktivierung-Life-Cycles als Admin ist in der
-    // lokalen Demo nicht vorgesehen (dieser Pfad läuft über den Außendienst, siehe field-flow.spec.ts).
-    await expect(
-      page.getByText(/Keine Aktivierungen|Aktivierungen werden geladen/).first(),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Angebote', level: 1 })).toBeVisible();
   });
 });

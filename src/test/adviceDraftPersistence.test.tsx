@@ -95,6 +95,7 @@ describe('Beratungsentwurf Persistenz', () => {
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
+    await screen.findByRole('heading', { name: 'Ausgangslage' });
     await user.click(
       screen.getByRole('button', {
         name: 'Noch keine Payment-Lösung / aktuelle Kosten 0 €',

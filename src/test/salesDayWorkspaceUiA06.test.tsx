@@ -1,12 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createTestRepositories, createTestWorkspace } from './helpers/createTestRepositories';
-import { openFormSelect } from './helpers/selectFormOption';
 import { SalesActivityService } from '../services/salesActivityService';
 import { SalesTaskService } from '../services/salesTaskService';
 import { SalesWorkspaceService } from '../services/salesWorkspaceService';
@@ -59,7 +57,7 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('Außendienst sieht nur eigene Fälle, Admin kann Team sehen', async () => {
+  it('Admin sieht alle Kunden im Arbeitsplatz, Team-Filter entfällt', async () => {
     const workspace = createTestWorkspace();
 
     const field = await workspace.getWorkspaceView(
@@ -77,10 +75,8 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     expect(admin.canUseTeamScope).toBe(true);
 
     renderAt('/sales', 'user_004');
-    const user = userEvent.setup();
-    expect(await screen.findByLabelText('Ansicht')).toBeInTheDocument();
-    await openFormSelect(user, 'Ansicht');
-    expect(screen.getByRole('option', { name: 'Team' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Arbeitsplatz' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Ansicht')).not.toBeInTheDocument();
   });
 
   it('Rendern erzeugt keine zusätzlichen Aufgaben oder Aktivitäten jenseits der Sync-Baseline', async () => {

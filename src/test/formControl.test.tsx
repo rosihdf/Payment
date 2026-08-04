@@ -106,10 +106,9 @@ describe('FormControl', () => {
     expect(source).toMatch(/FormControl|FormField/);
   });
 
-  it('Arbeitsplatz-Filter nutzt FormField für Suche und Ansicht', () => {
+  it('Arbeitsplatz-Filter nutzt FormField nur für Suche', () => {
     const source = readSource('src/v2/workspace/WorkspacePage.tsx');
     expect(source).toContain('type="search"');
-    expect(source).toContain('type="select"');
-    expect(source).toContain('label="Ansicht"');
+    expect(source).not.toContain('label="Ansicht"');
   });
 });

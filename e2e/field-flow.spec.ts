@@ -68,7 +68,8 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.getByRole('button', { name: 'Kosten manuell eingeben' }).click();
     const costsInput = page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)');
     await costsInput.fill('0');
-    await expect(costsInput).toHaveValue('0');
+    await costsInput.blur();
+    await expect(costsInput).toHaveValue(/0,00\s*€/);
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     // 6) Bedarf & Branche.
