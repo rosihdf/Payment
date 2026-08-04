@@ -142,17 +142,22 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await gotoSidebar(page, 'Kunden');
       await waitForLeadsReady(page);
-      const leadCount = await page.getByRole('link', { name: /GmbH|AG|KG|e\.K\.|Handel/i }).count();
-      if (leadCount > 1) {
-        for (let i = 0; i < leadCount; i += 1) {
-          const link = page.getByRole('link').nth(i);
+      const foreignLeadLinks = page
+        .getByRole('link', { name: /GmbH|AG|KG|e\.K\.|Handel/i })
+        .filter({ hasNotText: ACCEPTANCE_TAG });
+      const foreignLeadCount = await foreignLeadLinks.count();
+      if (foreignLeadCount > 0) {
+        for (let i = 0; i < foreignLeadCount; i += 1) {
+          const link = foreignLeadLinks.nth(i);
           const href = await link.getAttribute('href');
           const text = await link.innerText();
-          if (href?.includes('/leads/') && !text.includes(ACCEPTANCE_TAG)) {
-            foreignLeadId = href.match(/\/leads\/([^/?#]+)/)?.[1] ?? null;
-            foreignLeadCompany = text.trim().split('\n')[0]?.trim() ?? text.trim();
-            break;
+          const leadId = href?.match(/\/leads\/([^/?#]+)/)?.[1] ?? null;
+          if (!leadId || leadId === 'new' || text.includes(ACCEPTANCE_TAG)) {
+            continue;
           }
+          foreignLeadId = leadId;
+          foreignLeadCompany = text.trim().split('\n')[0]?.trim() ?? text.trim();
+          break;
         }
       }
     } finally {
@@ -243,7 +248,11 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
     const context = await createFreshContext(browser);
     const page = await context.newPage();
     try {
-      await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
+      await page.goto('/login');
+      await page.getByLabel('E-Mail').fill(credentials.adminEmail);
+      await page.getByLabel('Passwort').fill(credentials.adminPassword);
+      await page.getByRole('button', { name: 'Anmelden' }).click();
+      await expect(page).toHaveURL(/\/sales$/, { timeout: 20_000 });
       await page.goto('/admin/commission/standards');
       await expect(
         page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
@@ -287,7 +296,10 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await shareInput.fill('42');
       await expect(shareInput).toHaveValue('42');
       await employeeDialog.getByRole('button', { name: 'Speichern' }).click();
-      await expect(page.getByText('Vereinbarung gespeichert')).toBeVisible();
+      await expect(employeeDialog).toHaveCount(0, { timeout: 20_000 });
+      await expect(page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' })).toBeVisible({
+        timeout: 20_000,
+      });
 
       await page.reload();
       await expect(
@@ -299,7 +311,12 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await page.getByRole('dialog').getByLabel('Nur Acquiring %').fill(employeeOriginalShare);
       await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
-      await expect(page.getByText('Vereinbarung gespeichert')).toBeVisible();
+      await expect(page.getByRole('dialog', { name: /Vereinbarung –/ })).toHaveCount(0, {
+        timeout: 20_000,
+      });
+      await expect(page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' })).toBeVisible({
+        timeout: 20_000,
+      });
     } finally {
       await context.close();
     }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import type { SalesDayWorkEntry } from '../../services/salesDayWorkspace';
@@ -6,6 +6,7 @@ import type { SalesWorkspaceView } from '../../services/salesWorkspaceService';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useServices } from '../../hooks/useServices';
 import { formatDateTime } from '../../utils/format';
+import { formatPersistError } from '../../utils/persistError';
 import { ADVICE_NEW_PATH } from '../../utils/routes';
 import { Button } from '../ui/Button';
 import { DataList, DataListCard } from '../ui/DataList';
@@ -39,8 +40,13 @@ export function WorkspacePage() {
   const { salesWorkspaceService } = useServices();
   const [view, setView] = useState<SalesWorkspaceView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [scope] = useState<'mine'>('mine');
   const [query, setQuery] = useState('');
+  const syncGenerationRef = useRef(0);
+  const syncTimerRef = useRef<number | null>(null);
+  const activeSyncRef = useRef<{ cancelled: boolean } | null>(null);
 
   const userContext = useMemo(
     () =>
@@ -52,16 +58,78 @@ export function WorkspacePage() {
 
   const reload = useCallback(async () => {
     if (!userContext) {
+      setIsLoading(false);
       return;
     }
+
+    const generation = syncGenerationRef.current + 1;
+    syncGenerationRef.current = generation;
+    if (syncTimerRef.current != null) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+    if (activeSyncRef.current) {
+      activeSyncRef.current.cancelled = true;
+    }
+    const syncControl = { cancelled: false };
+    activeSyncRef.current = syncControl;
     setIsLoading(true);
-    const next = await salesWorkspaceService.getWorkspaceView(userContext, { scope, query });
-    setView(next);
-    setIsLoading(false);
+    setLoadError(null);
+
+    try {
+      const next = await salesWorkspaceService.getWorkspaceView(userContext, { scope, query });
+      setView(next);
+    } catch (error) {
+      setView(null);
+      setLoadError(formatPersistError(error));
+    } finally {
+      setIsLoading(false);
+    }
+
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      if (syncGenerationRef.current !== generation) {
+        return;
+      }
+      void salesWorkspaceService
+        .syncAutomaticTasks(userContext, {
+          isCancelled: () =>
+            syncControl.cancelled || syncGenerationRef.current !== generation,
+        })
+        .then(async () => {
+          if (syncGenerationRef.current !== generation) {
+            return;
+          }
+          return salesWorkspaceService.getWorkspaceView(userContext, { scope, query });
+        })
+        .then((refreshed) => {
+          if (!refreshed || syncGenerationRef.current !== generation) {
+            return;
+          }
+          setView(refreshed);
+          setSyncNotice(null);
+        })
+        .catch((error) => {
+          console.error('Automatische Aufgaben-Synchronisation fehlgeschlagen:', error);
+          if (syncGenerationRef.current === generation) {
+            setSyncNotice('Automatische Aufgaben konnten nicht aktualisiert werden.');
+          }
+        });
+    }, 250);
   }, [query, salesWorkspaceService, scope, userContext]);
 
   useEffect(() => {
     void reload();
+    return () => {
+      syncGenerationRef.current += 1;
+      if (activeSyncRef.current) {
+        activeSyncRef.current.cancelled = true;
+      }
+      if (syncTimerRef.current != null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
   }, [reload]);
 
   if (!currentUser || !userContext) {
@@ -98,7 +166,9 @@ export function WorkspacePage() {
         />
       </div>
 
-      {!isLoading && view && query.trim() ? (
+      {syncNotice ? <p role="status">{syncNotice}</p> : null}
+
+      {!loadError && !isLoading && view && query.trim() ? (
         <section className={styles.searchSection} aria-labelledby="workspace-search-results">
           <h2 id="workspace-search-results" className={styles.searchTitle}>
             Suchtreffer
@@ -123,7 +193,17 @@ export function WorkspacePage() {
         </section>
       ) : null}
 
-      {isLoading || !view ? (
+      {loadError ? (
+        <EmptyState
+          title="Arbeitsplatz konnte nicht geladen werden"
+          description={loadError}
+          action={
+            <Button variant="secondary" onClick={() => void reload()}>
+              Erneut laden
+            </Button>
+          }
+        />
+      ) : isLoading || !view ? (
         <EmptyState title="Arbeitsplatz wird geladen" description="Tagesübersicht wird vorbereitet." />
       ) : (
         <div className={styles.sections}>

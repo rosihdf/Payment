@@ -86,8 +86,8 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     renderAt('/sales');
     await screen.findByRole('heading', { name: 'Nächste Kundenfälle' });
 
-    // getWorkspaceView syncs automatic tasks once – weitere Reloads der UI-Sektionen dürfen nicht
-    // zusätzliche freie Aufgaben/Aktivitäten anlegen. Nach dem ersten Load erneut zählen und
+    // Die UI synchronisiert automatische Aufgaben im Hintergrund – der erste sichtbare Load darf
+    // keine zusätzlichen freien Aufgaben/Aktivitäten anlegen. Nach dem ersten Load erneut zählen und
     // Day-Section-Ableitung isoliert prüfen.
     const afterFirstLoadTasks = (await taskRepo.getAll()).length;
     const afterFirstLoadActivities = (await activityRepo.getAll()).length;

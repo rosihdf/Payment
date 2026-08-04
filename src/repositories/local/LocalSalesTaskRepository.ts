@@ -26,7 +26,17 @@ export class LocalSalesTaskRepository implements SalesTaskRepository {
     return this.readAll().find((task) => task.id === id) ?? null;
   }
 
+  async getBySourceKey(sourceKey: string): Promise<SalesTask | null> {
+    return this.readAll().find((task) => task.sourceKey === sourceKey) ?? null;
+  }
+
   async create(task: SalesTask): Promise<SalesTask> {
+    if (task.sourceKey) {
+      const existing = await this.getBySourceKey(task.sourceKey);
+      if (existing) {
+        return existing;
+      }
+    }
     const tasks = this.readAll();
     tasks.push(task);
     this.writeAll(tasks);

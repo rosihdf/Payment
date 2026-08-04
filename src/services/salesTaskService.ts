@@ -201,9 +201,7 @@ export class SalesTaskService {
     }
 
     if (input.sourceKey) {
-      const existing = (await this.taskRepository.getAll()).find(
-        (task) => task.sourceKey === input.sourceKey,
-      );
+      const existing = await this.taskRepository.getBySourceKey(input.sourceKey);
       if (existing) {
         return { ok: true, task: existing };
       }
@@ -286,12 +284,13 @@ export class SalesTaskService {
     input: CreateSalesTaskInput & { sourceKey: string },
     context: SalesTaskUserContext,
   ): Promise<SalesTask> {
-    const existing = (await this.taskRepository.getAll()).find(
-      (task) =>
-        task.sourceKey === input.sourceKey &&
-        (task.status === 'open' || task.status === 'in_progress'),
-    );
-    if (existing) {
+    const existing = input.sourceKey
+      ? await this.taskRepository.getBySourceKey(input.sourceKey)
+      : null;
+    if (
+      existing &&
+      (existing.status === 'open' || existing.status === 'in_progress')
+    ) {
       const result = await this.updateTask(
         existing.id,
         {

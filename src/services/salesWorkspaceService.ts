@@ -46,6 +46,10 @@ export interface SalesWorkspaceUserContext {
   displayName?: string;
 }
 
+export interface SyncAutomaticTasksOptions {
+  isCancelled?: () => boolean;
+}
+
 export type SalesWorkspaceScope = 'mine' | 'team';
 
 export interface SalesCaseCard {
@@ -223,15 +227,30 @@ export class SalesWorkspaceService {
     );
   }
 
-  async syncAutomaticTasks(context: SalesWorkspaceUserContext): Promise<void> {
+  async syncAutomaticTasks(
+    context: SalesWorkspaceUserContext,
+    options: SyncAutomaticTasksOptions = {},
+  ): Promise<void> {
+    const isCancelled = options.isCancelled ?? (() => false);
+    if (isCancelled()) {
+      return;
+    }
+
     const sessions = (await this.bestPayComparisonRepository.getAll()).filter((session) =>
       this.isSessionVisible(session, context),
     );
+    if (isCancelled()) {
+      return;
+    }
     const offers = (await this.offerRepository.getAll()).filter((offer) =>
       this.isOfferVisible(offer, context),
     );
+    const syncJobs: Array<Promise<unknown>> = [];
 
     for (const session of sessions) {
+      if (isCancelled()) {
+        return;
+      }
       if (
         session.status === 'discarded' ||
         session.archivedAt ||
@@ -241,18 +260,20 @@ export class SalesWorkspaceService {
         continue;
       }
       if (session.entryMode === 'wizard' || session.wizard.enabled) {
-        await this.taskService.ensureAutomaticTask(
-          {
-            title: 'Berechnung fortsetzen',
-            type: 'continue_calculation',
-            priority: 'high',
-            dueAt: endOfDayIso(),
-            leadId: session.leadId,
-            comparisonSessionId: session.id,
-            wizardEnabled: true,
-            sourceKey: `auto:continue_calculation:${session.id}`,
-          },
-          context,
+        syncJobs.push(
+          this.taskService.ensureAutomaticTask(
+            {
+              title: 'Berechnung fortsetzen',
+              type: 'continue_calculation',
+              priority: 'high',
+              dueAt: endOfDayIso(),
+              leadId: session.leadId,
+              comparisonSessionId: session.id,
+              wizardEnabled: true,
+              sourceKey: `auto:continue_calculation:${session.id}`,
+            },
+            context,
+          ),
         );
       }
     }
@@ -261,9 +282,15 @@ export class SalesWorkspaceService {
       this.contractRepository.getAll(),
       this.activationCaseRepository.getAll(),
     ]);
+    if (isCancelled()) {
+      return;
+    }
     const activatedContractIds = new Set(activations.map((entry) => entry.contractId));
 
     for (const offer of offers) {
+      if (isCancelled()) {
+        return;
+      }
       if (!['accepted', 'activation_pending'].includes(offer.workflowStatus)) {
         continue;
       }
@@ -274,19 +301,32 @@ export class SalesWorkspaceService {
       if (!['preparation', 'activation'].includes(contract.status)) {
         continue;
       }
-      await this.taskService.ensureAutomaticTask(
-        {
-          title: 'Aktivierung starten',
-          type: 'start_activation',
-          priority: 'normal',
-          dueAt: endOfDayIso(new Date(Date.now() + 3 * 86400000)),
-          leadId: offer.leadId,
-          offerId: offer.id,
-          contractId: contract.id,
-          sourceKey: `auto:start_activation:${contract.id}`,
-        },
-        context,
+      syncJobs.push(
+        this.taskService.ensureAutomaticTask(
+          {
+            title: 'Aktivierung starten',
+            type: 'start_activation',
+            priority: 'normal',
+            dueAt: endOfDayIso(new Date(Date.now() + 3 * 86400000)),
+            leadId: offer.leadId,
+            offerId: offer.id,
+            contractId: contract.id,
+            sourceKey: `auto:start_activation:${contract.id}`,
+          },
+          context,
+        ),
       );
+    }
+
+    for (const job of syncJobs) {
+      if (isCancelled()) {
+        return;
+      }
+      try {
+        await job;
+      } catch (error) {
+        console.error('Automatische Aufgabe konnte nicht synchronisiert werden:', error);
+      }
     }
   }
 
@@ -296,8 +336,6 @@ export class SalesWorkspaceService {
   ): Promise<SalesWorkspaceView> {
     const canUseTeamScope = false;
     const scope: SalesWorkspaceScope = 'mine';
-
-    await this.syncAutomaticTasks(context);
 
     const [allLeads, allOffers, allTasks, allActivities, allSessions, commissionCases, allContracts, allActivations, allBlockers, allQuestions, allChangeRequests] =
       await Promise.all([
