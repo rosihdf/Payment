@@ -1,5 +1,5 @@
 import { expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
-import { gotoSidebar, chooseCustomOption } from './helpers';
+import { chooseCustomOption, ensureRecommendation, gotoSidebar, startNewAdvice } from './helpers';
 
 export const ACCEPTANCE_TAG = 'CORE_REPAIR_BROWSER';
 export const TEST_COMPANY = `${ACCEPTANCE_TAG} Test GmbH`;
@@ -163,8 +163,7 @@ export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator
 }
 
 export async function startAdviceWithCustomer(page: Page, companyName: string): Promise<void> {
-  await gotoSidebar(page, 'Beratung');
-  await page.getByRole('link', { name: 'Beratung starten' }).click();
+  await startNewAdvice(page);
   await expect(page.getByRole('heading', { name: 'Beratung', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Kunde suchen' }).click();
   await page.getByLabel('Suche').fill(ACCEPTANCE_TAG);
@@ -181,18 +180,16 @@ export async function fillNeedStep(page: Page): Promise<void> {
 }
 
 export async function calculateRecommendation(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: 'Empfehlung' })).toBeVisible();
-  await page.getByRole('button', { name: 'Empfehlung berechnen' }).click();
-  await expect(page.getByRole('heading', { name: 'Hauptempfehlung' })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByText(/^Gewählt: /)).toBeVisible();
+  await ensureRecommendation(page);
   await expect(page.getByText(/NaN|Infinity/i)).toHaveCount(0);
 }
 
 export async function createOfferDraft(page: Page): Promise<string | null> {
-  await page.getByRole('button', { name: '5 Angebot' }).click();
-  await expect(page.getByRole('heading', { name: 'Angebot', level: 2 })).toBeVisible();
+  const offerHeading = page.getByRole('heading', { name: 'Angebot', level: 2 });
+  if (!(await offerHeading.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Weiter' }).click();
+  }
+  await expect(offerHeading).toBeVisible();
 
   const draftLink = page.getByRole('link', { name: 'Entwurf öffnen' });
   if (!(await draftLink.isVisible())) {

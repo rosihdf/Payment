@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { createProductionPricingCatalog } from '../src/domain/catalog/pricingCatalogSeed';
 
 /**
@@ -24,6 +24,26 @@ export function sidebarNav(page: Page): Locator {
 
 export async function gotoSidebar(page: Page, label: string): Promise<void> {
   await sidebarNav(page).getByRole('link', { name: label }).click();
+}
+
+/** Kanonischer Einstieg „neue Beratung“ – eindeutig gegenüber Arbeitsplatz-Aktionslinks. */
+export async function startNewAdvice(page: Page): Promise<void> {
+  await gotoSidebar(page, 'Beratung');
+  await page.locator('a[href="/advice?new=1"]').first().click();
+}
+
+/** Wartet auf Auto-Berechnung; aktualisiert nur bei Bedarf. */
+export async function ensureRecommendation(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Empfehlung', exact: true })).toBeVisible();
+  const primary = page.getByRole('heading', { name: 'Hauptempfehlung', exact: true });
+  if (!(await primary.isVisible().catch(() => false))) {
+    const update = page.getByRole('button', { name: /Empfehlung (berechnen|aktualisieren)/ });
+    if (await update.isVisible().catch(() => false)) {
+      await update.click();
+    }
+  }
+  await expect(primary).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/^Gewählt: /)).toBeVisible();
 }
 
 /** Wechselt den Demo-Benutzer über den `RoleSwitcher` in der Kopfzeile (nur im lokalen Demo-Modus sichtbar). */

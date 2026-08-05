@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { chooseCustomOption, e2eTag, gotoSidebar, seedPricingCatalogForE2E, sidebarNav } from './helpers';
+import {
+  chooseCustomOption,
+  e2eTag,
+  ensureRecommendation,
+  gotoSidebar,
+  seedPricingCatalogForE2E,
+  sidebarNav,
+  startNewAdvice,
+} from './helpers';
 
 /**
  * Außendienst-Kernpfad im lokalen Demo-Modus (localStorage-Persistenz, kein
@@ -51,14 +59,12 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await expect(page.getByRole('heading', { name: companyName })).toBeVisible();
 
     // 4) Beratung OHNE Kunden starten (eigener, unabhängiger Ablauf – "Ohne Kunden rechnen").
-    await gotoSidebar(page, 'Beratung');
-    await page.getByRole('link', { name: 'Beratung starten' }).click();
+    await startNewAdvice(page);
     await expect(page.getByRole('heading', { name: 'Beratung', level: 1 })).toBeVisible();
     await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // 5) Ausgangslage: manuelle Kosten inkl. 0 € eingeben (Abrechnungsimport ist nicht sichtbar,
-    // bis der vollständige OCR-/Importpfad produktionsseitig nachgewiesen ist).
+    // 5) Ausgangslage: manuelle Kosten inkl. 0 € (OCR-Pfad bleibt alternativ wählbar).
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
     await page.getByRole('button', { name: 'Kosten manuell eingeben' }).click();
     const costsInput = page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)');
@@ -74,22 +80,11 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.getByLabel('Monatliche Transaktionen (optional)').fill('400');
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // 7) Empfehlung berechnen (die Hauptvariante wird von `calculateScenario`
-    // in salesWizardService.ts automatisch als `selectedCandidateId` übernommen).
-    await expect(page.getByRole('heading', { name: 'Empfehlung' })).toBeVisible();
-    await page.getByRole('button', { name: 'Empfehlung berechnen' }).click();
-    await expect(page.getByRole('heading', { name: 'Hauptempfehlung' })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByText(/^Gewählt: /)).toBeVisible();
+    // 7) Empfehlung wird beim Eintritt automatisch berechnet.
+    await ensureRecommendation(page);
 
-    // 7b) Ein Angebot benötigt laut Geschäftsregel zwingend einen zugeordneten Kunden
-    // (`bestPayComparisonService.ts`: "Bitte zuerst einen Lead zuordnen." ohne `session.leadId`).
-    // Die "Ohne Kunden rechnen"-Beratung erlaubt laut ProspectStep.tsx explizit das spätere
-    // Zuordnen eines Kunden ("Sie können später einen Kunden zuordnen oder anlegen.") – über die
-    // freie Schritt-Navigation (`WizardNav`/`jumpToStep`, keine Validierung) zurück zu "1 Kunde",
-    // den zuvor angelegten Kunden auswählen und wieder nach vorn zu "Angebot" springen. Das ist der
-    // im Auftrag verlangte "kürzere, aber gleichwertige Pfad", statt eine zweite Session zu starten.
+    // 7b) Angebot braucht einen Kunden: zurück zu „Kunde“, zuordnen, dann per „Weiter“
+    // wieder vor bis Angebot (Vorwärtssprung in der Schrittleiste ist bewusst gesperrt).
     await page.getByRole('button', { name: '1 Kunde' }).click();
     await expect(page.getByRole('heading', { name: 'Kunde', level: 2 })).toBeVisible();
     await page.getByRole('button', { name: 'Kunde suchen' }).click();
@@ -97,7 +92,11 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.getByRole('button', { name: companyName }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
-    await page.getByRole('button', { name: '5 Angebot' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await ensureRecommendation(page);
+    await page.getByRole('button', { name: 'Weiter' }).click();
 
     // 8) Angebot erzeugen.
     await expect(page.getByRole('heading', { name: 'Angebot', level: 2 })).toBeVisible();

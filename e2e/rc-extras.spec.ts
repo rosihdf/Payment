@@ -5,7 +5,9 @@ import type { OfferVersionSnapshot } from '../src/domain/offer/offerVersion';
 import {
   chooseCustomOption,
   e2eTag,
+  ensureRecommendation,
   gotoSidebar,
+  startNewAdvice,
   seedPricingCatalogForE2E,
   switchDemoUser,
 } from './helpers';
@@ -19,8 +21,7 @@ test.describe('RC1 Extra: Beratung Reload und Navigation', () => {
   test('0 € Kosten, zurück/vor und Reload behalten Eingaben', async ({ page }) => {
     await seedPricingCatalogForE2E(page);
     await page.goto('/');
-    await gotoSidebar(page, 'Beratung');
-    await page.getByRole('link', { name: 'Beratung starten' }).click();
+    await startNewAdvice(page);
     await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
@@ -200,10 +201,7 @@ test.describe('RC1 Extra: BestPay-Handoff Dokumentation', () => {
     await chooseCustomOption(page, page.getByRole('combobox', { name: 'Branche' }), 'Einzelhandel');
     await page.getByLabel('Monatlicher Kartenumsatz (EUR)').fill('8000');
     await page.getByRole('button', { name: 'Weiter' }).click();
-    await page.getByRole('button', { name: 'Empfehlung berechnen' }).click();
-    await expect(page.getByRole('heading', { name: 'Hauptempfehlung' })).toBeVisible({
-      timeout: 15_000,
-    });
+    await ensureRecommendation(page);
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
     await expect(page.getByText(/^Angebot .+/)).toBeVisible({ timeout: 15_000 });

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoSidebar, chooseCustomOption } from './helpers';
+import { chooseCustomOption, gotoSidebar, startNewAdvice } from './helpers';
 import { loadSupabaseEnv, requireSupabaseCredentials } from './loadSupabaseEnv';
 import {
   ACCEPTANCE_TAG,
@@ -200,7 +200,9 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       });
       await expect(page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)')).toHaveValue(/12,50\s*€/);
 
-      await page.getByRole('button', { name: /Empfehlung/ }).click();
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible();
+      await page.getByRole('button', { name: 'Weiter' }).click();
       await calculateRecommendation(page);
       offerId = await createOfferDraft(page);
       expect(offerId).toBeTruthy();
@@ -214,8 +216,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
     const page = await context.newPage();
     try {
       await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
-      await gotoSidebar(page, 'Beratung');
-      await page.getByRole('link', { name: 'Beratung starten' }).click();
+      await startNewAdvice(page);
       await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
       await page.getByRole('button', { name: 'Weiter' }).click();
 

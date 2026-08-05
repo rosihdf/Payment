@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoSidebar } from './helpers';
+import { startNewAdvice } from './helpers';
 
 /**
  * OCR-Beratungspfad (UI).
@@ -15,8 +15,7 @@ const ocrUiEnabled = process.env.VITE_BILLING_OCR_IMPORT_ENABLED === 'true';
 async function startAdviceAtCosts(page: import('@playwright/test').Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/sales$/);
-  await gotoSidebar(page, 'Beratung');
-  await page.getByRole('link', { name: 'Beratung starten' }).click();
+  await startNewAdvice(page);
   await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
   await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();

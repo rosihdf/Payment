@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { gotoSidebar } from './helpers';
+import { startNewAdvice } from './helpers';
 
 /**
  * Realer Browser-OCR-Pfad (Tesseract, kein Demo-Mock).
@@ -23,8 +23,7 @@ test.describe('OCR real Tesseract', () => {
 
     await page.goto('/');
     await expect(page).toHaveURL(/\/sales$/);
-    await gotoSidebar(page, 'Beratung');
-    await page.getByRole('link', { name: 'Beratung starten' }).click();
+    await startNewAdvice(page);
     await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Abrechnung einlesen' }).click();
