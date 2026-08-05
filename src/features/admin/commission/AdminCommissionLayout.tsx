@@ -7,7 +7,6 @@ export const COMMISSION_NAV = [
   { to: '/admin/commission/overview', label: 'Übersicht' },
   { to: '/admin/commission/standards', label: 'Standard & Vereinbarungen' },
   { to: '/admin/commission/cases', label: 'Provisionsfälle' },
-  { to: '/admin/commission/bonus', label: 'Sonderzahlungen' },
   { to: '/admin/commission/settlement', label: 'Abrechnung & Historie' },
 ] as const;
 

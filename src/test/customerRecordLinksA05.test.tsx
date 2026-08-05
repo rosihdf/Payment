@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
 import { createServices } from '../services';
@@ -39,7 +39,7 @@ function renderAt(route: string) {
   return router;
 }
 
-describe('Aufräumblock 5 – Links zur Kundenakte', () => {
+describe('Aufräumblock 5 – Links zur Kunden-Detailseite', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
@@ -51,7 +51,7 @@ describe('Aufräumblock 5 – Links zur Kundenakte', () => {
     cleanup();
   });
 
-  it('OfferDetail verlinkt zur Kundenakte; Verträge und Aktivierung sind direkt erreichbar', async () => {
+  it('OfferDetail verlinkt zum Kunden; Verträge und Aktivierung leiten auf /leads um', async () => {
     const harness = createHarness();
     const offer = await harness.offerRepository.create(
       createTestOffer({
@@ -81,28 +81,20 @@ describe('Aufräumblock 5 – Links zur Kundenakte', () => {
 
     cleanup();
     const contractRouter = renderAt(`/contracts/${contract.id}`);
-    expect(contractRouter.state.location.pathname).toBe(`/contracts/${contract.id}`);
-    expect(
-      await screen.findByRole('heading', { name: contract.contractNumber, level: 1 }),
-    ).toBeInTheDocument();
+    expect(contractRouter.state.location.pathname).toBe('/leads');
 
     cleanup();
     const activationRouter = renderAt(`/activations/${started.value.id}`);
-    expect(activationRouter.state.location.pathname).toBe(`/activations/${started.value.id}`);
-    expect(
-      await screen.findByRole('heading', { name: started.value.activationNumber, level: 1 }),
-    ).toBeInTheDocument();
+    expect(activationRouter.state.location.pathname).toBe('/leads');
   });
 
-  it('Rendern der Kundenakte erzeugt keine neuen Aufgaben oder Aktivitäten', async () => {
+  it('Rendern der Kunden-Detailseite erzeugt keine neuen Aufgaben oder Aktivitäten', async () => {
     const harness = createHarness();
     const beforeTasks = (readStorageItem<unknown[]>(STORAGE_KEYS.salesTasks) ?? []).length;
     const beforeActivities = (readStorageItem<unknown[]>(STORAGE_KEYS.salesActivities) ?? []).length;
 
     renderAt('/leads/lead_001');
-    expect(
-      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Stammdaten' })).toBeInTheDocument();
 
     expect((readStorageItem<unknown[]>(STORAGE_KEYS.salesTasks) ?? []).length).toBe(beforeTasks);
     expect((readStorageItem<unknown[]>(STORAGE_KEYS.salesActivities) ?? []).length).toBe(

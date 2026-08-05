@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -36,7 +35,6 @@ describe('Lead offer integration UI', () => {
   });
 
   it('shows offers section on lead detail', async () => {
-    const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
     const offer = await seedOfferInStorage(repository, {
@@ -45,10 +43,8 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
-    expect(await screen.findByRole('heading', { name: 'Angebote' })).toBeInTheDocument();
-    expect(screen.getByText(offer.offerNumber)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Bestehende Angebote' })).toBeInTheDocument();
+    expect(await screen.findByText(offer.offerNumber)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
       'href',
       `/offers/${offer.id}`,
@@ -56,15 +52,11 @@ describe('Lead offer integration UI', () => {
   });
 
   it('shows empty state when lead has no offers', async () => {
-    const user = userEvent.setup();
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`);
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
     expect(await screen.findByText('Noch kein Angebot erstellt.')).toBeInTheDocument();
   });
 
   it('links offer detail from lead page', async () => {
-    const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
     const offer = await seedOfferInStorage(repository, {
@@ -73,8 +65,6 @@ describe('Lead offer integration UI', () => {
     });
 
     renderAtRoute(`/leads/${DEMO_LEAD_ID}`, false);
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Vertrieb' }));
     expect(await screen.findByRole('link', { name: new RegExp(offer.offerNumber) })).toHaveAttribute(
       'href',
       `/offers/${offer.id}`,

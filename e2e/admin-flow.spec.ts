@@ -89,11 +89,13 @@ test.describe('Admin: Benutzer, Tarif, Provisionsstandards, Freigabe/Onboarding'
     await expect(reloadedRow.getByText('2026-12-31')).toBeVisible();
   });
 
-  test('Verwaltung und operative Deep-Links sind erreichbar', async ({ page }) => {
+  test('entfernte Admin- und Vertragsrouten leiten um', async ({ page }) => {
     await page.goto('/admin/approvals');
-    await expect(page.getByRole('heading', { name: /Freigabe/i }).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Administration', level: 1 })).toBeVisible();
 
     await page.goto('/activations');
-    await expect(page.getByRole('heading', { name: 'Onboarding', level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(/\/leads$/);
+    await expect(page.getByRole('heading', { name: 'Kunden', level: 1 })).toBeVisible();
   });
 });

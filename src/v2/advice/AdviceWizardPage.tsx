@@ -458,7 +458,7 @@ function AdviceWizardInner({
             </Button>
             {step !== 'closing' ? (
               <Button loading={advice.busy} onClick={() => void handleNext()}>
-                Weiter
+                {step === 'variants' ? 'Weiter zum Angebot' : 'Weiter'}
               </Button>
             ) : null}
           </div>

@@ -19,29 +19,26 @@ function renderAt(route: string) {
   return router;
 }
 
-describe('Aufräumblock 5 – Kundenakte UI', () => {
+describe('Aufräumblock 5 – Kunden-Detailseite UI', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
   });
 
-  it('zeigt Kundenakte mit genau einer Hauptaktion', async () => {
+  it('zeigt Kunden-Detail mit genau einer Hauptaktion', async () => {
     renderAt('/leads/lead_001');
-    expect(
-      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Kundenakte/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Stammdaten' })).toBeInTheDocument();
+    expect(screen.queryByText(/Kundenakte/)).not.toBeInTheDocument();
     const primary = screen.getByRole('link', { name: 'Beratung starten' });
     expect(primary).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Aufgabe anlegen' })).not.toBeInTheDocument();
   });
 
-  it('Arbeitsplatz öffnet die Kundenakte', async () => {
+  it('Arbeitsplatz bietet Kunden-Suche und Beratungsbereich', async () => {
     renderAt('/sales');
     await screen.findByRole('heading', { name: 'Arbeitsplatz' });
     expect(screen.getByRole('link', { name: 'Kunden suchen' })).toHaveAttribute('href', '/leads');
-    const detailLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(detailLinks.length).toBeGreaterThan(0);
-    expect(detailLinks[0]?.getAttribute('href')).toMatch(/^\/leads\//);
+    expect(await screen.findByRole('heading', { name: 'Beratung fortsetzen' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Zur Kundenakte' })).not.toBeInTheDocument();
   });
 });

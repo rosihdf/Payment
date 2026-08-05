@@ -8,13 +8,13 @@ describe('NeedStep Katalog-UX', () => {
     cleanup();
   });
 
-  it('bietet nur Katalog-Laufzeiten 24 und 36 Monate an', () => {
+  it('bietet Katalog-Laufzeiten 24 und 36 sowie „Noch offen“ an', () => {
     const session = createBestPayComparisonSession('user_001');
     render(<NeedStep session={session} busy={false} onPatch={vi.fn()} />);
-    const term = screen.getByRole('combobox', { name: 'Maximale Vertragslaufzeit' });
+    const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
     fireEvent.click(term);
     const options = screen.getAllByRole('option').map((option) => option.getAttribute('data-value'));
-    expect(options).toEqual(['24', '36']);
+    expect(options).toEqual(['', '24', '36']);
     expect(options).not.toContain('48');
     expect(options).not.toContain('60');
   });
@@ -23,9 +23,21 @@ describe('NeedStep Katalog-UX', () => {
     const session = createBestPayComparisonSession('user_001');
     session.manualInput.preferredTermMonths = 48;
     render(<NeedStep session={session} busy={false} onPatch={vi.fn()} />);
-    const term = screen.getByRole('combobox', { name: 'Maximale Vertragslaufzeit' });
+    const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
     expect(term).toHaveAttribute('data-value', '36');
     expect(within(term).getByText('36 Monate')).toBeTruthy();
+  });
+
+  it('setzt „Noch offen“ auf preferredTermMonths null', () => {
+    const session = createBestPayComparisonSession('user_001');
+    const onPatch = vi.fn();
+    render(<NeedStep session={session} busy={false} onPatch={onPatch} />);
+    const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
+    fireEvent.click(term);
+    fireEvent.click(
+      screen.getByRole('option', { name: 'Noch offen / beste passende Option empfehlen' }),
+    );
+    expect(onPatch).toHaveBeenCalledWith({ preferredTermMonths: null });
   });
 
   it('erklärt Einsatzarten und aktiviert nur mobiles Terminal', () => {
@@ -33,11 +45,21 @@ describe('NeedStep Katalog-UX', () => {
     const onPatch = vi.fn();
     render(<NeedStep session={session} busy={false} onPatch={onPatch} />);
 
-    expect(screen.getByText('Mobiles Kartenterminal')).toBeTruthy();
-    expect(screen.getByText(/Festes Terminal an der Kasse/)).toBeTruthy();
+    expect(
+      screen.getByText('Unterwegs beim Kunden (mobiles Kartenterminal)'),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Im Geschäft oder am festen Standort (stationäres Kartenterminal)'),
+    ).toBeTruthy();
+    expect(screen.getByText('Smartphone als Kartenterminal (SoftPOS)')).toBeTruthy();
+    expect(screen.getByText('Zahlungen im Onlineshop (E-Commerce)')).toBeTruthy();
 
-    const mobile = screen.getByRole('checkbox', { name: /Mobiles Kartenterminal/i });
-    const stationary = screen.getByRole('checkbox', { name: /Festes Terminal an der Kasse/i });
+    const mobile = screen.getByRole('checkbox', {
+      name: /Unterwegs beim Kunden \(mobiles Kartenterminal\)/i,
+    });
+    const stationary = screen.getByRole('checkbox', {
+      name: /Im Geschäft oder am festen Standort \(stationäres Kartenterminal\)/i,
+    });
     expect(mobile).not.toBeDisabled();
     expect(stationary).toBeDisabled();
 

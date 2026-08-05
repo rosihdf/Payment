@@ -1,7 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
@@ -18,7 +17,7 @@ function renderAt(route: string) {
   return router;
 }
 
-describe('Phase 1A Block 3 – Kundenakte Komfort UI (v2)', () => {
+describe('Phase 1A Block 3 – Kunden-Detailseite Komfort UI (v2)', () => {
   beforeEach(() => {
     clearDemoDataForTests();
     resetDemoDataForTests();
@@ -29,38 +28,21 @@ describe('Phase 1A Block 3 – Kundenakte Komfort UI (v2)', () => {
     cleanup();
   });
 
-  it('zeigt Übersicht mit Kernfakten und einer führenden Beratung-Aktion', async () => {
+  it('zeigt Stammdaten-Kernfakten und eine führende Beratung-Aktion', async () => {
     renderAt('/leads/lead_001');
-    expect(
-      await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Stammdaten' })).toBeInTheDocument();
     expect(screen.getByText('Kontakt')).toBeInTheDocument();
-    expect(screen.getByText('Offene Aufgaben')).toBeInTheDocument();
+    expect(screen.getByText('Firma')).toBeInTheDocument();
+    expect(screen.getByText('Betreuer')).toBeInTheDocument();
+    expect(screen.queryByText('Offene Aufgaben')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Beratung starten' })).toBeInTheDocument();
   });
 
-  it('zeigt Kontakte im Kontakte-Tab', async () => {
-    const user = userEvent.setup();
+  it('zeigt keine Timeline-, Aufgaben- oder Dokument-Module', async () => {
     renderAt('/leads/lead_001');
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Kontakte' }));
-    expect(screen.getByRole('button', { name: 'Kontakte' })).toBeInTheDocument();
-  });
-
-  it('zeigt Vorgänge mit Timeline und Aufgaben', async () => {
-    const user = userEvent.setup();
-    renderAt('/leads/lead_001');
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Vorgänge' }));
-    expect(await screen.findByRole('heading', { name: 'Timeline' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Aufgaben' })).toBeInTheDocument();
-  });
-
-  it('öffnet Dokumente-Tab ohne Absturz', async () => {
-    const user = userEvent.setup();
-    renderAt('/leads/lead_001');
-    await screen.findByRole('navigation', { name: 'Kundenakte Bereiche' });
-    await user.click(screen.getByRole('button', { name: 'Dokumente' }));
-    expect(screen.getByRole('button', { name: 'Dokumente' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Stammdaten' });
+    expect(screen.queryByRole('heading', { name: 'Timeline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dokumente' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kontakte' })).not.toBeInTheDocument();
   });
 });

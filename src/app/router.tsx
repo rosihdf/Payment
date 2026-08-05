@@ -31,20 +31,11 @@ import {
   CommissionOverviewPage,
   CommissionStandardsPage,
   CommissionCasesPage,
-  CommissionBonusPage,
   CommissionSettlementPage,
   SalesCommissionPage,
 } from '../v2/commission';
 import { AdminCommissionPage } from '../features/admin/AdminCommissionPage';
-import { AdminApprovalsPage } from '../v2/admin/AdminApprovalsPage';
-import { AdminAuditPage } from '../v2/admin/AdminAuditPage';
-import { AdminDataPage } from '../v2/admin/AdminDataPage';
 import { AdminSystemPage } from '../v2/admin/AdminSystemPage';
-import { AdminTemplatesPage } from '../v2/admin/AdminTemplatesPage';
-import { ContractsPage } from '../v2/contract/ContractsPage';
-import { ContractDetailPage } from '../v2/contract/ContractDetailPage';
-import { ActivationsPage } from '../v2/activation/ActivationsPage';
-import { ActivationDetailPage } from '../v2/activation/ActivationDetailPage';
 import { EditProductPage } from '../features/product/EditProductPage';
 import { NewProductPage } from '../features/product/NewProductPage';
 import { ProfilePage } from '../v2/profile/ProfilePage';
@@ -94,10 +85,10 @@ export const appRoutes: RouteObject[] = [
       { path: 'offers/:id/preview', element: <OfferDocumentPreviewPage /> },
       { path: 'offers/:offerId/documents/:documentId', element: <OfferDocumentDetailPage /> },
       { path: 'offers/:id', element: <OfferDetailPage /> },
-      { path: 'contracts', element: <ContractsPage /> },
-      { path: 'contracts/:contractId', element: <ContractDetailPage /> },
-      { path: 'activations', element: <ActivationsPage /> },
-      { path: 'activations/:activationId', element: <ActivationDetailPage /> },
+      { path: 'contracts', element: <Navigate to="/leads" replace /> },
+      { path: 'contracts/:contractId', element: <Navigate to="/leads" replace /> },
+      { path: 'activations', element: <Navigate to="/leads" replace /> },
+      { path: 'activations/:activationId', element: <Navigate to="/leads" replace /> },
       { path: 'products', element: <Navigate to={adminCatalogPath('products')} replace /> },
       { path: 'admin', element: <AdminOverviewPage /> },
       { path: 'admin/users', element: <AdminUsersPage /> },
@@ -112,16 +103,16 @@ export const appRoutes: RouteObject[] = [
       { path: 'admin/commission/overview', element: <CommissionOverviewPage /> },
       { path: 'admin/commission/standards', element: <CommissionStandardsPage /> },
       { path: 'admin/commission/cases', element: <CommissionCasesPage /> },
-      { path: 'admin/commission/bonus', element: <CommissionBonusPage /> },
+      { path: 'admin/commission/bonus', element: <Navigate to="/admin/commission/settlement" replace /> },
       { path: 'admin/commission/settlement', element: <CommissionSettlementPage /> },
       { path: 'admin/commission/models', element: <Navigate to="/admin/commission/standards" replace /> },
       { path: 'admin/commission/assignments', element: <Navigate to="/admin/commission/standards" replace /> },
       { path: 'admin/commission/payments', element: <Navigate to="/admin/commission/settlement" replace /> },
       { path: 'admin/commission/history', element: <Navigate to="/admin/commission/settlement" replace /> },
-      { path: 'admin/approvals', element: <AdminApprovalsPage /> },
-      { path: 'admin/templates', element: <AdminTemplatesPage /> },
-      { path: 'admin/data', element: <AdminDataPage /> },
-      { path: 'admin/audit', element: <AdminAuditPage /> },
+      { path: 'admin/approvals', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/templates', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/data', element: <Navigate to="/admin" replace /> },
+      { path: 'admin/audit', element: <Navigate to="/admin" replace /> },
       { path: 'admin/system', element: <AdminSystemPage /> },
       { path: 'admin/tariffs', element: <AdminTariffsListRedirect /> },
       { path: 'admin/tariffs/new', element: <NewTariffPage /> },

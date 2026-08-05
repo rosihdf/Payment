@@ -11,14 +11,15 @@ export interface NavItem {
 }
 
 /**
- * Zielnavigation Version 1.0:
- * Arbeitsplatz · Kunden · Beratung · Verwaltung (Admin) · Profil
- * Fach-Deep-Links (/offers, /contracts, /activations) bleiben erreichbar, ohne eigenen Menüpunkt.
+ * Produktkern-Navigation:
+ * Arbeitsplatz · Kunden · Beratung · Angebote · Provision · Verwaltung (Admin) · Profil
  */
 export const MOBILE_NAV_ITEMS: NavItem[] = [
   { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
   { to: '/leads', label: 'Kunden', icon: 'leads' },
   { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
+  { to: '/offers', label: 'Angebote', icon: 'offers' },
+  { to: '/sales/commission', label: 'Provision', icon: 'commission', permission: 'commission.view' },
   { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
   { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
@@ -27,11 +28,19 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { to: '/sales', label: 'Arbeitsplatz', icon: 'sales' },
   { to: '/leads', label: 'Kunden', icon: 'leads' },
   { to: ADVICE_PATH, label: 'Beratung', icon: 'calculator' },
+  { to: '/offers', label: 'Angebote', icon: 'offers' },
+  { to: '/sales/commission', label: 'Provision', icon: 'commission', permission: 'commission.view' },
   { to: '/admin', label: 'Verwaltung', icon: 'admin', permission: 'admin.access' },
   { to: '/profile', label: 'Profil', icon: 'profile' },
 ];
 
-export const OPERATIVE_SIDEBAR_NAV_LABELS = ['Arbeitsplatz', 'Kunden', 'Beratung'] as const;
+export const OPERATIVE_SIDEBAR_NAV_LABELS = [
+  'Arbeitsplatz',
+  'Kunden',
+  'Beratung',
+  'Angebote',
+  'Provision',
+] as const;
 
 export function filterNavItemsByRole(items: NavItem[], role: UserRole): NavItem[] {
   return items.filter((item) => {
@@ -48,21 +57,13 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
       pathname === '/sales' ||
       pathname === '/' ||
       (pathname.startsWith('/sales/') &&
+        !pathname.startsWith('/sales/commission') &&
         pathname !== LEGACY_SALES_WIZARD_PATH &&
         !pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`))
     );
   }
   if (item.to === '/leads') {
-    return (
-      pathname === '/leads' ||
-      pathname.startsWith('/leads/') ||
-      pathname === '/offers' ||
-      pathname.startsWith('/offers/') ||
-      pathname === '/contracts' ||
-      pathname.startsWith('/contracts/') ||
-      pathname === '/activations' ||
-      pathname.startsWith('/activations/')
-    );
+    return pathname === '/leads' || pathname.startsWith('/leads/');
   }
   if (item.to === ADVICE_PATH) {
     return (
@@ -73,6 +74,12 @@ export function isSidebarNavItemActive(pathname: string, item: NavItem): boolean
       pathname === LEGACY_SALES_WIZARD_PATH ||
       pathname.startsWith(`${LEGACY_SALES_WIZARD_PATH}/`)
     );
+  }
+  if (item.to === '/offers') {
+    return pathname === '/offers' || pathname.startsWith('/offers/');
+  }
+  if (item.to === '/sales/commission') {
+    return pathname === '/sales/commission' || pathname.startsWith('/sales/commission/');
   }
   if (item.to === '/admin') {
     return pathname === '/admin' || pathname.startsWith('/admin/');

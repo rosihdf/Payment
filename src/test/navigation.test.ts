@@ -9,11 +9,13 @@ import {
 import { ADVICE_PATH, LEGACY_SALES_WIZARD_PATH } from '../utils/routes';
 
 describe('Navigation role filtering', () => {
-  it('enthält die Zielnavigation inkl. Profil', () => {
+  it('enthält die Zielnavigation inkl. Angebote, Provision und Profil', () => {
     expect(SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
       'Arbeitsplatz',
       'Kunden',
       'Beratung',
+      'Angebote',
+      'Provision',
       'Verwaltung',
       'Profil',
     ]);
@@ -21,6 +23,8 @@ describe('Navigation role filtering', () => {
       'Arbeitsplatz',
       'Kunden',
       'Beratung',
+      'Angebote',
+      'Provision',
       'Verwaltung',
       'Profil',
     ]);
@@ -28,13 +32,18 @@ describe('Navigation role filtering', () => {
     expect(MOBILE_NAV_ITEMS.some((item) => item.to === '/profile')).toBe(true);
   });
 
-  it('hides admin items for field service role', () => {
+  it('zeigt Provision für field_service, blendet Verwaltung aus', () => {
     const items = filterNavItemsByRole(SIDEBAR_NAV_ITEMS, 'field_service');
     expect(items.some((item) => item.to === '/admin')).toBe(false);
+    expect(items.some((item) => item.to === '/sales/commission' && item.label === 'Provision')).toBe(
+      true,
+    );
     expect(items.map((item) => item.label)).toEqual([
       'Arbeitsplatz',
       'Kunden',
       'Beratung',
+      'Angebote',
+      'Provision',
       'Profil',
     ]);
   });
@@ -52,14 +61,16 @@ describe('Navigation role filtering', () => {
     expect(labels).not.toContain('Vertrieb');
     expect(labels).not.toContain('Vertriebsprozess');
     expect(labels).not.toContain('Leads');
-    expect(labels).not.toContain('Angebote');
     expect(labels).not.toContain('Verträge');
     expect(labels).not.toContain('Aktivierungen');
     expect(labels).not.toContain('Rechner');
     expect(labels).not.toContain('Produkte');
+    expect(labels).toContain('Angebote');
+    expect(labels).toContain('Provision');
     expect(routes).toContain(ADVICE_PATH);
+    expect(routes).toContain('/offers');
+    expect(routes).toContain('/sales/commission');
     expect(routes).toContain('/profile');
-    expect(routes).not.toContain('/offers');
     expect(routes).not.toContain('/contracts');
     expect(routes).not.toContain('/activations');
     expect(routes).not.toContain('/products');
@@ -91,14 +102,17 @@ describe('Navigation role filtering', () => {
     expect(isSidebarNavItemActive('/calculator/bestpay', beratungItem)).toBe(true);
     expect(isSidebarNavItemActive(ADVICE_PATH, arbeitsplatzItem)).toBe(false);
     expect(isSidebarNavItemActive('/sales', arbeitsplatzItem)).toBe(true);
+    expect(isSidebarNavItemActive('/sales/commission', arbeitsplatzItem)).toBe(false);
   });
 
-  it('markiert Kunden bei Angebots-, Vertrags- und Onboarding-Routen als aktiv', () => {
+  it('markiert Kunden und Angebote auf den jeweiligen Routen als aktiv', () => {
     const kundenItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/leads')!;
+    const angeboteItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/offers')!;
+    const provisionItem = SIDEBAR_NAV_ITEMS.find((item) => item.to === '/sales/commission')!;
 
     expect(isSidebarNavItemActive('/leads/lead_001', kundenItem)).toBe(true);
-    expect(isSidebarNavItemActive('/offers/offer_001', kundenItem)).toBe(true);
-    expect(isSidebarNavItemActive('/contracts/contract_001', kundenItem)).toBe(true);
-    expect(isSidebarNavItemActive('/activations/activation_001', kundenItem)).toBe(true);
+    expect(isSidebarNavItemActive('/offers/offer_001', angeboteItem)).toBe(true);
+    expect(isSidebarNavItemActive('/offers/offer_001', kundenItem)).toBe(false);
+    expect(isSidebarNavItemActive('/sales/commission', provisionItem)).toBe(true);
   });
 });

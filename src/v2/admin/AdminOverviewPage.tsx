@@ -72,12 +72,10 @@ export function AdminOverviewPage() {
           <section className={styles.panel}>
             <h2>Schnellzugriff</h2>
             <div className={styles.toolbar}>
-              <Link to="/admin/users">Benutzer verwalten</Link>
-              <Link to="/admin/system">Systemstatus prüfen</Link>
+              <Link to="/admin/users">Benutzer</Link>
               <Link to="/admin/catalog">Produkte & Konditionen</Link>
-              <Link to="/admin/commission">Provision verwalten</Link>
-              <Link to="/admin/approvals">Freigaberegeln</Link>
-              <Link to="/admin/data">Daten & Diagnose</Link>
+              <Link to="/admin/commission">Provision</Link>
+              <Link to="/admin/system">Systemstatus</Link>
             </div>
           </section>
         </>

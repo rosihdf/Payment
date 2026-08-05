@@ -58,11 +58,7 @@ export function RecommendationStep({
           <Button variant="secondary" loading={busy} onClick={onCalculate}>
             Empfehlung aktualisieren
           </Button>
-        ) : (
-          <Button loading={busy} onClick={onCalculate}>
-            Empfehlung berechnen
-          </Button>
-        )}
+        ) : null}
       </article>
 
       {result && primaryVariant ? (
@@ -136,7 +132,7 @@ export function RecommendationStep({
 
           {selectedVariant ? (
             <p className={styles.hint}>
-              Gewählt: {selectedVariant.tariffName}. Mit „Weiter“ zum Angebot.
+              Gewählt: {selectedVariant.tariffName}. Primäraktion: Weiter zum Angebot.
             </p>
           ) : (
             <p className={styles.hint}>Bitte eine Variante auswählen, um fortzufahren.</p>

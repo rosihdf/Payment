@@ -18,6 +18,7 @@ function NavIcon({ icon }: { icon: string }) {
     products: '▣',
     admin: '⚙',
     profile: '◉',
+    commission: '%',
   };
 
   return <span aria-hidden="true">{icons[icon] ?? '•'}</span>;

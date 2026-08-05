@@ -29,33 +29,17 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     resetDemoDataForTests();
   });
 
-  it('zeigt die Tagesbereiche inklusive Beratungsentwürfe ohne freie Aufgabenanlage', async () => {
+  it('zeigt Beratung fortsetzen, Heute und Überfällig ohne CRM-Pipeline', async () => {
     renderAt('/sales');
-    expect(await screen.findByRole('heading', { name: 'Beratungen fortsetzen' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung fortsetzen' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Heute' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Neue Beratung' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kunden suchen' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Blockiert' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Nächste Kundenfälle' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Kennzahlen' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Erwartete Abschlüsse' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Aufgabe anlegen' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Nicht zugeordnet')).not.toBeInTheDocument();
-  });
-
-  it('öffnet Kundenakte von den Karten und zeigt Empty States', async () => {
-    renderAt('/sales');
-    await screen.findByRole('heading', { name: 'Arbeitsplatz' });
-    const detailLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
-    expect(detailLinks.length).toBeGreaterThan(0);
-    expect(detailLinks[0]?.getAttribute('href')).toMatch(/^\/leads\//);
-    expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Keine Einträge|Nichts überfällig|Heute nichts geplant|Keine blockierten Fälle/i)
-        .length,
-    ).toBeGreaterThan(0);
   });
 
   it('Admin und Außendienst nutzen dieselbe Sichtbarkeitslogik ohne Team-Filter', async () => {
@@ -77,19 +61,15 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     expect(admin.dayWork).toBeDefined();
   });
 
-  it('Rendern erzeugt keine zusätzlichen Aufgaben oder Aktivitäten jenseits der Sync-Baseline', async () => {
+  it('Rendern erzeugt keine zusätzlichen freien Aufgaben über die Sync-Baseline hinaus', async () => {
     const repos = createTestRepositories();
     const taskRepo = repos.salesTaskRepository;
     const activityRepo = repos.salesActivityRepository;
-    const beforeTasks = (await taskRepo.getAll()).length;
     const beforeActivities = (await activityRepo.getAll()).length;
 
     renderAt('/sales');
-    await screen.findByRole('heading', { name: 'Nächste Kundenfälle' });
+    await screen.findByRole('heading', { name: 'Beratung fortsetzen' });
 
-    // Die UI synchronisiert automatische Aufgaben im Hintergrund – der erste sichtbare Load darf
-    // keine zusätzlichen freien Aufgaben/Aktivitäten anlegen. Nach dem ersten Load erneut zählen und
-    // Day-Section-Ableitung isoliert prüfen.
     const afterFirstLoadTasks = (await taskRepo.getAll()).length;
     const afterFirstLoadActivities = (await activityRepo.getAll()).length;
     expect(afterFirstLoadActivities).toBe(beforeActivities);
@@ -113,15 +93,12 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
       repos.offerCustomerQuestionRepository,
       repos.offerChangeRequestRepository,
     );
-    const view = await workspace.getWorkspaceView(
+    await workspace.getWorkspaceView(
       { userId: 'user_001', role: 'field_service', displayName: 'Laura' },
       { scope: 'mine' },
     );
-    expect(view.dayWork.nextCases.every((entry) => entry.nextActionLabel)).toBe(true);
     const afterSecond = (await taskRepo.getAll()).length;
-    // Idempotente Autosync: keine weiteren Tasks über den ersten Sync hinaus
     expect(afterSecond).toBe(afterFirstLoadTasks);
-    expect(afterFirstLoadTasks).toBeGreaterThanOrEqual(beforeTasks);
     expect((await activityRepo.getAll()).length).toBe(afterFirstLoadActivities);
   });
 });

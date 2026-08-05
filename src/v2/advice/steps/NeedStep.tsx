@@ -4,7 +4,7 @@ import { FormField } from '../../ui/FormField';
 import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
-/** Laufzeiten laut produktivem Vertragskatalog (pricingCatalogSeed). */
+/** Laufzeiten laut verfügbaren Katalogkombinationen (pricingCatalogSeed). */
 const TERM_OPTIONS = [
   { months: 24, label: '24 Monate' },
   { months: 36, label: '36 Monate' },
@@ -30,27 +30,27 @@ const ACCEPTANCE_OPTIONS: Array<{
   available: boolean;
 }> = [
   {
-    key: 'mobile',
-    title: 'Mobiles Kartenterminal',
-    description: 'Gerät geht mit zum Kunden – aktuell im Tarifkatalog verfügbar.',
-    available: true,
-  },
-  {
     key: 'stationary',
-    title: 'Festes Terminal an der Kasse',
-    description: 'Steht fest im Laden. Tarif folgt mit dem Katalog.',
+    title: 'Im Geschäft oder am festen Standort (stationäres Kartenterminal)',
+    description: 'Tarif folgt mit dem Katalog.',
     available: false,
   },
   {
+    key: 'mobile',
+    title: 'Unterwegs beim Kunden (mobiles Kartenterminal)',
+    description: 'Aktuell im Tarifkatalog verfügbar.',
+    available: true,
+  },
+  {
     key: 'softPos',
-    title: 'Smartphone als Terminal',
-    description: 'Zahlung über App ohne Extra-Gerät. Tarif folgt.',
+    title: 'Smartphone als Kartenterminal (SoftPOS)',
+    description: 'Tarif folgt mit dem Katalog.',
     available: false,
   },
   {
     key: 'ecommerce',
-    title: 'Online-Shop / Internet',
-    description: 'Zahlungen im Webshop. Tarif folgt.',
+    title: 'Zahlungen im Onlineshop (E-Commerce)',
+    description: 'Tarif folgt mit dem Katalog.',
     available: false,
   },
 ];
@@ -61,7 +61,11 @@ interface NeedStepProps {
   onPatch: (patch: Partial<BestPayComparisonSession['manualInput']>) => void;
 }
 
-function resolvePreferredTermMonths(value: number | null | undefined): number {
+/** null/0 = Laufzeit noch offen; 24/36 = Katalogwerte; sonst nächsthöherer Katalogwert. */
+function resolvePreferredTermMonths(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || value === 0) {
+    return null;
+  }
   if (value === 24 || value === 36) {
     return value;
   }
@@ -130,13 +134,19 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
         <FormField
           type="select"
           id="needTerm"
-          label="Maximale Vertragslaufzeit"
-          value={String(preferredTermMonths)}
+          label="Gewünschte Vertragslaufzeit"
+          value={preferredTermMonths === null ? '' : String(preferredTermMonths)}
           disabled={busy}
-          onChange={(event) =>
-            onPatch({ preferredTermMonths: Number.parseInt(event.target.value, 10) || 36 })
-          }
+          onChange={(event) => {
+            const raw = event.target.value;
+            if (raw === '') {
+              onPatch({ preferredTermMonths: null });
+              return;
+            }
+            onPatch({ preferredTermMonths: Number.parseInt(raw, 10) });
+          }}
         >
+          <option value="">Noch offen / beste passende Option empfehlen</option>
           {TERM_OPTIONS.map((option) => (
             <option key={option.months} value={option.months}>
               {option.label}
@@ -144,8 +154,8 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
           ))}
         </FormField>
         <p className={styles.hint}>
-          Im Katalog gibt es derzeit 24- und 36-Monats-Verträge. Die Auswahl begrenzt die maximale
-          Laufzeit der Empfehlung.
+          Die Laufzeit-Optionen richten sich nach den verfügbaren Katalogkombinationen. Bei „Noch
+          offen“ empfiehlt die Beratung die passende Option.
         </p>
       </div>
 

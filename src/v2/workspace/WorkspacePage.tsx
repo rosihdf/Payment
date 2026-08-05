@@ -14,7 +14,15 @@ import { FormField } from '../ui/FormField';
 import { PageHeader } from '../ui/PageHeader';
 import styles from './WorkspacePage.module.css';
 
-function DayWorkCard({ entry, showDueDate = true }: { entry: SalesDayWorkEntry; showDueDate?: boolean }) {
+function DayWorkCard({
+  entry,
+  showDueDate = true,
+  onDelete,
+}: {
+  entry: SalesDayWorkEntry;
+  showDueDate?: boolean;
+  onDelete?: () => void;
+}) {
   const primaryHref = entry.actionHref ?? entry.customerHref;
   return (
     <DataListCard
@@ -35,11 +43,13 @@ function DayWorkCard({ entry, showDueDate = true }: { entry: SalesDayWorkEntry; 
         </>
       }
       footer={
-        primaryHref || entry.customerHref ? (
+        primaryHref || onDelete ? (
           <div className={styles.cardActions}>
-            {primaryHref ? <Link to={primaryHref}>{entry.nextActionLabel}</Link> : null}
-            {entry.customerHref && entry.customerHref !== primaryHref ? (
-              <Link to={entry.customerHref}>Zur Kundenakte</Link>
+            {primaryHref ? <Link to={primaryHref}>Fortsetzen</Link> : null}
+            {onDelete ? (
+              <Button type="button" variant="text" onClick={onDelete}>
+                Löschen
+              </Button>
             ) : null}
           </div>
         ) : undefined
@@ -50,7 +60,7 @@ function DayWorkCard({ entry, showDueDate = true }: { entry: SalesDayWorkEntry; 
 
 export function WorkspacePage() {
   const { currentUser } = useCurrentUser();
-  const { salesWorkspaceService } = useServices();
+  const { salesWorkspaceService, salesWizardService } = useServices();
   const [view, setView] = useState<SalesWorkspaceView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -231,27 +241,64 @@ export function WorkspacePage() {
           {[
             {
               id: 'advice-drafts',
-              title: 'Beratungen fortsetzen',
+              title: 'Beratung fortsetzen',
               entries: view.dayWork.adviceDrafts,
               showDueDate: false,
+              allowDelete: true,
             },
-            { id: 'overdue', title: 'Überfällig', entries: view.dayWork.overdue, showDueDate: true },
-            { id: 'today', title: 'Heute', entries: view.dayWork.today, showDueDate: true },
-            { id: 'blocked', title: 'Blockiert', entries: view.dayWork.blocked, showDueDate: true },
-            { id: 'next', title: 'Nächste Kundenfälle', entries: view.dayWork.nextCases, showDueDate: true },
+            { id: 'today', title: 'Heute', entries: view.dayWork.today, showDueDate: true, allowDelete: false },
+            {
+              id: 'overdue',
+              title: 'Überfällig',
+              entries: view.dayWork.overdue,
+              showDueDate: true,
+              allowDelete: false,
+            },
           ].map((section) => (
             <section key={section.id} aria-labelledby={section.id}>
               <h2 id={section.id} className={styles.sectionTitle}>
                 {section.title}
               </h2>
               {section.entries.length === 0 ? (
-                <EmptyState title="Keine Einträge" description="In diesem Bereich ist nichts fällig." />
+                <EmptyState
+                  title="Keine Einträge"
+                  description={
+                    section.id === 'advice-drafts'
+                      ? 'Keine offenen Beratungsentwürfe.'
+                      : 'Keine bewusst gesetzten Wiedervorlagen.'
+                  }
+                />
               ) : (
                 <DataList
                   items={section.entries}
                   getKey={(entry) => entry.id}
                   renderItem={(entry) => (
-                    <DayWorkCard entry={entry} showDueDate={section.showDueDate} />
+                    <DayWorkCard
+                      entry={entry}
+                      showDueDate={section.showDueDate}
+                      onDelete={
+                        section.allowDelete
+                          ? () => {
+                              const sessionId =
+                                entry.id.startsWith('advice:') ? entry.id.slice('advice:'.length) : null;
+                              if (!sessionId || !currentUser) {
+                                return;
+                              }
+                              void salesWizardService
+                                .discardAdviceDraft(sessionId, {
+                                  userId: currentUser.id,
+                                  role: currentUser.role,
+                                  displayName: currentUser.name,
+                                })
+                                .then((result) => {
+                                  if (result.ok) {
+                                    void reload();
+                                  }
+                                });
+                            }
+                          : undefined
+                      }
+                    />
                   )}
                 />
               )}

@@ -189,6 +189,22 @@ export class SalesWizardService {
     return discarded ? { ok: true } : { ok: false, error: 'not_found' };
   }
 
+  /** Löscht einen Beratungsentwurf (auch mit Inhalt), solange noch kein Angebot verknüpft ist. */
+  async discardAdviceDraft(
+    sessionId: string,
+    context: BestPayComparisonUserContext,
+  ): Promise<{ ok: true } | { ok: false; error: 'not_found' | 'has_offer' }> {
+    const session = await this.getSession(sessionId, context);
+    if (!session || session.status === 'discarded' || session.archivedAt) {
+      return { ok: false, error: 'not_found' };
+    }
+    if (session.offerId) {
+      return { ok: false, error: 'has_offer' };
+    }
+    const discarded = await this.bestPayComparisonService.discardSession(sessionId, context);
+    return discarded ? { ok: true } : { ok: false, error: 'not_found' };
+  }
+
   async resumeWizard(
     sessionId: string,
     context: BestPayComparisonUserContext,
