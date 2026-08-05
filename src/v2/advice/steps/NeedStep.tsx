@@ -31,26 +31,26 @@ const ACCEPTANCE_OPTIONS: Array<{
 }> = [
   {
     key: 'stationary',
-    title: 'Im Geschäft oder am festen Standort (stationäres Kartenterminal)',
-    description: 'Tarif folgt mit dem Katalog.',
+    title: 'Im Geschäft oder am festen Standort',
+    description: 'Stationäres Kartenterminal – Tarif folgt mit dem Katalog.',
     available: false,
   },
   {
     key: 'mobile',
-    title: 'Unterwegs beim Kunden (mobiles Kartenterminal)',
-    description: 'Aktuell im Tarifkatalog verfügbar.',
+    title: 'Unterwegs beim Kunden',
+    description: 'Mobiles Kartenterminal – aktuell im Tarifkatalog verfügbar.',
     available: true,
   },
   {
     key: 'softPos',
-    title: 'Smartphone als Kartenterminal (SoftPOS)',
-    description: 'Tarif folgt mit dem Katalog.',
+    title: 'Smartphone als Kartenterminal',
+    description: 'SoftPOS – noch nicht im produktiven Katalog verfügbar.',
     available: false,
   },
   {
     key: 'ecommerce',
-    title: 'Zahlungen im Onlineshop (E-Commerce)',
-    description: 'Tarif folgt mit dem Katalog.',
+    title: 'Zahlungen im Onlineshop',
+    description: 'E-Commerce – noch nicht im produktiven Katalog verfügbar.',
     available: false,
   },
 ];

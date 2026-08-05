@@ -97,7 +97,7 @@ describe('Beratungsentwurf Persistenz', () => {
     const before = wizardSessionCount();
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: 'Ohne Kunden rechnen' }));
+    await user.click(screen.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }));
     await user.click(screen.getByRole('button', { name: 'Weiter' }));
     await screen.findByRole('heading', { name: 'Ausgangslage' });
     await waitFor(() => {
@@ -134,10 +134,10 @@ describe('Beratungsentwurf Persistenz', () => {
     await user.click(screen.getAllByRole('link', { name: 'Beratung' })[0]!);
     expect(router.state.location.pathname).toBe(ADVICE_PATH);
     expect(await screen.findByRole('button', { name: 'Löschen' })).toBeInTheDocument();
-    expect(screen.getByText(/Leerer Entwurf/)).toBeInTheDocument();
+    expect(screen.getByText(/Leerer Entwurf|Beratung ohne Kundenzuordnung/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Löschen' }));
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAccessibleName(/Leeren Entwurf löschen/i);
+    expect(dialog).toHaveAccessibleName(/Beratungsentwurf löschen/i);
     await user.click(within(dialog).getByRole('button', { name: 'Löschen' }));
 
     await waitFor(() => {

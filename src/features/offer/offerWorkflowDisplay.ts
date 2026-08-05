@@ -1,41 +1,39 @@
 import type { OfferWorkflowStatus } from '../../domain/offer/offerWorkflow';
 import { OFFER_WORKFLOW_STATUS_LABELS } from '../../domain/offer/offerWorkflow';
 
-/** Sichtbare Statusgruppe – nur Anzeige, keine Persistenz. */
+/** Sichtbare Statusgruppe für den Vertrieb – nur Anzeige, keine Persistenz. */
 export type OfferWorkflowDisplayGroup =
   | 'draft'
-  | 'internal_review'
-  | 'ready_for_customer'
-  | 'customer_review'
+  | 'handed_to_customer'
+  | 'customer_considering'
   | 'accepted'
-  | 'closed';
+  | 'declined';
 
 export const OFFER_WORKFLOW_DISPLAY_GROUP_LABELS: Record<OfferWorkflowDisplayGroup, string> = {
   draft: 'Entwurf',
-  internal_review: 'Interne Prüfung',
-  ready_for_customer: 'Bereit zur Kundenvorlage',
-  customer_review: 'Kunde prüft',
-  accepted: 'Angenommen',
-  closed: 'Abgelehnt oder beendet',
+  handed_to_customer: 'an Kunden übergeben',
+  customer_considering: 'Kunde überlegt',
+  accepted: 'angenommen',
+  declined: 'abgelehnt',
 };
 
 const STATUS_TO_GROUP: Record<OfferWorkflowStatus, OfferWorkflowDisplayGroup> = {
   draft: 'draft',
-  approval_required: 'internal_review',
-  in_approval: 'internal_review',
-  changes_requested: 'internal_review',
-  approved: 'ready_for_customer',
-  ready_to_send: 'ready_for_customer',
-  sent: 'customer_review',
+  approval_required: 'draft',
+  in_approval: 'draft',
+  changes_requested: 'draft',
+  approved: 'draft',
+  ready_to_send: 'handed_to_customer',
+  sent: 'customer_considering',
   accepted: 'accepted',
   activation_pending: 'accepted',
   activated: 'accepted',
   released: 'accepted',
   accounted: 'accepted',
   paid: 'accepted',
-  declined: 'closed',
-  expired: 'closed',
-  cancelled: 'closed',
+  declined: 'declined',
+  expired: 'declined',
+  cancelled: 'declined',
 };
 
 export function getOfferWorkflowDisplayGroup(status: OfferWorkflowStatus): OfferWorkflowDisplayGroup {
@@ -53,25 +51,26 @@ export function getOfferWorkflowTechnicalLabel(status: OfferWorkflowStatus): str
 export function getOfferWorkflowPrimaryActionLabel(status: OfferWorkflowStatus): string | null {
   switch (status) {
     case 'draft':
-      return 'Freigabe anfordern';
     case 'approval_required':
     case 'in_approval':
-      return 'Freigeben';
     case 'changes_requested':
-      return 'Bearbeiten';
     case 'approved':
-      return 'Versandbereit';
+      return 'Status pflegen';
     case 'ready_to_send':
-      return 'Als versendet dokumentieren';
+      return 'An Kunden übergeben';
     case 'sent':
-      return 'Annahme dokumentieren';
+      return 'Kunde überlegt dokumentieren';
     case 'accepted':
     case 'activation_pending':
     case 'activated':
     case 'released':
     case 'accounted':
     case 'paid':
-      return 'Vertrag anlegen';
+      return null;
+    case 'declined':
+    case 'expired':
+    case 'cancelled':
+      return null;
     default:
       return null;
   }

@@ -345,7 +345,6 @@ function AdviceWizardInner({
               onProspectModeChange={setProspectModeOverride}
               onSelectLead={(leadId) => {
                 setSelectedLeadId(leadId);
-                void advice.assignLead(leadId);
               }}
               onPatchProspect={(patch) => void advice.patchProspect(patch)}
               onPatchContactName={(name) => void advice.patchContactName(name)}

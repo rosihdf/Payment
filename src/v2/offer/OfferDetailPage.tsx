@@ -52,14 +52,12 @@ function offerWorkflowStatusVariant(group: OfferWorkflowDisplayGroup): StatusBad
   switch (group) {
     case 'draft':
       return 'neutral';
-    case 'internal_review':
-      return 'warning';
-    case 'ready_for_customer':
-    case 'customer_review':
+    case 'handed_to_customer':
+    case 'customer_considering':
       return 'info';
     case 'accepted':
       return 'success';
-    case 'closed':
+    case 'declined':
       return 'danger';
     default:
       return 'neutral';
@@ -336,7 +334,7 @@ export function OfferDetailPage() {
           <div className={styles.headerActions}>
             {offer.leadId ? (
               <Link to={`/leads/${offer.leadId}`}>
-                <Button variant="secondary">Zur Kundenakte</Button>
+                <Button variant="secondary">Zum Kunden</Button>
               </Link>
             ) : null}
             {canEdit ? (

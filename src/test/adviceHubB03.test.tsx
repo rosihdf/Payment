@@ -130,7 +130,7 @@ describe('Aufräumblock 3 – Beratungshub', () => {
   it('ermöglicht Beratung ohne Kundenbezug', async () => {
     renderAtRoute(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    expect(screen.getByRole('button', { name: 'Ohne Kunden rechnen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' })).toBeInTheDocument();
   });
 
   it('leitet parallele Rechner-Deep-Links auf /advice um', async () => {

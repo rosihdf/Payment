@@ -41,11 +41,11 @@ describe('B02 Sales Workspace', () => {
 
   it('zeigt die Tagesbereiche inklusive Beratungsentwürfe ohne Pipeline und Kennzahlen', async () => {
     renderAtRoute('/sales');
-    expect(await screen.findByRole('heading', { name: 'Beratungen fortsetzen' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung fortsetzen' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Heute' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Blockiert' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Nächste Kundenfälle' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Kennzahlen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Erwartete Abschlüsse' })).not.toBeInTheDocument();

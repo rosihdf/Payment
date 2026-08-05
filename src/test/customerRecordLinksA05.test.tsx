@@ -76,7 +76,7 @@ describe('Aufräumblock 5 – Links zur Kunden-Detailseite', () => {
 
     cleanup();
     renderAt(`/offers/${offer.id}`);
-    const offerLinks = await screen.findAllByRole('link', { name: 'Zur Kundenakte' });
+    const offerLinks = await screen.findAllByRole('link', { name: 'Zum Kunden' });
     expect(offerLinks.some((link) => link.getAttribute('href') === '/leads/lead_001')).toBe(true);
 
     cleanup();

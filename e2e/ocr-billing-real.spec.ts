@@ -25,7 +25,7 @@ test.describe('OCR real Tesseract', () => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/sales$/);
     await startNewAdvice(page);
-    await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
+    await page.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Abrechnung einlesen' }).click();
     await expect(page.getByRole('heading', { name: 'Abrechnung prüfen und bestätigen' })).toBeVisible({

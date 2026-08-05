@@ -1,3 +1,7 @@
+import {
+  ANONYMOUS_ADVICE_DISPLAY_NAME,
+  UNNAMED_LEAD_DISPLAY_NAME,
+} from '../lead/getLeadDisplayName';
 import type { BestPayComparisonSession } from './bestPayComparisonSession';
 import { DEFAULT_BESTPAY_MANUAL_INPUT } from './bestPayComparisonSession';
 import { formatBestPayComparisonFallbackTitle } from './bestPayComparisonSummary';
@@ -8,9 +12,21 @@ function hasText(value: string | null | undefined): boolean {
   return Boolean(value && value.trim());
 }
 
+function isPlaceholderCustomerLabel(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? '';
+  return (
+    !trimmed ||
+    trimmed === ANONYMOUS_ADVICE_DISPLAY_NAME ||
+    trimmed === UNNAMED_LEAD_DISPLAY_NAME
+  );
+}
+
 function isTechnicalTitle(session: BestPayComparisonSession): boolean {
   const title = session.title?.trim() ?? '';
   if (!title) {
+    return true;
+  }
+  if (title === ANONYMOUS_ADVICE_DISPLAY_NAME || title === UNNAMED_LEAD_DISPLAY_NAME) {
     return true;
   }
   return title === formatBestPayComparisonFallbackTitle(session.createdAt);
@@ -39,7 +55,10 @@ export function isEmptyAdviceSession(session: BestPayComparisonSession): boolean
   if (session.result || session.selectedCandidateId) {
     return false;
   }
-  if (hasText(session.customerLabel) || hasText(session.leadDisplayName)) {
+  if (!isPlaceholderCustomerLabel(session.customerLabel)) {
+    return false;
+  }
+  if (!isPlaceholderCustomerLabel(session.leadDisplayName)) {
     return false;
   }
   if (hasText(session.title) && !isTechnicalTitle(session)) {

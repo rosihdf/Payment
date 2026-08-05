@@ -45,20 +45,20 @@ describe('NeedStep Katalog-UX', () => {
     const onPatch = vi.fn();
     render(<NeedStep session={session} busy={false} onPatch={onPatch} />);
 
+    expect(screen.getByText('Unterwegs beim Kunden')).toBeTruthy();
+    expect(screen.getByText('Im Geschäft oder am festen Standort')).toBeTruthy();
+    expect(screen.getByText('Smartphone als Kartenterminal')).toBeTruthy();
+    expect(screen.getByText('Zahlungen im Onlineshop')).toBeTruthy();
+    expect(screen.getByText(/Mobiles Kartenterminal/)).toBeTruthy();
     expect(
-      screen.getByText('Unterwegs beim Kunden (mobiles Kartenterminal)'),
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Im Geschäft oder am festen Standort (stationäres Kartenterminal)'),
-    ).toBeTruthy();
-    expect(screen.getByText('Smartphone als Kartenterminal (SoftPOS)')).toBeTruthy();
-    expect(screen.getByText('Zahlungen im Onlineshop (E-Commerce)')).toBeTruthy();
+      screen.getAllByText(/noch nicht im produktiven Katalog verfügbar/i).length,
+    ).toBeGreaterThan(0);
 
     const mobile = screen.getByRole('checkbox', {
-      name: /Unterwegs beim Kunden \(mobiles Kartenterminal\)/i,
+      name: /Unterwegs beim Kunden/i,
     });
     const stationary = screen.getByRole('checkbox', {
-      name: /Im Geschäft oder am festen Standort \(stationäres Kartenterminal\)/i,
+      name: /Im Geschäft oder am festen Standort/i,
     });
     expect(mobile).not.toBeDisabled();
     expect(stationary).toBeDisabled();

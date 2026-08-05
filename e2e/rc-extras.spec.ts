@@ -22,7 +22,7 @@ test.describe('RC1 Extra: Beratung Reload und Navigation', () => {
     await seedPricingCatalogForE2E(page);
     await page.goto('/');
     await startNewAdvice(page);
-    await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
+    await page.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
     await page.getByRole('button', { name: 'Kosten manuell eingeben' }).click();

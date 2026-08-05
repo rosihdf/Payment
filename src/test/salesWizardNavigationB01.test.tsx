@@ -118,9 +118,10 @@ describe('B01 Beratung Navigation', () => {
 
     await user.click(screen.getByRole('link', { name: 'Zum Arbeitsplatz' }));
     expect(router.state.location.pathname).toBe('/sales');
-    expect(await screen.findByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratung fortsetzen' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Laufende Vorgänge' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Pipeline' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Nächste Kundenfälle' })).not.toBeInTheDocument();
 
     await user.click(navLinks('Beratung')[0]!);
     expect(router.state.location.pathname).toBe(SALES_WIZARD_PATH);
@@ -156,7 +157,7 @@ describe('B01 Beratung Navigation', () => {
     expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
     expect(await screen.findByText(/Bitte mit „Weiter“ fortfahren/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Ohne Kunden rechnen' }));
+    await user.click(screen.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }));
     await user.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(await screen.findByRole('heading', { name: 'Ausgangslage' })).toBeInTheDocument();
 

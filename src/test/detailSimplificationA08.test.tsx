@@ -27,12 +27,13 @@ import {
 describe('Aufräumblock 8 – Statusanzeige-Mappings', () => {
   it('maps offer workflow statuses to display groups without mutation', () => {
     expect(getOfferWorkflowDisplayGroup('draft')).toBe('draft');
-    expect(getOfferWorkflowDisplayGroup('in_approval')).toBe('internal_review');
-    expect(getOfferWorkflowDisplayGroup('ready_to_send')).toBe('ready_for_customer');
-    expect(getOfferWorkflowDisplayGroup('sent')).toBe('customer_review');
+    expect(getOfferWorkflowDisplayGroup('in_approval')).toBe('draft');
+    expect(getOfferWorkflowDisplayGroup('ready_to_send')).toBe('handed_to_customer');
+    expect(getOfferWorkflowDisplayGroup('sent')).toBe('customer_considering');
     expect(getOfferWorkflowDisplayGroup('accepted')).toBe('accepted');
-    expect(getOfferWorkflowDisplayGroup('declined')).toBe('closed');
-    expect(getOfferWorkflowDisplayLabel('in_approval')).toBe('Interne Prüfung');
+    expect(getOfferWorkflowDisplayGroup('declined')).toBe('declined');
+    expect(getOfferWorkflowDisplayLabel('in_approval')).toBe('Entwurf');
+    expect(getOfferWorkflowDisplayLabel('sent')).toBe('Kunde überlegt');
   });
 
   it('maps contract statuses to display groups', () => {
@@ -77,7 +78,7 @@ describe('Aufräumblock 8 – Angebotsdetail UI', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'A08 Angebot' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Zur Kundenakte' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Zum Kunden' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('tab', { name: 'Übersicht' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Positionen & Konditionen' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Freigabe & Versand' })).toBeInTheDocument();

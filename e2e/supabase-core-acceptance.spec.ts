@@ -219,7 +219,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
       const leadsBefore = await countVisibleLeadCards(page);
       await startNewAdvice(page);
-      await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
+      await page.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }).click();
       await page.getByRole('button', { name: 'Weiter' }).click();
 
       await page.getByRole('button', { name: 'Noch keine Payment-Lösung / aktuelle Kosten 0 €' }).click();
@@ -352,7 +352,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await page.goto(`/offers/${offerId}`);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Zur Kundenakte' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Zum Kunden' })).toBeVisible();
       await assertNoTechnicalIds(page);
 
       await page.getByRole('button', { name: 'Abschließen' }).click();
@@ -383,7 +383,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       }
 
       await page.reload();
-      await expect(page.getByRole('link', { name: 'Zur Kundenakte' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Zum Kunden' })).toBeVisible();
       if (await approvalButton.isVisible().catch(() => false)) {
         await expect(page.getByText(/Freigabe|Wartet|Freigabe anfordern/i)).toBeVisible();
       } else {

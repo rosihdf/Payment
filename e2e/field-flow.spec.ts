@@ -58,10 +58,10 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     // Erfolgreiches Anlegen navigiert zur Kundenakte (/leads/:id).
     await expect(page.getByRole('heading', { name: companyName })).toBeVisible();
 
-    // 4) Beratung OHNE Kunden starten (eigener, unabhängiger Ablauf – "Ohne Kunden rechnen").
+    // 4) Beratung OHNE Kunden starten (eigener, unabhängiger Ablauf – "Ohne Kundenzuordnung beraten").
     await startNewAdvice(page);
     await expect(page.getByRole('heading', { name: 'Beratung', level: 1 })).toBeVisible();
-    await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
+    await page.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     // 5) Ausgangslage: manuelle Kosten inkl. 0 € (OCR-Pfad bleibt alternativ wählbar).

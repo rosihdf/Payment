@@ -43,7 +43,7 @@ export function ProspectStep({
             [
               ['existing', 'Kunde suchen'],
               ['new', 'Neuen Kunden anlegen'],
-              ['anonymous', 'Ohne Kunden rechnen'],
+              ['anonymous', 'Ohne Kundenzuordnung beraten'],
             ] as const
           ).map(([mode, label]) => (
             <button

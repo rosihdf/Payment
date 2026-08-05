@@ -6,7 +6,7 @@ import { getSessionCustomerDisplayName } from '../../../domain/lead/getLeadDispl
 import type { Offer } from '../../../domain/offer/offer';
 import type { OfferPublicationReadiness } from '../../../domain/offer/offerPublicationReadiness';
 import type { OfferVersion } from '../../../domain/offer/offerVersion';
-import { OFFER_WORKFLOW_STATUS_LABELS } from '../../../domain/offer/offerWorkflow';
+import { getOfferWorkflowDisplayLabel } from '../../../features/offer/offerWorkflowDisplay';
 import type { OfferShare } from '../../../domain/offer/offerShare';
 import { SHARE_STATUS_LABELS } from '../../../domain/offer/offerShare';
 import type { OfferUserContext } from '../../../services/offerService';
@@ -182,8 +182,7 @@ export function ClosingStep({
               <dt>Status</dt>
               <dd>
                 {workflowView.workflowStatus
-                  ? OFFER_WORKFLOW_STATUS_LABELS[workflowView.workflowStatus] ??
-                    workflowView.workflowStatus
+                  ? getOfferWorkflowDisplayLabel(workflowView.workflowStatus)
                   : '—'}
               </dd>
             </div>
@@ -268,7 +267,7 @@ export function ClosingStep({
         {workflowStatus ? (
           <StatusBadge
             variant="info"
-            label={OFFER_WORKFLOW_STATUS_LABELS[workflowStatus] ?? workflowStatus}
+            label={getOfferWorkflowDisplayLabel(workflowStatus)}
           />
         ) : null}
         <div className={styles.actions}>

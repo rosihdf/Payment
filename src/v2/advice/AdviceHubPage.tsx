@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
-import {
-  canDiscardEmptyAdviceSession,
-  isEmptyAdviceSession,
-} from '../../domain/bestPayComparison/isEmptyAdviceSession';
+import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import { getVisibleWizardStep } from '../../domain/bestPayComparison/salesWizard';
 import { getSessionCustomerDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -113,7 +110,7 @@ export function AdviceHubPage() {
             aria-label="Offene Beratungen"
             renderItem={(session) => {
               const step = getVisibleWizardStep(session.wizard.currentStep);
-              const empty = canDiscardEmptyAdviceSession(session);
+              const canDelete = !session.offerId;
               return (
                 <DataListCard
                   title={sessionTitle(session)}
@@ -121,7 +118,7 @@ export function AdviceHubPage() {
                   meta={`${formatDate(session.updatedAt)} · ${step.label}`}
                   href={adviceSessionPath(session.id)}
                   footer={
-                    empty ? (
+                    canDelete ? (
                       <Button
                         variant="text"
                         onClick={(event) => {
@@ -143,8 +140,8 @@ export function AdviceHubPage() {
 
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
-        title="Leeren Entwurf löschen?"
-        message="Nur leere Entwürfe können verworfen werden."
+        title="Beratungsentwurf löschen?"
+        message="Der Entwurf wird verworfen. Bereits erzeugte Angebote bleiben erhalten."
         confirmLabel="Löschen"
         cancelLabel="Abbrechen"
         onConfirm={() => {
@@ -152,7 +149,7 @@ export function AdviceHubPage() {
             return;
           }
           void salesWizardService
-            .discardEmptyWizard(pendingDelete.id, {
+            .discardAdviceDraft(pendingDelete.id, {
               userId: currentUser.id,
               role: currentUser.role,
               displayName: currentUser.name,
@@ -161,14 +158,14 @@ export function AdviceHubPage() {
               setPendingDeleteId(null);
               if (!result.ok) {
                 showToast(
-                  result.error === 'not_empty'
-                    ? 'Nur leere Entwürfe können so gelöscht werden'
+                  result.error === 'has_offer'
+                    ? 'Entwurf mit Angebot kann hier nicht gelöscht werden'
                     : 'Entwurf konnte nicht gelöscht werden',
                   'error',
                 );
                 return;
               }
-              showToast('Leerer Entwurf verworfen', 'success');
+              showToast('Beratungsentwurf gelöscht', 'success');
               void reload();
             });
         }}
