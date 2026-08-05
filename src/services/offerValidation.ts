@@ -109,13 +109,14 @@ export function validateCreateOfferInput(
     existingOffer?: Offer | null;
     createdAt?: string;
     originalPricesByProductId?: Map<string, number | null>;
+    allowMissingLead?: boolean;
   },
 ): CreateOfferErrors {
   const errors: CreateOfferErrors = {};
   const sanitized = sanitizeOfferInput(input);
   const itemErrors: Record<number, Partial<Record<CreateOfferItemField, string>>> = {};
 
-  if (!sanitized.leadId.trim()) {
+  if (!options?.allowMissingLead && !sanitized.leadId.trim()) {
     errors.leadId = 'Bitte wählen Sie einen Lead aus.';
   }
 

@@ -28,6 +28,7 @@ import type { BillingImportService } from './billingImportService';
 import type { RecommendationService } from './recommendationService';
 import type { OfferService, OfferUserContext } from './offerService';
 import type { CreateOfferInput } from '../domain/offer/offer';
+import { createCustomerSnapshotFromLead } from '../domain/offer/offerSnapshots';
 import { generateId } from '../utils/id';
 
 export interface BestPayComparisonUserContext {
@@ -712,6 +713,19 @@ export class BestPayComparisonService {
     session.updatedAt = nowIso();
     this.touchTitle(session);
     await this.saveSession(session);
+
+    if (session.offerId) {
+      const offer = await this.offerRepository.getById(session.offerId);
+      if (offer) {
+        await this.offerRepository.update({
+          ...offer,
+          leadId,
+          customerSnapshot: createCustomerSnapshotFromLead(lead),
+          updatedAt: nowIso(),
+        });
+      }
+    }
+
     return { ok: true, session };
   }
 
@@ -729,9 +743,6 @@ export class BestPayComparisonService {
     }
     if (session.offerId) {
       return { ok: true, session, offerId: session.offerId };
-    }
-    if (!session.leadId) {
-      return { ok: false, error: 'lead_required', message: 'Bitte zuerst einen Lead zuordnen.' };
     }
     if (!session.selectedCandidateId || !session.result) {
       return { ok: false, error: 'validation', message: 'Bitte eine Empfehlung auswählen.' };
@@ -759,9 +770,9 @@ export class BestPayComparisonService {
     }
 
     const input: CreateOfferInput = {
-      leadId: session.leadId,
+      leadId: session.leadId ?? '',
       tariffId: variant.tariffId,
-      title: `BestPay-Angebot – ${session.customerLabel ?? 'Händler'}`,
+      title: `BestPay-Angebot – ${session.customerLabel ?? 'Entwurf ohne Kundenbezug'}`,
       introductionText: 'Erstellt aus dem BestPay-Vergleichsrechner.',
       internalNotes: `Herkunft: bestpay_calculator; Session: ${session.id}`,
       customerNotes: '',
@@ -775,7 +786,9 @@ export class BestPayComparisonService {
       displayName: context.displayName ?? context.userId,
     };
 
-    const created = await this.offerService.createOffer(input, offerContext);
+    const created = await this.offerService.createOffer(input, offerContext, {
+      allowMissingLead: !session.leadId,
+    });
     if (!created.ok) {
       return { ok: false, error: 'validation', message: 'Angebot konnte nicht erstellt werden.' };
     }

@@ -24,6 +24,22 @@ export function createCustomerSnapshotFromLead(lead: Lead): OfferCustomerSnapsho
   };
 }
 
+export function createEmptyCustomerSnapshot(): OfferCustomerSnapshot {
+  return {
+    leadId: '',
+    companyName: '',
+    contactFirstName: '',
+    contactLastName: '',
+    street: '',
+    postalCode: '',
+    city: '',
+    email: '',
+    phone: '',
+    taxNumber: '',
+    vatId: '',
+  };
+}
+
 export function createTariffSnapshotFromTariff(tariff: Tariff): OfferTariffSnapshot {
   const terminalType = tariff.supportedTerminalTypes[0] ?? 'stationary';
 

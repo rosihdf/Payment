@@ -19,6 +19,7 @@ import {
 } from '../domain/offer/offerCalculations';
 import {
   createCustomerSnapshotFromLead,
+  createEmptyCustomerSnapshot,
   createProductSnapshotFromProduct,
   createTariffSnapshotFromTariff,
   copyCustomerSnapshot,
@@ -376,11 +377,16 @@ export class OfferService {
     return { items, errors };
   }
 
-  async createOffer(input: CreateOfferInput, context: OfferUserContext): Promise<OfferResult> {
+  async createOffer(
+    input: CreateOfferInput,
+    context: OfferUserContext,
+    options?: { allowMissingLead?: boolean },
+  ): Promise<OfferResult> {
     const sanitized = sanitizeOfferInput(input);
-    const lead = await this.resolveLead(sanitized.leadId, context);
+    const allowMissingLead = options?.allowMissingLead === true && !sanitized.leadId.trim();
+    const lead = allowMissingLead ? null : await this.resolveLead(sanitized.leadId, context);
 
-    if (!lead) {
+    if (!allowMissingLead && !lead) {
       return { ok: false, error: 'forbidden' };
     }
 
@@ -388,6 +394,7 @@ export class OfferService {
     const validationErrors = validateCreateOfferInput(sanitized, {
       createdAt: nowIso(),
       originalPricesByProductId: originalPrices,
+      allowMissingLead,
     });
 
     if (hasOfferValidationErrors(validationErrors)) {
@@ -424,8 +431,8 @@ export class OfferService {
       currentVersionId: null,
       sourceComparisonSessionId: null,
       sourceScenarioId: null,
-      leadId: lead.id,
-      customerSnapshot: createCustomerSnapshotFromLead(lead),
+      leadId: lead?.id ?? '',
+      customerSnapshot: lead ? createCustomerSnapshotFromLead(lead) : createEmptyCustomerSnapshot(),
       tariffSnapshot,
       items,
       title: sanitized.title.trim(),

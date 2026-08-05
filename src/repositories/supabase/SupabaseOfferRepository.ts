@@ -18,7 +18,7 @@ function offerToRow(offer: Offer): Record<string, unknown> {
   const normalized = normalizeOffer(offer);
   return {
     id: normalized.id,
-    lead_id: normalized.leadId,
+    lead_id: normalized.leadId?.trim() ? normalized.leadId : null,
     created_by_user_id: normalized.createdByUserId,
     offer_number: normalized.offerNumber,
     data: normalized,
@@ -31,7 +31,7 @@ function rowToOffer(row: JsonTableRow): Offer {
   return normalizeOffer(
     rowData(row, {
       id: row.id,
-      leadId: row.lead_id,
+      leadId: row.lead_id ? String(row.lead_id) : '',
       createdByUserId: row.created_by_user_id,
       offerNumber: row.offer_number,
       createdAt: row.created_at,

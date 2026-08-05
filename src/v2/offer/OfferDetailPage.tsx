@@ -334,9 +334,11 @@ export function OfferDetailPage() {
         description={`${getLeadDisplayName(offer.customerSnapshot)} · ${offer.offerNumber}`}
         actions={
           <div className={styles.headerActions}>
-            <Link to={`/leads/${offer.leadId}`}>
-              <Button variant="secondary">Zur Kundenakte</Button>
-            </Link>
+            {offer.leadId ? (
+              <Link to={`/leads/${offer.leadId}`}>
+                <Button variant="secondary">Zur Kundenakte</Button>
+              </Link>
+            ) : null}
             {canEdit ? (
               <Link to={`/offers/${offer.id}/edit`}>
                 <Button variant="secondary">Bearbeiten</Button>
