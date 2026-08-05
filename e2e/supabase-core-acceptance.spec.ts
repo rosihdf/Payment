@@ -12,6 +12,7 @@ import {
   createOfferDraft,
   fillNeedStep,
   loginWithSupabaseCredentials,
+  saveCommissionAssignmentDialog,
   startAdviceWithCustomer,
   waitForWorkspaceReady,
   waitForLeadsReady,
@@ -280,6 +281,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await page.getByRole('dialog').getByLabel('Standardbetrag (EUR)').fill(standardOriginalAmount);
       await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByText(/Standardregel.*gespeichert/)).toBeVisible();
+      await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
 
       const employeeSection = page.locator('section').filter({
         has: page.getByRole('heading', { name: 'Außendienst', exact: true }),
@@ -300,11 +302,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await shareInput.fill('42');
       await expect(shareInput).toHaveValue('42');
       await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
-      await employeeDialog.getByRole('button', { name: 'Speichern' }).click();
-      await expect(employeeDialog).toHaveCount(0, { timeout: 20_000 });
-      await expect(page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' })).toBeVisible({
-        timeout: 20_000,
-      });
+      await saveCommissionAssignmentDialog(page, employeeDialog);
 
       await page.reload();
       await expect(
@@ -320,13 +318,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
 
       await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
       await reloadedShareInput.fill(employeeOriginalShare);
-      await reloadedDialog.getByRole('button', { name: 'Speichern' }).click();
-      await expect(page.getByRole('dialog', { name: /Vereinbarung –/ })).toHaveCount(0, {
-        timeout: 20_000,
-      });
-      await expect(page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' })).toBeVisible({
-        timeout: 20_000,
-      });
+      await saveCommissionAssignmentDialog(page, reloadedDialog);
     } finally {
       await context.close();
     }
