@@ -14,7 +14,7 @@ import { FormField } from '../ui/FormField';
 import { PageHeader } from '../ui/PageHeader';
 import styles from './WorkspacePage.module.css';
 
-function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
+function DayWorkCard({ entry, showDueDate = true }: { entry: SalesDayWorkEntry; showDueDate?: boolean }) {
   const primaryHref = entry.actionHref ?? entry.customerHref;
   return (
     <DataListCard
@@ -22,8 +22,15 @@ function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
       meta={
         <>
           <span>{entry.standLabel}</span>
-          <span>{entry.nextActionLabel}</span>
-          <span>Fälligkeit: {entry.dueAt ? formatDateTime(entry.dueAt) : '–'}</span>
+          {entry.taskTitle ? <span>{entry.taskTitle}</span> : null}
+          {!entry.taskTitle && entry.nextActionLabel !== 'Fortsetzen' ? (
+            <span>{entry.nextActionLabel}</span>
+          ) : null}
+          {showDueDate ? (
+            <span>Fälligkeit: {entry.dueAt ? formatDateTime(entry.dueAt) : '–'}</span>
+          ) : entry.lastActivityAt ? (
+            <span>Zuletzt bearbeitet: {formatDateTime(entry.lastActivityAt)}</span>
+          ) : null}
           {entry.warning ? <span>{entry.warning}</span> : null}
         </>
       }
@@ -222,10 +229,16 @@ export function WorkspacePage() {
       ) : (
         <div className={styles.sections}>
           {[
-            { id: 'overdue', title: 'Überfällig', entries: view.dayWork.overdue },
-            { id: 'today', title: 'Heute', entries: view.dayWork.today },
-            { id: 'blocked', title: 'Blockiert', entries: view.dayWork.blocked },
-            { id: 'next', title: 'Nächste Kundenfälle', entries: view.dayWork.nextCases },
+            {
+              id: 'advice-drafts',
+              title: 'Beratungen fortsetzen',
+              entries: view.dayWork.adviceDrafts,
+              showDueDate: false,
+            },
+            { id: 'overdue', title: 'Überfällig', entries: view.dayWork.overdue, showDueDate: true },
+            { id: 'today', title: 'Heute', entries: view.dayWork.today, showDueDate: true },
+            { id: 'blocked', title: 'Blockiert', entries: view.dayWork.blocked, showDueDate: true },
+            { id: 'next', title: 'Nächste Kundenfälle', entries: view.dayWork.nextCases, showDueDate: true },
           ].map((section) => (
             <section key={section.id} aria-labelledby={section.id}>
               <h2 id={section.id} className={styles.sectionTitle}>
@@ -237,7 +250,9 @@ export function WorkspacePage() {
                 <DataList
                   items={section.entries}
                   getKey={(entry) => entry.id}
-                  renderItem={(entry) => <DayWorkCard entry={entry} />}
+                  renderItem={(entry) => (
+                    <DayWorkCard entry={entry} showDueDate={section.showDueDate} />
+                  )}
                 />
               )}
             </section>

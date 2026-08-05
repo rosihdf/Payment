@@ -39,9 +39,10 @@ describe('B02 Sales Workspace', () => {
     expect(screen.getByRole('link', { name: 'Kunden suchen' })).toHaveAttribute('href', '/leads');
   });
 
-  it('zeigt genau vier Tagesbereiche ohne Pipeline und Kennzahlen', async () => {
+  it('zeigt die Tagesbereiche inklusive Beratungsentwürfe ohne Pipeline und Kennzahlen', async () => {
     renderAtRoute('/sales');
-    expect(await screen.findByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Beratungen fortsetzen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Heute' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nächste Kundenfälle' })).toBeInTheDocument();

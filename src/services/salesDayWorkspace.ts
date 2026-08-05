@@ -1,5 +1,6 @@
 import type { CustomerPrimaryAction } from '../domain/salesWorkspace/customerRecordView';
 import type { SalesTask } from '../domain/salesWorkspace/salesTask';
+import { ANONYMOUS_ADVICE_DISPLAY_NAME } from '../domain/lead/getLeadDisplayName';
 import { dueBucketOf } from './salesTaskService';
 
 export interface SalesDayWorkEntry {
@@ -14,9 +15,12 @@ export interface SalesDayWorkEntry {
   actionHref: string | null;
   customerHref: string | null;
   warning: string | null;
+  /** Letzter Bearbeitungszeitpunkt (Beratungsentwürfe). */
+  lastActivityAt?: string | null;
 }
 
 export interface SalesDayWorkspaceSections {
+  adviceDrafts: SalesDayWorkEntry[];
   overdue: SalesDayWorkEntry[];
   today: SalesDayWorkEntry[];
   blocked: SalesDayWorkEntry[];
@@ -39,6 +43,8 @@ export interface SalesDayCaseCard {
   lastActivityAt: string | null;
   primaryKind: CustomerPrimaryAction['kind'];
   isHardBlocked: boolean;
+  sessionId?: string | null;
+  staleCalculation?: boolean;
 }
 
 function isOpenTask(task: SalesTask): boolean {
@@ -89,6 +95,26 @@ function entryFromCard(
   };
 }
 
+function isWizardContinuationTask(task: SalesTask): boolean {
+  return task.type === 'continue_calculation' || task.origin === 'automatic' && Boolean(task.comparisonSessionId);
+}
+
+function entryFromAdviceDraft(card: SalesDayCaseCard): SalesDayWorkEntry {
+  return {
+    id: `advice:${card.sessionId ?? card.id}`,
+    leadId: card.leadId,
+    companyName: card.companyName,
+    taskTitle: null,
+    dueAt: null,
+    standLabel: card.standLabel || 'Beratung',
+    nextActionLabel: 'Fortsetzen',
+    actionHref: card.nextActionHref ?? null,
+    customerHref: customerHref(card.leadId),
+    warning: card.staleCalculation ? 'Berechnung veraltet' : card.warning,
+    lastActivityAt: card.lastActivityAt,
+  };
+}
+
 function entryFromTask(
   task: SalesTask,
   card: SalesDayCaseCard | undefined,
@@ -96,7 +122,7 @@ function entryFromTask(
   return {
     id: `task:${task.id}`,
     leadId: task.leadId,
-    companyName: card?.companyName ?? 'Ohne Kunde',
+    companyName: card?.companyName ?? ANONYMOUS_ADVICE_DISPLAY_NAME,
     taskTitle: task.title,
     dueAt: task.dueAt,
     standLabel: card?.standLabel || card?.phaseLabel || '–',
@@ -113,13 +139,26 @@ function entryFromTask(
 export function buildSalesDayWorkspaceSections(input: {
   cards: SalesDayCaseCard[];
   tasks: SalesTask[];
+  adviceDraftCards?: SalesDayCaseCard[];
   now?: Date;
 }): SalesDayWorkspaceSections {
   const now = input.now ?? new Date();
+  const adviceDraftSessionIds = new Set(
+    (input.adviceDraftCards ?? [])
+      .map((card) => card.sessionId)
+      .filter((id): id is string => Boolean(id)),
+  );
   const cardsByLead = new Map(
     input.cards.filter((card) => card.leadId).map((card) => [card.leadId as string, card]),
   );
-  const openTasks = input.tasks.filter(isOpenTask);
+  const cardsBySession = new Map(
+    input.cards
+      .filter((card) => card.sessionId)
+      .map((card) => [card.sessionId as string, card]),
+  );
+  const actionableTasks = input.tasks.filter(
+    (task) => isOpenTask(task) && !isWizardContinuationTask(task),
+  );
 
   const blockedCards = input.cards
     .filter((card) => card.isHardBlocked)
@@ -141,7 +180,7 @@ export function buildSalesDayWorkspaceSections(input: {
     blockedCards.map((card) => card.leadId).filter((id): id is string => Boolean(id)),
   );
 
-  const overdueTasks = openTasks
+  const overdueTasks = actionableTasks
     .filter((task) => dueBucketOf(task, now) === 'overdue')
     .filter((task) => !task.leadId || !blockedLeadIds.has(task.leadId))
     .sort((left, right) => (left.dueAt ?? '').localeCompare(right.dueAt ?? ''));
@@ -150,7 +189,7 @@ export function buildSalesDayWorkspaceSections(input: {
     overdueTasks.map((task) => task.leadId).filter((id): id is string => Boolean(id)),
   );
 
-  const todayTasks = openTasks
+  const todayTasks = actionableTasks
     .filter((task) => dueBucketOf(task, now) === 'today')
     .filter(
       (task) =>
@@ -202,6 +241,7 @@ export function buildSalesDayWorkspaceSections(input: {
   const nextCases = input.cards
     .filter((card) => {
       if (!card.leadId || claimedLeadIds.has(card.leadId)) return false;
+      if (card.sessionId && adviceDraftSessionIds.has(card.sessionId)) return false;
       if (card.primaryKind === 'none') return false;
       return true;
     })
@@ -224,13 +264,35 @@ export function buildSalesDayWorkspaceSections(input: {
     )
     .slice(0, 30);
 
+  const adviceDrafts = (input.adviceDraftCards ?? [])
+    .slice()
+    .sort((left, right) =>
+      (right.lastActivityAt ?? '').localeCompare(left.lastActivityAt ?? ''),
+    )
+    .map((card) => entryFromAdviceDraft(card));
+
   return {
+    adviceDrafts,
     overdue: overdueTasks.map((task) =>
-      entryFromTask(task, task.leadId ? cardsByLead.get(task.leadId) : undefined),
+      entryFromTask(
+        task,
+        task.leadId
+          ? cardsByLead.get(task.leadId)
+          : task.comparisonSessionId
+            ? cardsBySession.get(task.comparisonSessionId)
+            : undefined,
+      ),
     ),
     today: [
       ...todayTasks.map((task) =>
-        entryFromTask(task, task.leadId ? cardsByLead.get(task.leadId) : undefined),
+        entryFromTask(
+          task,
+          task.leadId
+            ? cardsByLead.get(task.leadId)
+            : task.comparisonSessionId
+              ? cardsBySession.get(task.comparisonSessionId)
+              : undefined,
+        ),
       ),
       ...todayCaseCards.map((card) => entryFromCard(card)),
     ],

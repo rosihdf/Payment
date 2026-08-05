@@ -3,6 +3,7 @@ import type { BestPayComparisonSession } from '../bestPayComparison/bestPayCompa
 import { formatContactName } from '../../utils/format';
 
 export const UNNAMED_LEAD_DISPLAY_NAME = 'Unbenannter Kunde';
+export const ANONYMOUS_ADVICE_DISPLAY_NAME = 'Beratung ohne Kundenzuordnung';
 
 export type LeadDisplayNameInput = Pick<
   Lead,
@@ -92,10 +93,10 @@ export function enrichLeadWithDisplayName(lead: Lead): Lead {
 export function getSessionCustomerDisplayName(
   session: Pick<
     BestPayComparisonSession,
-    'customerLabel' | 'leadDisplayName' | 'title' | 'wizard'
+    'customerLabel' | 'leadDisplayName' | 'title' | 'wizard' | 'leadId'
   >,
 ): string {
-  return resolveStoredLeadLabel(
+  const resolved = resolveStoredLeadLabel(
     session.customerLabel,
     session.leadDisplayName,
     getLeadDisplayName({
@@ -106,4 +107,14 @@ export function getSessionCustomerDisplayName(
     }),
     session.title,
   );
+  if (
+    !session.leadId &&
+    resolved === UNNAMED_LEAD_DISPLAY_NAME &&
+    !session.wizard.prospectDraft.companyName.trim() &&
+    !session.wizard.prospectDraft.contactFirstName.trim() &&
+    !session.wizard.prospectDraft.contactLastName.trim()
+  ) {
+    return ANONYMOUS_ADVICE_DISPLAY_NAME;
+  }
+  return resolved;
 }

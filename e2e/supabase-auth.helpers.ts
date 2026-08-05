@@ -189,6 +189,27 @@ export async function calculateRecommendation(page: Page): Promise<void> {
   await expect(page.getByText(/NaN|Infinity/i)).toHaveCount(0);
 }
 
+/** Zählt Leads über den angemeldeten Acceptance-User (RLS-sichtbar). */
+export async function countVisibleLeads(env: Record<string, string>, email: string, password: string): Promise<number> {
+  const url = env.VITE_SUPABASE_URL?.trim();
+  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!url || !key) {
+    throw new Error('VITE_SUPABASE_URL oder VITE_SUPABASE_PUBLISHABLE_KEY fehlt');
+  }
+  const { createClient } = await import('@supabase/supabase-js');
+  const client = createClient(url, key, { auth: { persistSession: false } });
+  const { error: authError } = await client.auth.signInWithPassword({ email, password });
+  if (authError) {
+    throw new Error(`Lead-Zählung: Login fehlgeschlagen (${authError.message})`);
+  }
+  const { count, error } = await client.from('leads').select('id', { count: 'exact', head: true });
+  await client.auth.signOut();
+  if (error) {
+    throw new Error(`Lead-Zählung fehlgeschlagen: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
 export async function createOfferDraft(page: Page): Promise<string | null> {
   const offerHeading = page.getByRole('heading', { name: 'Angebot', level: 2 });
   if (!(await offerHeading.isVisible().catch(() => false))) {

@@ -27,6 +27,7 @@ const emptyView = {
   canUseTeamScope: false,
   searchHits: [],
   dayWork: {
+    adviceDrafts: [],
     overdue: [],
     today: [],
     blocked: [],

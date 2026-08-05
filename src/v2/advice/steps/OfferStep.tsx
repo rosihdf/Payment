@@ -133,8 +133,17 @@ export function OfferStep({
         ) : (
           <p className={styles.hint}>Bitte zuerst eine Empfehlung wählen.</p>
         )}
+        {!session.leadId ? (
+          <p className={styles.hint}>
+            Bitte zuerst einen Kunden zuordnen, bevor ein Angebotsentwurf erzeugt wird.
+          </p>
+        ) : null}
         <div className={styles.actions}>
-          <Button loading={busy} disabled={!selectedVariant} onClick={onCreateOffer}>
+          <Button
+            loading={busy}
+            disabled={!selectedVariant || !session.leadId}
+            onClick={onCreateOffer}
+          >
             Angebotsentwurf erzeugen
           </Button>
           {session.offerId ? (

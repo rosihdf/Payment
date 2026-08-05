@@ -117,4 +117,9 @@ describe('getSessionCustomerDisplayName', () => {
     expect(getSessionCustomerDisplayName(session)).toBe('Laura Berger');
     expect(resolveBestPayComparisonTitle(session)).toBe('Laura Berger');
   });
+
+  it('kennzeichnet anonyme Beratung ohne Prospect-Daten', () => {
+    const session = createBestPayComparisonSession('user_001');
+    expect(getSessionCustomerDisplayName(session)).toBe('Beratung ohne Kundenzuordnung');
+  });
 });

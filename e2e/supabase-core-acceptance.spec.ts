@@ -17,6 +17,7 @@ import {
   startAdviceWithCustomer,
   waitForWorkspaceReady,
   waitForLeadsReady,
+  countVisibleLeads,
 } from './supabase-auth.helpers';
 
 const env = loadSupabaseEnv();
@@ -215,6 +216,11 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
     const context = await createFreshContext(browser);
     const page = await context.newPage();
     try {
+      const leadsBefore = await countVisibleLeads(
+        env,
+        credentials.adminEmail,
+        credentials.adminPassword,
+      );
       await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
       await startNewAdvice(page);
       await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
@@ -242,6 +248,28 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       });
       await expect(page.getByText(/Ist-Kosten:\s*0,00\s*€/)).toBeVisible();
       await expect(page.getByText(/NaN|Infinity/i)).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible();
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await calculateRecommendation(page);
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await expect(page.getByRole('heading', { name: 'Angebot', level: 2 })).toBeVisible();
+      await expect(
+        page.getByText(/Bitte zuerst einen Kunden zuordnen/i),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Angebotsentwurf erzeugen' })).toBeDisabled();
+
+      const leadsAfter = await countVisibleLeads(
+        env,
+        credentials.adminEmail,
+        credentials.adminPassword,
+      );
+      expect(leadsAfter).toBe(leadsBefore);
+
+      await page.goto('/leads');
+      await waitForLeadsReady(page);
+      await expect(page.getByText('Beratung ohne Kunde')).toHaveCount(0);
     } finally {
       await context.close();
     }

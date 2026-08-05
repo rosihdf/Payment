@@ -236,46 +236,26 @@ export class SalesWorkspaceService {
       return;
     }
 
-    const sessions = (await this.bestPayComparisonRepository.getAll()).filter((session) =>
-      this.isSessionVisible(session, context),
-    );
-    if (isCancelled()) {
-      return;
-    }
     const offers = (await this.offerRepository.getAll()).filter((offer) =>
       this.isOfferVisible(offer, context),
     );
     const syncJobs: Array<Promise<unknown>> = [];
 
-    for (const session of sessions) {
+    const staleContinueTasks = (await this.taskRepository.getAll()).filter(
+      (task) =>
+        task.type === 'continue_calculation' &&
+        (task.status === 'open' || task.status === 'in_progress') &&
+        task.sourceKey?.startsWith('auto:continue_calculation:'),
+    );
+    for (const task of staleContinueTasks) {
       if (isCancelled()) {
         return;
       }
-      if (
-        session.status === 'discarded' ||
-        session.archivedAt ||
-        session.wizard.wizardCompletedAt ||
-        session.completedAt
-      ) {
-        continue;
-      }
-      if (session.entryMode === 'wizard' || session.wizard.enabled) {
-        syncJobs.push(
-          this.taskService.ensureAutomaticTask(
-            {
-              title: 'Berechnung fortsetzen',
-              type: 'continue_calculation',
-              priority: 'high',
-              dueAt: endOfDayIso(),
-              leadId: session.leadId,
-              comparisonSessionId: session.id,
-              wizardEnabled: true,
-              sourceKey: `auto:continue_calculation:${session.id}`,
-            },
-            context,
-          ),
-        );
-      }
+      syncJobs.push(
+        this.taskService.cancelTask(task.id, context).catch((error) => {
+          console.error('Veraltete Fortsetzungsaufgabe konnte nicht geschlossen werden:', error);
+        }),
+      );
     }
 
     const [contracts, activations] = await Promise.all([
@@ -590,6 +570,57 @@ export class SalesWorkspaceService {
           !session.archivedAt,
       )
       .slice(0, 50);
+
+    const adviceDraftCards: SalesCaseCard[] = incompleteWizards.map((session) => {
+      const lead = session.leadId ? leads.find((entry) => entry.id === session.leadId) ?? null : null;
+      const sessionTasks = tasks.filter((task) => task.comparisonSessionId === session.id);
+      const sessionActivities = activities.filter(
+        (activity) => activity.comparisonSessionId === session.id,
+      );
+      const sessionOffers = offers.filter((offer) => offer.id === session.offerId);
+      const facts = {
+        lead,
+        sessions: [session],
+        offers: sessionOffers,
+        tasks: sessionTasks,
+        activities: sessionActivities,
+        commissionCaseStatus: null,
+        approvalRequired: this.approvalRequiredForSession(session),
+        approvalBlocked: Boolean(
+          session.wizard.scenarios.find((s) => s.id === session.wizard.selectedScenarioId)
+            ?.approval?.approvalBlocked,
+        ),
+      };
+      const phase = deriveSalesPipelinePhase(facts);
+      const isHardBlocked = Boolean(facts.approvalBlocked);
+      return {
+        id: session.id,
+        kind: session.leadId ? ('lead' as const) : ('unassigned' as const),
+        leadId: session.leadId,
+        companyName: getSessionCustomerDisplayName(session),
+        contactName: lead ? contactName(lead) : 'Nicht zugeordnet',
+        phase,
+        phaseLabel: SALES_PIPELINE_PHASE_LABELS[phase],
+        standLabel: 'Beratung',
+        ownerUserId: session.createdByUserId,
+        lastActivityAt: session.updatedAt,
+        nextTaskTitle: null,
+        nextTaskDueAt: null,
+        isOverdue: false,
+        sessionId: session.id,
+        wizardStep: session.wizard.enabled ? session.wizard.currentStep : null,
+        offerId: session.offerId,
+        offerNumber: session.offerNumber,
+        expectedValueCents: null,
+        nextActionLabel: 'Fortsetzen',
+        nextActionHref: salesWizardSessionPath(session.id),
+        warning: isHardBlocked ? 'Freigabe blockiert' : null,
+        staleCalculation: Boolean(session.result?.stale),
+        primaryKind: isHardBlocked ? ('blocker' as const) : ('continue_advice' as const),
+        isHardBlocked,
+      };
+    });
+
     const staleCalculations = sessions
       .filter((session) => session.result?.stale && session.status !== 'discarded')
       .slice(0, 50);
@@ -704,6 +735,7 @@ export class SalesWorkspaceService {
     const dayWork = buildSalesDayWorkspaceSections({
       cards,
       tasks: openTasks,
+      adviceDraftCards,
     });
 
     const notifications = buildSalesGuideNotifications(
