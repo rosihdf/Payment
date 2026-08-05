@@ -146,7 +146,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await gotoSidebar(page, 'Kunden');
       await waitForLeadsReady(page);
       const foreignLeadLinks = page
-        .getByRole('link', { name: /GmbH|AG|KG|e\.K\.|Handel/i })
+        .getByRole('link', { name: /GmbH|AG|KG|e\.K\.|Handel|UG/i })
         .filter({ hasNotText: ACCEPTANCE_TAG });
       const foreignLeadCount = await foreignLeadLinks.count();
       if (foreignLeadCount > 0) {

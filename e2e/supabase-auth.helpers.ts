@@ -110,56 +110,38 @@ export async function waitForCommissionAssignmentDialogReady(dialog: Locator): P
   await expect(dialog.getByRole('button', { name: 'Speichern' })).toBeEnabled({ timeout: 30_000 });
 }
 
-/** Wartet auf Remote-Persistenz der Mitarbeitervereinbarung (Supabase assignment upsert). */
+/** Wartet auf atomaren RPC-Save der Mitarbeitervereinbarung. */
 export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator): Promise<void> {
   const saveButton = dialog.getByRole('button', { name: 'Speichern' });
   await expect(saveButton).toBeEnabled({ timeout: 30_000 });
 
-  const waitForCommissionWrite = () =>
-    page
-      .waitForResponse(
-        (response) => {
-          const url = response.url();
-          const method = response.request().method();
-          return (
-            (url.includes('commission_assignments') ||
-              url.includes('commission_assignment_versions')) &&
-            ['POST', 'PATCH'].includes(method) &&
-            response.ok()
-          );
-        },
-        { timeout: 60_000 },
-      )
-      .catch(() => null);
+  const waitForAtomicRpc = () =>
+    page.waitForResponse(
+      (response) => {
+        const url = response.url();
+        const method = response.request().method();
+        return (
+          method === 'POST' &&
+          url.includes('/rest/v1/rpc/save_commission_assignment_version') &&
+          response.ok()
+        );
+      },
+      { timeout: 45_000 },
+    );
 
-  const waitForSaveSuccess = async (): Promise<void> => {
-    const writeDone = waitForCommissionWrite();
-    const savedStatus = expect(
-      page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' }),
-    ).toBeVisible({ timeout: 60_000 });
-    const dialogClosed = expect(dialog).toHaveCount(0, { timeout: 60_000 });
+  const rpcDone = waitForAtomicRpc();
+  await saveButton.click();
 
-    await saveButton.click();
-    await Promise.race([Promise.all([writeDone, savedStatus]), dialogClosed]);
-    await expect(dialog).toHaveCount(0, { timeout: 5_000 });
-  };
-
-  try {
-    await waitForSaveSuccess();
-  } catch {
-    if ((await dialog.count()) === 0) {
-      return;
-    }
-    const errorAlert = dialog.getByRole('alert');
-    if (await errorAlert.isVisible()) {
-      throw new Error(`Provisions-Save fehlgeschlagen: ${await errorAlert.innerText()}`);
-    }
-    // Kein erneuter Klick: laufender Save darf unter Last länger dauern.
-    await expect(dialog).toHaveCount(0, { timeout: 60_000 });
-    await expect(
-      page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' }),
-    ).toBeVisible({ timeout: 5_000 });
+  const rpcResponse = await rpcDone;
+  const body = (await rpcResponse.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (body && body.ok === false) {
+    throw new Error(`Provisions-RPC abgelehnt: ${body.error ?? 'unbekannt'}`);
   }
+
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(dialog).toHaveCount(0, { timeout: 10_000 });
 }
 
 export async function startAdviceWithCustomer(page: Page, companyName: string): Promise<void> {
