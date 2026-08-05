@@ -7,7 +7,7 @@ const terminate = vi.fn(async () => undefined);
 const createWorker = vi.fn(async () => ({ recognize, terminate }));
 
 vi.mock('tesseract.js', () => ({
-  createWorker: (...args: unknown[]) => createWorker(...args),
+  createWorker: () => createWorker(),
 }));
 
 vi.mock('../domain/billingImportEngine/billingOcrAssetPaths', () => ({

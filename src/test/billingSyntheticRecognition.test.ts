@@ -15,7 +15,7 @@ function fieldsFrom(text: string) {
   return detectBillingFieldCandidates(
     'doc_synthetic',
     [{ pageNumber: 1, text, lineNumber: 1, confidence: 0.9 }],
-    'pdf_text',
+    'embedded_text',
   );
 }
 

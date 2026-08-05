@@ -32,7 +32,7 @@ describe('CostsStep OCR-Sichtbarkeit', () => {
 
   it('blendet Abrechnung einlesen ohne Feature-Flag aus', () => {
     vi.mocked(isAdviceBillingOcrImportEnabled).mockReturnValue(false);
-    const session = createBestPayComparisonSession({ createdByUserId: 'user_001' });
+    const session = createBestPayComparisonSession('user_001');
     render(<CostsStep {...baseProps} session={session} costCaptureMode={null} />);
     expect(screen.queryByRole('button', { name: 'Abrechnung einlesen' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Kosten manuell eingeben' })).toBeTruthy();
@@ -43,7 +43,7 @@ describe('CostsStep OCR-Sichtbarkeit', () => {
 
   it('zeigt Abrechnung einlesen mit Feature-Flag', () => {
     vi.mocked(isAdviceBillingOcrImportEnabled).mockReturnValue(true);
-    const session = createBestPayComparisonSession({ createdByUserId: 'user_001' });
+    const session = createBestPayComparisonSession('user_001');
     render(<CostsStep {...baseProps} session={session} costCaptureMode={null} />);
     expect(screen.getByRole('button', { name: 'Abrechnung einlesen' })).toBeTruthy();
   });

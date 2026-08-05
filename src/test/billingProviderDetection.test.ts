@@ -26,7 +26,7 @@ describe('billingProviderDetection', () => {
           confidence: 0.92,
         },
       ],
-      'pdf_text',
+      'embedded_text',
     );
     const provider = fields.find((field) => field.fieldCode === BILLING_FIELD_CODES.PROVIDER_NAME);
     expect(provider?.normalizedValue).toBe('SumUp');
