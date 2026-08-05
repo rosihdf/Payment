@@ -4,6 +4,7 @@ import type {
   BestPayManualInput,
 } from './bestPayComparisonSession';
 import type { CostCaptureMode } from './costCaptureMode';
+import { mapProviderNameToSelection } from './currentProviderCatalog';
 
 export type SalesWizardStepId =
   | 'prospect'
@@ -65,7 +66,12 @@ export interface SalesWizardProspectDraft {
   phone: string;
   email: string;
   industry: string;
+  /** @deprecated Anbieter liegt in currentProviderCode/Other; notes nur noch allgemeine Notiz. */
   notes: string;
+  /** Katalogcode: bekannter Anbieter | 'other' | 'none' | '' */
+  currentProviderCode: string;
+  /** Freitext nur bei currentProviderCode === 'other' */
+  currentProviderOther: string;
 }
 
 export interface SalesWizardScenarioConfig {
@@ -117,7 +123,30 @@ export const DEFAULT_SALES_WIZARD_PROSPECT: SalesWizardProspectDraft = {
   email: '',
   industry: '',
   notes: '',
+  currentProviderCode: '',
+  currentProviderOther: '',
 };
+
+/** Normalisiert ältere Sessions, in denen der Anbieter nur in notes lag. */
+export function normalizeProspectDraftProvider(
+  draft: SalesWizardProspectDraft,
+): SalesWizardProspectDraft {
+  const code = draft.currentProviderCode ?? '';
+  const other = draft.currentProviderOther ?? '';
+  if (code) {
+    return { ...draft, currentProviderCode: code, currentProviderOther: other };
+  }
+  const notes = draft.notes?.trim() ?? '';
+  if (!notes) {
+    return { ...draft, currentProviderCode: '', currentProviderOther: '' };
+  }
+  const mapped = mapProviderNameToSelection(notes);
+  return {
+    ...draft,
+    currentProviderCode: mapped.code,
+    currentProviderOther: mapped.other,
+  };
+}
 
 export const DEFAULT_SALES_WIZARD_STATE: SalesWizardState = {
   enabled: false,

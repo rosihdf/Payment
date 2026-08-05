@@ -4,6 +4,12 @@ import {
   COST_CAPTURE_MODE_LABELS,
   type CostCaptureMode,
 } from '../../../domain/bestPayComparison/costCaptureMode';
+import {
+  CURRENT_PROVIDER_NONE,
+  CURRENT_PROVIDER_OTHER,
+  KNOWN_CURRENT_PROVIDERS,
+} from '../../../domain/bestPayComparison/currentProviderCatalog';
+import { normalizeProspectDraftProvider } from '../../../domain/bestPayComparison/salesWizard';
 import { isAdviceBillingOcrImportEnabled } from '../../../config/billingOcrFeature';
 import type { BestPayComparisonUserContext } from '../../../services/bestPayComparisonService';
 import type { BillingImportService } from '../../../services/billingImportService';
@@ -25,18 +31,22 @@ interface CostsStepProps {
   billingImportService: BillingImportService;
   onSelectMode: (mode: CostCaptureMode) => void;
   onPatchCosts: (monthlyTotalCostsCents: number | null) => void;
-  onPatchCurrentProvider: (provider: string) => void;
+  onPatchCurrentProvider: (patch: {
+    currentProviderCode: string;
+    currentProviderOther: string;
+  }) => void;
   onBaselineConfirmed: (options?: { replaceExistingManualValues?: boolean }) => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
 function hasExistingManualCostValues(session: BestPayComparisonSession): boolean {
   const input = session.manualInput;
+  const prospect = normalizeProspectDraftProvider(session.wizard.prospectDraft);
   return (
     (input.monthlyTotalCostsCents !== null && input.monthlyTotalCostsCents !== 0) ||
     input.monthlyCardVolumeCents !== null ||
     input.monthlyTransactions !== null ||
-    Boolean(session.wizard.prospectDraft.notes.trim())
+    Boolean(prospect.currentProviderCode)
   );
 }
 
@@ -52,17 +62,28 @@ export function CostsStep({
   onBaselineConfirmed,
   showToast,
 }: CostsStepProps) {
-  const [providerNotes, setProviderNotes] = useState(session.wizard.prospectDraft.notes);
+  const prospect = normalizeProspectDraftProvider(session.wizard.prospectDraft);
+  const [providerCode, setProviderCode] = useState(prospect.currentProviderCode);
+  const [providerOther, setProviderOther] = useState(prospect.currentProviderOther);
   const [overwritePromptOpen, setOverwritePromptOpen] = useState(false);
   const billingOcrEnabled = isAdviceBillingOcrImportEnabled();
 
   useEffect(() => {
-    setProviderNotes(session.wizard.prospectDraft.notes);
-  }, [session.wizard.prospectDraft.notes]);
+    const next = normalizeProspectDraftProvider(session.wizard.prospectDraft);
+    setProviderCode(next.currentProviderCode);
+    setProviderOther(next.currentProviderOther);
+  }, [session.wizard.prospectDraft]);
 
-  const commitProviderNotes = () => {
-    if (providerNotes !== session.wizard.prospectDraft.notes) {
-      onPatchCurrentProvider(providerNotes);
+  const commitProvider = (code: string, other: string) => {
+    const normalizedOther = code === CURRENT_PROVIDER_OTHER ? other.trim() : '';
+    if (
+      code !== prospect.currentProviderCode ||
+      normalizedOther !== prospect.currentProviderOther
+    ) {
+      onPatchCurrentProvider({
+        currentProviderCode: code,
+        currentProviderOther: normalizedOther,
+      });
     }
   };
 
@@ -198,13 +219,42 @@ export function CostsStep({
       {costCaptureMode ? (
         <article className={styles.card}>
           <FormField
-            type="text"
+            type="select"
             id="currentProvider"
-            label="Aktueller Anbieter (optional)"
-            value={providerNotes}
-            onChange={(event) => setProviderNotes(event.target.value)}
-            onBlur={commitProviderNotes}
-          />
+            label="Aktueller Anbieter"
+            value={providerCode}
+            disabled={busy}
+            onChange={(event) => {
+              const next = event.target.value;
+              setProviderCode(next);
+              if (next !== CURRENT_PROVIDER_OTHER) {
+                setProviderOther('');
+                commitProvider(next, '');
+              } else {
+                commitProvider(next, providerOther);
+              }
+            }}
+          >
+            <option value="">Bitte wählen</option>
+            <option value={CURRENT_PROVIDER_NONE}>Noch kein Anbieter</option>
+            {KNOWN_CURRENT_PROVIDERS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+            <option value={CURRENT_PROVIDER_OTHER}>Anderer Anbieter</option>
+          </FormField>
+          {providerCode === CURRENT_PROVIDER_OTHER ? (
+            <FormField
+              type="text"
+              id="currentProviderOther"
+              label="Anbietername"
+              value={providerOther}
+              disabled={busy}
+              onChange={(event) => setProviderOther(event.target.value)}
+              onBlur={() => commitProvider(CURRENT_PROVIDER_OTHER, providerOther)}
+            />
+          ) : null}
         </article>
       ) : null}
     </div>

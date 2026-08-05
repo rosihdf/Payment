@@ -99,6 +99,14 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
         email: typeof prospectRaw?.email === 'string' ? prospectRaw.email : '',
         industry: typeof prospectRaw?.industry === 'string' ? prospectRaw.industry : '',
         notes: typeof prospectRaw?.notes === 'string' ? prospectRaw.notes : '',
+        currentProviderCode:
+          typeof prospectRaw?.currentProviderCode === 'string'
+            ? prospectRaw.currentProviderCode
+            : '',
+        currentProviderOther:
+          typeof prospectRaw?.currentProviderOther === 'string'
+            ? prospectRaw.currentProviderOther
+            : '',
       },
       scenarios: Array.isArray(wizardRaw?.scenarios)
         ? (wizardRaw.scenarios as BestPayComparisonSession['wizard']['scenarios'])

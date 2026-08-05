@@ -29,6 +29,7 @@ import type { RecommendationService } from './recommendationService';
 import type { OfferService, OfferUserContext } from './offerService';
 import type { CreateOfferInput } from '../domain/offer/offer';
 import { createCustomerSnapshotFromLead } from '../domain/offer/offerSnapshots';
+import { mapProviderNameToSelection } from '../domain/bestPayComparison/currentProviderCatalog';
 import { generateId } from '../utils/id';
 
 export interface BestPayComparisonUserContext {
@@ -563,10 +564,15 @@ export class BestPayComparisonService {
       const providerName =
         data?.documents.find((document) => document.detectedProviderName)?.detectedProviderName ??
         null;
-      if (providerName && (replace || !session.wizard.prospectDraft.notes.trim())) {
+      if (
+        providerName &&
+        (replace || !session.wizard.prospectDraft.currentProviderCode?.trim())
+      ) {
+        const mapped = mapProviderNameToSelection(providerName);
         session.wizard.prospectDraft = {
           ...session.wizard.prospectDraft,
-          notes: providerName,
+          currentProviderCode: mapped.code,
+          currentProviderOther: mapped.other,
         };
       }
 
