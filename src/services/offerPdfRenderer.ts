@@ -10,105 +10,90 @@ import {
 import type { OfferDocumentSnapshot } from '../domain/offerDocument/offerDocument';
 import { formatContactName, formatDate } from '../utils/format';
 import { formatCentsToCurrency } from '../utils/currency';
-import { formatCardRate, formatGirocardClearing, formatOptionalCents, formatOptionalMonths } from '../utils/formatTariff';
+import {
+  formatCardRate,
+  formatGirocardClearing,
+  formatOptionalCents,
+  formatOptionalMonths,
+} from '../utils/formatTariff';
 import { TERMINAL_TYPE_LABELS } from '../domain/tariff/tariff';
 
 export interface RenderOfferPdfOptions {
   isPreview: boolean;
 }
 
+type Rgb = [number, number, number];
+
+const BRAND: {
+  ink: Rgb;
+  muted: Rgb;
+  line: Rgb;
+  accent: Rgb;
+  soft: Rgb;
+} = {
+  ink: [28, 36, 48],
+  muted: [90, 98, 110],
+  line: [210, 216, 224],
+  accent: [18, 88, 122],
+  soft: [242, 246, 249],
+};
+
 function formatItemUnitPrice(item: OfferItem): string {
-  if (item.priceType === 'on_request') {
-    return 'auf Anfrage';
-  }
-
-  if (item.priceType === 'included') {
-    return 'inklusive';
-  }
-
-  if (item.unitPriceCents === null) {
-    return '—';
-  }
-
+  if (item.priceType === 'on_request') return 'auf Anfrage';
+  if (item.priceType === 'included') return 'inklusive';
+  if (item.unitPriceCents === null) return '';
   const amount = formatCentsToCurrency(item.unitPriceCents);
   return item.priceType === 'monthly' ? `${amount} / Monat` : `${amount} einmalig`;
 }
 
 function formatItemLineTotal(item: OfferItem): string {
-  if (item.priceType === 'on_request') {
-    return 'auf Anfrage';
-  }
-
-  if (item.priceType === 'included') {
-    return 'inklusive';
-  }
-
-  if (item.unitPriceCents === null) {
-    return '—';
-  }
-
-  const total = item.quantity * item.unitPriceCents;
-  const amount = formatCentsToCurrency(total);
+  if (item.priceType === 'on_request') return 'auf Anfrage';
+  if (item.priceType === 'included') return 'inklusive';
+  if (item.unitPriceCents === null) return '';
+  const amount = formatCentsToCurrency(item.quantity * item.unitPriceCents);
   return item.priceType === 'monthly' ? `${amount} / Monat` : `${amount} einmalig`;
 }
 
 function formatDateValue(value: string | null): string {
-  if (!value) {
-    return '—';
-  }
-
+  if (!value) return '';
   return formatDate(value.includes('T') ? value : `${value}T00:00:00`);
 }
 
-function addFooter(doc: jsPDF, pageNumber: number, pageCount: number): void {
+function ensureSpace(doc: jsPDF, y: number, needed: number, margin: number): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + needed <= pageHeight - 18) {
+    return y;
+  }
+  doc.addPage();
+  return margin;
+}
+
+function addFooter(doc: jsPDF, pageNumber: number, pageCount: number, offerNumber: string): void {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Seite ${pageNumber} von ${pageCount}`, pageWidth - 20, pageHeight - 10, {
+  doc.setDrawColor(...BRAND.line);
+  doc.setLineWidth(0.3);
+  doc.line(20, pageHeight - 14, pageWidth - 20, pageHeight - 14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  doc.text(`Angebot ${offerNumber}`, 20, pageHeight - 9);
+  doc.text(`Seite ${pageNumber} von ${pageCount}`, pageWidth - 20, pageHeight - 9, {
     align: 'right',
   });
 }
 
-function buildSenderLines(snapshot: OfferDocumentSnapshot): string[] {
-  const sender = snapshot.sender;
-  const lines = [sender.companyName];
-
-  if (sender.legalForm) {
-    lines[0] = `${sender.companyName} ${sender.legalForm}`;
-  }
-
-  if (sender.street) {
-    lines.push(sender.street);
-  }
-
-  if (sender.postalCode || sender.city) {
-    lines.push(`${sender.postalCode} ${sender.city}`.trim());
-  }
-
-  if (sender.phone) {
-    lines.push(`Tel.: ${sender.phone}`);
-  }
-
-  if (sender.email) {
-    lines.push(sender.email);
-  }
-
-  if (sender.website) {
-    lines.push(sender.website);
-  }
-
-  return lines;
-}
-
-function buildCustomerLines(snapshot: OfferDocumentSnapshot): string[] {
-  const customer = snapshot.customer;
-  return [
-    customer.companyName,
-    formatContactName(customer.contactFirstName, customer.contactLastName),
-    customer.street,
-    `${customer.postalCode} ${customer.city}`.trim(),
-  ].filter(Boolean);
+function sectionTitle(doc: jsPDF, title: string, y: number, margin: number): number {
+  y = ensureSpace(doc, y, 12, margin);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...BRAND.accent);
+  doc.text(title, margin, y);
+  y += 2;
+  doc.setDrawColor(...BRAND.line);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
+  return y + 6;
 }
 
 export function renderOfferPdf(
@@ -116,251 +101,298 @@ export function renderOfferPdf(
   options: RenderOfferPdfOptions,
 ): Uint8Array {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const margin = 20;
+  const margin = 18;
   const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - margin * 2;
   let y = margin;
 
   if (options.isPreview) {
-    doc.setFontSize(28);
-    doc.setTextColor(180, 0, 0);
-    doc.text(OFFER_DOCUMENT_PREVIEW_LABEL, pageWidth / 2, 40, { align: 'center', angle: 35 });
-    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(34);
+    doc.setTextColor(200, 80, 80);
+    doc.text(OFFER_DOCUMENT_PREVIEW_LABEL, pageWidth / 2, 50, { align: 'center', angle: 32 });
   }
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  buildSenderLines(snapshot).forEach((line) => {
-    doc.text(line, margin, y);
-    y += 5;
-  });
-
-  y += 10;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  buildCustomerLines(snapshot).forEach((line) => {
-    doc.text(line, margin, y);
-    y += 5;
-  });
-
-  y += 8;
+  // Kopfband
+  doc.setFillColor(...BRAND.soft);
+  doc.rect(0, 0, pageWidth, 28, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('Angebot', margin, y);
-  y += 8;
+  doc.setTextColor(...BRAND.accent);
+  const senderName = snapshot.sender.legalForm
+    ? `${snapshot.sender.companyName} ${snapshot.sender.legalForm}`
+    : snapshot.sender.companyName;
+  doc.text(senderName || 'AMRtech', margin, 14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...BRAND.muted);
+  const senderMeta = [
+    snapshot.sender.phone ? `Tel. ${snapshot.sender.phone}` : null,
+    snapshot.sender.email,
+    snapshot.sender.website,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  if (senderMeta) {
+    doc.text(senderMeta, margin, 21);
+  }
 
+  y = 36;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(...BRAND.ink);
+  doc.text('Ihr Angebot', margin, y);
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(...BRAND.muted);
+  doc.text('Transparente Konditionen für Ihr Kartenzahlungsangebot', margin, y);
+  y += 10;
+
+  // Meta + Kunde
+  const customerLines = [
+    snapshot.customer.companyName,
+    formatContactName(snapshot.customer.contactFirstName, snapshot.customer.contactLastName),
+    snapshot.customer.street,
+    `${snapshot.customer.postalCode} ${snapshot.customer.city}`.trim(),
+  ].filter(Boolean);
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...BRAND.line);
+  doc.roundedRect(margin, y, contentWidth, 28, 2, 2, 'S');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...BRAND.muted);
+  doc.text('Kunde', margin + 4, y + 6);
+  doc.text('Angaben', margin + contentWidth / 2 + 2, y + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  const metaLines = [
-    `Angebotsnummer: ${snapshot.offerNumber}`,
-    options.isPreview
-      ? 'Dokumentversion: Vorschau'
-      : `Dokumentversion: ${snapshot.documentNumber}`,
-    `Erstellungsdatum: ${formatDateValue(snapshot.generatedAt.slice(0, 10))}`,
-    snapshot.validUntil ? `Gültig bis: ${formatDateValue(snapshot.validUntil)}` : null,
-    `Erstellt von: ${snapshot.generatedByDisplayName}`,
-    `Titel: ${snapshot.title}`,
-  ].filter(Boolean) as string[];
-
-  metaLines.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 5;
+  doc.setTextColor(...BRAND.ink);
+  let cy = y + 11;
+  customerLines.slice(0, 3).forEach((line) => {
+    doc.text(line, margin + 4, cy);
+    cy += 4.5;
   });
-
-  y += 4;
+  const metaPairs = [
+    ['Nummer', snapshot.offerNumber],
+    ['Datum', formatDateValue(snapshot.generatedAt.slice(0, 10))],
+    snapshot.validUntil ? ['Gültig bis', formatDateValue(snapshot.validUntil)] : null,
+    ['Ansprechpartner', snapshot.generatedByDisplayName],
+  ].filter(Boolean) as Array<[string, string]>;
+  let my = y + 11;
+  metaPairs.forEach(([label, value]) => {
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`${label}:`, margin + contentWidth / 2 + 2, my);
+    doc.setTextColor(...BRAND.ink);
+    doc.text(value, margin + contentWidth / 2 + 32, my);
+    my += 4.5;
+  });
+  y += 34;
 
   if (snapshot.introductionText.trim()) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Einleitung', margin, y);
-    y += 5;
+    y = sectionTitle(doc, 'Empfehlung', y, margin);
     doc.setFont('helvetica', 'normal');
-    const introLines = doc.splitTextToSize(snapshot.introductionText, pageWidth - margin * 2);
-    doc.text(introLines, margin, y);
-    y += introLines.length * 5 + 4;
+    doc.setFontSize(10);
+    doc.setTextColor(...BRAND.ink);
+    const intro = doc.splitTextToSize(snapshot.introductionText, contentWidth);
+    y = ensureSpace(doc, y, intro.length * 5 + 4, margin);
+    doc.text(intro, margin, y);
+    y += intro.length * 5 + 6;
   }
 
   if (snapshot.tariff) {
-    if (y > 240) {
-      doc.addPage();
-      y = margin;
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Payment-Tarif', margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-
+    y = sectionTitle(doc, 'Empfohlene Lösung', y, margin);
     const tariff = snapshot.tariff;
-    const tariffLines = [
-      `Tarif: ${tariff.name}`,
-      `Terminalart: ${TERMINAL_TYPE_LABELS[tariff.terminalType]}`,
-      '',
-      'Feste Kosten',
-      `Monatliche Fixkosten: ${formatCentsToCurrency(
-        tariff.monthlyAccountBaseFeeCents +
-          tariff.monthlyTerminalRentalCents +
-          tariff.monthlyServiceFeePerTerminalCents,
-      )} / Monat`,
-      `Einrichtungsgebühr: ${formatCentsToCurrency(tariff.setupFeeCents)} einmalig`,
-      '',
-      'Variable Konditionen',
+    const monthlyFixed =
+      tariff.monthlyAccountBaseFeeCents +
+      tariff.monthlyTerminalRentalCents +
+      tariff.monthlyServiceFeePerTerminalCents;
+    const solutionRows: Array<[string, string]> = [
+      ['Tarif', tariff.name],
+      ['Terminal', TERMINAL_TYPE_LABELS[tariff.terminalType]],
+    ];
+    if (tariff.contractDurationMonths != null) {
+      solutionRows.push(['Vertragslaufzeit', formatOptionalMonths(tariff.contractDurationMonths)]);
+    }
+    if (tariff.noticePeriodMonths != null) {
+      solutionRows.push(['Kündigungsfrist', formatOptionalMonths(tariff.noticePeriodMonths)]);
+    }
+    solutionRows.push(
+      ['Monatliche Fixkosten', `${formatCentsToCurrency(monthlyFixed)} / Monat`],
+      ['Einrichtungsgebühr', `${formatCentsToCurrency(tariff.setupFeeCents)} einmalig`],
+    );
+
+    autoTable(doc, {
+      startY: y,
+      body: solutionRows,
+      theme: 'plain',
+      styles: { fontSize: 10, cellPadding: 1.8, textColor: BRAND.ink },
+      columnStyles: {
+        0: { cellWidth: 55, textColor: BRAND.muted },
+        1: { cellWidth: contentWidth - 55 },
+      },
+      margin: { left: margin, right: margin },
+    });
+    y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20;
+    y += 6;
+
+    y = sectionTitle(doc, 'Variable Gebühren', y, margin);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...BRAND.ink);
+    const variableLines = [
       `Transaktionsentgelt: ${formatCentsToCurrency(Math.round(tariff.transactionFeeTenthsOfCent / 10))}`,
       `Girocard-Clearing: ${formatGirocardClearing(
         tariff.girocardClearingIncluded,
         tariff.girocardClearingFeeTenthsOfCent,
       )}`,
-      `Girocard-Satz: ${formatCardRate({
+      `Girocard: ${formatCardRate({
         percentageTenthsOfBasisPoint: tariff.girocardRateTenthsOfBasisPoint,
         fixedFeeTenthsOfCent: 0,
       })}`,
-      `Debitkartensatz: ${formatCardRate({
+      `Debitkarte: ${formatCardRate({
         percentageTenthsOfBasisPoint: tariff.debitCardRateTenthsOfBasisPoint,
         fixedFeeTenthsOfCent: 0,
       })}`,
-      `Kreditkartensatz: ${formatCardRate({
+      `Kreditkarte: ${formatCardRate({
         percentageTenthsOfBasisPoint: tariff.creditCardRateTenthsOfBasisPoint,
         fixedFeeTenthsOfCent: 0,
       })}`,
-      `Vertragslaufzeit: ${formatOptionalMonths(tariff.contractDurationMonths)}`,
-      `Kündigungsfrist: ${formatOptionalMonths(tariff.noticePeriodMonths)}`,
-      `Mindestumsatz: ${formatOptionalCents(tariff.minimumTurnoverCents)}`,
     ];
-
-    tariffLines.forEach((line) => {
-      if (y > 270) {
-        doc.addPage();
-        y = margin;
-      }
-      if (line === '') {
-        y += 2;
-        return;
-      }
+    if (tariff.minimumTurnoverCents != null) {
+      variableLines.push(`Mindestumsatz: ${formatOptionalCents(tariff.minimumTurnoverCents)}`);
+    }
+    variableLines.forEach((line) => {
+      y = ensureSpace(doc, y, 6, margin);
       doc.text(line, margin, y);
       y += 5;
     });
-
     y += 4;
   }
 
-  if (snapshot.items.length > 0) {
-    if (y > 220) {
-      doc.addPage();
-      y = margin;
-    }
+  const visibleItems = snapshot.items.filter((item) => {
+    if (item.priceType === 'included' && !item.name.trim()) return false;
+    return true;
+  });
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('Positionen', margin, y);
-    y += 4;
-
+  if (visibleItems.length > 0) {
+    y = sectionTitle(doc, 'Leistungen und Hardware', y, margin);
     autoTable(doc, {
       startY: y,
-      head: [['Pos.', 'Bezeichnung', 'Menge', 'Preisart', 'Einzelpreis', 'Gesamt']],
-      body: snapshot.items.map((item, index) => [
-        String(index + 1),
+      head: [['Position', 'Menge', 'Preis', 'Gesamt']],
+      body: visibleItems.map((item) => [
         item.description.trim() ? `${item.name}\n${item.description}` : item.name,
         String(item.quantity),
-        item.priceType === 'monthly'
-          ? 'monatlich'
-          : item.priceType === 'one_time'
-            ? 'einmalig'
-            : item.priceType === 'included'
-              ? 'inklusive'
-              : 'auf Anfrage',
         formatItemUnitPrice(item),
         formatItemLineTotal(item),
       ]),
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
-      headStyles: { fillColor: [30, 58, 95], textColor: 255 },
+      styles: { fontSize: 9, cellPadding: 2.2, overflow: 'linebreak', textColor: BRAND.ink },
+      headStyles: { fillColor: BRAND.accent, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: BRAND.soft },
       theme: 'grid',
     });
-
     y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20;
     y += 8;
   }
 
-  if (y > 230) {
-    doc.addPage();
-    y = margin;
-  }
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Summen', margin, y);
-  y += 6;
-  doc.setFont('helvetica', 'normal');
-
+  y = sectionTitle(doc, 'Kostenübersicht', y, margin);
   const totals = snapshot.totals;
-  const sumLines = [
-    `Monatliche Tarifkosten: ${formatCentsToCurrency(totals.tariffMonthlyFixedTotalCents)} / Monat`,
-    `Monatliche Produktkosten: ${formatCentsToCurrency(totals.monthlyItemsTotalCents)} / Monat`,
-    `Monatliche Gesamtkosten: ${formatCentsToCurrency(totals.monthlyTotalCents)} / Monat`,
-    '',
-    `Einmalige Tarifkosten: ${formatCentsToCurrency(totals.tariffSetupTotalCents)} einmalig`,
-    `Einmalige Produktkosten: ${formatCentsToCurrency(totals.oneTimeItemsTotalCents)} einmalig`,
-    `Einmalige Gesamtkosten: ${formatCentsToCurrency(totals.oneTimeTotalCents)} einmalig`,
-  ];
-
-  sumLines.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 5;
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ['Monatlich gesamt', `${formatCentsToCurrency(totals.monthlyTotalCents)} / Monat`],
+      ['Einmalig gesamt', `${formatCentsToCurrency(totals.oneTimeTotalCents)} einmalig`],
+    ],
+    theme: 'plain',
+    styles: { fontSize: 11, cellPadding: 2, fontStyle: 'bold', textColor: BRAND.ink },
+    columnStyles: {
+      0: { cellWidth: 60, textColor: BRAND.muted, fontStyle: 'normal' },
+      1: { cellWidth: contentWidth - 60 },
+    },
+    margin: { left: margin, right: margin },
   });
-
-  y += 3;
-  doc.setFontSize(9);
-  doc.text(OFFER_DOCUMENT_PRICE_BASIS_NOTE, margin, y);
-  y += 5;
-  doc.text(OFFER_DOCUMENT_VARIABLE_FEES_NOTE, margin, y);
-  y += 5;
-
-  if (totals.hasOnRequestItems) {
-    doc.text(OFFER_DOCUMENT_ON_REQUEST_NOTE, margin, y);
-    y += 5;
+  y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 12;
+  y += 4;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  for (const note of [
+    OFFER_DOCUMENT_PRICE_BASIS_NOTE,
+    OFFER_DOCUMENT_VARIABLE_FEES_NOTE,
+    totals.hasOnRequestItems ? OFFER_DOCUMENT_ON_REQUEST_NOTE : null,
+  ].filter(Boolean) as string[]) {
+    const lines = doc.splitTextToSize(note, contentWidth);
+    y = ensureSpace(doc, y, lines.length * 4 + 2, margin);
+    doc.text(lines, margin, y);
+    y += lines.length * 4 + 2;
   }
 
   if (snapshot.customerNotes.trim()) {
-    y += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Kundenhinweis', margin, y);
-    y += 5;
+    y = sectionTitle(doc, 'Hinweise', y, margin);
     doc.setFont('helvetica', 'normal');
-    const noteLines = doc.splitTextToSize(snapshot.customerNotes, pageWidth - margin * 2);
-    doc.text(noteLines, margin, y);
-    y += noteLines.length * 5 + 4;
+    doc.setFontSize(10);
+    doc.setTextColor(...BRAND.ink);
+    const notes = doc.splitTextToSize(snapshot.customerNotes, contentWidth);
+    y = ensureSpace(doc, y, notes.length * 5 + 4, margin);
+    doc.text(notes, margin, y);
+    y += notes.length * 5 + 6;
   }
 
-  if (y > 240) {
-    doc.addPage();
-    y = margin;
-  }
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Kontakt', margin, y);
-  y += 5;
+  y = sectionTitle(doc, 'Nächste Schritte', y, margin);
   doc.setFont('helvetica', 'normal');
-  buildSenderLines(snapshot).forEach((line) => {
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.ink);
+  const nextSteps = [
+    '1. Angebot prüfen und bei Bedarf Rückfragen stellen.',
+    '2. Angebot annehmen oder gewünschte Änderungen mitteilen.',
+    '3. Der Vertragsabschluss erfolgt anschließend mit BestPay.',
+  ];
+  nextSteps.forEach((line) => {
+    y = ensureSpace(doc, y, 6, margin);
     doc.text(line, margin, y);
     y += 5;
   });
+  y += 6;
 
-  const footerLines = [
+  y = sectionTitle(doc, 'Ansprechpartner', y, margin);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND.ink);
+  const contactLines = [
+    snapshot.generatedByDisplayName,
+    senderName,
+    snapshot.sender.street,
+    `${snapshot.sender.postalCode} ${snapshot.sender.city}`.trim(),
+    snapshot.sender.phone ? `Tel.: ${snapshot.sender.phone}` : null,
+    snapshot.sender.email,
+  ].filter(Boolean) as string[];
+  contactLines.forEach((line) => {
+    y = ensureSpace(doc, y, 5, margin);
+    doc.text(line, margin, y);
+    y += 4.5;
+  });
+
+  const legal = [
     snapshot.sender.registerCourt && snapshot.sender.registerNumber
       ? `${snapshot.sender.registerCourt} ${snapshot.sender.registerNumber}`
       : null,
     snapshot.sender.vatId ? `USt-IdNr.: ${snapshot.sender.vatId}` : null,
-    snapshot.sender.bankName && snapshot.sender.iban
-      ? `Bank: ${snapshot.sender.bankName}, IBAN: ${snapshot.sender.iban}${snapshot.sender.bic ? `, BIC: ${snapshot.sender.bic}` : ''}`
-      : null,
   ].filter(Boolean) as string[];
-
-  footerLines.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 5;
-  });
+  if (legal.length) {
+    y += 4;
+    doc.setFontSize(8);
+    doc.setTextColor(...BRAND.muted);
+    legal.forEach((line) => {
+      y = ensureSpace(doc, y, 4, margin);
+      doc.text(line, margin, y);
+      y += 4;
+    });
+  }
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     doc.setPage(page);
-    addFooter(doc, page, pageCount);
+    addFooter(doc, page, pageCount, snapshot.offerNumber);
   }
 
   return new Uint8Array(doc.output('arraybuffer'));
