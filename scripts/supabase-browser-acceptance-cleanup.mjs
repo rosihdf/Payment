@@ -67,17 +67,56 @@ const supabase = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-async function preflightServiceRole() {
-  const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
-  if (error) {
-    console.error(`Cleanup Abbruch – Service-Role-Preflight fehlgeschlagen: ${error.message}`);
-    process.exit(1);
+function isTransientInfrastructureError(error) {
+  const message = String(error?.message ?? error ?? '');
+  const status = error?.status ?? error?.statusCode;
+  if ([502, 503, 504, 520, 521, 522, 523, 524, 525, 526].includes(Number(status))) {
+    return true;
   }
+  return (
+    /\b(502|503|504|520|521|522|523|524|525|526)\b/.test(message) ||
+    /cloudflare|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|<!DOCTYPE html>|error code: 525/i.test(
+      message,
+    )
+  );
+}
+
+async function withTransientRetries(label, operation, maxAttempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientInfrastructureError(error) || attempt === maxAttempts) {
+        throw error instanceof Error ? error : new Error(`${label}: ${String(error)}`);
+      }
+      const delayMs = attempt * 2000;
+      console.warn(
+        `Cleanup transient (${label}) Versuch ${attempt}/${maxAttempts} – warte ${delayMs}ms`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function preflightServiceRole() {
+  await withTransientRetries('Service-Role-Preflight', async () => {
+    const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
+    if (error) {
+      const enriched = new Error(error.message);
+      enriched.status = error.status ?? error.code;
+      throw enriched;
+    }
+  });
 }
 
 function assertOk(label, error) {
   if (error) {
-    throw new Error(`${label}: ${error.message}`);
+    const enriched = new Error(`${label}: ${error.message}`);
+    enriched.status = error.status ?? error.code;
+    throw enriched;
   }
 }
 
@@ -215,97 +254,99 @@ async function remnantReport() {
 
 async function cleanup() {
   await preflightServiceRole();
-  const beforeTargets = await collectTargets();
-  const before = await remnantReport();
+  const beforeTargets = await withTransientRetries('Ziele ermitteln', () => collectTargets());
+  const before = await withTransientRetries('Vorher-Zählung', () => remnantReport());
   console.log('Cleanup vorher:', JSON.stringify(before));
 
   const { offerIds, testLeadIds, sessionIds } = beforeTargets;
 
-  if (offerIds.length) {
-    await deleteIn('offer_documents', 'offer_id', offerIds);
-    await deleteIn('offer_share_links', 'offer_id', offerIds);
-    await deleteIn('offer_customer_questions', 'offer_id', offerIds);
-    await deleteIn('offer_change_requests', 'offer_id', offerIds);
-    await deleteIn('offer_customer_acceptances', 'offer_id', offerIds);
-    await deleteIn('offer_workflow_events', 'offer_id', offerIds);
-    await deleteIn('offer_versions', 'offer_id', offerIds);
-    await deleteIn('recommendation_records', 'offer_id', offerIds);
-    await deleteIn('sales_activities', 'offer_id', offerIds);
-    await deleteIn('sales_tasks', 'offer_id', offerIds);
-    await deleteIn('billing_import_sessions', 'offer_id', offerIds);
-    await deleteIn('offers', 'id', offerIds);
-  }
-
-  if (sessionIds.length) {
-    await deleteIn('user_active_sessions', 'comparison_session_id', sessionIds);
-    await deleteIn('best_pay_comparison_sessions', 'id', sessionIds);
-  }
-
-  if (testLeadIds.length) {
-    await deleteIn('recommendation_records', 'lead_id', testLeadIds);
-    await deleteIn('sales_activities', 'lead_id', testLeadIds);
-    await deleteIn('sales_tasks', 'lead_id', testLeadIds);
-    await deleteIn('billing_import_sessions', 'lead_id', testLeadIds);
-    await deleteIn('lead_contacts', 'lead_id', testLeadIds);
-    await deleteIn('best_pay_comparison_sessions', 'lead_id', testLeadIds);
-    await deleteIn('leads', 'id', testLeadIds);
-  }
-
-  // Remaining ghosts: orphan sessions / null-lead rows / auto continue tasks / all billing imports (only test remnants exist)
-  await deleteIn(
-    'best_pay_comparison_sessions',
-    'id',
-    await selectIds('best_pay_comparison_sessions', (q) => q.is('lead_id', null)),
-  );
-  await deleteIn(
-    'sales_activities',
-    'id',
-    await selectIds('sales_activities', (q) => q.is('lead_id', null)),
-  );
-  await deleteIn(
-    'recommendation_records',
-    'id',
-    await selectIds('recommendation_records', (q) => q.is('lead_id', null)),
-  );
-  await deleteIn('sales_activities', 'id', await selectMissingLeadRefs('sales_activities'));
-  await deleteIn(
-    'recommendation_records',
-    'id',
-    await selectMissingLeadRefs('recommendation_records'),
-  );
-  await deleteIn('offers', 'id', await selectMissingLeadRefs('offers'));
-  await deleteIn(
-    'sales_tasks',
-    'id',
-    await selectIds('sales_tasks', (q) => q.ilike('source_key', 'auto:continue_calculation:%')),
-  );
-  await deleteIn(
-    'sales_tasks',
-    'id',
-    await selectIds('sales_tasks', (q) => q.contains('data', { type: 'continue_calculation' })),
-  );
-  await deleteAll('billing_import_sessions');
-
-  const { data: acquiringRules, error: ruleError } = await supabase
-    .from('commission_rules')
-    .select('id, data')
-    .filter('data->>name', 'eq', 'Nur Acquiring');
-  assertOk('commission_rules select', ruleError);
-  for (const row of acquiringRules ?? []) {
-    const data = row.data && typeof row.data === 'object' ? { ...row.data } : {};
-    if (data.fixedAmountCents === 17500) {
-      data.fixedAmountCents = 15000;
-      data.updatedAt = new Date().toISOString();
-      const { error } = await supabase
-        .from('commission_rules')
-        .update({ data, updated_at: data.updatedAt })
-        .eq('id', row.id);
-      assertOk('commission_rules restore Nur Acquiring', error);
-      console.log('Provision Nur Acquiring: 17500 → 15000 ct');
+  await withTransientRetries('FK-sichere Bereinigung', async () => {
+    if (offerIds.length) {
+      await deleteIn('offer_documents', 'offer_id', offerIds);
+      await deleteIn('offer_share_links', 'offer_id', offerIds);
+      await deleteIn('offer_customer_questions', 'offer_id', offerIds);
+      await deleteIn('offer_change_requests', 'offer_id', offerIds);
+      await deleteIn('offer_customer_acceptances', 'offer_id', offerIds);
+      await deleteIn('offer_workflow_events', 'offer_id', offerIds);
+      await deleteIn('offer_versions', 'offer_id', offerIds);
+      await deleteIn('recommendation_records', 'offer_id', offerIds);
+      await deleteIn('sales_activities', 'offer_id', offerIds);
+      await deleteIn('sales_tasks', 'offer_id', offerIds);
+      await deleteIn('billing_import_sessions', 'offer_id', offerIds);
+      await deleteIn('offers', 'id', offerIds);
     }
-  }
 
-  const after = await remnantReport();
+    if (sessionIds.length) {
+      await deleteIn('user_active_sessions', 'comparison_session_id', sessionIds);
+      await deleteIn('best_pay_comparison_sessions', 'id', sessionIds);
+    }
+
+    if (testLeadIds.length) {
+      await deleteIn('recommendation_records', 'lead_id', testLeadIds);
+      await deleteIn('sales_activities', 'lead_id', testLeadIds);
+      await deleteIn('sales_tasks', 'lead_id', testLeadIds);
+      await deleteIn('billing_import_sessions', 'lead_id', testLeadIds);
+      await deleteIn('lead_contacts', 'lead_id', testLeadIds);
+      await deleteIn('best_pay_comparison_sessions', 'lead_id', testLeadIds);
+      await deleteIn('leads', 'id', testLeadIds);
+    }
+
+    // Remaining ghosts: orphan sessions / null-lead rows / auto continue tasks / all billing imports
+    await deleteIn(
+      'best_pay_comparison_sessions',
+      'id',
+      await selectIds('best_pay_comparison_sessions', (q) => q.is('lead_id', null)),
+    );
+    await deleteIn(
+      'sales_activities',
+      'id',
+      await selectIds('sales_activities', (q) => q.is('lead_id', null)),
+    );
+    await deleteIn(
+      'recommendation_records',
+      'id',
+      await selectIds('recommendation_records', (q) => q.is('lead_id', null)),
+    );
+    await deleteIn('sales_activities', 'id', await selectMissingLeadRefs('sales_activities'));
+    await deleteIn(
+      'recommendation_records',
+      'id',
+      await selectMissingLeadRefs('recommendation_records'),
+    );
+    await deleteIn('offers', 'id', await selectMissingLeadRefs('offers'));
+    await deleteIn(
+      'sales_tasks',
+      'id',
+      await selectIds('sales_tasks', (q) => q.ilike('source_key', 'auto:continue_calculation:%')),
+    );
+    await deleteIn(
+      'sales_tasks',
+      'id',
+      await selectIds('sales_tasks', (q) => q.contains('data', { type: 'continue_calculation' })),
+    );
+    await deleteAll('billing_import_sessions');
+
+    const { data: acquiringRules, error: ruleError } = await supabase
+      .from('commission_rules')
+      .select('id, data')
+      .filter('data->>name', 'eq', 'Nur Acquiring');
+    assertOk('commission_rules select', ruleError);
+    for (const row of acquiringRules ?? []) {
+      const data = row.data && typeof row.data === 'object' ? { ...row.data } : {};
+      if (data.fixedAmountCents === 17500) {
+        data.fixedAmountCents = 15000;
+        data.updatedAt = new Date().toISOString();
+        const { error } = await supabase
+          .from('commission_rules')
+          .update({ data, updated_at: data.updatedAt })
+          .eq('id', row.id);
+        assertOk('commission_rules restore Nur Acquiring', error);
+        console.log('Provision Nur Acquiring: 17500 → 15000 ct');
+      }
+    }
+  });
+
+  const after = await withTransientRetries('Nachher-Zählung', () => remnantReport());
   console.log('Cleanup nachher:', JSON.stringify(after));
 
   const failed = Object.entries(after).filter(([, value]) => value > 0);
@@ -317,15 +358,23 @@ async function cleanup() {
     process.exit(1);
   }
 
-  const { count: protectedCount, error: protectedError } = await supabase
-    .from('leads')
-    .select('id', { count: 'exact', head: true })
-    .eq('company_name', PROTECTED_COMPANY);
-  assertOk('protected lead check', protectedError);
+  const protectedCount = await withTransientRetries('protected lead check', async () => {
+    const { count, error: protectedError } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_name', PROTECTED_COMPANY);
+    assertOk('protected lead check', protectedError);
+    return count;
+  });
   console.log(`Cleanup OK – Testreste 0. Geschützt: ${PROTECTED_COMPANY} (${protectedCount ?? 0})`);
 }
 
 cleanup().catch((error) => {
-  console.error('Cleanup fehlgeschlagen:', error instanceof Error ? error.message : error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (isTransientInfrastructureError(error)) {
+    console.error(`Cleanup fehlgeschlagen – transienter Infrastrukturfehler: ${message}`);
+  } else {
+    console.error('Cleanup fehlgeschlagen:', message);
+  }
   process.exit(1);
 });
