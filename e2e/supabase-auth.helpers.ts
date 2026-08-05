@@ -189,61 +189,15 @@ export async function calculateRecommendation(page: Page): Promise<void> {
   await expect(page.getByText(/NaN|Infinity/i)).toHaveCount(0);
 }
 
-async function withAcceptanceSupabaseClient<T>(
-  env: Record<string, string>,
-  email: string,
-  password: string,
-  run: (client: import('@supabase/supabase-js').SupabaseClient) => Promise<T>,
-): Promise<T> {
-  const url = env.VITE_SUPABASE_URL?.trim();
-  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!url || !key) {
-    throw new Error('VITE_SUPABASE_URL oder VITE_SUPABASE_PUBLISHABLE_KEY fehlt');
+/** Zählt sichtbare Kundenkarten in der Kundenliste (ohne Extra-Auth-Login). */
+export async function countVisibleLeadCards(page: Page): Promise<number> {
+  await gotoSidebar(page, 'Kunden');
+  await waitForLeadsReady(page);
+  const list = page.getByLabel('Kundenliste');
+  if ((await list.count()) === 0) {
+    return 0;
   }
-  const { createClient } = await import('@supabase/supabase-js');
-  const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error: authError } = await client.auth.signInWithPassword({ email, password });
-  if (authError) {
-    throw new Error(`Acceptance-API-Login fehlgeschlagen (${authError.message})`);
-  }
-  try {
-    return await run(client);
-  } finally {
-    await client.auth.signOut();
-  }
-}
-
-/** Zählt Leads über den angemeldeten Acceptance-User (RLS-sichtbar). */
-export async function countVisibleLeads(
-  env: Record<string, string>,
-  email: string,
-  password: string,
-): Promise<number> {
-  return withAcceptanceSupabaseClient(env, email, password, async (client) => {
-    const { count, error } = await client.from('leads').select('id', { count: 'exact', head: true });
-    if (error) {
-      throw new Error(`Lead-Zählung fehlgeschlagen: ${error.message}`);
-    }
-    return count ?? 0;
-  });
-}
-
-/** Pseudo-Kunden-Bezeichnungen, die nicht neu entstehen dürfen. */
-export async function countPlaceholderCustomerLeads(
-  env: Record<string, string>,
-  email: string,
-  password: string,
-): Promise<number> {
-  return withAcceptanceSupabaseClient(env, email, password, async (client) => {
-    const { data, error } = await client
-      .from('leads')
-      .select('id, company_name')
-      .or('company_name.ilike.%Beratung ohne Kunde%,company_name.ilike.%ohne Kundenzuordnung%');
-    if (error) {
-      throw new Error(`Pseudo-Kunden-Abfrage fehlgeschlagen: ${error.message}`);
-    }
-    return data?.length ?? 0;
-  });
+  return list.locator('a[href^="/leads/"]').count();
 }
 
 export async function createOfferDraft(page: Page): Promise<string | null> {

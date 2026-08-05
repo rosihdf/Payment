@@ -77,12 +77,17 @@ export function CommissionAssignmentsPanel() {
 
   useEffect(() => {
     if (!context || !selectedUserId) return;
+    let cancelled = false;
     setIsDetailLoading(true);
     void commissionAdminService
       .getAssignmentDetail(context, selectedUserId, { model })
       .then((detail) => {
+        if (cancelled) {
+          return;
+        }
         if ('error' in detail) {
           setMessage(commissionErrorLabel(detail.error));
+          setRuleViews([]);
           return;
         }
         setRuleViews(detail.ruleViews);
@@ -94,11 +99,20 @@ export function CommissionAssignmentsPanel() {
         }
       })
       .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
         setMessage(`Fehler: ${formatPersistError(error)}`);
+        setRuleViews([]);
       })
       .finally(() => {
-        setIsDetailLoading(false);
+        if (!cancelled) {
+          setIsDetailLoading(false);
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [commissionAdminService, context, selectedUserId, model]);
 
   const closeDialog = () => {

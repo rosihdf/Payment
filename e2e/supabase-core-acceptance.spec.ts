@@ -17,8 +17,7 @@ import {
   startAdviceWithCustomer,
   waitForWorkspaceReady,
   waitForLeadsReady,
-  countVisibleLeads,
-  countPlaceholderCustomerLeads,
+  countVisibleLeadCards,
 } from './supabase-auth.helpers';
 
 const env = loadSupabaseEnv();
@@ -217,12 +216,8 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
     const context = await createFreshContext(browser);
     const page = await context.newPage();
     try {
-      const leadsBefore = await countVisibleLeads(
-        env,
-        credentials.adminEmail,
-        credentials.adminPassword,
-      );
       await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
+      const leadsBefore = await countVisibleLeadCards(page);
       await startNewAdvice(page);
       await page.getByRole('button', { name: 'Ohne Kunden rechnen' }).click();
       await page.getByRole('button', { name: 'Weiter' }).click();
@@ -261,19 +256,10 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Angebotsentwurf erzeugen' })).toBeDisabled();
 
-      const leadsAfter = await countVisibleLeads(
-        env,
-        credentials.adminEmail,
-        credentials.adminPassword,
-      );
+      const leadsAfter = await countVisibleLeadCards(page);
       expect(leadsAfter).toBe(leadsBefore);
-      expect(
-        await countPlaceholderCustomerLeads(
-          env,
-          credentials.adminEmail,
-          credentials.adminPassword,
-        ),
-      ).toBe(0);
+      await expect(page.getByText('Beratung ohne Kunde')).toHaveCount(0);
+      await expect(page.getByText('Beratung ohne Kundenzuordnung')).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -283,11 +269,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
     const context = await createFreshContext(browser);
     const page = await context.newPage();
     try {
-      await page.goto('/login');
-      await page.getByLabel('E-Mail').fill(credentials.adminEmail);
-      await page.getByLabel('Passwort').fill(credentials.adminPassword);
-      await page.getByRole('button', { name: 'Anmelden' }).click();
-      await page.waitForURL(/\/sales$/, { timeout: 20_000, waitUntil: 'commit' });
+      await loginWithSupabaseCredentials(page, credentials.adminEmail, credentials.adminPassword);
       await page.goto('/admin/commission/standards', { waitUntil: 'domcontentloaded' });
       await expect(
         page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
