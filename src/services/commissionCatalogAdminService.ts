@@ -270,12 +270,9 @@ export class CommissionCatalogAdminService {
       updatedAt: timestamp,
     };
 
-    const rules = existing
-      ? catalog.commissionRules.map((entry) => (entry.id === rule.id ? rule : entry))
-      : [...catalog.commissionRules, rule];
-
     try {
-      await this.commissionCatalogRepository.saveRules(rules);
+      // Nur die geänderte Regel upserten – Vollkatalog-Writes laufen in Supabase in Timeouts.
+      await this.commissionCatalogRepository.saveRules([rule]);
     } catch (error) {
       return { ok: false, error: formatPersistError(error) };
     }
