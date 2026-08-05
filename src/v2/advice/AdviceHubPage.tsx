@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
+import { isActiveAdviceDraft } from '../../domain/bestPayComparison/isActiveAdviceDraft';
 import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import { getVisibleWizardStep } from '../../domain/bestPayComparison/salesWizard';
 import { getSessionCustomerDisplayName } from '../../domain/lead/getLeadDisplayName';
@@ -52,15 +53,19 @@ export function AdviceHubPage() {
       )
     )
       .filter((session): session is BestPayComparisonSession => Boolean(session))
-      .filter(
-        (session) =>
-          session.status !== 'discarded' &&
-          !session.archivedAt &&
-          (session.entryMode === 'wizard' || session.wizard.enabled) &&
-          !session.wizard.wizardCompletedAt &&
-          !session.completedAt,
-      )
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+      .filter(isActiveAdviceDraft)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .reduce<BestPayComparisonSession[]>((acc, session) => {
+        if (!session.leadId) {
+          acc.push(session);
+          return acc;
+        }
+        if (acc.some((entry) => entry.leadId === session.leadId)) {
+          return acc;
+        }
+        acc.push(session);
+        return acc;
+      }, []);
 
     setOpenSessions(sessions.slice(0, 12));
     setIsLoading(false);

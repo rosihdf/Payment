@@ -43,6 +43,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+  align-items: center;
+}
+
+.primaryCardAction {
+  font-weight: 600;
 }
 
 .toolbar {

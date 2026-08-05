@@ -102,10 +102,20 @@ export class SupabaseBestPayComparisonRepository implements BestPayComparisonRep
         }
       : session;
     const rowPayload = sessionToRow(nextSession);
-    const row = existing
-      ? await sbUpdate(SESSIONS_TABLE, nextSession.id, rowPayload)
-      : await sbInsert(SESSIONS_TABLE, rowPayload);
-    return rowToSession(row);
+    try {
+      const row = existing
+        ? await sbUpdate(SESSIONS_TABLE, nextSession.id, rowPayload)
+        : await sbInsert(SESSIONS_TABLE, rowPayload);
+      return rowToSession(row);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        /duplicate key|unique constraint|best_pay_one_active_advice_draft_per_lead/i.test(message)
+      ) {
+        throw new Error('ACTIVE_ADVICE_DRAFT_CONFLICT');
+      }
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<void> {

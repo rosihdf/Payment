@@ -43,12 +43,19 @@ function DayWorkCard({
         </>
       }
       footer={
-        primaryHref || onDelete ? (
+        primaryHref || onDelete || entry.customerHref ? (
           <div className={styles.cardActions}>
-            {primaryHref ? <Link to={primaryHref}>Fortsetzen</Link> : null}
+            {primaryHref ? (
+              <Link className={styles.primaryCardAction} to={primaryHref}>
+                Fortsetzen
+              </Link>
+            ) : null}
+            {entry.customerHref && entry.customerHref !== primaryHref ? (
+              <Link to={entry.customerHref}>Zum Kunden</Link>
+            ) : null}
             {onDelete ? (
               <Button type="button" variant="text" onClick={onDelete}>
-                Löschen
+                Entwurf verwerfen
               </Button>
             ) : null}
           </div>

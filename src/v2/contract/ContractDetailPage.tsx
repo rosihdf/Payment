@@ -234,7 +234,7 @@ export function ContractDetailPage() {
             </Link>
             {contract.leadId ? (
               <Link to={`/leads/${contract.leadId}`}>
-                <Button variant="secondary">Zur Kundenakte</Button>
+                <Button variant="secondary">Zum Kunden</Button>
               </Link>
             ) : null}
             {contract.sourceOfferId ? (

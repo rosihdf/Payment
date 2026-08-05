@@ -14,12 +14,35 @@ import styles from './LeadRecordPage.module.css';
 
 export function LeadRecordPage() {
   const data = useLeadRecord();
-  const { leadService, userService } = useServices();
+  const { leadService, userService, salesWizardService } = useServices();
   const [users, setUsers] = useState<User[]>([]);
+  const [hasActiveDraft, setHasActiveDraft] = useState(false);
 
   useEffect(() => {
     void userService.getAllUsers().then(setUsers);
   }, [userService]);
+
+  useEffect(() => {
+    if (!data.id || !data.currentUser) {
+      setHasActiveDraft(false);
+      return;
+    }
+    let cancelled = false;
+    void salesWizardService
+      .findActiveDraftForLead(data.id, {
+        userId: data.currentUser.id,
+        role: data.currentUser.role,
+        displayName: data.currentUser.name,
+      })
+      .then((draft) => {
+        if (!cancelled) {
+          setHasActiveDraft(Boolean(draft));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.currentUser, data.id, salesWizardService]);
 
   const canEdit =
     data.lead && data.currentUser
@@ -49,7 +72,7 @@ export function LeadRecordPage() {
         actions={
           <div className={styles.headerActions}>
             <Link to={`/advice?leadId=${encodeURIComponent(data.id)}`}>
-              <Button>Beratung starten</Button>
+              <Button>{hasActiveDraft ? 'Beratung fortsetzen' : 'Beratung starten'}</Button>
             </Link>
             {canEdit ? (
               <Link to={`/leads/${data.id}/edit`}>

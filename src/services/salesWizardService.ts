@@ -35,7 +35,18 @@ import {
   canDiscardEmptyAdviceSession,
   isEmptyAdviceSession,
 } from '../domain/bestPayComparison/isEmptyAdviceSession';
+import {
+  isActiveAdviceDraft,
+  isActiveAdviceDraftForLead,
+  pickLatestActiveAdviceDraft,
+} from '../domain/bestPayComparison/isActiveAdviceDraft';
 import { createBestPayComparisonSession } from '../domain/bestPayComparison/createBestPayComparisonSession';
+import {
+  normalizeProspectDraftProvider,
+} from '../domain/bestPayComparison/salesWizard';
+import {
+  resolveCurrentProviderDisplayName,
+} from '../domain/bestPayComparison/currentProviderCatalog';
 
 export type SalesWizardError =
   | BestPayComparisonError
@@ -100,7 +111,13 @@ export class SalesWizardService {
     );
   }
 
+  private normalizeSession(session: BestPayComparisonSession): BestPayComparisonSession {
+    session.wizard.prospectDraft = normalizeProspectDraftProvider(session.wizard.prospectDraft);
+    return session;
+  }
+
   private async persist(session: BestPayComparisonSession): Promise<BestPayComparisonSession> {
+    this.normalizeSession(session);
     session.updatedAt = nowIso();
     if (!session.title && session.wizard.prospectDraft.companyName.trim()) {
       const displayName = getLeadDisplayName({
@@ -114,6 +131,95 @@ export class SalesWizardService {
     }
     await this.bestPayComparisonRepository.save(session);
     return session;
+  }
+
+  async findActiveDraftForLead(
+    leadId: string,
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession | null> {
+    const sessions = await this.bestPayComparisonRepository.getAll();
+    const active = sessions
+      .filter(
+        (session) =>
+          isActiveAdviceDraftForLead(session, leadId) &&
+          (context.role === 'admin' || session.createdByUserId === context.userId),
+      )
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return active[0] ? this.normalizeSession(active[0]) : null;
+  }
+
+  async findActiveAnonymousDraft(
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession | null> {
+    const sessions = await this.bestPayComparisonRepository.getAll();
+    return pickLatestActiveAdviceDraft(
+      sessions.filter(
+        (session) =>
+          !session.leadId &&
+          session.createdByUserId === context.userId &&
+          isActiveAdviceDraft(session),
+      ),
+    );
+  }
+
+  /**
+   * Liefert den einzigen aktiven Entwurf für den Kunden oder legt ihn atomar an.
+   * Parallelstarts treffen denselben Entwurf (Unique-Index + Lookup).
+   */
+  async ensureActiveDraftForLead(
+    leadId: string,
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession> {
+    const existing = await this.findActiveDraftForLead(leadId, context);
+    if (existing) {
+      const resumed = await this.resumeWizard(existing.id, context);
+      if (resumed.ok) {
+        return resumed.session;
+      }
+    }
+
+    const created = await this.persistWizardSession(this.buildWizardSession(context), context);
+    const assigned = await this.assignLead(created.id, leadId, context);
+    if (!assigned.ok) {
+      // Race: anderer Request hat denselben Lead-Entwurf erzeugt → vorhandenen öffnen.
+      const raced = await this.findActiveDraftForLead(leadId, context);
+      if (raced) {
+        const resumed = await this.resumeWizard(raced.id, context);
+        if (resumed.ok) {
+          if (created.id !== raced.id && isEmptyAdviceSession(created)) {
+            await this.discardAdviceDraft(created.id, context);
+          }
+          return resumed.session;
+        }
+      }
+      throw new Error('Aktiver Beratungsentwurf konnte nicht erzeugt werden.');
+    }
+
+    // Falls parallel ein anderer aktiver Entwurf entstand: den neuesten behalten.
+    const after = await this.findActiveDraftForLead(leadId, context);
+    if (after && after.id !== assigned.session.id) {
+      if (isEmptyAdviceSession(assigned.session)) {
+        await this.discardAdviceDraft(assigned.session.id, context);
+      } else if (isEmptyAdviceSession(after)) {
+        await this.bestPayComparisonService.discardSession(after.id, context);
+        return assigned.session;
+      } else {
+        // Beide befüllt: älteren verwerfen (kein Datenverlust – Historie bleibt discarded).
+        const older =
+          after.updatedAt < assigned.session.updatedAt ? after : assigned.session;
+        const newer =
+          older.id === after.id ? assigned.session : after;
+        if (older.id !== newer.id) {
+          await this.bestPayComparisonService.discardSession(older.id, context);
+        }
+        const resumed = await this.resumeWizard(newer.id, context);
+        if (resumed.ok) {
+          return resumed.session;
+        }
+      }
+    }
+
+    return assigned.session;
   }
 
   private buildWizardSession(context: BestPayComparisonUserContext): BestPayComparisonSession {
@@ -234,7 +340,8 @@ export class SalesWizardService {
     sessionId: string,
     context: BestPayComparisonUserContext,
   ): Promise<BestPayComparisonSession | null> {
-    return this.bestPayComparisonService.getSession(sessionId, context);
+    const session = await this.bestPayComparisonService.getSession(sessionId, context);
+    return session ? this.normalizeSession(session) : null;
   }
 
   async setStep(
@@ -446,16 +553,58 @@ export class SalesWizardService {
     leadId: string,
     context: BestPayComparisonUserContext,
   ): Promise<{ ok: true; session: BestPayComparisonSession } | { ok: false; error: SalesWizardError }> {
-    const assigned = await this.bestPayComparisonService.assignLead(sessionId, leadId, context);
-    if (!assigned.ok) {
-      return { ok: false, error: assigned.error };
+    const current = await this.getSession(sessionId, context);
+    if (!current) {
+      return { ok: false, error: 'not_found' };
     }
-    const session = assigned.session;
-    session.wizard.enabled = true;
-    session.entryMode = 'wizard';
-    const saved = await this.persist(session);
-    await this.recordAdviceStarted(saved, context);
-    return { ok: true, session: saved };
+
+    const existing = await this.findActiveDraftForLead(leadId, context);
+    if (existing && existing.id !== sessionId) {
+      if (isEmptyAdviceSession(current)) {
+        await this.discardAdviceDraft(sessionId, context);
+        const resumed = await this.resumeWizard(existing.id, context);
+        return resumed.ok ? resumed : { ok: false, error: resumed.error };
+      }
+      if (isEmptyAdviceSession(existing)) {
+        await this.bestPayComparisonService.discardSession(existing.id, context);
+      } else {
+        // Beide befüllt: neueren behalten, älteren als discarded markieren.
+        const keepCurrent = current.updatedAt >= existing.updatedAt;
+        if (keepCurrent) {
+          await this.bestPayComparisonService.discardSession(existing.id, context);
+        } else {
+          await this.discardAdviceDraft(sessionId, context);
+          const resumed = await this.resumeWizard(existing.id, context);
+          return resumed.ok ? resumed : { ok: false, error: resumed.error };
+        }
+      }
+    }
+
+    try {
+      const assigned = await this.bestPayComparisonService.assignLead(sessionId, leadId, context);
+      if (!assigned.ok) {
+        return { ok: false, error: assigned.error };
+      }
+      const session = assigned.session;
+      session.wizard.enabled = true;
+      session.entryMode = 'wizard';
+      const saved = await this.persist(session);
+      await this.recordAdviceStarted(saved, context);
+      return { ok: true, session: saved };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/ACTIVE_ADVICE_DRAFT_CONFLICT|best_pay_one_active_advice_draft_per_lead/i.test(message)) {
+        const raced = await this.findActiveDraftForLead(leadId, context);
+        if (raced) {
+          if (sessionId !== raced.id && isEmptyAdviceSession(current)) {
+            await this.discardAdviceDraft(sessionId, context);
+          }
+          const resumed = await this.resumeWizard(raced.id, context);
+          return resumed.ok ? resumed : { ok: false, error: resumed.error };
+        }
+      }
+      throw error;
+    }
   }
 
   async createLeadFromProspect(
@@ -492,6 +641,10 @@ export class SalesWizardService {
       email: draft.email,
       industry: draft.industry,
       notes: draft.notes,
+      currentProvider: resolveCurrentProviderDisplayName(
+        draft.currentProviderCode,
+        draft.currentProviderOther,
+      ),
       monthlyCardTurnoverCents: session.manualInput.monthlyCardVolumeCents,
       monthlyTransactions: session.manualInput.monthlyTransactions,
       requiredTerminalCount: session.manualInput.terminalCount,

@@ -562,13 +562,36 @@ export class SalesWorkspaceService {
     const upcomingTasks = openTasks.filter((task) => dueBucketOf(task) === 'upcoming').slice(0, 20);
 
     const incompleteWizards = sessions
-      .filter(
-        (session) =>
-          (session.entryMode === 'wizard' || session.wizard.enabled) &&
-          !session.wizard.wizardCompletedAt &&
-          session.status !== 'discarded' &&
-          !session.archivedAt,
-      )
+      .filter((session) => {
+        if (!(session.entryMode === 'wizard' || session.wizard.enabled)) {
+          return false;
+        }
+        if (session.wizard.wizardCompletedAt || session.status === 'discarded' || session.archivedAt) {
+          return false;
+        }
+        // Nach Angebotserzeugung kein aktiver Beratungsentwurf mehr.
+        if (session.offerId || session.status === 'offer_created') {
+          return false;
+        }
+        return true;
+      })
+      // Pro Kunde höchstens ein Entwurf (neuester).
+      .reduce<typeof sessions>((acc, session) => {
+        if (!session.leadId) {
+          acc.push(session);
+          return acc;
+        }
+        const existingIndex = acc.findIndex((entry) => entry.leadId === session.leadId);
+        if (existingIndex === -1) {
+          acc.push(session);
+          return acc;
+        }
+        const existing = acc[existingIndex]!;
+        if (session.updatedAt > existing.updatedAt) {
+          acc[existingIndex] = session;
+        }
+        return acc;
+      }, [])
       .slice(0, 50);
 
     const adviceDraftCards: SalesCaseCard[] = incompleteWizards.map((session) => {

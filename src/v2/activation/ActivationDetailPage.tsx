@@ -286,7 +286,7 @@ export function ActivationDetailPage() {
           <div className={styles.headerActions}>
             {activation.leadId ? (
               <Link to={`/leads/${activation.leadId}`}>
-                <Button variant="secondary">Zur Kundenakte</Button>
+                <Button variant="secondary">Zum Kunden</Button>
               </Link>
             ) : null}
             <Link to={`/contracts/${activation.contractId}`}>
@@ -367,7 +367,7 @@ export function ActivationDetailPage() {
               <span className={styles.label}>Kunde</span>
               <span>
                 {activation.leadId ? (
-                  <Link to={`/leads/${activation.leadId}`}>Zur Kundenakte</Link>
+                  <Link to={`/leads/${activation.leadId}`}>Zum Kunden</Link>
                 ) : (
                   '–'
                 )}

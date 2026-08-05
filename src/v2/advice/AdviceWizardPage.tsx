@@ -132,22 +132,37 @@ function AdviceWizardInner({
           showToast('Beratung fortgesetzt', 'info');
         }
       } else if (leadId) {
-        active = services.salesWizardService.createTransientWizard(userContext);
-        active = await services.salesWizardService.persistWizardSession(active, userContext);
+        const prior = await services.salesWizardService.findActiveDraftForLead(leadId, userContext);
+        active = await services.salesWizardService.ensureActiveDraftForLead(leadId, userContext);
         if (cancelled) {
           return;
         }
         persisted = true;
-        const assigned = await services.salesWizardService.assignLead(active.id, leadId, userContext);
+        bindSessionToUrl(active.id);
+        if (prior) {
+          showToast('Beratung fortgesetzt', 'info');
+        }
+      } else if (isNew) {
+        const anonymous = await services.salesWizardService.findActiveAnonymousDraft(userContext);
         if (cancelled) {
           return;
         }
-        if (assigned.ok) {
-          active = assigned.session;
+        if (anonymous) {
+          const resumed = await services.salesWizardService.resumeWizard(anonymous.id, userContext);
+          if (cancelled) {
+            return;
+          }
+          if (resumed.ok) {
+            active = resumed.session;
+            persisted = true;
+            bindSessionToUrl(active.id);
+            showToast('Beratung fortgesetzt', 'info');
+          } else {
+            active = services.salesWizardService.createTransientWizard(userContext);
+          }
+        } else {
+          active = services.salesWizardService.createTransientWizard(userContext);
         }
-        bindSessionToUrl(active.id);
-      } else if (isNew) {
-        active = services.salesWizardService.createTransientWizard(userContext);
       } else {
         navigate(ADVICE_PATH, { replace: true });
         return;
@@ -360,7 +375,7 @@ function AdviceWizardInner({
               billingImportService={services.billingImportService}
               onSelectMode={(mode) => void advice.setCostCaptureMode(mode)}
               onPatchCosts={(cents) => void advice.patchManualInput({ monthlyTotalCostsCents: cents })}
-              onPatchCurrentProvider={(provider) => void advice.patchProspect({ notes: provider })}
+              onPatchCurrentProvider={(patch) => void advice.patchProspect(patch)}
               onBaselineConfirmed={(options) => void advice.syncBillingBaseline(options)}
               showToast={showToast}
             />
@@ -428,7 +443,6 @@ function AdviceWizardInner({
               canSeeCommission={canSeeCommission}
               workflowView={workflowView}
               userContext={userContext}
-              offerShareService={services.offerShareService}
               offerWorkflowService={services.offerWorkflowService}
               followUpNote={advice.session.wizard.followUpNotes}
               onFollowUpNoteChange={(value) => advice.patchFollowUpNotes(value)}
@@ -455,7 +469,7 @@ function AdviceWizardInner({
             <Button variant="secondary" disabled={step === 'prospect' || advice.busy} onClick={() => void advice.goBack()}>
               Zurück
             </Button>
-            {step !== 'closing' ? (
+            {step !== 'closing' && !(step === 'offer' && !advice.session.offerId) ? (
               <Button loading={advice.busy} onClick={() => void handleNext()}>
                 {step === 'variants' ? 'Weiter zum Angebot' : 'Weiter'}
               </Button>

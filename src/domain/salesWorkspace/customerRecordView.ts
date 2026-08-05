@@ -1,10 +1,11 @@
 import type { BestPayComparisonSession } from '../bestPayComparison/bestPayComparisonSession';
+import { isActiveAdviceDraft } from '../bestPayComparison/isActiveAdviceDraft';
 import type { ContractStatus } from '../contract/contractStatus';
 import type { Lead } from '../lead/lead';
 import type { Offer } from '../offer/offer';
 import type { OfferWorkflowStatus } from '../offer/offerWorkflow';
 import type { ActivationStatus } from '../activation/activationStatus';
-import { ADVICE_NEW_PATH, salesWizardSessionPath } from '../../utils/routes';
+import { salesWizardSessionPath } from '../../utils/routes';
 import type { SalesTask } from './salesTask';
 
 /** Verständlicher Gesamtstand in der Kundenakte (keine Persistenz). */
@@ -115,9 +116,7 @@ export function pickLatestSession(sessions: BestPayComparisonSession[]): BestPay
 }
 
 function isIncompleteAdvice(session: BestPayComparisonSession | null): boolean {
-  if (!session) return false;
-  if (session.completedAt || session.wizard.wizardCompletedAt) return false;
-  return session.entryMode === 'wizard' || session.wizard.enabled || session.status === 'draft';
+  return Boolean(session && isActiveAdviceDraft(session));
 }
 
 function offerNeedsApproval(status: OfferWorkflowStatus): boolean {
@@ -180,7 +179,8 @@ function adviceHref(leadId: string, session: BestPayComparisonSession | null): s
   if (session && isIncompleteAdvice(session)) {
     return salesWizardSessionPath(session.id);
   }
-  return `${ADVICE_NEW_PATH}&leadId=${encodeURIComponent(leadId)}`;
+  // Kanonischer Einstieg: ensureActiveDraftForLead (kein paralleler Anon-Entwurf).
+  return `/advice?leadId=${encodeURIComponent(leadId)}`;
 }
 
 /**
