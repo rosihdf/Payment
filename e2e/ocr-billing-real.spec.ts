@@ -7,11 +7,12 @@ import { startNewAdvice } from './helpers';
  *   CI=1 VITE_BILLING_OCR_IMPORT_ENABLED=true \
  *     npx playwright test e2e/ocr-billing-real.spec.ts
  */
-const ocrUiEnabled = process.env.VITE_BILLING_OCR_IMPORT_ENABLED === 'true';
+/** Produktstandard: OCR aktiv, außer explizit VITE_BILLING_OCR_IMPORT_ENABLED=false. */
+const ocrUiEnabled = process.env.VITE_BILLING_OCR_IMPORT_ENABLED !== 'false';
 const demoOcr = process.env.VITE_BILLING_DEMO_OCR === 'true';
 
 test.describe('OCR real Tesseract', () => {
-  test.skip(!ocrUiEnabled || demoOcr, 'Benötigt VITE_BILLING_OCR_IMPORT_ENABLED=true ohne DEMO_OCR');
+  test.skip(!ocrUiEnabled || demoOcr, 'Benötigt aktives OCR-Flag ohne DEMO_OCR');
 
   test('erkennt synthetisches PNG und zeigt prüfbare Felder', async ({ page }) => {
     test.setTimeout(180_000);

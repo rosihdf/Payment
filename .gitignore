@@ -45,5 +45,6 @@ keystore.properties
 # Playwright E2E
 /test-results/
 /playwright-report/
+/playwright-report-supabase/
 /blob-report/
 /playwright/.cache/

@@ -10,7 +10,8 @@ import { startNewAdvice } from './helpers';
  *
  * Demo-OCR ist Fixture-/Mock-basiert. Parser-/Sync-Wahrheit: Vitest-Fixtures.
  */
-const ocrUiEnabled = process.env.VITE_BILLING_OCR_IMPORT_ENABLED === 'true';
+/** Produktstandard: OCR aktiv, außer explizit VITE_BILLING_OCR_IMPORT_ENABLED=false. */
+const ocrUiEnabled = process.env.VITE_BILLING_OCR_IMPORT_ENABLED !== 'false';
 
 async function startAdviceAtCosts(page: import('@playwright/test').Page) {
   await page.goto('/');
@@ -22,7 +23,7 @@ async function startAdviceAtCosts(page: import('@playwright/test').Page) {
 }
 
 test.describe('OCR Abrechnung einlesen (Feature-Flag)', () => {
-  test.skip(!ocrUiEnabled, 'VITE_BILLING_OCR_IMPORT_ENABLED=true erforderlich');
+  test.skip(!ocrUiEnabled, 'OCR-Flag ist deaktiviert (VITE_BILLING_OCR_IMPORT_ENABLED=false)');
 
   test('prüft, übernimmt und behält Werte nach Reload', async ({ page }) => {
     await startAdviceAtCosts(page);

@@ -47,9 +47,12 @@ export default defineConfig({
     stderr: 'pipe',
     env: {
       ...process.env,
-      // OCR-E2E kann den Beratungseinstieg gezielt freischalten.
-      VITE_BILLING_OCR_IMPORT_ENABLED: process.env.VITE_BILLING_OCR_IMPORT_ENABLED ?? '',
-      VITE_BILLING_DEMO_OCR: process.env.VITE_BILLING_DEMO_OCR ?? '',
+      // Produktstandard: OCR aktiv. Explizit false schaltet UI und Specs ab.
+      VITE_BILLING_OCR_IMPORT_ENABLED: process.env.VITE_BILLING_OCR_IMPORT_ENABLED ?? 'true',
+      // Demo-OCR nur wenn ausdrücklich gesetzt (sonst realer Tesseract-Pfad).
+      ...(process.env.VITE_BILLING_DEMO_OCR
+        ? { VITE_BILLING_DEMO_OCR: process.env.VITE_BILLING_DEMO_OCR }
+        : {}),
     },
   },
 });
