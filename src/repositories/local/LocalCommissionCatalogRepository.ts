@@ -13,9 +13,12 @@ export interface CommissionCatalogData {
 
 export interface CommissionCatalogRepository {
   getCatalog(): Promise<CommissionCatalogData>;
+  getAssignments(): Promise<CommissionCatalogData['assignments']>;
+  getRules(): Promise<CommissionCatalogData['commissionRules']>;
   saveCatalog(catalog: CommissionCatalogData): Promise<void>;
   saveRules(rules: CommissionRule[]): Promise<void>;
   saveAssignments(assignments: SalesRepresentativeCommissionAssignment[]): Promise<void>;
+  saveAssignment(assignment: SalesRepresentativeCommissionAssignment): Promise<void>;
 }
 
 export class LocalCommissionCatalogRepository implements CommissionCatalogRepository {
@@ -39,6 +42,21 @@ export class LocalCommissionCatalogRepository implements CommissionCatalogReposi
     };
   }
 
+  async getAssignments(): Promise<SalesRepresentativeCommissionAssignment[]> {
+    migrateCommissionCatalogIfNeeded();
+    return (
+      readStorageItem<SalesRepresentativeCommissionAssignment[]>(STORAGE_KEYS.commissionAssignments) ??
+      []
+    ).map((item) => ({ ...item }));
+  }
+
+  async getRules(): Promise<CommissionRule[]> {
+    migrateCommissionCatalogIfNeeded();
+    return (readStorageItem<CommissionRule[]>(STORAGE_KEYS.commissionRules) ?? []).map((item) => ({
+      ...item,
+    }));
+  }
+
   async saveCatalog(catalog: CommissionCatalogData): Promise<void> {
     writeStorageItem(STORAGE_KEYS.commissionPlans, catalog.commissionPlans);
     writeStorageItem(STORAGE_KEYS.commissionPlanVersions, catalog.commissionPlanVersions);
@@ -51,6 +69,18 @@ export class LocalCommissionCatalogRepository implements CommissionCatalogReposi
   }
 
   async saveAssignments(assignments: SalesRepresentativeCommissionAssignment[]): Promise<void> {
+    writeStorageItem(STORAGE_KEYS.commissionAssignments, assignments);
+  }
+
+  async saveAssignment(assignment: SalesRepresentativeCommissionAssignment): Promise<void> {
+    const catalog = await this.getCatalog();
+    const index = catalog.assignments.findIndex((entry) => entry.id === assignment.id);
+    const assignments = [...catalog.assignments];
+    if (index >= 0) {
+      assignments[index] = assignment;
+    } else {
+      assignments.push(assignment);
+    }
     writeStorageItem(STORAGE_KEYS.commissionAssignments, assignments);
   }
 }

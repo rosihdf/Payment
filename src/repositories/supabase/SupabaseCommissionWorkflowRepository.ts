@@ -3,12 +3,16 @@ import type { CommissionBonusPayment } from '../../domain/commission/commissionB
 import type { CommissionCase, CommissionEvent } from '../../domain/commission/commissionCase';
 import type { CommissionPaymentRecord } from '../../domain/commission/commissionPaymentRecord';
 import type { CommissionWorkflowRepository } from '../interfaces/CommissionWorkflowRepository';
+import { runCommissionWrite } from './commissionWriteLock';
 import {
   rowData,
+  sbCountWhere,
   sbInsert,
+  sbInsertWithoutReturn,
   sbSelectAll,
   sbSelectById,
   sbSelectWhere,
+  sbSelectWhereIn,
   sbUpdate,
   type JsonTableRow,
 } from './supabaseTable';
@@ -98,6 +102,15 @@ function paymentToRow(record: CommissionPaymentRecord, repId: string): Record<st
 }
 
 export class SupabaseCommissionWorkflowRepository implements CommissionWorkflowRepository {
+  private assignmentVersionsPromises = new Map<string, Promise<CommissionAssignmentVersion[]>>();
+
+  private invalidateAssignmentVersionsCache(assignmentId?: string): void {
+    if (assignmentId) {
+      this.assignmentVersionsPromises.delete(assignmentId);
+      return;
+    }
+    this.assignmentVersionsPromises.clear();
+  }
   async getCaseById(id: string): Promise<CommissionCase | null> {
     const row = await sbSelectById('commission_cases', id);
     return row ? rowToCase(row) : null;
@@ -123,20 +136,51 @@ export class SupabaseCommissionWorkflowRepository implements CommissionWorkflowR
     return rows.map((row) => rowToAssignmentVersion(row));
   }
 
+  async getAssignmentVersionById(id: string): Promise<CommissionAssignmentVersion | null> {
+    const row = await sbSelectById('commission_assignment_versions', id);
+    return row ? rowToAssignmentVersion(row) : null;
+  }
+
+  async getAssignmentVersionsByIds(ids: string[]): Promise<CommissionAssignmentVersion[]> {
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+    const rows = await sbSelectWhereIn('commission_assignment_versions', 'id', uniqueIds);
+    return rows.map((row) => rowToAssignmentVersion(row));
+  }
+
   async getAssignmentVersionsByAssignmentId(
     assignmentId: string,
   ): Promise<CommissionAssignmentVersion[]> {
-    const rows = await sbSelectWhere('commission_assignment_versions', 'assignment_id', assignmentId);
-    return rows
-      .map((row) => rowToAssignmentVersion(row))
-      .sort((left, right) => right.versionNumber - left.versionNumber);
+    let pending = this.assignmentVersionsPromises.get(assignmentId);
+    if (!pending) {
+      pending = sbSelectWhere('commission_assignment_versions', 'assignment_id', assignmentId)
+        .then((rows) =>
+          rows
+            .map((row) => rowToAssignmentVersion(row))
+            .sort((left, right) => right.versionNumber - left.versionNumber),
+        )
+        .finally(() => {
+          this.assignmentVersionsPromises.delete(assignmentId);
+        });
+      this.assignmentVersionsPromises.set(assignmentId, pending);
+    }
+    return pending;
+  }
+
+  async countAssignmentVersions(assignmentId: string): Promise<number> {
+    return sbCountWhere('commission_assignment_versions', 'assignment_id', assignmentId);
   }
 
   async createAssignmentVersion(
     version: CommissionAssignmentVersion,
   ): Promise<CommissionAssignmentVersion> {
-    const row = await sbInsert('commission_assignment_versions', assignmentVersionToRow(version));
-    return rowToAssignmentVersion(row);
+    this.invalidateAssignmentVersionsCache(version.assignmentId);
+    await runCommissionWrite(async () => {
+      await sbInsertWithoutReturn('commission_assignment_versions', assignmentVersionToRow(version));
+    });
+    return version;
   }
 
   async getBonusPayments(): Promise<CommissionBonusPayment[]> {

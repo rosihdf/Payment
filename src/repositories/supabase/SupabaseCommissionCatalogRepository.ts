@@ -2,6 +2,7 @@ import type {
   CommissionCatalogData,
   CommissionCatalogRepository,
 } from '../local/LocalCommissionCatalogRepository';
+import { runCommissionWrite } from './commissionWriteLock';
 import { rowData, sbSelectAll, sbUpsertMany, type JsonTableRow } from './supabaseTable';
 
 function planToRow(item: CommissionCatalogData['commissionPlans'][number]): Record<string, unknown> {
@@ -47,15 +48,19 @@ function assignmentToRow(
 }
 
 export class SupabaseCommissionCatalogRepository implements CommissionCatalogRepository {
-  async getCatalog(): Promise<CommissionCatalogData> {
-    const [planRows, versionRows, ruleRows, assignmentRows] = await Promise.all([
+  private catalogPromise: Promise<CommissionCatalogData> | null = null;
+
+  private invalidateCatalogCache(): void {
+    this.catalogPromise = null;
+  }
+
+  private fetchCatalog(): Promise<CommissionCatalogData> {
+    return Promise.all([
       sbSelectAll('commission_plans'),
       sbSelectAll('commission_plan_versions'),
       sbSelectAll('commission_rules'),
       sbSelectAll('commission_assignments'),
-    ]);
-
-    return {
+    ]).then(([planRows, versionRows, ruleRows, assignmentRows]) => ({
       commissionPlans: planRows.map((row) =>
         rowData<CommissionCatalogData['commissionPlans'][number]>(row, {
           id: String(row.id),
@@ -78,10 +83,39 @@ export class SupabaseCommissionCatalogRepository implements CommissionCatalogRep
           salesRepresentativeId: String(row.sales_representative_id ?? ''),
         } as CommissionCatalogData['assignments'][number]),
       ),
-    };
+    }));
+  }
+
+  async getCatalog(): Promise<CommissionCatalogData> {
+    if (!this.catalogPromise) {
+      this.catalogPromise = this.fetchCatalog().finally(() => {
+        this.catalogPromise = null;
+      });
+    }
+    return this.catalogPromise;
+  }
+
+  async getAssignments(): Promise<CommissionCatalogData['assignments']> {
+    const rows = await sbSelectAll('commission_assignments');
+    return rows.map((row: JsonTableRow) =>
+      rowData<CommissionCatalogData['assignments'][number]>(row, {
+        id: String(row.id),
+        salesRepresentativeId: String(row.sales_representative_id ?? ''),
+      } as CommissionCatalogData['assignments'][number]),
+    );
+  }
+
+  async getRules(): Promise<CommissionCatalogData['commissionRules']> {
+    const rows = await sbSelectAll('commission_rules');
+    return rows.map((row) =>
+      rowData<CommissionCatalogData['commissionRules'][number]>(row, {
+        id: String(row.id),
+      } as CommissionCatalogData['commissionRules'][number]),
+    );
   }
 
   async saveCatalog(catalog: CommissionCatalogData): Promise<void> {
+    this.invalidateCatalogCache();
     await Promise.all([
       sbUpsertMany('commission_plans', catalog.commissionPlans.map(planToRow)),
       sbUpsertMany('commission_plan_versions', catalog.commissionPlanVersions.map(planVersionToRow)),
@@ -91,10 +125,19 @@ export class SupabaseCommissionCatalogRepository implements CommissionCatalogRep
   }
 
   async saveRules(rules: CommissionCatalogData['commissionRules']): Promise<void> {
+    this.invalidateCatalogCache();
     await sbUpsertMany('commission_rules', rules.map(ruleToRow));
   }
 
   async saveAssignments(assignments: CommissionCatalogData['assignments']): Promise<void> {
+    this.invalidateCatalogCache();
     await sbUpsertMany('commission_assignments', assignments.map(assignmentToRow));
+  }
+
+  async saveAssignment(assignment: CommissionCatalogData['assignments'][number]): Promise<void> {
+    this.invalidateCatalogCache();
+    await runCommissionWrite(async () => {
+      await sbUpsertMany('commission_assignments', [assignmentToRow(assignment)]);
+    });
   }
 }

@@ -36,6 +36,20 @@ export class LocalCommissionWorkflowRepository implements CommissionWorkflowRepo
     return readStorageItem<CommissionAssignmentVersion[]>(STORAGE_KEYS.commissionAssignmentVersions) ?? [];
   }
 
+  async getAssignmentVersionById(id: string): Promise<CommissionAssignmentVersion | null> {
+    const versions = await this.getAssignmentVersions();
+    return versions.find((version) => version.id === id) ?? null;
+  }
+
+  async getAssignmentVersionsByIds(ids: string[]): Promise<CommissionAssignmentVersion[]> {
+    const uniqueIds = new Set(ids.filter(Boolean));
+    if (uniqueIds.size === 0) {
+      return [];
+    }
+    const versions = await this.getAssignmentVersions();
+    return versions.filter((version) => uniqueIds.has(version.id));
+  }
+
   async getAssignmentVersionsByAssignmentId(
     assignmentId: string,
   ): Promise<CommissionAssignmentVersion[]> {
@@ -43,6 +57,11 @@ export class LocalCommissionWorkflowRepository implements CommissionWorkflowRepo
     return versions
       .filter((version) => version.assignmentId === assignmentId)
       .sort((left, right) => right.versionNumber - left.versionNumber);
+  }
+
+  async countAssignmentVersions(assignmentId: string): Promise<number> {
+    const versions = await this.getAssignmentVersions();
+    return versions.filter((version) => version.assignmentId === assignmentId).length;
   }
 
   async createAssignmentVersion(

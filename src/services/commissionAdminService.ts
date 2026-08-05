@@ -238,13 +238,21 @@ export class CommissionAdminService {
       return { error: 'forbidden' };
     }
 
-    const [users, catalog, versions] = await Promise.all([
+    const [users, catalog] = await Promise.all([
       this.userRepository.getAll(),
       this.catalogRepository.getCatalog(),
-      this.workflowRepository.getAssignmentVersions(),
     ]);
 
     const reps = users.filter((user) => user.role === 'field_service');
+    const versionIds = [
+      ...new Set(
+        catalog.assignments
+          .map((assignment) => assignment.currentVersionId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const versions = await this.workflowRepository.getAssignmentVersionsByIds(versionIds);
+    const versionById = new Map(versions.map((version) => [version.id, version]));
 
     return reps.map((user) => {
       const assignment = getActiveAssignmentForRepresentative(
@@ -260,7 +268,7 @@ export class CommissionAdminService {
           )
         : null;
       const currentVersion = assignment?.currentVersionId
-        ? versions.find((version) => version.id === assignment.currentVersionId) ?? null
+        ? versionById.get(assignment.currentVersionId) ?? null
         : null;
       const currentOverrides = currentVersion?.ruleOverrides ?? [];
       const hasIndividualOverrides = hasIndividualAgreement(currentOverrides);
@@ -292,23 +300,16 @@ export class CommissionAdminService {
       return { error: 'forbidden' };
     }
 
-    const [catalog, allVersions] = await Promise.all([
-      this.catalogRepository.getCatalog(),
-      this.workflowRepository.getAssignmentVersions(),
-    ]);
+    const catalog = await this.catalogRepository.getCatalog();
     const assignment = getActiveAssignmentForRepresentative(
       catalog.assignments,
       salesRepresentativeId,
       nowIso(),
     );
-    const assignmentVersions = assignment
-      ? allVersions
-          .filter((version) => version.assignmentId === assignment.id)
-          .sort((left, right) => right.versionNumber - left.versionNumber)
-      : [];
     const currentVersion = assignment?.currentVersionId
-      ? allVersions.find((version) => version.id === assignment.currentVersionId) ?? null
+      ? await this.workflowRepository.getAssignmentVersionById(assignment.currentVersionId)
       : null;
+    const assignmentVersions = currentVersion ? [currentVersion] : [];
     const assignedModel = assignment
       ? resolveModelFromPlanVersion(
           assignment.commissionPlanVersionId,
@@ -393,7 +394,10 @@ export class CommissionAdminService {
       return { ok: false, error: 'forbidden' };
     }
 
-    const catalog = await this.catalogRepository.getCatalog();
+    const [assignments, commissionRules] = await Promise.all([
+      this.catalogRepository.getAssignments(),
+      this.catalogRepository.getRules(),
+    ]);
     const planVersionId = resolvePlanVersionIdForModel(input.model);
     const timestamp = nowIso();
 
@@ -406,7 +410,7 @@ export class CommissionAdminService {
       }
     }
 
-    const planRules = catalog.commissionRules.filter(
+    const planRules = commissionRules.filter(
       (rule) => rule.commissionPlanVersionId === planVersionId,
     );
     const ruleById = new Map(planRules.map((rule) => [rule.id, rule]));
@@ -414,11 +418,11 @@ export class CommissionAdminService {
       normalizeOverrideToShareTruth(override, ruleById.get(override.ruleId)),
     );
 
-    const overlapping = catalog.assignments.some(
+    const overlapping = assignments.some(
       (assignment) =>
         assignment.salesRepresentativeId === input.salesRepresentativeId &&
         assignment.id !==
-          (catalog.assignments.find(
+          (assignments.find(
             (entry) =>
               entry.salesRepresentativeId === input.salesRepresentativeId && entry.status === 'active',
           )?.id ?? '') &&
@@ -434,7 +438,7 @@ export class CommissionAdminService {
       return { ok: false, error: 'overlap' };
     }
 
-    const existing = catalog.assignments.find(
+    const existing = assignments.find(
       (assignment) =>
         assignment.salesRepresentativeId === input.salesRepresentativeId &&
         assignment.status === 'active' &&
@@ -442,7 +446,6 @@ export class CommissionAdminService {
     );
 
     let assignment: SalesRepresentativeCommissionAssignment;
-    const assignments = [...catalog.assignments];
 
     if (existing) {
       assignment = {
@@ -453,8 +456,20 @@ export class CommissionAdminService {
         reason: input.changeNote,
         updatedAt: timestamp,
       };
-      const index = assignments.findIndex((entry) => entry.id === existing.id);
-      assignments[index] = assignment;
+      if (existing.currentVersionId) {
+        const currentVersion = await this.workflowRepository.getAssignmentVersionById(
+          existing.currentVersionId,
+        );
+        if (
+          currentVersion &&
+          existing.commissionPlanVersionId === planVersionId &&
+          existing.validFrom === input.validFrom &&
+          existing.validUntil === input.validUntil &&
+          JSON.stringify(currentVersion.ruleOverrides) === JSON.stringify(normalizedOverrides)
+        ) {
+          return { ok: true, assignment: existing };
+        }
+      }
     } else {
       assignment = {
         id: generateId('commission_assignment'),
@@ -471,11 +486,10 @@ export class CommissionAdminService {
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-      assignments.push(assignment);
     }
 
-    const versions = await this.workflowRepository.getAssignmentVersionsByAssignmentId(assignment.id);
-    const versionNumber = (versions[0]?.versionNumber ?? 0) + 1;
+    const versionNumber =
+      (await this.workflowRepository.countAssignmentVersions(assignment.id)) + 1;
     const version: CommissionAssignmentVersion = {
       id: generateId('commission_assignment_version'),
       assignmentId: assignment.id,
@@ -493,33 +507,32 @@ export class CommissionAdminService {
       await this.workflowRepository.createAssignmentVersion(version);
 
       assignment = { ...assignment, currentVersionId: version.id };
-      const assignmentIndex = assignments.findIndex((entry) => entry.id === assignment.id);
-      assignments[assignmentIndex] = assignment;
-
-      await this.catalogRepository.saveAssignments(assignments);
+      await this.catalogRepository.saveAssignment(assignment);
     } catch (error) {
       return { ok: false, error: formatPersistError(error) };
     }
 
-    try {
-      await this.logCommissionEvent('commission_assignment_changed', context, {
-        reason: input.changeNote || 'Provisionszuordnung geändert',
-        metadata: {
-          salesRepresentativeId: input.salesRepresentativeId,
-          planVersionId,
-        },
-      });
+    void this.logCommissionEvent('commission_assignment_changed', context, {
+      reason: input.changeNote || 'Provisionszuordnung geändert',
+      metadata: {
+        salesRepresentativeId: input.salesRepresentativeId,
+        planVersionId,
+      },
+    }).catch((error) => {
+      console.error(formatPersistError(error));
+    });
 
-      await this.auditService.logChange({
+    void this.auditService
+      .logChange({
         context,
         action: 'commission_updated',
         entityType: 'commission_plan',
         entityId: assignment.id,
         summary: `Provisionszuordnung für ${input.salesRepresentativeId} gespeichert`,
+      })
+      .catch((error) => {
+        console.error(formatPersistError(error));
       });
-    } catch (error) {
-      console.error(formatPersistError(error));
-    }
 
     return { ok: true, assignment };
   }

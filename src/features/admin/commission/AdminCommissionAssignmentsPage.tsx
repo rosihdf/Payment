@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormControl } from '../../../components/common/FormControl';
 import { ResponsiveTable } from '../../../components/common/ResponsiveTable';
 import { EmptyState } from '../../../components/feedback/EmptyState';
@@ -22,7 +22,7 @@ import { Dialog } from '../../../v2/ui/Dialog';
 
 export function CommissionAssignmentsPanel() {
   const context = useAdminContext();
-  const { commissionAdminService, commissionCatalogAdminService } = useServices();
+  const { commissionAdminService } = useServices();
   const [rows, setRows] = useState<RepresentativeAssignmentRow[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [model, setModel] = useState<'classic' | 'variable'>('classic');
@@ -33,15 +33,22 @@ export function CommissionAssignmentsPanel() {
   const [ruleViews, setRuleViews] = useState<AssignmentRuleView[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const saveInFlightRef = useRef(false);
 
   const selectedRow = selectedUserId ? rows.find((row) => row.userId === selectedUserId) : null;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!context) return;
     try {
-      await commissionCatalogAdminService.seedDefaultCatalog(context);
-      await commissionAdminService.ensureDefaultAssignments(context);
-      const result = await commissionAdminService.listRepresentativeAssignments(context);
+      let result = await commissionAdminService.listRepresentativeAssignments(context);
+      if (Array.isArray(result)) {
+        const needsDefaults = result.some((row) => row.status === 'active' && !row.assignmentId);
+        if (needsDefaults) {
+          await commissionAdminService.ensureDefaultAssignments(context);
+          result = await commissionAdminService.listRepresentativeAssignments(context);
+        }
+      }
       if (Array.isArray(result)) {
         setRows(result);
       } else {
@@ -50,14 +57,27 @@ export function CommissionAssignmentsPanel() {
     } catch (error) {
       setMessage(`Fehler: ${formatPersistError(error)}`);
     }
-  };
+  }, [commissionAdminService, context]);
+
+  const refreshRows = useCallback(async () => {
+    if (!context) return;
+    try {
+      const result = await commissionAdminService.listRepresentativeAssignments(context);
+      if (Array.isArray(result)) {
+        setRows(result);
+      }
+    } catch (error) {
+      setMessage(`Fehler: ${formatPersistError(error)}`);
+    }
+  }, [commissionAdminService, context]);
 
   useEffect(() => {
     void load();
-  }, [context]);
+  }, [load]);
 
   useEffect(() => {
     if (!context || !selectedUserId) return;
+    setIsDetailLoading(true);
     void commissionAdminService
       .getAssignmentDetail(context, selectedUserId, { model })
       .then((detail) => {
@@ -75,8 +95,11 @@ export function CommissionAssignmentsPanel() {
       })
       .catch((error: unknown) => {
         setMessage(`Fehler: ${formatPersistError(error)}`);
+      })
+      .finally(() => {
+        setIsDetailLoading(false);
       });
-  }, [commissionAdminService, commissionCatalogAdminService, context, selectedUserId, model]);
+  }, [commissionAdminService, context, selectedUserId, model]);
 
   const closeDialog = () => {
     setSelectedUserId(null);
@@ -86,29 +109,10 @@ export function CommissionAssignmentsPanel() {
     if (!context) {
       return;
     }
-    const nextModel = row.model ?? 'classic';
     setSelectedUserId(row.userId);
-    setModel(nextModel);
+    setModel(row.model ?? 'classic');
     setMessage(null);
     setRuleViews([]);
-    void commissionAdminService
-      .getAssignmentDetail(context, row.userId, { model: nextModel })
-      .then((detail) => {
-        if ('error' in detail) {
-          setMessage(commissionErrorLabel(detail.error));
-          return;
-        }
-        setRuleViews(detail.ruleViews);
-        setReason(detail.assignment?.reason ?? '');
-        setNote(detail.currentVersion?.changeNote ?? '');
-        if (detail.assignment) {
-          setValidFrom(detail.assignment.validFrom.slice(0, 10));
-          setValidUntil(detail.assignment.validUntil?.slice(0, 10) ?? '');
-        }
-      })
-      .catch((error: unknown) => {
-        setMessage(`Fehler: ${formatPersistError(error)}`);
-      });
   };
 
   const toOverrides = (): CommissionRuleOverride[] =>
@@ -119,17 +123,20 @@ export function CommissionAssignmentsPanel() {
       percentTenthsOfBasisPoint: null,
     }));
 
-  const handleSave = async () => {
-    if (!context || !selectedUserId) return;
+  const handleSave = useCallback(async () => {
+    if (!context || !selectedUserId || saveInFlightRef.current) {
+      return;
+    }
     for (const view of ruleViews) {
       if (!isValidCommissionSharePercent(view.sharePercent)) {
         setMessage(`Fehler: ${commissionErrorLabel('share_range')}`);
         return;
       }
     }
+    saveInFlightRef.current = true;
     setSaving(true);
     try {
-      const result = await commissionAdminService.saveAssignment(context, {
+      const payload = {
         salesRepresentativeId: selectedUserId,
         model,
         validFrom,
@@ -138,39 +145,63 @@ export function CommissionAssignmentsPanel() {
         changeNote: [reason.trim() || 'Individuelle Vereinbarung', note.trim()]
           .filter(Boolean)
           .join(' – '),
-      });
+      };
+      let result = await commissionAdminService.saveAssignment(context, payload);
+      if (
+        !result.ok &&
+        result.error !== 'share_range' &&
+        result.error !== 'overlap' &&
+        result.error !== 'forbidden'
+      ) {
+        result = await commissionAdminService.saveAssignment(context, payload);
+      }
       if (result.ok) {
         closeDialog();
         setMessage('Vereinbarung gespeichert');
-        await load();
+        void refreshRows();
       } else {
         setMessage(`Fehler: ${commissionErrorLabel(result.error)}`);
       }
     } catch (error) {
       setMessage(`Fehler: ${formatPersistError(error)}`);
     } finally {
+      saveInFlightRef.current = false;
       setSaving(false);
     }
-  };
+  }, [
+    commissionAdminService,
+    context,
+    load,
+    refreshRows,
+    model,
+    note,
+    reason,
+    ruleViews,
+    selectedUserId,
+    validFrom,
+    validUntil,
+  ]);
 
-  const handleReset = async () => {
-    if (!context || !selectedUserId) return;
+  const handleReset = useCallback(async () => {
+    if (!context || !selectedUserId || saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
     setSaving(true);
     try {
       const result = await commissionAdminService.resetAssignmentOverrides(context, selectedUserId);
       if (result.ok) {
         closeDialog();
         setMessage('Auf 100 % Standard zurückgesetzt');
-        await load();
+        void refreshRows();
       } else {
         setMessage(`Fehler: ${commissionErrorLabel(result.error)}`);
       }
     } catch (error) {
       setMessage(`Fehler: ${formatPersistError(error)}`);
     } finally {
+      saveInFlightRef.current = false;
       setSaving(false);
     }
-  };
+  }, [commissionAdminService, context, refreshRows, selectedUserId]);
 
   const updateSharePercent = (ruleId: string, rawValue: string) => {
     const value = Number(rawValue.replace(',', '.'));
@@ -263,16 +294,18 @@ export function CommissionAssignmentsPanel() {
           label: 'Speichern',
           onClick: () => void handleSave(),
           loading: saving,
-          disabled: saving,
+          disabled: saving || isDetailLoading,
         }}
       >
         {selectedRow ? (
           <>
             <p>
               {selectedRow.email} ·{' '}
-              {allStandard
-                ? 'Aktuell: Standard (100 %) – keine Eingabe erforderlich.'
-                : 'Aktuell: individuelle Vereinbarung (Prozent führt).'}
+              {isDetailLoading
+                ? 'Vereinbarung wird geladen…'
+                : allStandard
+                  ? 'Aktuell: Standard (100 %) – keine Eingabe erforderlich.'
+                  : 'Aktuell: individuelle Vereinbarung (Prozent führt).'}
             </p>
             <div className={styles.formGrid}>
               <FormControl
@@ -311,44 +344,48 @@ export function CommissionAssignmentsPanel() {
               />
             </div>
 
-            <ResponsiveTable
-              columns={[
-                {
-                  id: 'rule',
-                  header: 'Regel',
-                  render: (view: AssignmentRuleView) => view.ruleName,
-                },
-                {
-                  id: 'standard',
-                  header: 'Standardbetrag',
-                  render: (view: AssignmentRuleView) => view.standardLabel,
-                },
-                {
-                  id: 'share',
-                  header: 'Mitarbeiter %',
-                  render: (view: AssignmentRuleView) => (
-                    <FormControl
-                      type="text"
-                      label={`${view.ruleName} %`}
-                      value={String(view.sharePercent)}
-                      onChange={(event) => updateSharePercent(view.ruleId, event.target.value)}
-                    />
-                  ),
-                },
-                {
-                  id: 'calculated',
-                  header: 'Berechneter Eurobetrag',
-                  render: (view: AssignmentRuleView) => view.calculatedLabel,
-                },
-              ]}
-              rows={ruleViews}
-              rowKey={(view) => view.ruleId}
-              mobileMode="scroll"
-              tableClassName={styles.table}
-            />
+            {isDetailLoading ? (
+              <EmptyState title="Vereinbarung wird geladen" description="Regeln werden vorbereitet." />
+            ) : (
+              <ResponsiveTable
+                columns={[
+                  {
+                    id: 'rule',
+                    header: 'Regel',
+                    render: (view: AssignmentRuleView) => view.ruleName,
+                  },
+                  {
+                    id: 'standard',
+                    header: 'Standardbetrag',
+                    render: (view: AssignmentRuleView) => view.standardLabel,
+                  },
+                  {
+                    id: 'share',
+                    header: 'Mitarbeiter %',
+                    render: (view: AssignmentRuleView) => (
+                      <FormControl
+                        type="text"
+                        label={`${view.ruleName} %`}
+                        value={String(view.sharePercent)}
+                        onChange={(event) => updateSharePercent(view.ruleId, event.target.value)}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'calculated',
+                    header: 'Berechneter Eurobetrag',
+                    render: (view: AssignmentRuleView) => view.calculatedLabel,
+                  },
+                ]}
+                rows={ruleViews}
+                rowKey={(view) => view.ruleId}
+                mobileMode="scroll"
+                tableClassName={styles.table}
+              />
+            )}
 
             <div className={styles.toolbar}>
-              <button type="button" disabled={saving} onClick={() => void handleReset()}>
+              <button type="button" disabled={saving || isDetailLoading} onClick={() => void handleReset()}>
                 Auf Standard (100 %) zurücksetzen
               </button>
             </div>

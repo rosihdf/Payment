@@ -39,6 +39,49 @@ export async function sbSelectWhere(
   return (data ?? []) as JsonTableRow[];
 }
 
+export async function sbSelectWhereIn(
+  table: string,
+  column: string,
+  values: string[],
+): Promise<JsonTableRow[]> {
+  if (values.length === 0) {
+    return [];
+  }
+  const client = getSupabaseClient();
+  const { data, error } = await client.from(table).select('*').in(column, values);
+  if (error) {
+    throw new Error(`${table} laden fehlgeschlagen: ${error.message}`);
+  }
+  return (data ?? []) as JsonTableRow[];
+}
+
+export async function sbCountWhere(
+  table: string,
+  column: string,
+  value: string,
+): Promise<number> {
+  const client = getSupabaseClient();
+  const { count, error } = await client
+    .from(table)
+    .select('*', { count: 'exact', head: true })
+    .eq(column, value);
+  if (error) {
+    throw new Error(`${table} zählen fehlgeschlagen: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
+export async function sbInsertWithoutReturn(
+  table: string,
+  row: Record<string, unknown>,
+): Promise<void> {
+  const client = getSupabaseClient();
+  const { error } = await client.from(table).insert(row);
+  if (error) {
+    throw new Error(`${table} anlegen fehlgeschlagen: ${error.message}`);
+  }
+}
+
 export async function sbInsert(table: string, row: Record<string, unknown>): Promise<JsonTableRow> {
   const client = getSupabaseClient();
   const { data, error } = await client.from(table).insert(row).select('*').single();
@@ -46,6 +89,18 @@ export async function sbInsert(table: string, row: Record<string, unknown>): Pro
     throw new Error(`${table} anlegen fehlgeschlagen: ${error.message}`);
   }
   return data as JsonTableRow;
+}
+
+export async function sbUpdateWithoutReturn(
+  table: string,
+  id: string,
+  row: Record<string, unknown>,
+): Promise<void> {
+  const client = getSupabaseClient();
+  const { error } = await client.from(table).update(row).eq('id', id);
+  if (error) {
+    throw new Error(`${table} aktualisieren fehlgeschlagen: ${error.message}`);
+  }
 }
 
 export async function sbUpdate(

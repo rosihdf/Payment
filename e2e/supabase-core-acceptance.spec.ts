@@ -252,8 +252,8 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await page.getByLabel('E-Mail').fill(credentials.adminEmail);
       await page.getByLabel('Passwort').fill(credentials.adminPassword);
       await page.getByRole('button', { name: 'Anmelden' }).click();
-      await expect(page).toHaveURL(/\/sales$/, { timeout: 20_000 });
-      await page.goto('/admin/commission/standards');
+      await page.waitForURL(/\/sales$/, { timeout: 20_000, waitUntil: 'commit' });
+      await page.goto('/admin/commission/standards', { waitUntil: 'domcontentloaded' });
       await expect(
         page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
       ).toBeVisible();
@@ -284,17 +284,22 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       const employeeSection = page.locator('section').filter({
         has: page.getByRole('heading', { name: 'Außendienst', exact: true }),
       });
-      const employeeMatch = fieldAdvisorLabel.split(' (')[0] || credentials.fieldEmail;
-      const employeeRow = employeeSection.getByRole('row').filter({ hasText: employeeMatch }).first();
+      const employeeLabel = fieldAdvisorLabel.split(' (')[0]?.trim() || 'test';
+      let employeeRow = employeeSection.getByRole('row').filter({ hasText: employeeLabel }).first();
+      if ((await employeeRow.count()) === 0) {
+        employeeRow = employeeSection.getByRole('row').filter({ hasText: credentials.fieldEmail }).first();
+      }
       await expect(employeeRow).toBeVisible({ timeout: 20_000 });
       await employeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
       const employeeDialog = page.getByRole('dialog', { name: /Vereinbarung –/ });
       await expect(employeeDialog).toBeVisible();
       const shareInput = employeeDialog.getByLabel('Nur Acquiring %');
+      await expect(shareInput).toBeVisible({ timeout: 20_000 });
       await expect(shareInput).toHaveValue(/\d+/, { timeout: 20_000 });
       employeeOriginalShare = await shareInput.inputValue();
       await shareInput.fill('42');
       await expect(shareInput).toHaveValue('42');
+      await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
       await employeeDialog.getByRole('button', { name: 'Speichern' }).click();
       await expect(employeeDialog).toHaveCount(0, { timeout: 20_000 });
       await expect(page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' })).toBeVisible({
@@ -305,12 +310,17 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await expect(
         page.getByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
       ).toBeVisible();
-      const reloadedEmployeeRow = employeeSection.getByRole('row').filter({ hasText: employeeMatch }).first();
+      const reloadedEmployeeRow = employeeSection.getByRole('row').filter({ hasText: employeeLabel }).first();
       await reloadedEmployeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
-      await expect(page.getByRole('dialog').getByLabel('Nur Acquiring %')).toHaveValue('42');
+      const reloadedDialog = page.getByRole('dialog', { name: /Vereinbarung –/ });
+      await expect(reloadedDialog).toBeVisible();
+      const reloadedShareInput = reloadedDialog.getByLabel('Nur Acquiring %');
+      await expect(reloadedShareInput).toBeVisible({ timeout: 20_000 });
+      await expect(reloadedShareInput).toHaveValue('42');
 
-      await page.getByRole('dialog').getByLabel('Nur Acquiring %').fill(employeeOriginalShare);
-      await page.getByRole('dialog').getByRole('button', { name: 'Speichern' }).click();
+      await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
+      await reloadedShareInput.fill(employeeOriginalShare);
+      await reloadedDialog.getByRole('button', { name: 'Speichern' }).click();
       await expect(page.getByRole('dialog', { name: /Vereinbarung –/ })).toHaveCount(0, {
         timeout: 20_000,
       });

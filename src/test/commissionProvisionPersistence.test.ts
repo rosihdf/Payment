@@ -21,6 +21,7 @@ import { createUserContext } from '../services/auditService';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import { createTestRepositories } from './helpers/createTestRepositories';
 import { LocalCommissionCatalogRepository } from '../repositories/local/LocalCommissionCatalogRepository';
+import { LocalCommissionWorkflowRepository } from '../repositories/local/LocalCommissionWorkflowRepository';
 import { FIELD_SERVICE_USER_ID } from './helpers/offerTestHelpers';
 
 const ADMIN = createUserContext({ id: 'user_004', role: 'admin', name: 'Admin', status: 'active' });
@@ -198,6 +199,41 @@ describe('Provision – Persistenznachweis Mitarbeitervereinbarung (0–100 %, E
       changeNote: '0 % ist gültig',
     });
     expect(zeroIsValid.ok).toBe(true);
+  });
+
+  it('zwei parallele Save-Aufrufe schließen ab und erzeugen höchstens zwei Versionen', async () => {
+    const services = createServices(createTestRepositories());
+    await services.commissionCatalogAdminService.seedDefaultCatalog(ADMIN);
+    await services.commissionAdminService.ensureDefaultAssignments(ADMIN);
+
+    const input = {
+      salesRepresentativeId: FIELD_SERVICE_USER_ID,
+      model: 'classic' as const,
+      validFrom: '2026-01-01',
+      validUntil: null,
+      ruleOverrides: [{ ruleId: 'commission_rule_classic_acq', sharePercent: 42 }],
+      changeNote: 'Individuelle Vereinbarung 42 %',
+    };
+
+    const before = await services.commissionAdminService.getAssignmentDetail(ADMIN, FIELD_SERVICE_USER_ID);
+    if ('error' in before || !before.assignment) throw new Error('detail missing');
+    const workflowRepository = new LocalCommissionWorkflowRepository();
+    const beforeCount = await workflowRepository.countAssignmentVersions(before.assignment.id);
+
+    const [first, second] = await Promise.all([
+      services.commissionAdminService.saveAssignment(ADMIN, input),
+      services.commissionAdminService.saveAssignment(ADMIN, input),
+    ]);
+
+    expect(first.ok || second.ok).toBe(true);
+
+    const afterCount = await workflowRepository.countAssignmentVersions(before.assignment.id);
+    expect(afterCount - beforeCount).toBeLessThanOrEqual(2);
+
+    const after = await services.commissionAdminService.getAssignmentDetail(ADMIN, FIELD_SERVICE_USER_ID);
+    if ('error' in after) throw new Error('reload forbidden');
+    const acq = after.ruleViews.find((view) => view.ruleId === 'commission_rule_classic_acq');
+    expect(acq?.sharePercent).toBe(42);
   });
 
   it('lehnt überlappende Zuordnungszeiträume ab (Repository-Ebene: zweiter Assignment-Datensatz mit überlappender Gültigkeit)', async () => {

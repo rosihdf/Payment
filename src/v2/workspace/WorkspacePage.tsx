@@ -78,12 +78,20 @@ export function WorkspacePage() {
 
     try {
       const next = await salesWorkspaceService.getWorkspaceView(userContext, { scope, query });
+      if (syncGenerationRef.current !== generation) {
+        return;
+      }
       setView(next);
     } catch (error) {
+      if (syncGenerationRef.current !== generation) {
+        return;
+      }
       setView(null);
       setLoadError(formatPersistError(error));
     } finally {
-      setIsLoading(false);
+      if (syncGenerationRef.current === generation) {
+        setIsLoading(false);
+      }
     }
 
     syncTimerRef.current = window.setTimeout(() => {

@@ -9,7 +9,10 @@ export interface CommissionWorkflowRepository {
   getEvents(): Promise<CommissionEvent[]>;
   getEventsByCaseId(caseId: string): Promise<CommissionEvent[]>;
   getAssignmentVersions(): Promise<CommissionAssignmentVersion[]>;
+  getAssignmentVersionById(id: string): Promise<CommissionAssignmentVersion | null>;
+  getAssignmentVersionsByIds(ids: string[]): Promise<CommissionAssignmentVersion[]>;
   getAssignmentVersionsByAssignmentId(assignmentId: string): Promise<CommissionAssignmentVersion[]>;
+  countAssignmentVersions(assignmentId: string): Promise<number>;
   createAssignmentVersion(version: CommissionAssignmentVersion): Promise<CommissionAssignmentVersion>;
   getBonusPayments(): Promise<CommissionBonusPayment[]>;
   getBonusPaymentsByRepresentativeId(repId: string): Promise<CommissionBonusPayment[]>;
