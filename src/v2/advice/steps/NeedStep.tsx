@@ -146,17 +146,13 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
             onPatch({ preferredTermMonths: Number.parseInt(raw, 10) });
           }}
         >
-          <option value="">Noch offen / beste passende Option empfehlen</option>
+          <option value="">Noch offen – beste passende Option empfehlen</option>
           {TERM_OPTIONS.map((option) => (
             <option key={option.months} value={option.months}>
               {option.label}
             </option>
           ))}
         </FormField>
-        <p className={styles.hint}>
-          Die Laufzeit-Optionen richten sich nach den verfügbaren Katalogkombinationen. Bei „Noch
-          offen“ empfiehlt die Beratung die passende Option.
-        </p>
       </div>
 
       <div className={styles.acceptanceBlock}>

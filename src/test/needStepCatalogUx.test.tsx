@@ -35,7 +35,7 @@ describe('NeedStep Katalog-UX', () => {
     const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
     fireEvent.click(term);
     fireEvent.click(
-      screen.getByRole('option', { name: 'Noch offen / beste passende Option empfehlen' }),
+      screen.getByRole('option', { name: 'Noch offen – beste passende Option empfehlen' }),
     );
     expect(onPatch).toHaveBeenCalledWith({ preferredTermMonths: null });
   });
