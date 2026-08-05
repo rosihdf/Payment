@@ -7,6 +7,7 @@ import type { BillingImportService } from '../../services/billingImportService';
 import type { SalesBillingImportView } from '../../services/billingImportViews';
 import { BILLING_FILE_LIMITS } from '../../domain/billingImportEngine/billingFileValidation';
 import { FormControl } from '../../components/common/FormControl';
+import { isNativeAndroid } from '../../utils/nativePlatform';
 import styles from './OfferBillingImportSection.module.css';
 
 interface OfferBillingImportSectionProps {
@@ -17,6 +18,24 @@ interface OfferBillingImportSectionProps {
   showToast: (message: string, variant: 'success' | 'error') => void;
   onBaselineConfirmed?: () => void;
   title?: string;
+  /** Vereinfachte Beratungs-Prüfansicht ohne technische Rohdetails. */
+  variant?: 'default' | 'advice';
+}
+
+function reviewStatusLabel(status: string, confidenceClass: string): string {
+  if (status === 'confirmed' || status === 'corrected' || status === 'manually_added') {
+    return 'erkannt';
+  }
+  if (status === 'review_required' || confidenceClass === 'low' || confidenceClass === 'medium') {
+    return 'bitte prüfen';
+  }
+  if (status === 'detected' && confidenceClass === 'high') {
+    return 'erkannt';
+  }
+  if (status === 'rejected' || status === 'failed') {
+    return 'nicht erkannt';
+  }
+  return 'bitte prüfen';
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -38,7 +57,10 @@ export function OfferBillingImportSection({
   showToast,
   onBaselineConfirmed,
   title = 'Bestehende Abrechnungen',
+  variant = 'default',
 }: OfferBillingImportSectionProps) {
+  const adviceMode = variant === 'advice';
+  const showCameraCapture = isNativeAndroid();
   const [view, setView] = useState<SalesBillingImportView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -98,18 +120,23 @@ export function OfferBillingImportSection({
     }
     void (async () => {
       setIsUploading(true);
-      const result = await billingImportService.addFilesToSession(
-        view.sessionId!,
-        Array.from(fileList),
-        userContext,
-      );
-      if (result.ok) {
-        showToast(`${result.documents.length} Datei(en) hinzugefügt`, 'success');
-        await loadView();
-      } else {
-        showToast('Datei konnte nicht hinzugefügt werden', 'error');
+      try {
+        const result = await billingImportService.addFilesToSession(
+          view.sessionId!,
+          Array.from(fileList),
+          userContext,
+        );
+        if (result.ok) {
+          showToast(`${result.documents.length} Datei(en) hinzugefügt`, 'success');
+          await loadView();
+        } else {
+          showToast('Datei konnte nicht hinzugefügt werden. Bitte Typ und Größe prüfen.', 'error');
+        }
+      } catch {
+        showToast('Datei konnte nicht hinzugefügt werden.', 'error');
+      } finally {
+        setIsUploading(false);
       }
-      setIsUploading(false);
     })();
   };
 
@@ -119,10 +146,16 @@ export function OfferBillingImportSection({
     }
     void (async () => {
       setIsExtracting(true);
-      await billingImportService.extractAllPendingDocuments(view.sessionId!, userContext);
-      showToast('Extraktion abgeschlossen – bitte Werte prüfen', 'success');
-      await loadView();
-      setIsExtracting(false);
+      try {
+        await billingImportService.extractAllPendingDocuments(view.sessionId!, userContext);
+        showToast('Extraktion abgeschlossen – bitte Werte prüfen', 'success');
+        await loadView();
+      } catch {
+        showToast('Erkennung fehlgeschlagen. Bitte erneut versuchen oder manuell eingeben.', 'error');
+        await loadView();
+      } finally {
+        setIsExtracting(false);
+      }
     })();
   };
 
@@ -228,15 +261,20 @@ export function OfferBillingImportSection({
     }
     void (async () => {
       setIsConfirming(true);
-      const baseline = await billingImportService.confirmSessionBaseline(view.sessionId!, userContext);
-      if (baseline) {
-        showToast('Ist-Kostenbasis bestätigt und für A11 übernommen', 'success');
-        onBaselineConfirmed?.();
-        await loadView();
-      } else {
-        showToast('Bestätigung blockiert – bitte offene Prüfpunkte lösen', 'error');
+      try {
+        const baseline = await billingImportService.confirmSessionBaseline(view.sessionId!, userContext);
+        if (baseline) {
+          showToast('Werte übernommen – bitte weiter mit der Beratung', 'success');
+          onBaselineConfirmed?.();
+          await loadView();
+        } else {
+          showToast('Übernahme blockiert – bitte offene Prüfpunkte lösen', 'error');
+        }
+      } catch {
+        showToast('Übernahme fehlgeschlagen. Bitte erneut versuchen.', 'error');
+      } finally {
+        setIsConfirming(false);
       }
-      setIsConfirming(false);
     })();
   };
 
@@ -282,10 +320,11 @@ export function OfferBillingImportSection({
     <section className={styles.detailSection}>
       <h2 className={styles.sectionTitle}>{title}</h2>
       <p className={styles.sectionHint}>
-        Fotos, Bilder und gescannte PDFs werden lokal per OCR erkannt. Maschinenlesbare PDFs
-        werden ohne unnötige OCR verarbeitet. Alle Werte müssen vor der Übernahme geprüft werden.
+        {adviceMode
+          ? 'PDF oder Bild auswählen, Erkennung starten und Werte prüfen. Nichts wird ungeprüft übernommen.'
+          : 'Fotos, Bilder und gescannte PDFs werden lokal per OCR erkannt. Maschinenlesbare PDFs werden ohne unnötige OCR verarbeitet. Alle Werte müssen vor der Übernahme geprüft werden.'}
       </p>
-      <p className={styles.privacyNotice}>{view?.privacyNotice}</p>
+      {adviceMode ? null : <p className={styles.privacyNotice}>{view?.privacyNotice}</p>}
 
       {isLoading ? (
         <p className={styles.sectionHint}>Abrechnungsimport wird geladen…</p>
@@ -340,13 +379,15 @@ export function OfferBillingImportSection({
             />
             <div className={styles.uploadButtons}>
               <button type="button" className={styles.primaryAction} disabled={isUploading || !isDraftContext} onClick={() => fileInputRef.current?.click()}>
-                Datei auswählen
+                {view.documents.length > 0 && adviceMode ? 'Andere Datei wählen' : 'Datei auswählen'}
               </button>
-              <button type="button" className={styles.secondaryAction} disabled={isUploading || !isDraftContext} onClick={() => cameraInputRef.current?.click()}>
-                Foto aufnehmen
-              </button>
+              {showCameraCapture ? (
+                <button type="button" className={styles.secondaryAction} disabled={isUploading || !isDraftContext} onClick={() => cameraInputRef.current?.click()}>
+                  Foto aufnehmen
+                </button>
+              ) : null}
               <button type="button" className={styles.secondaryAction} disabled={isExtracting || view.documents.length === 0} onClick={handleExtractAll}>
-                {isExtracting ? 'OCR läuft…' : 'OCR starten'}
+                {isExtracting ? 'Erkennung läuft…' : adviceMode && view.documents.some((doc) => doc.extractionStatus !== 'pending') ? 'Erkennung erneut starten' : 'Erkennung starten'}
               </button>
               {isExtracting ? (
                 <button type="button" className={styles.secondaryAction} onClick={handleCancelExtraction}>
@@ -356,9 +397,11 @@ export function OfferBillingImportSection({
               <button type="button" className={styles.secondaryAction} onClick={() => setShowManualPeriod((v) => !v)}>
                 Periode manuell
               </button>
-              <button type="button" className={styles.secondaryAction} onClick={() => setShowCostLineForm((v) => !v)}>
-                Gebühr hinzufügen
-              </button>
+              {adviceMode ? null : (
+                <button type="button" className={styles.secondaryAction} onClick={() => setShowCostLineForm((v) => !v)}>
+                  Gebühr hinzufügen
+                </button>
+              )}
             </div>
           </div>
 
@@ -386,10 +429,21 @@ export function OfferBillingImportSection({
               <h3 className={styles.cardTitle}>{group.label}</h3>
               {group.fields.map((field) => (
                 <div key={field.id} className={styles.fieldCard}>
-                  <DetailRow label="Erkannt" value={field.normalizedValueLabel} />
-                  <DetailRow label="Original" value={field.originalText || '—'} />
-                  <DetailRow label="Konfidenz" value={field.confidenceClass} />
-                  <DetailRow label="Status" value={field.status} />
+                  <DetailRow label="Erkannt" value={field.normalizedValueLabel || '—'} />
+                  <DetailRow
+                    label="Status"
+                    value={
+                      adviceMode
+                        ? reviewStatusLabel(field.status, field.confidenceClass)
+                        : field.status
+                    }
+                  />
+                  {adviceMode ? null : (
+                    <>
+                      <DetailRow label="Original" value={field.originalText || '—'} />
+                      <DetailRow label="Konfidenz" value={field.confidenceClass} />
+                    </>
+                  )}
                   <FormControl
                     id={`field-${field.id}`}
                     type={inputTypeForField(field.inputType) === 'number' ? 'number' : inputTypeForField(field.inputType) === 'date' ? 'date' : 'text'}
@@ -403,10 +457,12 @@ export function OfferBillingImportSection({
                   <div className={styles.fieldActions}>
                     <button type="button" className={styles.primaryAction} onClick={() => handleSaveCorrection(field.id)}>Korrigieren</button>
                     <button type="button" className={styles.secondaryAction} onClick={() => handleConfirmField(field.id)}>Bestätigen</button>
-                    <button type="button" className={styles.secondaryAction} onClick={() => handleResetField(field.id)}>OCR-Wert</button>
+                    {adviceMode ? null : (
+                      <button type="button" className={styles.secondaryAction} onClick={() => handleResetField(field.id)}>OCR-Wert</button>
+                    )}
                     <button type="button" className={styles.secondaryAction} onClick={() => handleRejectField(field.id)}>Verwerfen</button>
                   </div>
-                  {field.candidates.length > 1 ? (
+                  {!adviceMode && field.candidates.length > 1 ? (
                     <ul className={styles.candidateList}>
                       {field.candidates.map((candidate) => (
                         <li key={candidate.id}>

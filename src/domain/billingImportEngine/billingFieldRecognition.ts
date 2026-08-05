@@ -7,6 +7,7 @@ import type { ExtractedBillingField } from '../billingImport/extractedBillingFie
 import { generateId } from '../../utils/id';
 import { parseIntegerText, parseMoneyText, parsePercentText } from './billingMoneyParser';
 import { parsePeriodFromText } from './billingPeriodParser';
+import { detectBillingProviderName } from './billingProviderDetection';
 
 export interface BillingTextBlock {
   pageNumber: number;
@@ -93,9 +94,22 @@ const FIELD_PATTERNS: FieldPattern[] = [
     valueFromLine: (line) => parseMoneyText(line)?.amountCents ?? null,
   },
   {
+    code: BILLING_FIELD_CODES.SERVICE_FEE,
+    pattern: /(?:Servicegebühr|Servicepauschale|Supportgebühr)/i,
+    valueFromLine: (line) => parseMoneyText(line)?.amountCents ?? null,
+  },
+  {
     code: BILLING_FIELD_CODES.TERMINAL_RENTAL,
     pattern: /(?:Terminalmiete|Miete\s+Terminal|Gerätemiete)/i,
     valueFromLine: (line) => parseMoneyText(line)?.amountCents ?? null,
+  },
+  {
+    code: BILLING_FIELD_CODES.TERMINAL_COUNT,
+    pattern: /(?:Anzahl\s+Terminals|Terminalanzahl|Terminals)/i,
+    valueFromLine: (line) => {
+      const match = line.match(/(\d[\d.\s]*)\s*(?:Terminals?|Geräte)/i);
+      return match?.[1] ? parseIntegerText(match[1]) : parseIntegerText(line);
+    },
   },
   {
     code: BILLING_FIELD_CODES.TRANSACTION_FEES_TOTAL,
@@ -109,7 +123,12 @@ const FIELD_PATTERNS: FieldPattern[] = [
   },
   {
     code: BILLING_FIELD_CODES.TOTAL_AMOUNT,
-    pattern: /(?:Rechnungsbetrag|Gesamtbetrag|Summe\s+netto|Endbetrag)/i,
+    pattern: /(?:Rechnungsbetrag|Gesamtbetrag|Summe\s+netto|Endbetrag|Monatliche\s+Gesamtkosten)/i,
+    valueFromLine: (line) => parseMoneyText(line)?.amountCents ?? null,
+  },
+  {
+    code: BILLING_FIELD_CODES.VAT_AMOUNT,
+    pattern: /(?:Umsatzsteuer|MwSt\.?|Mehrwertsteuer)/i,
     valueFromLine: (line) => parseMoneyText(line)?.amountCents ?? null,
   },
   {
@@ -238,6 +257,25 @@ export function detectBillingFieldCandidates(
             ),
           );
         }
+      }
+
+      const provider = detectBillingProviderName(line);
+      if (provider) {
+        const groupId = groups.get(BILLING_FIELD_CODES.PROVIDER_NAME) ?? generateId('field_group');
+        groups.set(BILLING_FIELD_CODES.PROVIDER_NAME, groupId);
+        candidates.push(
+          createFieldCandidate(
+            documentId,
+            block.pageNumber,
+            BILLING_FIELD_CODES.PROVIDER_NAME,
+            line,
+            provider.name,
+            Math.min(block.confidence, provider.confidence),
+            detectionMethod,
+            line,
+            groupId,
+          ),
+        );
       }
     }
   }

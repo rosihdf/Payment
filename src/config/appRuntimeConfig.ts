@@ -1,3 +1,4 @@
+import { isAdviceBillingOcrImportEnabled } from './billingOcrFeature';
 import { getDataMode, isSupabaseDataMode } from './dataMode';
 
 export type AppEnvironment = 'development' | 'production';
@@ -23,7 +24,7 @@ export const DEFAULT_APP_RUNTIME_CONFIG: AppRuntimeConfig = {
   persistenceMode: 'local',
   authMode: 'demo',
   demoMode: !import.meta.env.PROD,
-  ocrEnabled: true,
+  ocrEnabled: isAdviceBillingOcrImportEnabled(),
   pdfEnabled: true,
   diagnosticMode: 'standard',
   remoteApiBaseUrl: null,
@@ -40,6 +41,7 @@ export function loadAppRuntimeConfig(): AppRuntimeConfig {
     persistenceMode: getDataMode(),
     demoMode,
     authMode: supabaseMode ? 'supabase' : demoMode ? 'demo' : 'supabase',
+    ocrEnabled: isAdviceBillingOcrImportEnabled(),
   };
 }
 

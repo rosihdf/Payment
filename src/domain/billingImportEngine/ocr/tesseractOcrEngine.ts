@@ -4,66 +4,86 @@ import { BILLING_OCR_CONFIG } from '../billingOcrConfig';
 import { normalizeOcrConfidence } from '../billingOcrConfidence';
 import { isAbortError, raceWithAbort, throwIfAborted } from '../../../utils/abort';
 
+type TesseractWorker = Awaited<
+  ReturnType<Awaited<ReturnType<typeof loadTesseractModule>>['createWorker']>
+>;
+
+let sharedWorker: TesseractWorker | null = null;
 let sharedInitPromise: Promise<void> | null = null;
+let sharedRefCount = 0;
 
 async function loadTesseractModule() {
   return import('tesseract.js');
 }
 
+async function ensureSharedWorker(
+  onProgress?: Parameters<OcrEngine['initialize']>[0],
+): Promise<TesseractWorker> {
+  if (sharedWorker) {
+    return sharedWorker;
+  }
+  if (!sharedInitPromise) {
+    sharedInitPromise = (async () => {
+      const paths = resolveBillingOcrAssetPaths();
+      validateBillingOcrAssetPaths(paths);
+      const { createWorker } = await loadTesseractModule();
+      sharedWorker = await createWorker(BILLING_OCR_CONFIG.languages, 1, {
+        workerPath: paths.workerPath,
+        corePath: paths.corePath,
+        langPath: paths.langPath,
+        workerBlobURL: false,
+        logger: (message) => {
+          if (message.status) {
+            onProgress?.({
+              status: message.status,
+              progress: typeof message.progress === 'number' ? message.progress : 0,
+            });
+          }
+        },
+      });
+    })().catch((error) => {
+      sharedInitPromise = null;
+      sharedWorker = null;
+      throw error;
+    });
+  }
+  await sharedInitPromise;
+  if (!sharedWorker) {
+    throw new Error('BILLING_OCR_UNAVAILABLE');
+  }
+  return sharedWorker;
+}
+
 export function createTesseractOcrEngine(): OcrEngine {
-  let worker: Awaited<
-    ReturnType<Awaited<ReturnType<typeof loadTesseractModule>>['createWorker']>
-  > | null = null;
   let initialized = false;
   let disposed = false;
+  let holdsSharedRef = false;
 
   return {
     isInitialized() {
-      return initialized;
+      return initialized && sharedWorker !== null && !disposed;
     },
 
     async initialize(onProgress) {
       if (disposed) {
         throw new Error('BILLING_OCR_PROVIDER_DISPOSED');
       }
-      if (initialized && worker) {
+      if (initialized && sharedWorker) {
         return;
       }
-      if (!sharedInitPromise) {
-        sharedInitPromise = (async () => {
-          const paths = resolveBillingOcrAssetPaths();
-          validateBillingOcrAssetPaths(paths);
-          const { createWorker } = await loadTesseractModule();
-          worker = await createWorker(BILLING_OCR_CONFIG.languages, 1, {
-            workerPath: paths.workerPath,
-            corePath: paths.corePath,
-            langPath: paths.langPath,
-            workerBlobURL: false,
-            logger: (message) => {
-              if (message.status) {
-                onProgress?.({
-                  status: message.status,
-                  progress: typeof message.progress === 'number' ? message.progress : 0,
-                });
-              }
-            },
-          });
-          initialized = true;
-        })().catch((error) => {
-          sharedInitPromise = null;
-          worker = null;
-          initialized = false;
-          throw error;
-        });
+      await ensureSharedWorker(onProgress);
+      if (!holdsSharedRef) {
+        sharedRefCount += 1;
+        holdsSharedRef = true;
       }
-      await sharedInitPromise;
+      initialized = true;
     },
 
     async recognize(image, options) {
       if (disposed) {
         throw new Error('BILLING_OCR_PROVIDER_DISPOSED');
       }
-      if (!worker || !initialized) {
+      if (!sharedWorker || !initialized) {
         throw new Error('BILLING_OCR_UNAVAILABLE');
       }
 
@@ -71,6 +91,7 @@ export function createTesseractOcrEngine(): OcrEngine {
       const started = performance.now();
       const timeout = options?.timeoutMs ?? BILLING_OCR_CONFIG.ocrTimeoutMs;
       let timeoutId: number | undefined;
+      const worker = sharedWorker;
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = window.setTimeout(() => {
@@ -137,11 +158,16 @@ export function createTesseractOcrEngine(): OcrEngine {
 
     async terminate() {
       disposed = true;
-      sharedInitPromise = null;
-      if (worker) {
+      initialized = false;
+      if (holdsSharedRef) {
+        sharedRefCount = Math.max(0, sharedRefCount - 1);
+        holdsSharedRef = false;
+      }
+      if (sharedRefCount === 0 && sharedWorker) {
+        const worker = sharedWorker;
+        sharedWorker = null;
+        sharedInitPromise = null;
         await worker.terminate();
-        worker = null;
-        initialized = false;
       }
     },
   };
@@ -149,6 +175,8 @@ export function createTesseractOcrEngine(): OcrEngine {
 
 export function __resetTesseractOcrEngineForTests(): void {
   sharedInitPromise = null;
+  sharedWorker = null;
+  sharedRefCount = 0;
 }
 
 export type { OcrEngineFactory };

@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
 import {
   COST_CAPTURE_MODE_LABELS,
   type CostCaptureMode,
 } from '../../../domain/bestPayComparison/costCaptureMode';
+import { isAdviceBillingOcrImportEnabled } from '../../../config/billingOcrFeature';
 import type { BestPayComparisonUserContext } from '../../../services/bestPayComparisonService';
 import type { BillingImportService } from '../../../services/billingImportService';
 import { CurrencyInput } from '../../../components/common/CurrencyInput';
@@ -25,8 +26,18 @@ interface CostsStepProps {
   onSelectMode: (mode: CostCaptureMode) => void;
   onPatchCosts: (monthlyTotalCostsCents: number | null) => void;
   onPatchCurrentProvider: (provider: string) => void;
-  onBaselineConfirmed: () => void;
+  onBaselineConfirmed: (options?: { replaceExistingManualValues?: boolean }) => void;
   showToast: (message: string, type: 'success' | 'error') => void;
+}
+
+function hasExistingManualCostValues(session: BestPayComparisonSession): boolean {
+  const input = session.manualInput;
+  return (
+    (input.monthlyTotalCostsCents !== null && input.monthlyTotalCostsCents !== 0) ||
+    input.monthlyCardVolumeCents !== null ||
+    input.monthlyTransactions !== null ||
+    Boolean(session.wizard.prospectDraft.notes.trim())
+  );
 }
 
 export function CostsStep({
@@ -42,6 +53,8 @@ export function CostsStep({
   showToast,
 }: CostsStepProps) {
   const [providerNotes, setProviderNotes] = useState(session.wizard.prospectDraft.notes);
+  const [overwritePromptOpen, setOverwritePromptOpen] = useState(false);
+  const billingOcrEnabled = isAdviceBillingOcrImportEnabled();
 
   useEffect(() => {
     setProviderNotes(session.wizard.prospectDraft.notes);
@@ -53,18 +66,32 @@ export function CostsStep({
     }
   };
 
+  const modeChoices = useMemo(() => {
+    const modes: Array<[CostCaptureMode, string]> = [
+      ['manual', COST_CAPTURE_MODE_LABELS.manual],
+      ['no_current_costs', COST_CAPTURE_MODE_LABELS.no_current_costs],
+    ];
+    if (billingOcrEnabled) {
+      modes.splice(1, 0, ['billing_import', COST_CAPTURE_MODE_LABELS.billing_import]);
+    }
+    return modes;
+  }, [billingOcrEnabled]);
+
+  const requestBaselineConfirm = () => {
+    if (hasExistingManualCostValues(session)) {
+      setOverwritePromptOpen(true);
+      return;
+    }
+    onBaselineConfirmed({ replaceExistingManualValues: true });
+  };
+
   return (
     <div className={styles.stack}>
       <article className={styles.hero}>
         <h2 className={styles.sectionTitle}>Ausgangslage</h2>
         <p className={styles.hint}>Nur die Ist-Situation – ohne Kartenumsatz.</p>
         <div className={styles.choiceRow}>
-          {(
-            [
-              ['manual', COST_CAPTURE_MODE_LABELS.manual],
-              ['no_current_costs', COST_CAPTURE_MODE_LABELS.no_current_costs],
-            ] as const
-          ).map(([mode, label]) => (
+          {modeChoices.map(([mode, label]) => (
             <button
               key={mode}
               type="button"
@@ -106,12 +133,53 @@ export function CostsStep({
               billingImportService={billingImportService}
               showToast={showToast}
               title="Abrechnung prüfen und bestätigen"
-              onBaselineConfirmed={onBaselineConfirmed}
+              variant="advice"
+              onBaselineConfirmed={requestBaselineConfirm}
             />
           </Suspense>
         ) : (
           <p className={styles.hint}>Abrechnungsimport wird vorbereitet…</p>
         )
+      ) : null}
+
+      {overwritePromptOpen ? (
+        <article className={styles.card} role="dialog" aria-labelledby="billing-overwrite-title">
+          <h3 id="billing-overwrite-title" className={styles.sectionTitle}>
+            Vorhandene Werte ersetzen?
+          </h3>
+          <p className={styles.hint}>
+            Vorhandene Werte durch die erkannten Abrechnungswerte ersetzen?
+          </p>
+          <div className={styles.choiceRow}>
+            <button
+              type="button"
+              className={styles.choiceActive}
+              onClick={() => {
+                setOverwritePromptOpen(false);
+                onBaselineConfirmed({ replaceExistingManualValues: true });
+              }}
+            >
+              Ersetzen
+            </button>
+            <button
+              type="button"
+              className={styles.choiceButton}
+              onClick={() => {
+                setOverwritePromptOpen(false);
+                onBaselineConfirmed({ replaceExistingManualValues: false });
+              }}
+            >
+              Vorhandene Werte behalten
+            </button>
+            <button
+              type="button"
+              className={styles.choiceButton}
+              onClick={() => setOverwritePromptOpen(false)}
+            >
+              Abbrechen
+            </button>
+          </div>
+        </article>
       ) : null}
 
       {costCaptureMode === 'no_current_costs' ? (

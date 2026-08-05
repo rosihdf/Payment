@@ -9,8 +9,10 @@ import { aggregateCustomerCostBaseline } from '../domain/billingImportEngine/bil
 import { extractBillingDocument, flattenPages } from '../domain/billingImportEngine/billingDocumentExtraction';
 import { fingerprintBillingFileContent } from '../domain/billingImportEngine/billingFileFingerprint';
 import { validateBillingFile, BILLING_FILE_LIMITS } from '../domain/billingImportEngine/billingFileValidation';
+import { BILLING_FIELD_CODES } from '../domain/billingImport/billingFieldCodes';
 import {
   detectBillingFieldCandidates,
+  getConfirmedFieldValue,
   resolveFieldConflicts,
 } from '../domain/billingImportEngine/billingFieldRecognition';
 import { detectBillingDuplicates } from '../domain/billingImportEngine/billingDuplicateDetection';
@@ -437,6 +439,10 @@ export class BillingImportService {
     document.averageConfidence =
       extraction.pages.reduce((sum, page) => sum + page.averageConfidence, 0) /
       Math.max(extraction.pages.length, 1);
+    const providerField = getConfirmedFieldValue(resolved, BILLING_FIELD_CODES.PROVIDER_NAME);
+    if (typeof providerField === 'string' && providerField.trim()) {
+      document.detectedProviderName = providerField.trim();
+    }
     document.updatedAt = nowIso();
     session.status = 'review_required';
     session.updatedAt = nowIso();
@@ -743,13 +749,18 @@ export class BillingImportService {
     );
     const lineItems = store.costLineItems.filter((item) => item.sessionId === sessionId);
     const rebuilt = rebuildSessionPeriods({ sessionId, documents, fields, lineItems });
+    // Manuell erfasste Perioden haben keine Quelldokumente und dürfen nicht verworfen werden.
+    const manualPeriods = store.periods.filter(
+      (period) => period.sessionId === sessionId && period.sourceDocumentIds.length === 0,
+    );
+    const mergedPeriods = [...rebuilt, ...manualPeriods];
     store.periods = [
       ...store.periods.filter((period) => period.sessionId !== sessionId),
-      ...rebuilt,
+      ...mergedPeriods,
     ];
     const session = store.sessions.find((entry) => entry.id === sessionId);
     if (session) {
-      session.periodCount = rebuilt.length;
+      session.periodCount = mergedPeriods.length;
       session.updatedAt = nowIso();
       session.status = 'review_required';
     }
