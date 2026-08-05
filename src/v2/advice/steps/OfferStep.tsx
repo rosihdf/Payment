@@ -139,23 +139,19 @@ export function OfferStep({
           </p>
         ) : null}
         <div className={styles.actions}>
-          <Button
-            loading={busy}
-            disabled={!selectedVariant || !session.leadId}
-            onClick={onCreateOffer}
-          >
-            Angebotsentwurf erzeugen
-          </Button>
-          {session.offerId ? (
-            <>
-              <Link className={styles.choiceButton} to={`/offers/${session.offerId}`}>
-                Entwurf öffnen
-              </Link>
-              <Link className={styles.choiceButton} to={offerWorkflowTabPath(session.offerId)}>
-                Freigabe & Versand öffnen
-              </Link>
-            </>
-          ) : null}
+          {!session.offerId ? (
+            <Button
+              loading={busy}
+              disabled={!selectedVariant || !session.leadId}
+              onClick={onCreateOffer}
+            >
+              Angebotsentwurf erzeugen
+            </Button>
+          ) : (
+            <Link className={styles.choiceActive} to={`/offers/${session.offerId}`}>
+              Angebot öffnen
+            </Link>
+          )}
           <Button variant="text" onClick={onBackToRecommendation}>
             Zurück zur Empfehlung
           </Button>

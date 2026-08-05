@@ -64,18 +64,32 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }).click();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // 5) Ausgangslage: manuelle Kosten inkl. 0 € (OCR-Pfad bleibt alternativ wählbar).
+    // 5) Ausgangslage: manuelle Kosten inkl. 0 € + Anbieter-Auswahlliste.
     await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible();
     await page.getByRole('button', { name: 'Kosten manuell eingeben' }).click();
     const costsInput = page.getByLabel('Monatliche Ist-Gesamtkosten (EUR)');
     await costsInput.fill('0');
     await costsInput.blur();
     await expect(costsInput).toHaveValue(/0,00\s*€/);
+    await chooseCustomOption(
+      page,
+      page.getByRole('combobox', { name: 'Aktueller Anbieter' }),
+      'SumUp',
+    );
     await page.getByRole('button', { name: 'Weiter' }).click();
 
-    // 6) Bedarf & Branche.
+    // 6) Bedarf & Branche + belegte Vertragslaufzeiten.
     await expect(page.getByRole('heading', { name: 'Bedarf' })).toBeVisible();
     await chooseCustomOption(page, page.getByRole('combobox', { name: 'Branche' }), 'Einzelhandel');
+    const term = page.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
+    await term.click();
+    await expect(
+      page.getByRole('option', { name: 'Noch offen – beste passende Option empfehlen' }),
+    ).toBeVisible();
+    await expect(page.getByRole('option', { name: '24 Monate' })).toBeVisible();
+    await expect(page.getByRole('option', { name: '36 Monate' })).toBeVisible();
+    await expect(page.getByText(/Im Katalog gibt es derzeit/)).toHaveCount(0);
+    await page.getByRole('option', { name: '36 Monate' }).click();
     await page.getByLabel('Monatlicher Kartenumsatz (EUR)').fill('5000');
     await page.getByLabel('Monatliche Transaktionen (optional)').fill('400');
     await page.getByRole('button', { name: 'Weiter' }).click();
@@ -101,7 +115,10 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     // 8) Angebot erzeugen.
     await expect(page.getByRole('heading', { name: 'Angebot', level: 2 })).toBeVisible();
     await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
-    await expect(page.getByText(/^Angebot .+/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Angebot öffnen' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/^Angebot BP-/)).toBeVisible();
     await page.getByRole('button', { name: 'Weiter' }).click();
 
     // 9) Prüfung & Nachfassen: Wiedervorlage-Notiz (Follow-up) + Abschluss.
@@ -126,5 +143,46 @@ test.describe('Außendienst: Kunde, Beratung ohne Kunden, Angebot, Provision', (
     await page.goto('/admin/commission/standards');
     await expect(page.getByRole('heading', { name: 'Zugriff verweigert' })).toBeVisible();
     await expect(sidebarNav(page).getByRole('link', { name: 'Verwaltung' })).toHaveCount(0);
+  });
+
+  test('pro Kunde genau ein aktiver Beratungsentwurf', async ({ page }) => {
+    const tag = e2eTag();
+    await seedPricingCatalogForE2E(page);
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/sales$/);
+
+    await gotoSidebar(page, 'Kunden');
+    await page.getByRole('link', { name: 'Neuer Kunde' }).click();
+    const companyName = `${tag} EinEntwurf GmbH`;
+    await page.getByLabel('Firmenname').fill(companyName);
+    await page.getByLabel('Vorname').fill('E2E');
+    await page.getByLabel('Nachname').fill('EinEntwurf');
+    await page.getByLabel('Telefonnummer').fill('030 7654321');
+    await page.getByRole('button', { name: 'Kunde speichern' }).click();
+    await expect(page.getByRole('heading', { name: companyName })).toBeVisible();
+    const leadUrl = page.url();
+    const leadId = leadUrl.match(/\/leads\/([^/?#]+)/)?.[1];
+    expect(leadId).toBeTruthy();
+
+    await page.getByRole('link', { name: 'Beratung starten' }).click();
+    await expect(page.getByRole('heading', { name: 'Beratung', level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(/session=/);
+    const firstSession = new URL(page.url()).searchParams.get('session');
+    expect(firstSession).toBeTruthy();
+
+    // Zweiter Start über Deep-Link öffnet denselben Entwurf.
+    await page.goto(`/advice?leadId=${encodeURIComponent(leadId!)}`);
+    await expect(page.getByRole('heading', { name: 'Beratung', level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`session=${firstSession}`));
+
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`session=${firstSession}`));
+
+    await gotoSidebar(page, 'Arbeitsplatz');
+    await expect(page.getByRole('heading', { name: 'Arbeitsplatz' })).toBeVisible();
+    await expect(page.getByText(companyName)).toHaveCount(1);
+    await expect(page.getByRole('link', { name: 'Fortsetzen' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Zum Kunden' }).first()).toBeVisible();
+    await expect(page.getByText('Zur Kundenakte')).toHaveCount(0);
   });
 });

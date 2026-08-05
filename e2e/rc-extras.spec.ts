@@ -159,9 +159,9 @@ test.describe('RC1 Extra: Öffentlicher Änderungswunsch', () => {
     });
 
     await page.goto(`/offer-review/${token}`);
-    await expect(page.getByRole('heading', { name: 'Angebotsprüfung' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'PDF anzeigen' })).toBeVisible();
-    await page.getByRole('button', { name: 'Änderung wünschen' }).click();
+    await expect(page.getByRole('heading', { name: 'Ihr Angebot', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'PDF öffnen' })).toBeVisible();
+    await page.getByRole('button', { name: 'Änderung anfragen' }).click();
     await page.getByLabel('Beschreibung').fill(`${tag}: bitte Laufzeit auf 24 Monate`);
     await page.getByRole('button', { name: 'Absenden' }).click();
     await expect(page.getByRole('heading', { name: 'Vielen Dank' })).toBeVisible();
@@ -204,7 +204,9 @@ test.describe('RC1 Extra: BestPay-Handoff Dokumentation', () => {
     await ensureRecommendation(page);
     await page.getByRole('button', { name: 'Weiter' }).click();
     await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
-    await expect(page.getByText(/^Angebot .+/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Angebot öffnen' })).toBeVisible({
+      timeout: 15_000,
+    });
     await page.getByRole('button', { name: 'Weiter' }).click();
     await expect(page.getByRole('heading', { name: 'Prüfung & Nachfassen' })).toBeVisible({
       timeout: 15_000,

@@ -189,12 +189,12 @@ export async function createOfferDraft(page: Page): Promise<string | null> {
   }
   await expect(offerHeading).toBeVisible();
 
-  const draftLink = page.getByRole('link', { name: 'Entwurf öffnen' });
-  if (!(await draftLink.isVisible())) {
+  const openOfferLink = page.getByRole('link', { name: /^(Angebot|Entwurf) öffnen$/ });
+  if (!(await openOfferLink.isVisible())) {
     await page.getByRole('button', { name: 'Angebotsentwurf erzeugen' }).click();
-    await expect(draftLink).toBeVisible({ timeout: 20_000 });
+    await expect(openOfferLink).toBeVisible({ timeout: 20_000 });
   }
 
-  const href = await draftLink.getAttribute('href');
+  const href = await openOfferLink.getAttribute('href');
   return href?.match(/\/offers\/([^/?#]+)/)?.[1] ?? null;
 }
