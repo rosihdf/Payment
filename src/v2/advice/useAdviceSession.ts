@@ -527,25 +527,32 @@ export function useAdviceSession({
     [salesWizardService, session?.wizard.approvalNotes, userContext, withPersist],
   );
 
-  const syncBillingBaseline = useCallback(async () => {
-    if (!session) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await bestPayComparisonService.syncBaselineFromBilling(session.id, userContext);
-      if (updated) {
-        setSession(updated);
-      } else {
-        setError('Abrechnungswerte konnten nicht übernommen werden.');
+  const syncBillingBaseline = useCallback(
+    async (options: { replaceExistingManualValues?: boolean } = {}) => {
+      if (!session) {
+        return;
       }
-    } catch (persistError) {
-      setError(formatAdviceError(persistError));
-    } finally {
-      setBusy(false);
-    }
-  }, [bestPayComparisonService, session, setSession, userContext]);
+      setBusy(true);
+      setError(null);
+      try {
+        const updated = await bestPayComparisonService.syncBaselineFromBilling(
+          session.id,
+          userContext,
+          options,
+        );
+        if (updated) {
+          setSession(updated);
+        } else {
+          setError('Abrechnungswerte konnten nicht übernommen werden.');
+        }
+      } catch (persistError) {
+        setError(formatAdviceError(persistError));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [bestPayComparisonService, session, setSession, userContext],
+  );
 
   const costCaptureMode = useMemo(
     () => (session ? resolveCostCaptureMode(session) : null),

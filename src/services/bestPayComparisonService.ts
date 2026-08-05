@@ -509,6 +509,7 @@ export class BestPayComparisonService {
   async syncBaselineFromBilling(
     sessionId: string,
     context: BestPayComparisonUserContext,
+    options: { replaceExistingManualValues?: boolean } = {},
   ): Promise<BestPayComparisonSession | null> {
     const session = await this.getSession(sessionId, context);
     if (!session?.billingImportSessionId) {
@@ -530,7 +531,45 @@ export class BestPayComparisonService {
       }
       session.costBaselineId = baseline.id;
       session.costBaselineVersion = baseline.version;
+      session.wizard.costCaptureMode = 'billing_import';
+      session.source = session.source === 'manual' ? 'mixed' : 'billing_import';
       session.status = 'ready_for_calculation';
+
+      const replace = options.replaceExistingManualValues === true;
+      const costPatch: Partial<BestPayManualInput> = {};
+      if (replace || session.manualInput.monthlyTotalCostsCents === null) {
+        costPatch.monthlyTotalCostsCents = baseline.avgMonthlyTotalCostsCents;
+      }
+      if (replace || session.manualInput.monthlyFixedCostsCents === null) {
+        costPatch.monthlyFixedCostsCents = baseline.avgMonthlyFixedCostsCents;
+      }
+      if (replace || session.manualInput.monthlyTerminalCostsCents === null) {
+        costPatch.monthlyTerminalCostsCents = baseline.avgMonthlyTerminalCostsCents;
+      }
+      if (replace || session.manualInput.monthlyTransactionCostsCents === null) {
+        costPatch.monthlyTransactionCostsCents = baseline.avgMonthlyTransactionCostsCents;
+      }
+      // Kartenumsatz/Transaktionen nur als Bedarfsvorschlag, nie als zweites Ausgangslage-Feld.
+      if (replace || session.manualInput.monthlyCardVolumeCents === null) {
+        costPatch.monthlyCardVolumeCents = baseline.avgMonthlyCardVolumeCents;
+      }
+      if (replace || session.manualInput.monthlyTransactions === null) {
+        costPatch.monthlyTransactions = baseline.avgMonthlyTransactionCount;
+      }
+      if (Object.keys(costPatch).length > 0) {
+        session.manualInput = mergeManualInput(session.manualInput, costPatch);
+      }
+
+      const providerName =
+        data?.documents.find((document) => document.detectedProviderName)?.detectedProviderName ??
+        null;
+      if (providerName && (replace || !session.wizard.prospectDraft.notes.trim())) {
+        session.wizard.prospectDraft = {
+          ...session.wizard.prospectDraft,
+          notes: providerName,
+        };
+      }
+
       session.updatedAt = nowIso();
       this.touchTitle(session);
       await this.saveSession(session);

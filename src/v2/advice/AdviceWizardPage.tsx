@@ -359,7 +359,7 @@ function AdviceWizardInner({
               onSelectMode={(mode) => void advice.setCostCaptureMode(mode)}
               onPatchCosts={(cents) => void advice.patchManualInput({ monthlyTotalCostsCents: cents })}
               onPatchCurrentProvider={(provider) => void advice.patchProspect({ notes: provider })}
-              onBaselineConfirmed={() => void advice.syncBillingBaseline()}
+              onBaselineConfirmed={(options) => void advice.syncBillingBaseline(options)}
               showToast={showToast}
             />
           ) : null}
