@@ -20,6 +20,15 @@ const copies = [
     from: path.join(root, 'node_modules/tesseract.js-core/tesseract-core-lstm.wasm'),
     to: path.join(publicOcr, 'core/tesseract-core-lstm.wasm'),
   },
+  // Chromium/Safari wählen oft die SIMD-Variante – ohne Kopie scheitert der Worker-Load.
+  {
+    from: path.join(root, 'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js'),
+    to: path.join(publicOcr, 'core/tesseract-core-simd-lstm.wasm.js'),
+  },
+  {
+    from: path.join(root, 'node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm'),
+    to: path.join(publicOcr, 'core/tesseract-core-simd-lstm.wasm'),
+  },
   {
     from: path.join(root, 'node_modules/@tesseract.js-data/deu/4.0.0_best_int/deu.traineddata.gz'),
     to: path.join(publicOcr, 'lang/deu.traineddata.gz'),

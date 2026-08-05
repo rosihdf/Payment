@@ -68,11 +68,13 @@ async function verify() {
     (await exists(path.join(distDir, 'ocr/worker/worker.min.js'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm.js'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm'))) &&
+    (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm.js'))) &&
+    (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm'))) &&
     (await exists(path.join(distDir, 'ocr/lang/deu.traineddata.gz'))) &&
     (await exists(path.join(distDir, 'ocr/lang/eng.traineddata.gz')));
 
   if (!hasOcrAssets) {
-    throw new Error('Required OCR assets missing in dist/ocr');
+    throw new Error('Required OCR assets missing in dist/ocr (inkl. SIMD-Core)');
   }
 
   let sameOriginPathFound = false;
