@@ -68,4 +68,18 @@ const result = spawnSync(
   },
 );
 
-process.exit(result.status ?? 1);
+const cleanup = spawnSync('node', ['scripts/supabase-browser-acceptance-cleanup.mjs'], {
+  cwd: ROOT,
+  stdio: 'inherit',
+  env: { ...process.env, ...env },
+});
+
+if ((result.status ?? 1) !== 0) {
+  process.exit(result.status ?? 1);
+}
+if ((cleanup.status ?? 1) !== 0) {
+  console.error('Acceptance-Tests grün, Cleanup fehlgeschlagen – Lauf gilt als rot.');
+  process.exit(cleanup.status ?? 1);
+}
+
+process.exit(0);
