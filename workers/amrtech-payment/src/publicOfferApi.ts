@@ -339,6 +339,17 @@ async function handlePostQuestion(request: Request, env: AdminEnv, token: string
     },
     created_at: timestamp,
   });
+  // Fachstatus für interne UI – Workflow bleibt kundenseitig offen.
+  if (offer?.data && typeof offer.data === 'object') {
+    const data = offer.data as Record<string, unknown>;
+    await service
+      .from('offers')
+      .update({
+        data: { ...data, customerFeedbackStatus: 'question_received', updatedAt: timestamp },
+        updated_at: timestamp,
+      })
+      .eq('id', share.offer_id);
+  }
 
   return jsonResponse({ ok: true }, 201);
 }
@@ -406,7 +417,7 @@ async function handlePostChangeRequest(request: Request, env: AdminEnv, token: s
     updated_at: timestamp,
   });
 
-  const { data: offer } = await service.from('offers').select('lead_id').eq('id', share.offer_id).maybeSingle();
+  const { data: offer } = await service.from('offers').select('lead_id, data').eq('id', share.offer_id).maybeSingle();
   const activityId = `sales_activity_${crypto.randomUUID()}`;
   await service.from('sales_activities').insert({
     id: activityId,
@@ -430,6 +441,9 @@ async function handlePostChangeRequest(request: Request, env: AdminEnv, token: s
       updatedAt: timestamp,
     },
     created_at: timestamp,
+  });
+  await updateOfferWorkflowStatus(service, share.offer_id, 'changes_requested', {
+    customerFeedbackStatus: 'change_requested',
   });
 
   return jsonResponse({ ok: true }, 201);
@@ -470,9 +484,144 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+async function updateOfferWorkflowStatus(
+  service: SupabaseClient,
+  offerId: string,
+  workflowStatus: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  const { data: offer } = await service.from('offers').select('data').eq('id', offerId).maybeSingle();
+  if (!offer?.data || typeof offer.data !== 'object') return;
+  const data = offer.data as Record<string, unknown>;
+  const now = new Date().toISOString();
+  await service
+    .from('offers')
+    .update({
+      data: {
+        ...data,
+        ...extra,
+        workflowStatus,
+        updatedAt: now,
+      },
+      updated_at: now,
+    })
+    .eq('id', offerId);
+}
+
+async function handlePostDecision(
+  request: Request,
+  env: AdminEnv,
+  token: string,
+  decision: 'accept' | 'decline',
+): Promise<Response> {
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  if (!checkRateLimit(`decision:${token}:${ip}`)) {
+    return errorResponse(429, 'rate_limited', 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.');
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    body = {};
+  }
+
+  let service: SupabaseClient;
+  try {
+    service = createServiceClient(env);
+  } catch {
+    return errorResponse(503, 'misconfigured', 'Der Service ist vorübergehend nicht verfügbar.');
+  }
+
+  const share = await loadShareByToken(service, token);
+  const now = new Date().toISOString();
+  if (!share || resolveShareError(share, now)) {
+    return errorResponse(410, 'invalid_link', 'Dieser Link ist nicht mehr gültig.');
+  }
+
+  const { data: offerRow } = await service
+    .from('offers')
+    .select('lead_id, data')
+    .eq('id', share.offer_id)
+    .maybeSingle();
+  const offerData = (offerRow?.data ?? {}) as Record<string, unknown>;
+  const workflowStatus = String(offerData.workflowStatus ?? '');
+  if (!ALLOWED_WORKFLOW.has(workflowStatus) && workflowStatus !== 'changes_requested') {
+    return errorResponse(403, 'unavailable', 'Das Angebot ist derzeit nicht entscheidbar.');
+  }
+
+  const customerName = sanitizeText(body.customerName) || 'Kunde';
+  const note = sanitizeText(body.note);
+
+  if (decision === 'accept') {
+    const acceptanceId = `offer_acceptance_${crypto.randomUUID()}`;
+    await service.from('offer_customer_acceptances').insert({
+      id: acceptanceId,
+      offer_id: share.offer_id,
+      offer_version_id: share.offer_version_id,
+      data: {
+        id: acceptanceId,
+        offerId: share.offer_id,
+        offerVersionId: share.offer_version_id,
+        acceptorName: customerName,
+        acceptedAt: now,
+        ipAddress: ip === 'unknown' ? null : ip,
+        userAgent: request.headers.get('User-Agent'),
+        checkboxes: {
+          offerReviewed: true,
+          termsUnderstood: true,
+          acceptanceIntended: true,
+        },
+        comment: note,
+        shareId: share.id,
+        createdAt: now,
+      },
+      created_at: now,
+      updated_at: now,
+    });
+    await updateOfferWorkflowStatus(service, share.offer_id, 'accepted', {
+      acceptedAt: now,
+    });
+  } else {
+    await updateOfferWorkflowStatus(service, share.offer_id, 'declined', {
+      declinedAt: now,
+    });
+  }
+
+  const activityId = `sales_activity_${crypto.randomUUID()}`;
+  await service.from('sales_activities').insert({
+    id: activityId,
+    created_by_user_id: share.created_by_user_id,
+    lead_id: offerRow?.lead_id ?? null,
+    offer_id: share.offer_id,
+    data: {
+      id: activityId,
+      schemaVersion: 1,
+      type: 'status_change',
+      title: decision === 'accept' ? 'Kunde hat Angebot angenommen' : 'Kunde hat Angebot abgelehnt',
+      description: note.slice(0, 160),
+      occurredAt: now,
+      createdByUserId: share.created_by_user_id,
+      leadId: offerRow?.lead_id ?? null,
+      offerId: share.offer_id,
+      isSystem: true,
+      editable: false,
+      sourceKey: `offer_customer_${decision}:${share.offer_id}:${share.id}`,
+      createdAt: now,
+      updatedAt: now,
+    },
+    created_at: now,
+  });
+
+  return jsonResponse({ ok: true, decision }, 201);
+}
+
 export async function routePublicOfferApi(request: Request, env: AdminEnv): Promise<Response | null> {
   const url = new URL(request.url);
-  const match = /^\/api\/public\/offers\/([^/]+)(?:\/(questions|change-requests|pdf))?$/.exec(url.pathname);
+  const match =
+    /^\/api\/public\/offers\/([^/]+)(?:\/(questions|change-requests|pdf|accept|decline))?$/.exec(
+      url.pathname,
+    );
   if (!match) return null;
 
   const token = decodeURIComponent(match[1] ?? '');
@@ -493,6 +642,12 @@ export async function routePublicOfferApi(request: Request, env: AdminEnv): Prom
   }
   if (request.method === 'POST' && action === 'change-requests') {
     return handlePostChangeRequest(request, env, token);
+  }
+  if (request.method === 'POST' && action === 'accept') {
+    return handlePostDecision(request, env, token, 'accept');
+  }
+  if (request.method === 'POST' && action === 'decline') {
+    return handlePostDecision(request, env, token, 'decline');
   }
 
   return errorResponse(405, 'method_not_allowed', 'Methode nicht erlaubt.');

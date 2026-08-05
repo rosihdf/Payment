@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
 import { resolveSelectedScenarioVariant } from '../../../domain/bestPayComparison/salesWizard';
 import { getSessionCustomerDisplayName } from '../../../domain/lead/getLeadDisplayName';
 import type { Offer } from '../../../domain/offer/offer';
-import type { OfferPublicationReadiness } from '../../../domain/offer/offerPublicationReadiness';
 import type { OfferVersion } from '../../../domain/offer/offerVersion';
 import { getOfferWorkflowDisplayLabel } from '../../../features/offer/offerWorkflowDisplay';
-import type { OfferShare } from '../../../domain/offer/offerShare';
-import { SHARE_STATUS_LABELS } from '../../../domain/offer/offerShare';
+import { OfferCustomerShareSection } from '../../../features/offer/OfferCustomerShareSection';
 import type { OfferUserContext } from '../../../services/offerService';
-import type { OfferShareService } from '../../../services/offerShareService';
-import { buildOfferReviewUrl } from '../../../services/offerShareService';
 import type { OfferWorkflowService } from '../../../services/offerWorkflowService';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
@@ -34,7 +30,6 @@ interface ClosingStepProps {
     workflowStatus: Offer['workflowStatus'] | null;
   } | null;
   userContext: OfferUserContext;
-  offerShareService: OfferShareService;
   offerWorkflowService: OfferWorkflowService;
   followUpNote: string;
   onFollowUpNoteChange: (value: string) => void;
@@ -51,7 +46,6 @@ export function ClosingStep({
   canSeeCommission,
   workflowView,
   userContext,
-  offerShareService,
   offerWorkflowService,
   followUpNote,
   onFollowUpNoteChange,
@@ -64,64 +58,12 @@ export function ClosingStep({
     null;
   const selectedVariant = resolveSelectedScenarioVariant(scenario);
   const workflowStatus = workflowView?.workflowStatus ?? null;
+  const offer = workflowView?.offer ?? null;
 
-  const [readiness, setReadiness] = useState<OfferPublicationReadiness | null>(null);
-  const [activeShare, setActiveShare] = useState<OfferShare | null>(null);
-  const [revealedToken, setRevealedToken] = useState<string | null>(null);
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
-  const [shareLoading, setShareLoading] = useState(false);
   const [handoffDialog, setHandoffDialog] = useState<HandoffDialog>(null);
   const [handoffRecipient, setHandoffRecipient] = useState('');
   const [acceptedByName, setAcceptedByName] = useState('');
   const [handoffBusy, setHandoffBusy] = useState(false);
-
-  const loadShareState = useCallback(async () => {
-    if (!session.offerId) {
-      return;
-    }
-    setShareLoading(true);
-    const [nextReadiness, share] = await Promise.all([
-      offerWorkflowService.evaluatePublicationReadiness(session.offerId),
-      offerShareService.getActiveShareByOfferId(session.offerId),
-    ]);
-    setReadiness(nextReadiness);
-    setActiveShare(share);
-    setShareLoading(false);
-  }, [offerShareService, offerWorkflowService, session.offerId]);
-
-  useEffect(() => {
-    void loadShareState();
-  }, [loadShareState]);
-
-  const handleCreateShareLink = async () => {
-    if (!session.offerId) {
-      return;
-    }
-    setShareMessage(null);
-    setShareLoading(true);
-    const result = await offerShareService.createCustomerShareLink(
-      session.offerId,
-      userContext,
-      readiness,
-    );
-    setShareLoading(false);
-    if (!result.ok) {
-      setShareMessage(result.blockers?.[0] ?? 'Kundenlink konnte nicht erstellt werden.');
-      return;
-    }
-    setRevealedToken(result.token);
-    setActiveShare(result.share);
-    setShareMessage('Link erstellt. Kopieren Sie ihn jetzt – er wird nur einmal angezeigt.');
-  };
-
-  const handleCopyShareLink = async () => {
-    if (!revealedToken) {
-      return;
-    }
-    await navigator.clipboard.writeText(buildOfferReviewUrl(revealedToken));
-    setShareMessage('Link in die Zwischenablage kopiert.');
-    showToast('Link kopiert', 'success');
-  };
 
   const handleDocumentSent = async () => {
     if (!session.offerId) {
@@ -174,7 +116,7 @@ export function ClosingStep({
       <article className={styles.hero}>
         <h2 className={styles.sectionTitle}>Prüfung & Nachfassen</h2>
         <p className={styles.hint}>
-          Kunde prüft in Ruhe. Versand, Wiedervorlage und externer BestPay-Handoff.
+          Kunde prüft in Ruhe. Kundenlink, Wiedervorlage und externer BestPay-Handoff.
         </p>
         {workflowView ? (
           <dl className={styles.formGrid}>
@@ -218,57 +160,22 @@ export function ClosingStep({
         </dl>
       </article>
 
-      {session.offerId ? (
-        <article className={styles.card}>
-          <h3 className={styles.sectionTitle}>Kundenlink</h3>
-          <p className={styles.hint}>
-            Sicherer Link zur Angebotsprüfung – ohne Login, 30 Tage gültig.
-          </p>
-          {!readiness?.publicationAllowed ? (
-            <p className={styles.hint} role="status">
-              Kundenvorlage noch nicht möglich:{' '}
-              {readiness?.blockers[0] ?? 'Freigabe ausstehend.'}
-            </p>
-          ) : null}
-          {shareMessage ? (
-            <p className={styles.hint} role="status">
-              {shareMessage}
-            </p>
-          ) : null}
-          {activeShare ? (
-            <p className={styles.hint}>
-              Aktiver Link · Status:{' '}
-              {SHARE_STATUS_LABELS[offerShareService.resolveShareStatus(activeShare)]}
-            </p>
-          ) : null}
-          <div className={styles.actions}>
-            <Button
-              loading={shareLoading}
-              disabled={!readiness?.publicationAllowed}
-              onClick={() => void handleCreateShareLink()}
-            >
-              {activeShare ? 'Link neu erzeugen' : 'Kundenlink erstellen'}
-            </Button>
-            {revealedToken ? (
-              <Button variant="secondary" onClick={() => void handleCopyShareLink()}>
-                Link kopieren
-              </Button>
-            ) : null}
-          </div>
-        </article>
+      {offer ? (
+        <OfferCustomerShareSection
+          offer={offer}
+          userContext={userContext}
+          onUpdated={onWorkflowUpdated}
+        />
       ) : null}
 
       <article className={styles.card}>
         <h3 className={styles.sectionTitle}>Externer BestPay-Abschluss</h3>
         <p className={styles.hint}>
           Der Vertragsabschluss erfolgt extern bei BestPay. Dokumentieren Sie hier Versand und
-          Annahme für die Nachverfolgung – ohne zusätzliche Freigabelogik.
+          Annahme für die Nachverfolgung.
         </p>
         {workflowStatus ? (
-          <StatusBadge
-            variant="info"
-            label={getOfferWorkflowDisplayLabel(workflowStatus)}
-          />
+          <StatusBadge variant="info" label={getOfferWorkflowDisplayLabel(workflowStatus)} />
         ) : null}
         <div className={styles.actions}>
           {canDocumentSent ? (
@@ -316,7 +223,7 @@ export function ClosingStep({
         ) : null}
         {session.leadId ? (
           <Link className={styles.choiceButton} to={`/leads/${session.leadId}`}>
-            Kundenakte
+            Zum Kunden
           </Link>
         ) : null}
         <Link className={styles.choiceButton} to={ADVICE_PATH}>

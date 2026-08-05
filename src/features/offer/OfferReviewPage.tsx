@@ -7,7 +7,7 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; view: PublicOfferView }
   | { status: 'error'; code: string; message: string }
-  | { status: 'submitted'; kind: 'question' | 'change' };
+  | { status: 'submitted'; kind: 'question' | 'change' | 'accept' | 'decline' };
 
 async function fetchPublicOffer(token: string): Promise<Response> {
   return fetch(`/api/public/offers/${encodeURIComponent(token)}`, {
@@ -24,6 +24,7 @@ export function OfferReviewPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [mode, setMode] = useState<'view' | 'question' | 'change'>('view');
   const [submitting, setSubmitting] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,11 +92,50 @@ export function OfferReviewPage() {
     }
   };
 
+  const submitDecision = async (decision: 'accept' | 'decline') => {
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/public/offers/${encodeURIComponent(token)}/${decision}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerName, note: '' }),
+      });
+      if (response.ok) {
+        setState({ status: 'submitted', kind: decision });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openPdf = async () => {
+    setPdfBusy(true);
+    try {
+      const response = await fetch(`/api/public/offers/${encodeURIComponent(token)}/pdf`);
+      const payload = (await response.json()) as {
+        ok: boolean;
+        documentSnapshot?: unknown;
+      };
+      if (!payload.ok || !payload.documentSnapshot) {
+        return;
+      }
+      const { renderOfferPdfBlob } = await import('../../services/offerPdfRenderer');
+      const blob = renderOfferPdfBlob(
+        payload.documentSnapshot as Parameters<typeof renderOfferPdfBlob>[0],
+        { isPreview: false },
+      );
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <p className={styles.brand}>AMRtech Payment</p>
-        <h1 className={styles.title}>Angebotsprüfung</h1>
+        <p className={styles.brand}>AMRtech</p>
+        <h1 className={styles.title}>Ihr Angebot</h1>
       </header>
 
       {state.status === 'loading' ? <p>Lade Angebot…</p> : null}
@@ -112,8 +152,12 @@ export function OfferReviewPage() {
           <h2>Vielen Dank</h2>
           <p>
             {state.kind === 'question'
-              ? 'Ihre Rückfrage wurde übermittelt. Sie erhalten eine Antwort über den vereinbarten Kanal.'
-              : 'Ihr Änderungswunsch wurde übermittelt und wird geprüft.'}
+              ? 'Ihre Rückfrage wurde übermittelt.'
+              : state.kind === 'change'
+                ? 'Ihr Änderungswunsch wurde übermittelt.'
+                : state.kind === 'accept'
+                  ? 'Sie haben das Angebot angenommen. Wir melden uns bei Ihnen.'
+                  : 'Sie haben das Angebot abgelehnt.'}
           </p>
         </section>
       ) : null}
@@ -121,52 +165,63 @@ export function OfferReviewPage() {
       {state.status === 'ready' ? (
         <>
           <section className={styles.panel}>
-            <p className={styles.status}>{state.view.statusLabel}</p>
-            <p className={styles.hint}>{state.view.reviewHint}</p>
-            <p className={styles.hint}>{state.view.competitorComparisonHint}</p>
+            <p className={styles.status}>Zur Prüfung bereitgestellt</p>
+            <p className={styles.hint}>
+              Link gültig bis {new Date(state.view.linkValidUntil).toLocaleDateString('de-DE')}.
+            </p>
             <dl className={styles.grid}>
-              <div><dt>Ansprechpartner AMRtech</dt><dd>{state.view.salesContactName}</dd></div>
+              <div><dt>Ansprechpartner</dt><dd>{state.view.salesContactName}</dd></div>
               <div><dt>Angebotsnummer</dt><dd>{state.view.offerNumber}</dd></div>
-              <div><dt>Version</dt><dd>{state.view.versionNumber}</dd></div>
-              <div><dt>Erstellt am</dt><dd>{new Date(state.view.versionCreatedAt).toLocaleDateString('de-DE')}</dd></div>
               <div><dt>Kunde</dt><dd>{state.view.companyName}</dd></div>
-              <div><dt>Link gültig bis</dt><dd>{new Date(state.view.linkValidUntil).toLocaleDateString('de-DE')}</dd></div>
+              <div><dt>Erstellt am</dt><dd>{new Date(state.view.versionCreatedAt).toLocaleDateString('de-DE')}</dd></div>
             </dl>
           </section>
 
           <section className={styles.panel}>
-            <h2>Konditionen</h2>
+            <h2>Ihr Angebot im Überblick</h2>
             <dl className={styles.grid}>
-              <div><dt>Tarif</dt><dd>{state.view.tariffName ?? '–'}</dd></div>
-              <div><dt>Anbieter</dt><dd>{state.view.tariffProvider ?? '–'}</dd></div>
-              <div><dt>Laufzeit</dt><dd>{state.view.termMonths ? `${state.view.termMonths} Monate` : '–'}</dd></div>
+              <div><dt>Lösung</dt><dd>{state.view.tariffName ?? '–'}</dd></div>
+              {state.view.termMonths ? (
+                <div><dt>Vertragslaufzeit</dt><dd>{state.view.termMonths} Monate</dd></div>
+              ) : null}
               <div><dt>Einmalige Kosten</dt><dd>{state.view.oneTimeTotalLabel}</dd></div>
               <div><dt>Monatliche Kosten</dt><dd>{state.view.monthlyTotalLabel}</dd></div>
-              <div><dt>Transaktionskosten</dt><dd>{state.view.transactionCostHint}</dd></div>
+              <div><dt>Variable Gebühren</dt><dd>{state.view.transactionCostHint}</dd></div>
             </dl>
             {state.view.hasPdf ? (
               <button
                 type="button"
                 className={styles.primaryButton}
-                onClick={() => void fetch(`/api/public/offers/${encodeURIComponent(token)}/pdf`).then(async (response) => {
-                  const payload = await response.json() as { ok: boolean; documentSnapshot?: unknown };
-                  if (payload.ok && payload.documentSnapshot) {
-                    sessionStorage.setItem(`offer-review-pdf:${token}`, JSON.stringify(payload.documentSnapshot));
-                    window.open(`/offer-review/${encodeURIComponent(token)}/pdf`, '_blank');
-                  }
-                })}
+                disabled={pdfBusy}
+                onClick={() => void openPdf()}
               >
-                PDF anzeigen
+                PDF öffnen
               </button>
             ) : null}
           </section>
 
           <section className={styles.actions}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              disabled={submitting}
+              onClick={() => void submitDecision('accept')}
+            >
+              Angebot annehmen
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              disabled={submitting}
+              onClick={() => void submitDecision('decline')}
+            >
+              Angebot ablehnen
+            </button>
             <button type="button" className={styles.secondaryButton} onClick={() => setMode('question')}>
-              Rückfrage stellen
+              Rückfrage senden
             </button>
             <button type="button" className={styles.secondaryButton} onClick={() => setMode('change')}>
-              Änderung wünschen
+              Änderung anfragen
             </button>
           </section>
 
