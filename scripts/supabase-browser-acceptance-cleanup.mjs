@@ -44,14 +44,36 @@ const env = {
 const url = env.VITE_SUPABASE_URL?.trim() || env.SUPABASE_URL?.trim();
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
+function isPlausibleServiceRoleKey(value) {
+  if (!value || value.length < 40) return false;
+  if (value === 'echo' || value === 'changeme' || value === 'YOUR_SERVICE_ROLE_KEY') return false;
+  // Legacy JWT or current sb_secret_* forms
+  return value.startsWith('eyJ') || value.startsWith('sb_secret_') || value.includes('.');
+}
+
 if (!url || !serviceKey) {
   console.error('Cleanup Abbruch – SUPABASE_SERVICE_ROLE_KEY oder Supabase-URL fehlt.');
+  process.exit(1);
+}
+
+if (!isPlausibleServiceRoleKey(serviceKey)) {
+  console.error(
+    'Cleanup Abbruch – SUPABASE_SERVICE_ROLE_KEY ist ungültig (zu kurz oder Platzhalter).',
+  );
   process.exit(1);
 }
 
 const supabase = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+
+async function preflightServiceRole() {
+  const { error } = await supabase.from('leads').select('id', { count: 'exact', head: true });
+  if (error) {
+    console.error(`Cleanup Abbruch – Service-Role-Preflight fehlgeschlagen: ${error.message}`);
+    process.exit(1);
+  }
+}
 
 function assertOk(label, error) {
   if (error) {
@@ -149,6 +171,22 @@ async function collectTargets() {
   };
 }
 
+async function loadLeadIdSet() {
+  const { data, error } = await supabase.from('leads').select('id');
+  assertOk('leads id set', error);
+  return new Set((data ?? []).map((row) => row.id).filter(Boolean));
+}
+
+async function selectMissingLeadRefs(table) {
+  const leadIds = await loadLeadIdSet();
+  const { data, error } = await supabase.from(table).select('id, lead_id');
+  assertOk(`${table} orphan scan`, error);
+  return (data ?? [])
+    .filter((row) => row.lead_id && !leadIds.has(row.lead_id))
+    .map((row) => row.id)
+    .filter(Boolean);
+}
+
 async function remnantReport() {
   const targets = await collectTargets();
   const continueTasks = await countExact('sales_tasks', (q) =>
@@ -157,6 +195,9 @@ async function remnantReport() {
   const continueByType = await countExact('sales_tasks', (q) =>
     q.contains('data', { type: 'continue_calculation' }),
   );
+  const danglingActivities = (await selectMissingLeadRefs('sales_activities')).length;
+  const danglingRecommendations = (await selectMissingLeadRefs('recommendation_records')).length;
+  const danglingOffers = (await selectMissingLeadRefs('offers')).length;
   return {
     testLeads: targets.testLeadIds.length,
     testOffers: targets.offerIds.length,
@@ -164,12 +205,16 @@ async function remnantReport() {
     orphanSessions: await countExact('best_pay_comparison_sessions', (q) => q.is('lead_id', null)),
     orphanActivities: await countExact('sales_activities', (q) => q.is('lead_id', null)),
     orphanRecommendations: await countExact('recommendation_records', (q) => q.is('lead_id', null)),
+    danglingActivities,
+    danglingRecommendations,
+    danglingOffers,
     billingImports: await countExact('billing_import_sessions'),
     continueTasks: continueTasks + continueByType,
   };
 }
 
 async function cleanup() {
+  await preflightServiceRole();
   const beforeTargets = await collectTargets();
   const before = await remnantReport();
   console.log('Cleanup vorher:', JSON.stringify(before));
@@ -222,6 +267,13 @@ async function cleanup() {
     'id',
     await selectIds('recommendation_records', (q) => q.is('lead_id', null)),
   );
+  await deleteIn('sales_activities', 'id', await selectMissingLeadRefs('sales_activities'));
+  await deleteIn(
+    'recommendation_records',
+    'id',
+    await selectMissingLeadRefs('recommendation_records'),
+  );
+  await deleteIn('offers', 'id', await selectMissingLeadRefs('offers'));
   await deleteIn(
     'sales_tasks',
     'id',
