@@ -73,5 +73,9 @@ export const ADMIN_SHELL_NAV: AdminShellNavItem[] = [
     isActive: (pathname) => isCatalogRelatedPath(pathname),
   },
   { to: '/admin/commission', label: 'Provision' },
+  { to: '/admin/approvals', label: 'Freigaben' },
+  { to: '/admin/templates', label: 'Vorlagen' },
+  { to: '/admin/data', label: 'Daten' },
+  { to: '/admin/audit', label: 'Audit' },
   { to: '/admin/system', label: 'Systemstatus' },
 ];

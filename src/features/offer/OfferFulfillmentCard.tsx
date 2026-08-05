@@ -93,7 +93,7 @@ export function OfferFulfillmentCard({ offer, onUpdated }: OfferFulfillmentCardP
         Vertrag & Aktivierung
       </h2>
       <p className={styles.hint}>
-        Operative Aktivierung läuft über den ActivationCase. Hier nur Status und Einstieg.
+        Operative Aktivierung läuft über den Aktivierungsvorgang. Hier nur Status und Einstieg.
       </p>
 
       <dl className={styles.summary}>
@@ -156,7 +156,7 @@ export function OfferFulfillmentCard({ offer, onUpdated }: OfferFulfillmentCardP
         <aside className={styles.history} aria-label="Historische Angebotsaktivierung">
           <h3 className={styles.historyTitle}>Historische Angebotsaktivierung</h3>
           <p className={styles.hint}>
-            Nur lesbar – keine operative Bearbeitung. Zugeordneter ActivationCase:{' '}
+            Nur lesbar – keine operative Bearbeitung. Zugeordneter Aktivierungsvorgang:{' '}
             {activation ? activation.activationNumber : 'nicht vorhanden'}
           </p>
           <ul className={styles.historyList}>

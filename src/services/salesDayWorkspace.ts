@@ -10,6 +10,8 @@ export interface SalesDayWorkEntry {
   dueAt: string | null;
   standLabel: string;
   nextActionLabel: string;
+  /** Primäre nächste Aktion (Beratung/Angebot/Vertrag…); Fallback Kundenakte. */
+  actionHref: string | null;
   customerHref: string | null;
   warning: string | null;
 }
@@ -31,6 +33,7 @@ export interface SalesDayCaseCard {
   nextTaskTitle: string | null;
   nextTaskDueAt: string | null;
   nextActionLabel: string;
+  nextActionHref?: string | null;
   warning: string | null;
   isOverdue: boolean;
   lastActivityAt: string | null;
@@ -79,6 +82,7 @@ function entryFromCard(
     dueAt: overrides.dueAt ?? card.nextTaskDueAt,
     standLabel: card.standLabel || card.phaseLabel,
     nextActionLabel: card.nextActionLabel,
+    actionHref: card.nextActionHref ?? customerHref(card.leadId),
     customerHref: customerHref(card.leadId),
     warning: card.warning,
     ...overrides,
@@ -97,6 +101,7 @@ function entryFromTask(
     dueAt: task.dueAt,
     standLabel: card?.standLabel || card?.phaseLabel || '–',
     nextActionLabel: card?.nextActionLabel ?? task.title,
+    actionHref: card?.nextActionHref ?? customerHref(task.leadId),
     customerHref: customerHref(task.leadId),
     warning: dueBucketOf(task) === 'overdue' ? 'Überfällig' : card?.warning ?? null,
   };

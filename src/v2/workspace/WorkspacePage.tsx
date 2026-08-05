@@ -15,6 +15,7 @@ import { PageHeader } from '../ui/PageHeader';
 import styles from './WorkspacePage.module.css';
 
 function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
+  const primaryHref = entry.actionHref ?? entry.customerHref;
   return (
     <DataListCard
       title={entry.companyName}
@@ -27,8 +28,13 @@ function DayWorkCard({ entry }: { entry: SalesDayWorkEntry }) {
         </>
       }
       footer={
-        entry.customerHref ? (
-          <Link to={entry.customerHref}>Zur Kundenakte</Link>
+        primaryHref || entry.customerHref ? (
+          <div className={styles.cardActions}>
+            {primaryHref ? <Link to={primaryHref}>{entry.nextActionLabel}</Link> : null}
+            {entry.customerHref && entry.customerHref !== primaryHref ? (
+              <Link to={entry.customerHref}>Zur Kundenakte</Link>
+            ) : null}
+          </div>
         ) : undefined
       }
     />
@@ -170,7 +176,7 @@ export function WorkspacePage() {
           label="Suche"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Kunde, Angebot oder Berechnung suchen…"
+          placeholder="Kunde, Angebot oder Beratung suchen…"
         />
       </div>
 

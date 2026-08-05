@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
+import { ACTIVATION_STATUS_LABELS } from '../../domain/activation/activationStatus';
+import { CONTRACT_STATUS_LABELS } from '../../domain/contract/contractStatus';
 import { LEAD_INTEREST_LABELS, LEAD_STATUS_LABELS } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { formatContactName, formatDate, formatDateTime } from '../../utils/format';
-import { adviceSessionPath, ADVICE_NEW_PATH } from '../../utils/routes';
+import { adviceSessionPath } from '../../utils/routes';
 import { Button } from '../ui/Button';
 import { DataList, DataListCard } from '../ui/DataList';
 import { PageHeader } from '../ui/PageHeader';
@@ -193,7 +195,7 @@ export function LeadRecordPage() {
         <div className={styles.stack}>
           <section>
             <h2 className={styles.sectionTitle}>Beratungen</h2>
-            <Link to={ADVICE_NEW_PATH}>
+            <Link to={`/advice?leadId=${encodeURIComponent(data.id)}`}>
               <Button variant="secondary">Neue Beratung</Button>
             </Link>
             {data.sessions.length === 0 ? (
@@ -241,7 +243,10 @@ export function LeadRecordPage() {
                 renderItem={(entry) => (
                   <DataListCard
                     title={entry.contractNumber}
-                    meta={entry.status}
+                    meta={
+                      CONTRACT_STATUS_LABELS[entry.status as keyof typeof CONTRACT_STATUS_LABELS] ??
+                      entry.status
+                    }
                     href={`/contracts/${entry.id}`}
                   />
                 )}
@@ -259,7 +264,11 @@ export function LeadRecordPage() {
                 renderItem={(entry) => (
                   <DataListCard
                     title={entry.activationNumber}
-                    meta={entry.status}
+                    meta={
+                      ACTIVATION_STATUS_LABELS[
+                        entry.status as keyof typeof ACTIVATION_STATUS_LABELS
+                      ] ?? entry.status
+                    }
                     href={`/activations/${entry.id}`}
                   />
                 )}
@@ -295,9 +304,11 @@ export function LeadRecordPage() {
               <dd>{lead.notes || '—'}</dd>
             </div>
           </dl>
-          <Link to={`/leads/${data.id}/edit`}>
-            <Button variant="secondary">Stammdaten bearbeiten</Button>
-          </Link>
+          {canEdit ? (
+            <Link to={`/leads/${data.id}/edit`}>
+              <Button variant="secondary">Stammdaten bearbeiten</Button>
+            </Link>
+          ) : null}
         </article>
       ) : null}
     </section>

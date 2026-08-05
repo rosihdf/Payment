@@ -182,20 +182,22 @@ describe('v2 responsive viewports – neu geroutete Seiten (Angebot, Vertrag, Ak
       assertNoHorizontalOverflow(`/offers/:id@${width}`);
     });
 
-    it(`leitet Vertrags-URLs bei ${width}px auf Angebote um`, async () => {
+    it(`hält Vertragsdetail bei ${width}px ohne unkontrollierten Overflow`, async () => {
       const pipeline = await seedOfferContractActivationPipeline();
       setViewportWidth(width);
       const router = renderAt(`/contracts/${pipeline.contractId}`);
-      await screen.findByRole('heading', { name: 'Angebote', level: 1 });
-      expect(router.state.location.pathname).toBe('/offers');
+      expect(router.state.location.pathname).toBe(`/contracts/${pipeline.contractId}`);
+      expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+      assertNoHorizontalOverflow(`/contracts/:id@${width}`);
     });
 
-    it(`leitet Aktivierungs-URLs bei ${width}px auf Angebote um`, async () => {
+    it(`hält Aktivierungsdetail bei ${width}px ohne unkontrollierten Overflow`, async () => {
       const pipeline = await seedOfferContractActivationPipeline();
       setViewportWidth(width);
       const router = renderAt(`/activations/${pipeline.activationId}`);
-      await screen.findByRole('heading', { name: 'Angebote', level: 1 });
-      expect(router.state.location.pathname).toBe('/offers');
+      expect(router.state.location.pathname).toBe(`/activations/${pipeline.activationId}`);
+      expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+      assertNoHorizontalOverflow(`/activations/:id@${width}`);
     });
 
     it(`hält "Neuen Kunden aufnehmen" bei ${width}px ohne unkontrollierten Overflow`, async () => {

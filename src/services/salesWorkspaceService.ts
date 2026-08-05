@@ -506,7 +506,7 @@ export class SalesWorkspaceService {
         offerNumber: latestOffer?.offerNumber ?? null,
         expectedValueCents: null,
         nextActionLabel: primary.label,
-        nextActionHref: `/leads/${lead.id}`,
+        nextActionHref: primary.href ?? `/leads/${lead.id}`,
         warning: isHardBlocked
           ? hasHardActivationBlocker
             ? 'Harter Blocker'

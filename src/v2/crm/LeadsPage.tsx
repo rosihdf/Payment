@@ -243,6 +243,7 @@ export function LeadsPage() {
             cardMixSummary={cardMixSummary}
             isCardMixValid={isCardMixValid(editValues.cardMix)}
             isSubmitting={isEditSubmitting}
+            hideActions
             onChange={setEditValues}
             onSubmit={handleEditSubmit}
             onCancel={closeEditDialog}

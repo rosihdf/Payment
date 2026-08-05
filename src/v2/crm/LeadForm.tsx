@@ -24,6 +24,8 @@ interface LeadFormBaseProps {
   isSubmitting: boolean;
   onSubmit: () => void;
   onCancel: () => void;
+  /** Dialog stellt Speichern/Abbrechen bereits bereit. */
+  hideActions?: boolean;
   /** Nur Admin: Betreuer auswählen. */
   canAssignAdvisor?: boolean;
   advisorOptions?: Array<{ id: string; name: string; email: string }>;
@@ -56,6 +58,7 @@ export function LeadForm(props: LeadFormProps) {
     onChange,
     onSubmit,
     onCancel,
+    hideActions = false,
     canAssignAdvisor = false,
     advisorOptions = [],
   } = props;
@@ -304,24 +307,26 @@ export function LeadForm(props: LeadFormProps) {
         </div>
       </section>
 
-      <div className={styles.actions}>
-        <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
-          {isSubmitting ? submittingLabel : submitLabel}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Abbrechen
-        </Button>
-        {mode === 'create' ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={props.onDiscard}
-            disabled={isSubmitting || !props.showDiscard}
-          >
-            Eingaben verwerfen
+      {hideActions ? null : (
+        <div className={styles.actions}>
+          <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
+            {isSubmitting ? submittingLabel : submitLabel}
           </Button>
-        ) : null}
-      </div>
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+            Abbrechen
+          </Button>
+          {mode === 'create' ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={props.onDiscard}
+              disabled={isSubmitting || !props.showDiscard}
+            >
+              Eingaben verwerfen
+            </Button>
+          ) : null}
+        </div>
+      )}
     </form>
   );
 }

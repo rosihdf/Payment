@@ -76,6 +76,8 @@ export function AdminOverviewPage() {
               <Link to="/admin/system">Systemstatus prüfen</Link>
               <Link to="/admin/catalog">Produkte & Konditionen</Link>
               <Link to="/admin/commission">Provision verwalten</Link>
+              <Link to="/admin/approvals">Freigaberegeln</Link>
+              <Link to="/admin/data">Daten & Diagnose</Link>
             </div>
           </section>
         </>
