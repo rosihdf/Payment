@@ -160,15 +160,7 @@ export function CommissionAssignmentsPanel() {
           .filter(Boolean)
           .join(' – '),
       };
-      let result = await commissionAdminService.saveAssignment(context, payload);
-      if (
-        !result.ok &&
-        result.error !== 'share_range' &&
-        result.error !== 'overlap' &&
-        result.error !== 'forbidden'
-      ) {
-        result = await commissionAdminService.saveAssignment(context, payload);
-      }
+      const result = await commissionAdminService.saveAssignment(context, payload);
       if (result.ok) {
         closeDialog();
         setMessage('Vereinbarung gespeichert');
@@ -185,7 +177,6 @@ export function CommissionAssignmentsPanel() {
   }, [
     commissionAdminService,
     context,
-    load,
     refreshRows,
     model,
     note,

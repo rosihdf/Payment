@@ -387,6 +387,7 @@ export class CommissionAdminService {
       validUntil: string | null;
       ruleOverrides: CommissionRuleOverride[];
       changeNote: string;
+      expectedCurrentVersionId?: string | null;
     },
   ): Promise<{ ok: true; assignment: SalesRepresentativeCommissionAssignment } | { ok: false; error: string }> {
     const guard = await this.requireAdmin(context);
@@ -444,6 +445,22 @@ export class CommissionAdminService {
         assignment.status === 'active' &&
         assignment.isPrimary,
     );
+
+    const atomicResult = await this.workflowRepository.saveAssignmentVersionAtomic({
+      salesRepresentativeId: input.salesRepresentativeId,
+      commissionPlanVersionId: planVersionId,
+      validFrom: input.validFrom,
+      validUntil: input.validUntil,
+      ruleOverrides: normalizedOverrides,
+      changeNote: input.changeNote,
+      expectedCurrentVersionId: input.expectedCurrentVersionId ?? null,
+    });
+    if (atomicResult) {
+      if (!atomicResult.ok) {
+        return { ok: false, error: atomicResult.error };
+      }
+      return { ok: true, assignment: atomicResult.assignment };
+    }
 
     let assignment: SalesRepresentativeCommissionAssignment;
 

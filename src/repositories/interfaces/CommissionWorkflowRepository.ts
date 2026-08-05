@@ -2,6 +2,10 @@ import type { CommissionAssignmentVersion } from '../../domain/commission/commis
 import type { CommissionBonusPayment } from '../../domain/commission/commissionBonusPayment';
 import type { CommissionCase, CommissionEvent } from '../../domain/commission/commissionCase';
 import type { CommissionPaymentRecord } from '../../domain/commission/commissionPaymentRecord';
+import type {
+  SaveCommissionAssignmentVersionInput,
+  SaveCommissionAssignmentVersionResult,
+} from '../../domain/commission/saveCommissionAssignmentVersion';
 
 export interface CommissionWorkflowRepository {
   getCaseById(id: string): Promise<CommissionCase | null>;
@@ -14,6 +18,13 @@ export interface CommissionWorkflowRepository {
   getAssignmentVersionsByAssignmentId(assignmentId: string): Promise<CommissionAssignmentVersion[]>;
   countAssignmentVersions(assignmentId: string): Promise<number>;
   createAssignmentVersion(version: CommissionAssignmentVersion): Promise<CommissionAssignmentVersion>;
+  /**
+   * Atomarer Remote-Save (ein RPC). Local-Repos geben `null` zurück;
+   * der Service nutzt dann den lokalen Mehrfach-Write-Pfad.
+   */
+  saveAssignmentVersionAtomic(
+    input: SaveCommissionAssignmentVersionInput,
+  ): Promise<SaveCommissionAssignmentVersionResult | null>;
   getBonusPayments(): Promise<CommissionBonusPayment[]>;
   getBonusPaymentsByRepresentativeId(repId: string): Promise<CommissionBonusPayment[]>;
   createBonusPayment(record: CommissionBonusPayment): Promise<CommissionBonusPayment>;

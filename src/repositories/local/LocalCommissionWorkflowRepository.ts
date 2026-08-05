@@ -72,6 +72,11 @@ export class LocalCommissionWorkflowRepository implements CommissionWorkflowRepo
     return { ...version };
   }
 
+  async saveAssignmentVersionAtomic(): Promise<null> {
+    // Local-/Demo-Modus: kein RPC – Service behält den In-Memory-Write-Pfad.
+    return null;
+  }
+
   async getBonusPayments(): Promise<CommissionBonusPayment[]> {
     return readStorageItem<CommissionBonusPayment[]>(STORAGE_KEYS.commissionBonusPayments) ?? [];
   }

@@ -2,6 +2,13 @@ import type { CommissionAssignmentVersion } from '../../domain/commission/commis
 import type { CommissionBonusPayment } from '../../domain/commission/commissionBonusPayment';
 import type { CommissionCase, CommissionEvent } from '../../domain/commission/commissionCase';
 import type { CommissionPaymentRecord } from '../../domain/commission/commissionPaymentRecord';
+import type { SalesRepresentativeCommissionAssignment } from '../../domain/commission/commissionAssignment';
+import type {
+  SaveCommissionAssignmentVersionInput,
+  SaveCommissionAssignmentVersionResult,
+} from '../../domain/commission/saveCommissionAssignmentVersion';
+import { getSupabaseClient } from '../../lib/supabaseClient';
+import { formatPersistError } from '../../utils/persistError';
 import type { CommissionWorkflowRepository } from '../interfaces/CommissionWorkflowRepository';
 import { runCommissionWrite } from './commissionWriteLock';
 import {
@@ -16,6 +23,48 @@ import {
   sbUpdate,
   type JsonTableRow,
 } from './supabaseTable';
+
+function mapRpcAssignment(raw: unknown): SalesRepresentativeCommissionAssignment | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const data = raw as Record<string, unknown>;
+  const id = typeof data.id === 'string' ? data.id : '';
+  const salesRepresentativeId =
+    typeof data.salesRepresentativeId === 'string' ? data.salesRepresentativeId : '';
+  const commissionPlanVersionId =
+    typeof data.commissionPlanVersionId === 'string' ? data.commissionPlanVersionId : '';
+  const validFrom = typeof data.validFrom === 'string' ? data.validFrom : '';
+  const createdAt = typeof data.createdAt === 'string' ? data.createdAt : '';
+  const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : '';
+  const createdByUserId = typeof data.createdByUserId === 'string' ? data.createdByUserId : '';
+  if (
+    !id ||
+    !salesRepresentativeId ||
+    !commissionPlanVersionId ||
+    !validFrom ||
+    !createdAt ||
+    !updatedAt ||
+    !createdByUserId
+  ) {
+    return null;
+  }
+  return {
+    id,
+    salesRepresentativeId,
+    commissionPlanVersionId,
+    currentVersionId: typeof data.currentVersionId === 'string' ? data.currentVersionId : null,
+    validFrom,
+    validUntil: typeof data.validUntil === 'string' ? data.validUntil : null,
+    isPrimary: data.isPrimary === true,
+    status: data.status === 'inactive' ? 'inactive' : 'active',
+    reason: typeof data.reason === 'string' ? data.reason : '',
+    createdByUserId,
+    approvedByUserId: typeof data.approvedByUserId === 'string' ? data.approvedByUserId : null,
+    createdAt,
+    updatedAt,
+  };
+}
 
 function rowToCase(row: JsonTableRow): CommissionCase {
   return rowData<CommissionCase>(row, {
@@ -181,6 +230,59 @@ export class SupabaseCommissionWorkflowRepository implements CommissionWorkflowR
       await sbInsertWithoutReturn('commission_assignment_versions', assignmentVersionToRow(version));
     });
     return version;
+  }
+
+  async saveAssignmentVersionAtomic(
+    input: SaveCommissionAssignmentVersionInput,
+  ): Promise<SaveCommissionAssignmentVersionResult> {
+    const client = getSupabaseClient();
+    const { data, error } = await client.rpc('save_commission_assignment_version', {
+      p_sales_representative_id: input.salesRepresentativeId,
+      p_commission_plan_version_id: input.commissionPlanVersionId,
+      p_valid_from: input.validFrom,
+      p_valid_until: input.validUntil,
+      p_rule_overrides: input.ruleOverrides,
+      p_change_note: input.changeNote,
+      p_expected_current_version_id: input.expectedCurrentVersionId ?? null,
+    });
+
+    if (error) {
+      const message = formatPersistError(error);
+      if (/Failed to fetch|network|timeout|ECONNRESET|503|502|504|525/i.test(message)) {
+        return { ok: false, error: 'network_error' };
+      }
+      return { ok: false, error: 'database_error' };
+    }
+
+    const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+    if (!payload) {
+      return { ok: false, error: 'database_error' };
+    }
+    if (payload.ok !== true) {
+      const code = typeof payload.error === 'string' ? payload.error : 'database_error';
+      return { ok: false, error: code };
+    }
+
+    const assignment = mapRpcAssignment(payload.assignment);
+    if (!assignment) {
+      return { ok: false, error: 'database_error' };
+    }
+
+    this.invalidateAssignmentVersionsCache(assignment.id);
+
+    return {
+      ok: true,
+      unchanged: payload.unchanged === true,
+      assignment,
+      currentVersionId:
+        typeof payload.currentVersionId === 'string'
+          ? payload.currentVersionId
+          : (assignment.currentVersionId ?? ''),
+      versionNumber:
+        typeof payload.versionNumber === 'number'
+          ? payload.versionNumber
+          : Number(payload.versionNumber ?? 0),
+    };
   }
 
   async getBonusPayments(): Promise<CommissionBonusPayment[]> {
