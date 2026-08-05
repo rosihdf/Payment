@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
+import { mergeManualInput } from '../../domain/bestPayComparison/createBestPayComparisonSession';
 import { resolveCostCaptureMode, type CostCaptureMode } from '../../domain/bestPayComparison/costCaptureMode';
 import type { SalesWizardProspectDraft, SalesWizardStepId } from '../../domain/bestPayComparison/salesWizard';
 import type { Lead } from '../../domain/lead/lead';
@@ -46,6 +47,7 @@ export function useAdviceSession({
   const persistPromiseRef = useRef<Promise<BestPayComparisonSession | null> | null>(null);
   const sessionRef = useRef<BestPayComparisonSession | null>(initialSession);
   const prospectWriteRef = useRef(0);
+  const operationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   const setSession = useCallback(
     (next: BestPayComparisonSession | null) => {
@@ -134,40 +136,65 @@ export function useAdviceSession({
     async (
       updater: (current: BestPayComparisonSession) => Promise<BestPayComparisonSession | null>,
     ): Promise<BestPayComparisonSession | null> => {
-      const active = sessionRef.current;
-      if (!active) {
-        return null;
-      }
-      setBusy(true);
-      setError(null);
-      try {
-        const base = await ensurePersisted(active);
-        const updated = await updater(base);
-        if (updated) {
-          const latest = sessionRef.current;
-          const merged =
-            latest && latest.id === updated.id
-              ? {
-                  ...updated,
-                  wizard: {
-                    ...updated.wizard,
-                    prospectDraft: latest.wizard.prospectDraft,
-                    currentStep: latest.wizard.currentStep,
-                    approvalNotes: latest.wizard.approvalNotes,
-                  },
-                  manualInput: latest.manualInput,
-                }
-              : updated;
-          setSession(merged);
-          return merged;
+      const run = async (): Promise<BestPayComparisonSession | null> => {
+        const active = sessionRef.current;
+        if (!active) {
+          return null;
         }
-        return updated;
-      } catch (persistError) {
-        setError(formatAdviceError(persistError));
-        return null;
-      } finally {
-        setBusy(false);
-      }
+        setBusy(true);
+        setError(null);
+        try {
+          const base = await ensurePersisted(active);
+          const current = sessionRef.current ?? base;
+          const updated = await updater(current);
+          if (updated) {
+            const latest = sessionRef.current;
+            const merged =
+              latest && latest.id === updated.id
+                ? {
+                    ...updated,
+                    wizard: {
+                      ...updated.wizard,
+                      prospectDraft: latest.wizard.prospectDraft,
+                      currentStep: latest.wizard.currentStep,
+                      approvalNotes: latest.wizard.approvalNotes,
+                      costCaptureMode: updated.wizard.costCaptureMode ?? latest.wizard.costCaptureMode,
+                    },
+                    // Persistierte Need-Felder gewinnen; lokale Zwischenstände bleiben ergänzend erhalten.
+                    manualInput: {
+                      ...latest.manualInput,
+                      ...updated.manualInput,
+                      paymentUsage: {
+                        ...latest.manualInput.paymentUsage,
+                        ...updated.manualInput.paymentUsage,
+                      },
+                    },
+                    billingImportSessionId:
+                      updated.billingImportSessionId ?? latest.billingImportSessionId,
+                    costBaselineId: updated.costBaselineId ?? latest.costBaselineId,
+                    costBaselineVersion: updated.costBaselineVersion ?? latest.costBaselineVersion,
+                    source: updated.source ?? latest.source,
+                    status: updated.status,
+                  }
+                : updated;
+            setSession(merged);
+            return merged;
+          }
+          return updated;
+        } catch (persistError) {
+          setError(formatAdviceError(persistError));
+          return null;
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const queued = operationQueueRef.current.then(run, run);
+      operationQueueRef.current = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
     },
     [ensurePersisted, setSession],
   );
@@ -300,16 +327,47 @@ export function useAdviceSession({
   );
 
   const patchManualInput = useCallback(
-    (patch: Partial<BestPayComparisonSession['manualInput']>) =>
-      withPersist(async (current) => {
+    (patch: Partial<BestPayComparisonSession['manualInput']>) => {
+      const active = sessionRef.current;
+      if (!active) {
+        return Promise.resolve(null);
+      }
+      // Optimistisch sofort in die UI übernehmen (verhindert Rücksprung auf „Bitte wählen…“).
+      const optimistic: BestPayComparisonSession = {
+        ...active,
+        manualInput: mergeManualInput(active.manualInput, patch),
+        wizard:
+          typeof patch.industry === 'string'
+            ? {
+                ...active.wizard,
+                prospectDraft: {
+                  ...active.wizard.prospectDraft,
+                  industry: patch.industry,
+                },
+              }
+            : active.wizard,
+      };
+      setSession(optimistic);
+
+      return withPersist(async (current) => {
         const updated = await salesWizardService.updateNeed(current.id, patch, userContext);
         if (!updated) {
           setError('Eingabe konnte nicht gespeichert werden.');
           return null;
         }
+        if (typeof patch.industry === 'string') {
+          updated.wizard = {
+            ...updated.wizard,
+            prospectDraft: {
+              ...updated.wizard.prospectDraft,
+              industry: patch.industry,
+            },
+          };
+        }
         return updated;
-      }),
-    [salesWizardService, userContext, withPersist],
+      });
+    },
+    [salesWizardService, setSession, userContext, withPersist],
   );
 
   const calculateRecommendation = useCallback(
