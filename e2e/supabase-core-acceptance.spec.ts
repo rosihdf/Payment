@@ -18,6 +18,7 @@ import {
   waitForWorkspaceReady,
   waitForLeadsReady,
   countVisibleLeads,
+  countPlaceholderCustomerLeads,
 } from './supabase-auth.helpers';
 
 const env = loadSupabaseEnv();
@@ -266,10 +267,13 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
         credentials.adminPassword,
       );
       expect(leadsAfter).toBe(leadsBefore);
-
-      await page.goto('/leads');
-      await waitForLeadsReady(page);
-      await expect(page.getByText('Beratung ohne Kunde')).toHaveCount(0);
+      expect(
+        await countPlaceholderCustomerLeads(
+          env,
+          credentials.adminEmail,
+          credentials.adminPassword,
+        ),
+      ).toBe(0);
     } finally {
       await context.close();
     }

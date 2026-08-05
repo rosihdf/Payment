@@ -29,8 +29,9 @@ describe('Aufräumblock 6 – Arbeitsplatz UI', () => {
     resetDemoDataForTests();
   });
 
-  it('zeigt genau vier Bereiche und Schnellaktionen ohne freie Aufgabenanlage', async () => {
+  it('zeigt die Tagesbereiche inklusive Beratungsentwürfe ohne freie Aufgabenanlage', async () => {
     renderAt('/sales');
+    expect(await screen.findByRole('heading', { name: 'Beratungen fortsetzen' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Überfällig' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Heute' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Blockiert' })).toBeInTheDocument();
