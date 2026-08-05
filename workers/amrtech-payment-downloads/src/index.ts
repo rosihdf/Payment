@@ -16,6 +16,9 @@ const ALLOWED_PATHS = new Set([
   '/android/v1.0.3/AMRtech-Payment-1.0.3.apk',
   '/android/v1.0.3/AMRtech-Payment-1.0.3.apk.sha256',
   '/android/v1.0.3/manifest.json',
+  '/android/v1.0.4/AMRtech-Payment-1.0.4.apk',
+  '/android/v1.0.4/AMRtech-Payment-1.0.4.apk.sha256',
+  '/android/v1.0.4/manifest.json',
 ]);
 
 function contentTypeFor(path: string): string {
