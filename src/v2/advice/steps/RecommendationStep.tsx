@@ -58,7 +58,11 @@ export function RecommendationStep({
           <Button variant="secondary" loading={busy} onClick={onCalculate}>
             Empfehlung aktualisieren
           </Button>
-        ) : null}
+        ) : (
+          <Button loading={busy} onClick={onCalculate}>
+            Empfehlung berechnen
+          </Button>
+        )}
       </article>
 
       {result && primaryVariant ? (

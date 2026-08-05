@@ -45,13 +45,19 @@ export function useAdviceSession({
 }: UseAdviceSessionOptions) {
   const { salesWizardService, bestPayComparisonService, offerWorkflowService } = services;
   const [session, setSessionState] = useState<BestPayComparisonSession | null>(initialSession);
-  const [persisted, setPersisted] = useState(false);
+  const [persisted, setPersistedState] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const persistPromiseRef = useRef<Promise<BestPayComparisonSession | null> | null>(null);
   const sessionRef = useRef<BestPayComparisonSession | null>(initialSession);
+  const persistedRef = useRef(false);
   const prospectWriteRef = useRef(0);
   const operationQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const setPersisted = useCallback((value: boolean) => {
+    persistedRef.current = value;
+    setPersistedState(value);
+  }, []);
 
   const setSession = useCallback(
     (next: BestPayComparisonSession | null) => {
@@ -72,10 +78,26 @@ export function useAdviceSession({
       }
       return {
         ...saved,
+        // Später gesetzte Kunden-/Angebotsbindung darf der erste Persist nicht zurücksetzen.
+        leadId: latest.leadId ?? saved.leadId,
+        customerLabel: latest.customerLabel ?? saved.customerLabel,
+        leadDisplayName: latest.leadDisplayName ?? saved.leadDisplayName,
+        offerId: latest.offerId ?? saved.offerId,
+        offerNumber: latest.offerNumber ?? saved.offerNumber,
+        offerTitle: latest.offerTitle ?? saved.offerTitle,
+        result: latest.result ?? saved.result,
+        selectedCandidateId: latest.selectedCandidateId ?? saved.selectedCandidateId,
         wizard: {
           ...saved.wizard,
+          scenarios: mergeWizardScenariosPreferResults(
+            saved.wizard.scenarios,
+            latest.wizard.scenarios,
+          ),
+          selectedScenarioId:
+            saved.wizard.selectedScenarioId ?? latest.wizard.selectedScenarioId,
           prospectDraft: latest.wizard.prospectDraft,
-          currentStep: latest.wizard.currentStep,
+          // currentStep kommt aus dem Persist-/Service-Stand (goNext/goBack).
+          currentStep: saved.wizard.currentStep,
           approvalNotes: latest.wizard.approvalNotes,
           followUpNotes: latest.wizard.followUpNotes,
           costCaptureMode: latest.wizard.costCaptureMode ?? saved.wizard.costCaptureMode,
@@ -88,7 +110,7 @@ export function useAdviceSession({
 
   const ensurePersisted = useCallback(
     async (current: BestPayComparisonSession): Promise<BestPayComparisonSession> => {
-      if (persisted) {
+      if (persistedRef.current) {
         return sessionRef.current ?? current;
       }
       if (persistPromiseRef.current) {
@@ -104,10 +126,11 @@ export function useAdviceSession({
         }
       }
 
-      setBusy(true);
       setError(null);
+      // Immer den frischesten Stand persistieren (nicht einen veralteten Closure-Snapshot).
+      const toPersist = sessionRef.current ?? current;
       persistPromiseRef.current = salesWizardService
-        .persistWizardSession(current, userContext)
+        .persistWizardSession(toPersist, userContext)
         .then((saved) => {
           setPersisted(true);
           const merged = mergePersistedSession(saved);
@@ -120,7 +143,6 @@ export function useAdviceSession({
         })
         .finally(() => {
           persistPromiseRef.current = null;
-          setBusy(false);
         });
 
       try {
@@ -134,7 +156,7 @@ export function useAdviceSession({
         throw persistError;
       }
     },
-    [mergePersistedSession, persisted, salesWizardService, setSession, userContext],
+    [mergePersistedSession, salesWizardService, setPersisted, setSession, userContext],
   );
 
   const withPersist = useCallback(
@@ -159,10 +181,25 @@ export function useAdviceSession({
               latest && latest.id === updated.id
                 ? {
                     ...updated,
+                    leadId: updated.leadId ?? latest.leadId,
+                    customerLabel: updated.customerLabel ?? latest.customerLabel,
+                    leadDisplayName: updated.leadDisplayName ?? latest.leadDisplayName,
+                    offerId: updated.offerId ?? latest.offerId,
+                    offerNumber: updated.offerNumber ?? latest.offerNumber,
+                    offerTitle: updated.offerTitle ?? latest.offerTitle,
+                    result: updated.result ?? latest.result,
+                    selectedCandidateId: updated.selectedCandidateId ?? latest.selectedCandidateId,
                     wizard: {
                       ...updated.wizard,
+                      scenarios: mergeWizardScenariosPreferResults(
+                        updated.wizard.scenarios,
+                        latest.wizard.scenarios,
+                      ),
+                      selectedScenarioId:
+                        updated.wizard.selectedScenarioId ?? latest.wizard.selectedScenarioId,
                       prospectDraft: latest.wizard.prospectDraft,
-                      currentStep: latest.wizard.currentStep,
+                      // Service-Stand gewinnt – sonst bleibt die UI nach goNext auf dem alten Schritt.
+                      currentStep: updated.wizard.currentStep,
                       approvalNotes: latest.wizard.approvalNotes,
                       followUpNotes: latest.wizard.followUpNotes,
                       costCaptureMode: updated.wizard.costCaptureMode ?? latest.wizard.costCaptureMode,
@@ -242,10 +279,18 @@ export function useAdviceSession({
             current && current.id === updated.id
               ? {
                   ...updated,
+                  leadId: current.leadId ?? updated.leadId,
+                  customerLabel: current.customerLabel ?? updated.customerLabel,
+                  result: updated.result ?? current.result,
+                  selectedCandidateId: updated.selectedCandidateId ?? current.selectedCandidateId,
                   wizard: {
                     ...updated.wizard,
+                    scenarios: mergeWizardScenariosPreferResults(
+                      updated.wizard.scenarios,
+                      current.wizard.scenarios,
+                    ),
                     prospectDraft: current.wizard.prospectDraft,
-                    currentStep: current.wizard.currentStep,
+                    currentStep: updated.wizard.currentStep,
                   },
                 }
               : updated;
@@ -462,45 +507,23 @@ export function useAdviceSession({
   );
 
   const goNext = useCallback(async (): Promise<boolean> => {
-    if (!session) {
-      return false;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const current = await ensurePersisted(session);
+    const moved = await withPersist(async (current) => {
       const result = await salesWizardService.goNext(current.id, userContext);
       if (!result.ok) {
         setError(result.message ?? mapWizardError(result.error));
-        return false;
+        return null;
       }
-      setSession(result.session);
-      return true;
-    } catch (persistError) {
-      setError(formatAdviceError(persistError));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [ensurePersisted, salesWizardService, session, setSession, userContext]);
+      return result.session;
+    });
+    return Boolean(moved);
+  }, [salesWizardService, userContext, withPersist]);
 
   const goBack = useCallback(async () => {
-    if (!session) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const updated = await salesWizardService.goBack(session.id, userContext);
-      if (updated) {
-        setSession(updated);
-      }
-    } catch (persistError) {
-      setError(formatAdviceError(persistError));
-    } finally {
-      setBusy(false);
-    }
-  }, [salesWizardService, session, setSession, userContext]);
+    await withPersist(async (current) => {
+      const updated = await salesWizardService.goBack(current.id, userContext);
+      return updated;
+    });
+  }, [salesWizardService, userContext, withPersist]);
 
   const jumpToStep = useCallback(
     async (step: SalesWizardStepId) => {
@@ -640,6 +663,31 @@ export function useAdviceSession({
     patchFollowUpNotes,
     offerWorkflowService,
   };
+}
+
+function mergeWizardScenariosPreferResults(
+  primary: BestPayComparisonSession['wizard']['scenarios'],
+  secondary: BestPayComparisonSession['wizard']['scenarios'],
+): BestPayComparisonSession['wizard']['scenarios'] {
+  if (!secondary.length) {
+    return primary;
+  }
+  if (!primary.length) {
+    return secondary;
+  }
+  const secondaryById = new Map(secondary.map((entry) => [entry.id, entry]));
+  return primary.map((entry) => {
+    const other = secondaryById.get(entry.id);
+    if (!other) {
+      return entry;
+    }
+    return {
+      ...entry,
+      result: entry.result ?? other.result,
+      selectedCandidateId: entry.selectedCandidateId ?? other.selectedCandidateId,
+      approval: entry.approval ?? other.approval,
+    };
+  });
 }
 
 function mapWizardError(error: SalesWizardError): string {

@@ -786,6 +786,13 @@ export class BestPayComparisonService {
     if (!session.selectedCandidateId || !session.result) {
       return { ok: false, error: 'validation', message: 'Bitte eine Empfehlung auswählen.' };
     }
+    if (!session.leadId) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Bitte zuerst einen Kunden zuordnen, bevor ein Angebotsentwurf erzeugt wird.',
+      };
+    }
     if (session.result.stale && !options.allowStale) {
       return { ok: false, error: 'stale', message: 'Das Ergebnis ist veraltet. Bitte neu berechnen.' };
     }
@@ -809,9 +816,9 @@ export class BestPayComparisonService {
     }
 
     const input: CreateOfferInput = {
-      leadId: session.leadId ?? '',
+      leadId: session.leadId,
       tariffId: variant.tariffId,
-      title: `BestPay-Angebot – ${session.customerLabel ?? 'Entwurf ohne Kundenbezug'}`,
+      title: `BestPay-Angebot – ${session.customerLabel ?? 'Kunde'}`,
       introductionText: 'Erstellt aus dem BestPay-Vergleichsrechner.',
       internalNotes: `Herkunft: bestpay_calculator; Session: ${session.id}`,
       customerNotes: '',
@@ -825,11 +832,20 @@ export class BestPayComparisonService {
       displayName: context.displayName ?? context.userId,
     };
 
-    const created = await this.offerService.createOffer(input, offerContext, {
-      allowMissingLead: !session.leadId,
-    });
+    const created = await this.offerService.createOffer(input, offerContext);
     if (!created.ok) {
-      return { ok: false, error: 'validation', message: 'Angebot konnte nicht erstellt werden.' };
+      const detail =
+        'errors' in created && created.errors
+          ? Object.values(created.errors)
+              .flatMap((value) => (Array.isArray(value) ? value : [value]))
+              .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+              .join('; ')
+          : null;
+      return {
+        ok: false,
+        error: 'validation',
+        message: detail || 'Angebot konnte nicht erstellt werden.',
+      };
     }
 
     const offer = await this.offerRepository.getById(created.offer.id);

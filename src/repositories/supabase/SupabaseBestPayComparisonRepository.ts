@@ -43,6 +43,15 @@ function rowToSession(row: JsonTableRow): BestPayComparisonSession {
   if (!normalized) {
     throw new Error(`BestPayComparisonSession konnte nicht normalisiert werden: ${row.id}`);
   }
+  // Spalten-FKs sind maßgeblich – data-JSON darf eine gesetzte Zuordnung nicht mit null überschreiben.
+  const columnLeadId = typeof row.lead_id === 'string' && row.lead_id.trim() ? row.lead_id : null;
+  const columnOfferId = typeof row.offer_id === 'string' && row.offer_id.trim() ? row.offer_id : null;
+  if (columnLeadId) {
+    normalized.leadId = columnLeadId;
+  }
+  if (columnOfferId) {
+    normalized.offerId = columnOfferId;
+  }
   return normalized;
 }
 
@@ -61,9 +70,40 @@ export class SupabaseBestPayComparisonRepository implements BestPayComparisonRep
 
   async save(session: BestPayComparisonSession): Promise<BestPayComparisonSession> {
     const existing = await this.getById(session.id);
-    const rowPayload = sessionToRow(session);
+    // Verhindert Race: späterer Persist eines älteren Snapshots darf Bindungen/Ergebnisse nicht löschen.
+    const nextSession = existing
+      ? {
+          ...session,
+          leadId: session.leadId ?? existing.leadId,
+          customerLabel: session.customerLabel ?? existing.customerLabel,
+          leadDisplayName: session.leadDisplayName ?? existing.leadDisplayName,
+          offerId: session.offerId ?? existing.offerId,
+          offerNumber: session.offerNumber ?? existing.offerNumber,
+          offerTitle: session.offerTitle ?? existing.offerTitle,
+          result: session.result ?? existing.result,
+          selectedCandidateId: session.selectedCandidateId ?? existing.selectedCandidateId,
+          wizard: {
+            ...session.wizard,
+            selectedScenarioId:
+              session.wizard.selectedScenarioId ?? existing.wizard.selectedScenarioId,
+            scenarios: session.wizard.scenarios.map((entry) => {
+              const prior = existing.wizard.scenarios.find((item) => item.id === entry.id);
+              if (!prior) {
+                return entry;
+              }
+              return {
+                ...entry,
+                result: entry.result ?? prior.result,
+                selectedCandidateId: entry.selectedCandidateId ?? prior.selectedCandidateId,
+                approval: entry.approval ?? prior.approval,
+              };
+            }),
+          },
+        }
+      : session;
+    const rowPayload = sessionToRow(nextSession);
     const row = existing
-      ? await sbUpdate(SESSIONS_TABLE, session.id, rowPayload)
+      ? await sbUpdate(SESSIONS_TABLE, nextSession.id, rowPayload)
       : await sbInsert(SESSIONS_TABLE, rowPayload);
     return rowToSession(row);
   }

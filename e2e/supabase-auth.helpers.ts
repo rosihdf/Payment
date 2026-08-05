@@ -168,7 +168,12 @@ export async function startAdviceWithCustomer(page: Page, companyName: string): 
   await page.getByRole('button', { name: 'Kunde suchen' }).click();
   await page.getByLabel('Suche').fill(ACCEPTANCE_TAG);
   await page.getByRole('button', { name: companyName }).click();
+  // Kundenzuordnung speichert async – Weiter erst nach Ende von busy.
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.getByRole('heading', { name: 'Ausgangslage' })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 export async function fillNeedStep(page: Page): Promise<void> {
