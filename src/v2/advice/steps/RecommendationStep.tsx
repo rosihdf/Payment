@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
 import { formatVariantComparisonLabel } from '../../../domain/bestPayComparison/costCaptureMode';
 import { resolveSelectedScenarioVariant } from '../../../domain/bestPayComparison/salesWizard';
@@ -35,16 +36,29 @@ export function RecommendationStep({
   const alternatives =
     result?.variants.filter((variant) => variant.candidateId !== primaryVariant?.candidateId) ?? [];
 
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current || result || busy) {
+      return;
+    }
+    autoStartedRef.current = true;
+    onCalculate();
+  }, [busy, onCalculate, result]);
+
   return (
     <div className={styles.stack}>
       <article className={styles.hero}>
         <h2 className={styles.sectionTitle}>Empfehlung</h2>
         <p className={styles.hint}>
-          Eine klare Hauptempfehlung mit nachvollziehbarer Begründung.
+          {result
+            ? 'Hauptempfehlung und Alternativen auf Basis von Bedarf und Ist-Kosten.'
+            : 'Empfehlung wird aus den erfassten Angaben berechnet…'}
         </p>
-        <Button loading={busy} onClick={onCalculate}>
-          Empfehlung berechnen
-        </Button>
+        {result ? (
+          <Button variant="secondary" loading={busy} onClick={onCalculate}>
+            Empfehlung aktualisieren
+          </Button>
+        ) : null}
       </article>
 
       {result && primaryVariant ? (
@@ -118,18 +132,13 @@ export function RecommendationStep({
 
           {selectedVariant ? (
             <p className={styles.hint}>
-              Gewählt: {selectedVariant.tariffName} ·{' '}
-              {formatEuro(selectedVariant.monthlyTotalCostsCents)} / Monat
+              Gewählt: {selectedVariant.tariffName}. Mit „Weiter“ zum Angebot.
             </p>
           ) : (
-            <p className={styles.hint}>Bitte eine Variante auswählen.</p>
+            <p className={styles.hint}>Bitte eine Variante auswählen, um fortzufahren.</p>
           )}
         </>
-      ) : (
-        <article className={styles.card}>
-          <p className={styles.hint}>Noch keine Empfehlung berechnet.</p>
-        </article>
-      )}
+      ) : null}
     </div>
   );
 }

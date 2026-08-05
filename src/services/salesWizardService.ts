@@ -129,6 +129,7 @@ export class SalesWizardService {
       // Deprecated: UI-Wiederaufnahmehinweis, nie Freigabequelle.
       approvalAcknowledgedAt: null,
       approvalNotes: '',
+      followUpNotes: '',
       wizardCompletedAt: null,
     };
     return session;

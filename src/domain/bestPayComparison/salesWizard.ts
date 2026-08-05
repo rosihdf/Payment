@@ -23,7 +23,7 @@ export const SALES_WIZARD_STEPS: Array<{
   { id: 'prospect', number: 1, label: 'Kunde' },
   { id: 'costs', number: 2, label: 'Ausgangslage' },
   { id: 'need', number: 3, label: 'Bedarf' },
-  { id: 'variants', number: 4, label: 'Vergleich' },
+  { id: 'variants', number: 4, label: 'Empfehlung' },
   { id: 'offer', number: 5, label: 'Angebot' },
   { id: 'approval', number: 6, label: 'Angebot' },
   { id: 'closing', number: 7, label: 'Prüfung & Nachfassen' },
@@ -39,7 +39,7 @@ export const SALES_WIZARD_VISIBLE_STEPS: Array<{
   { id: 'prospect', number: 1, label: 'Kunde', includes: ['prospect'] },
   { id: 'costs', number: 2, label: 'Ausgangslage', includes: ['costs'] },
   { id: 'need', number: 3, label: 'Bedarf', includes: ['need'] },
-  { id: 'variants', number: 4, label: 'Vergleich', includes: ['variants'] },
+  { id: 'variants', number: 4, label: 'Empfehlung', includes: ['variants'] },
   { id: 'offer', number: 5, label: 'Angebot', includes: ['offer', 'approval'] },
   { id: 'closing', number: 6, label: 'Prüfung & Nachfassen', includes: ['closing'] },
 ];
@@ -104,6 +104,8 @@ export interface SalesWizardState {
   selectedScenarioId: string | null;
   approvalAcknowledgedAt: string | null;
   approvalNotes: string;
+  /** Interne Notiz für Wiedervorlage / Nachfassen (getrennt von Freigabehinweisen). */
+  followUpNotes: string;
   wizardCompletedAt: string | null;
 }
 
@@ -126,6 +128,7 @@ export const DEFAULT_SALES_WIZARD_STATE: SalesWizardState = {
   selectedScenarioId: null,
   approvalAcknowledgedAt: null,
   approvalNotes: '',
+  followUpNotes: '',
   wizardCompletedAt: null,
 };
 

@@ -147,12 +147,20 @@ describe('B01 Beratung Navigation', () => {
     );
   });
 
-  it('navigiert per Schrittleiste und speichert Fortschritt', async () => {
+  it('erlaubt Vorwärtsnavigation nur über Weiter, Rücksprung über die Schrittleiste', async () => {
     const user = userEvent.setup();
     renderAtRoute(SALES_WIZARD_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     const steps = within(screen.getByRole('navigation', { name: 'Beratungsschritte' }));
     await user.click(steps.getByRole('button', { name: /Ausgangslage/i }));
+    expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
+    expect(await screen.findByText(/Bitte mit „Weiter“ fortfahren/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Ohne Kunden rechnen' }));
+    await user.click(screen.getByRole('button', { name: 'Weiter' }));
     expect(await screen.findByRole('heading', { name: 'Ausgangslage' })).toBeInTheDocument();
+
+    await user.click(steps.getByRole('button', { name: /Kunde/i }));
+    expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
   });
 });

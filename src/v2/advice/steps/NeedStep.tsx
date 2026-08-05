@@ -4,6 +4,12 @@ import { FormField } from '../../ui/FormField';
 import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
+/** Laufzeiten laut produktivem Vertragskatalog (pricingCatalogSeed). */
+const TERM_OPTIONS = [
+  { months: 24, label: '24 Monate' },
+  { months: 36, label: '36 Monate' },
+] as const;
+
 const INDUSTRY_OPTIONS = [
   'Gastronomie',
   'Einzelhandel',
@@ -15,14 +21,57 @@ const INDUSTRY_OPTIONS = [
   'Sonstige',
 ] as const;
 
+type PaymentUsageKey = keyof BestPayComparisonSession['manualInput']['paymentUsage'];
+
+const ACCEPTANCE_OPTIONS: Array<{
+  key: PaymentUsageKey;
+  title: string;
+  description: string;
+  available: boolean;
+}> = [
+  {
+    key: 'mobile',
+    title: 'Mobiles Kartenterminal',
+    description: 'Gerät geht mit zum Kunden – aktuell im Tarifkatalog verfügbar.',
+    available: true,
+  },
+  {
+    key: 'stationary',
+    title: 'Festes Terminal an der Kasse',
+    description: 'Steht fest im Laden. Tarif folgt mit dem Katalog.',
+    available: false,
+  },
+  {
+    key: 'softPos',
+    title: 'Smartphone als Terminal',
+    description: 'Zahlung über App ohne Extra-Gerät. Tarif folgt.',
+    available: false,
+  },
+  {
+    key: 'ecommerce',
+    title: 'Online-Shop / Internet',
+    description: 'Zahlungen im Webshop. Tarif folgt.',
+    available: false,
+  },
+];
+
 interface NeedStepProps {
   session: BestPayComparisonSession;
   busy: boolean;
   onPatch: (patch: Partial<BestPayComparisonSession['manualInput']>) => void;
 }
 
+function resolvePreferredTermMonths(value: number | null | undefined): number {
+  if (value === 24 || value === 36) {
+    return value;
+  }
+  // Alte Werte (48/60) auf den nächsthöheren Katalogwert 36 begrenzen.
+  return 36;
+}
+
 export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
   const input = session.manualInput;
+  const preferredTermMonths = resolvePreferredTermMonths(input.preferredTermMonths);
 
   return (
     <article className={styles.card}>
@@ -81,44 +130,59 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
         <FormField
           type="select"
           id="needTerm"
-          label="Laufzeitpräferenz (Monate)"
-          value={String(input.preferredTermMonths ?? 36)}
+          label="Maximale Vertragslaufzeit"
+          value={String(preferredTermMonths)}
           disabled={busy}
           onChange={(event) =>
             onPatch({ preferredTermMonths: Number.parseInt(event.target.value, 10) || 36 })
           }
         >
-          <option value="36">36 Monate</option>
-          <option value="48">48 Monate</option>
-          <option value="60">60 Monate</option>
+          {TERM_OPTIONS.map((option) => (
+            <option key={option.months} value={option.months}>
+              {option.label}
+            </option>
+          ))}
         </FormField>
+        <p className={styles.hint}>
+          Im Katalog gibt es derzeit 24- und 36-Monats-Verträge. Die Auswahl begrenzt die maximale
+          Laufzeit der Empfehlung.
+        </p>
       </div>
-      <div className={styles.formGrid}>
-        {(
-          [
-            ['stationary', 'Stationär'],
-            ['mobile', 'Mobil'],
-            ['ecommerce', 'E-Commerce'],
-            ['softPos', 'SoftPOS'],
-          ] as const
-        ).map(([key, label]) => (
-          <label key={key} className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={input.paymentUsage[key]}
-              disabled={busy}
-              onChange={(event) =>
-                onPatch({
-                  paymentUsage: {
-                    ...input.paymentUsage,
-                    [key]: event.target.checked,
-                  },
-                })
+
+      <div className={styles.acceptanceBlock}>
+        <h3 className={styles.subheading}>Einsatzart</h3>
+        <p className={styles.hint}>
+          Wo soll der Kunde Kartenzahlungen annehmen? Aktuell ist nur das mobile Terminal
+          tarifseitig verfügbar.
+        </p>
+        <div className={styles.acceptanceList}>
+          {ACCEPTANCE_OPTIONS.map((option) => (
+            <label
+              key={option.key}
+              className={
+                option.available ? styles.acceptanceOption : styles.acceptanceOptionDisabled
               }
-            />
-            <span>{label}</span>
-          </label>
-        ))}
+            >
+              <input
+                type="checkbox"
+                checked={option.available ? input.paymentUsage[option.key] : false}
+                disabled={busy || !option.available}
+                onChange={(event) =>
+                  onPatch({
+                    paymentUsage: {
+                      ...input.paymentUsage,
+                      [option.key]: event.target.checked,
+                    },
+                  })
+                }
+              />
+              <span>
+                <strong>{option.title}</strong>
+                <span className={styles.hint}>{option.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
     </article>
   );

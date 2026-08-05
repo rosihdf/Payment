@@ -62,7 +62,7 @@ export function isEmptyAdviceSession(session: BestPayComparisonSession): boolean
     return false;
   }
 
-  if (hasText(session.wizard.approvalNotes)) {
+  if (hasText(session.wizard.approvalNotes) || hasText(session.wizard.followUpNotes)) {
     return false;
   }
   if (session.wizard.scenarios.length > 0 || session.wizard.selectedScenarioId) {

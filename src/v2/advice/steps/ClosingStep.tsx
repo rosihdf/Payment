@@ -180,7 +180,12 @@ export function ClosingStep({
           <dl className={styles.formGrid}>
             <div>
               <dt>Status</dt>
-              <dd>{workflowView.workflowStatus ?? '—'}</dd>
+              <dd>
+                {workflowView.workflowStatus
+                  ? OFFER_WORKFLOW_STATUS_LABELS[workflowView.workflowStatus] ??
+                    workflowView.workflowStatus
+                  : '—'}
+              </dd>
             </div>
             <div>
               <dt>Freigabe</dt>

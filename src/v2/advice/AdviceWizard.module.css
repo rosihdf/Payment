@@ -111,6 +111,49 @@
   min-height: var(--touch-target);
 }
 
+.acceptanceBlock {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.acceptanceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.acceptanceOption,
+.acceptanceOptionDisabled {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+  min-height: var(--touch-target);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.acceptanceOption span,
+.acceptanceOptionDisabled span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.acceptanceOptionDisabled {
+  opacity: 0.65;
+}
+
+.acceptanceOptionDisabled strong::after {
+  content: ' (demnächst)';
+  font-weight: var(--font-weight-regular, 400);
+  color: var(--color-text-secondary);
+}
+
 .layout {
   display: grid;
   gap: var(--space-6);

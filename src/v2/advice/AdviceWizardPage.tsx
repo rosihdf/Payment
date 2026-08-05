@@ -428,8 +428,8 @@ function AdviceWizardInner({
               userContext={userContext}
               offerShareService={services.offerShareService}
               offerWorkflowService={services.offerWorkflowService}
-              followUpNote={advice.session.wizard.approvalNotes}
-              onFollowUpNoteChange={(value) => advice.patchApprovalNotes(value)}
+              followUpNote={advice.session.wizard.followUpNotes}
+              onFollowUpNoteChange={(value) => advice.patchFollowUpNotes(value)}
               onComplete={() =>
                 void advice.completeWizard().then((updated) => {
                   if (updated) {

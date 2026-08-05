@@ -60,13 +60,16 @@ describe('Beratungsentwurf Persistenz', () => {
     expect(wizardSessionCount()).toBe(before);
   });
 
-  it('erzeugt beim Schrittwechsel ohne Eingabe keine Session', async () => {
+  it('blockiert Vorwärtssprung ohne Weiter und erzeugt keine Session', async () => {
     const user = userEvent.setup();
     const before = wizardSessionCount();
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
-    expect(await screen.findByRole('heading', { name: 'Ausgangslage' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Bitte mit „Weiter“ fortfahren/i),
+    ).toBeInTheDocument();
     expect(wizardSessionCount()).toBe(before);
   });
 
@@ -89,21 +92,23 @@ describe('Beratungsentwurf Persistenz', () => {
     expect(wizardSessionCount()).toBe(before + 1);
   });
 
-  it('erzeugt bei erster fachlicher Kostenauswahl genau eine Session', async () => {
+  it('erzeugt bei erstem Weiter genau eine Session und behält sie bei Kostenauswahl', async () => {
     const user = userEvent.setup();
     const before = wizardSessionCount();
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
+    await user.click(screen.getByRole('button', { name: 'Ohne Kunden rechnen' }));
+    await user.click(screen.getByRole('button', { name: 'Weiter' }));
     await screen.findByRole('heading', { name: 'Ausgangslage' });
+    await waitFor(() => {
+      expect(wizardSessionCount()).toBe(before + 1);
+    });
     await user.click(
       screen.getByRole('button', {
         name: 'Noch keine Payment-Lösung / aktuelle Kosten 0 €',
       }),
     );
-    await waitFor(() => {
-      expect(wizardSessionCount()).toBe(before + 1);
-    });
+    expect(wizardSessionCount()).toBe(before + 1);
     expect(screen.getByText('Automatisch gespeichert')).toBeInTheDocument();
   });
 

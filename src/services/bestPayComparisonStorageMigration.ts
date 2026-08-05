@@ -106,6 +106,7 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
       selectedScenarioId: asStringOrNull(wizardRaw?.selectedScenarioId),
       approvalAcknowledgedAt: asStringOrNull(wizardRaw?.approvalAcknowledgedAt),
       approvalNotes: typeof wizardRaw?.approvalNotes === 'string' ? wizardRaw.approvalNotes : '',
+      followUpNotes: typeof wizardRaw?.followUpNotes === 'string' ? wizardRaw.followUpNotes : '',
       wizardCompletedAt: asStringOrNull(wizardRaw?.wizardCompletedAt),
     },
     createdByUserId: raw.createdByUserId,

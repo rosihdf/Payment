@@ -6,13 +6,18 @@ describe('billingOcrFeature', () => {
     vi.unstubAllEnvs();
   });
 
-  it('ist standardmäßig deaktiviert', () => {
+  it('ist standardmäßig aktiv', () => {
     vi.stubEnv('VITE_BILLING_OCR_IMPORT_ENABLED', '');
-    expect(isAdviceBillingOcrImportEnabled()).toBe(false);
+    expect(isAdviceBillingOcrImportEnabled()).toBe(true);
   });
 
-  it('wird nur bei explizitem true aktiv', () => {
+  it('bleibt bei explizitem true aktiv', () => {
     vi.stubEnv('VITE_BILLING_OCR_IMPORT_ENABLED', 'true');
     expect(isAdviceBillingOcrImportEnabled()).toBe(true);
+  });
+
+  it('wird nur bei explizitem false deaktiviert', () => {
+    vi.stubEnv('VITE_BILLING_OCR_IMPORT_ENABLED', 'false');
+    expect(isAdviceBillingOcrImportEnabled()).toBe(false);
   });
 });

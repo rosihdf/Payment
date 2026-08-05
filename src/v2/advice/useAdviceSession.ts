@@ -2,7 +2,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
 import { mergeManualInput } from '../../domain/bestPayComparison/createBestPayComparisonSession';
 import { resolveCostCaptureMode, type CostCaptureMode } from '../../domain/bestPayComparison/costCaptureMode';
-import type { SalesWizardProspectDraft, SalesWizardStepId } from '../../domain/bestPayComparison/salesWizard';
+import {
+  getVisibleWizardStepIndex,
+  type SalesWizardProspectDraft,
+  type SalesWizardStepId,
+} from '../../domain/bestPayComparison/salesWizard';
 import type { Lead } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { formatContactName } from '../../utils/format';
@@ -73,6 +77,7 @@ export function useAdviceSession({
           prospectDraft: latest.wizard.prospectDraft,
           currentStep: latest.wizard.currentStep,
           approvalNotes: latest.wizard.approvalNotes,
+          followUpNotes: latest.wizard.followUpNotes,
           costCaptureMode: latest.wizard.costCaptureMode ?? saved.wizard.costCaptureMode,
         },
         manualInput: latest.manualInput,
@@ -159,6 +164,7 @@ export function useAdviceSession({
                       prospectDraft: latest.wizard.prospectDraft,
                       currentStep: latest.wizard.currentStep,
                       approvalNotes: latest.wizard.approvalNotes,
+                      followUpNotes: latest.wizard.followUpNotes,
                       costCaptureMode: updated.wizard.costCaptureMode ?? latest.wizard.costCaptureMode,
                     },
                     // Persistierte Need-Felder gewinnen; lokale Zwischenstände bleiben ergänzend erhalten.
@@ -301,6 +307,19 @@ export function useAdviceSession({
       setSession({
         ...session,
         wizard: { ...session.wizard, approvalNotes: notes },
+      });
+    },
+    [session, setSession],
+  );
+
+  const patchFollowUpNotes = useCallback(
+    (notes: string) => {
+      if (!session) {
+        return;
+      }
+      setSession({
+        ...session,
+        wizard: { ...session.wizard, followUpNotes: notes },
       });
     },
     [session, setSession],
@@ -488,6 +507,13 @@ export function useAdviceSession({
       if (!session) {
         return null;
       }
+      const currentIndex = getVisibleWizardStepIndex(session.wizard.currentStep);
+      const targetIndex = getVisibleWizardStepIndex(step);
+      // Vorwärts nur über „Weiter“ (inkl. Kunden-Finalisierung) – Rücksprung bleibt frei.
+      if (targetIndex > currentIndex) {
+        setError('Bitte mit „Weiter“ fortfahren – Schritte nicht überspringen.');
+        return null;
+      }
       const optimistic = {
         ...session,
         wizard: { ...session.wizard, currentStep: step },
@@ -512,10 +538,12 @@ export function useAdviceSession({
           wizard: {
             ...current.wizard,
             approvalNotes: session?.wizard.approvalNotes ?? current.wizard.approvalNotes,
+            followUpNotes: session?.wizard.followUpNotes ?? current.wizard.followUpNotes,
           },
         };
         const saved =
-          merged.wizard.approvalNotes !== current.wizard.approvalNotes
+          merged.wizard.approvalNotes !== current.wizard.approvalNotes ||
+          merged.wizard.followUpNotes !== current.wizard.followUpNotes
             ? await salesWizardService.persistWizardSession(merged, userContext)
             : current;
         const result = await salesWizardService.completeWizard(saved.id, userContext);
@@ -525,7 +553,13 @@ export function useAdviceSession({
         }
         return result.session;
       }),
-    [salesWizardService, session?.wizard.approvalNotes, userContext, withPersist],
+    [
+      salesWizardService,
+      session?.wizard.approvalNotes,
+      session?.wizard.followUpNotes,
+      userContext,
+      withPersist,
+    ],
   );
 
   const syncBillingBaseline = useCallback(
@@ -603,6 +637,7 @@ export function useAdviceSession({
     completeWizard,
     syncBillingBaseline,
     patchApprovalNotes,
+    patchFollowUpNotes,
     offerWorkflowService,
   };
 }

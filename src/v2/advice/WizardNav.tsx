@@ -1,3 +1,4 @@
+import { SALES_WIZARD_VISIBLE_STEPS } from '../../domain/bestPayComparison/salesWizard';
 import styles from './AdviceWizard.module.css';
 
 interface WizardNavProps {
@@ -6,14 +7,7 @@ interface WizardNavProps {
   onJump: (stepId: string) => void;
 }
 
-const STEPS = [
-  { id: 'prospect', number: 1, label: 'Kunde' },
-  { id: 'costs', number: 2, label: 'Ausgangslage' },
-  { id: 'need', number: 3, label: 'Bedarf' },
-  { id: 'variants', number: 4, label: 'Empfehlung' },
-  { id: 'offer', number: 5, label: 'Angebot' },
-  { id: 'closing', number: 6, label: 'Prüfung & Nachfassen' },
-] as const;
+const STEPS = SALES_WIZARD_VISIBLE_STEPS;
 
 export function WizardNav({ currentStepId, stepIndex, onJump }: WizardNavProps) {
   return (
