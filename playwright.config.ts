@@ -45,5 +45,11 @@ export default defineConfig({
     timeout: 60_000,
     stdout: 'pipe',
     stderr: 'pipe',
+    env: {
+      ...process.env,
+      // OCR-E2E kann den Beratungseinstieg gezielt freischalten.
+      VITE_BILLING_OCR_IMPORT_ENABLED: process.env.VITE_BILLING_OCR_IMPORT_ENABLED ?? '',
+      VITE_BILLING_DEMO_OCR: process.env.VITE_BILLING_DEMO_OCR ?? '',
+    },
   },
 });

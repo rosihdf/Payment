@@ -36,7 +36,7 @@ export function detectBillingProviderName(text: string): DetectedBillingProvider
   }
 
   const labeled = haystack.match(
-    /(?:bisheriger\s+Anbieter|aktueller\s+Anbieter|Zahlungsdienstleister|Payment[- ]?Provider|Acquirer)\s*[:\-]\s*([A-Za-zÄÖÜäöüß0-9 .&\-]{2,40})/i,
+    /(?:bisheriger\s+Anbieter|aktueller\s+Anbieter|Zahlungsdienstleister|Payment[- ]?Provider|Acquirer)\s*[:-]\s*([A-Za-zÄÖÜäöüß0-9 .&-]{2,40})/i,
   );
   if (labeled?.[1]) {
     return { name: labeled[1].trim(), confidence: 0.7 };

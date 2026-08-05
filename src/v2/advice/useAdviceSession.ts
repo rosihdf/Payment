@@ -145,6 +145,7 @@ export function useAdviceSession({
         setError(null);
         try {
           const base = await ensurePersisted(active);
+          // Nach Queue-Wartezeit immer den frischesten Session-Stand nutzen.
           const current = sessionRef.current ?? base;
           const updated = await updater(current);
           if (updated) {
