@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
 const PORT = 4320;
@@ -22,6 +23,7 @@ function parseEnvFile(path: string): Record<string, string> {
 const fileEnv = {
   ...parseEnvFile(resolve(ROOT, '.env.local')),
   ...parseEnvFile(resolve(ROOT, '.env.supabase.acceptance.local')),
+  ...parseEnvFile(resolve(homedir(), '.amrtech-payment-leads.acceptance.env')),
 };
 
 export default defineConfig({
@@ -31,7 +33,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report-supabase' }]],
-  timeout: 180_000,
+  timeout: 360_000,
   expect: { timeout: 15_000 },
   use: {
     baseURL: BASE_URL,

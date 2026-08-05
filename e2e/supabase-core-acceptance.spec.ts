@@ -13,6 +13,7 @@ import {
   fillNeedStep,
   loginWithSupabaseCredentials,
   saveCommissionAssignmentDialog,
+  waitForCommissionAssignmentDialogReady,
   startAdviceWithCustomer,
   waitForWorkspaceReady,
   waitForLeadsReady,
@@ -295,6 +296,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await employeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
       const employeeDialog = page.getByRole('dialog', { name: /Vereinbarung –/ });
       await expect(employeeDialog).toBeVisible();
+      await waitForCommissionAssignmentDialogReady(employeeDialog);
       const shareInput = employeeDialog.getByLabel('Nur Acquiring %');
       await expect(shareInput).toBeVisible({ timeout: 20_000 });
       await expect(shareInput).toHaveValue(/\d+/, { timeout: 20_000 });
@@ -312,6 +314,7 @@ test.describe('Supabase Kernabnahme – authentifizierter Browserlauf', () => {
       await reloadedEmployeeRow.getByRole('button', { name: 'Bearbeiten' }).click();
       const reloadedDialog = page.getByRole('dialog', { name: /Vereinbarung –/ });
       await expect(reloadedDialog).toBeVisible();
+      await waitForCommissionAssignmentDialogReady(reloadedDialog);
       const reloadedShareInput = reloadedDialog.getByLabel('Nur Acquiring %');
       await expect(reloadedShareInput).toBeVisible({ timeout: 20_000 });
       await expect(reloadedShareInput).toHaveValue('42');

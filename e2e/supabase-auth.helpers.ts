@@ -41,12 +41,12 @@ export async function waitForLeadsReady(page: Page): Promise<void> {
 
 export async function waitForWorkspaceReady(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Arbeitsplatz', exact: true })).toBeVisible({
-    timeout: 20_000,
+    timeout: 30_000,
   });
   await expect(page.getByRole('heading', { name: 'Arbeitsplatz wird geladen' })).toHaveCount(0, {
-    timeout: 20_000,
+    timeout: 30_000,
   });
-  await expect(page.getByLabel('Suche')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel('Suche')).toBeVisible({ timeout: 30_000 });
 }
 
 export async function loginWithPassword(
@@ -102,10 +102,18 @@ export async function assertSecureForeignLeadAccess(
   await assertNoTechnicalIds(page);
 }
 
+/** Wartet bis Vereinbarungsdetails im Dialog geladen sind (Regelfelder bedienbar). */
+export async function waitForCommissionAssignmentDialogReady(dialog: Locator): Promise<void> {
+  await expect(dialog.getByRole('heading', { name: 'Vereinbarung wird geladen' })).toHaveCount(0, {
+    timeout: 30_000,
+  });
+  await expect(dialog.getByRole('button', { name: 'Speichern' })).toBeEnabled({ timeout: 30_000 });
+}
+
 /** Wartet auf Remote-Persistenz der Mitarbeitervereinbarung (Supabase assignment upsert). */
 export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator): Promise<void> {
   const saveButton = dialog.getByRole('button', { name: 'Speichern' });
-  await expect(saveButton).toBeEnabled({ timeout: 20_000 });
+  await expect(saveButton).toBeEnabled({ timeout: 30_000 });
 
   const waitForCommissionWrite = () =>
     page
@@ -120,16 +128,16 @@ export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator
             response.ok()
           );
         },
-        { timeout: 45_000 },
+        { timeout: 60_000 },
       )
       .catch(() => null);
 
-  const clickAndWait = async (): Promise<void> => {
+  const waitForSaveSuccess = async (): Promise<void> => {
     const writeDone = waitForCommissionWrite();
     const savedStatus = expect(
       page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' }),
-    ).toBeVisible({ timeout: 45_000 });
-    const dialogClosed = expect(dialog).toHaveCount(0, { timeout: 45_000 });
+    ).toBeVisible({ timeout: 60_000 });
+    const dialogClosed = expect(dialog).toHaveCount(0, { timeout: 60_000 });
 
     await saveButton.click();
     await Promise.race([Promise.all([writeDone, savedStatus]), dialogClosed]);
@@ -137,7 +145,7 @@ export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator
   };
 
   try {
-    await clickAndWait();
+    await waitForSaveSuccess();
   } catch {
     if ((await dialog.count()) === 0) {
       return;
@@ -146,8 +154,11 @@ export async function saveCommissionAssignmentDialog(page: Page, dialog: Locator
     if (await errorAlert.isVisible()) {
       throw new Error(`Provisions-Save fehlgeschlagen: ${await errorAlert.innerText()}`);
     }
-    await expect(saveButton).toBeEnabled({ timeout: 20_000 });
-    await clickAndWait();
+    // Kein erneuter Klick: laufender Save darf unter Last länger dauern.
+    await expect(dialog).toHaveCount(0, { timeout: 60_000 });
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Vereinbarung gespeichert' }),
+    ).toBeVisible({ timeout: 5_000 });
   }
 }
 

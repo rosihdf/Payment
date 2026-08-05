@@ -4,6 +4,7 @@
  * Erfordert SUPABASE_TEST_* in .env.local oder .env.supabase.acceptance.local (gitignored).
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -25,6 +26,7 @@ function parseEnvFile(path) {
 const env = {
   ...parseEnvFile(resolve(ROOT, '.env.local')),
   ...parseEnvFile(resolve(ROOT, '.env.supabase.acceptance.local')),
+  ...parseEnvFile(resolve(homedir(), '.amrtech-payment-leads.acceptance.env')),
   ...process.env,
 };
 
