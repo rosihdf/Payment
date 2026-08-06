@@ -14,16 +14,16 @@ import { AppUpdateService } from '../services/appUpdateService';
 
 function validManifest(overrides: Record<string, unknown> = {}) {
   return {
-    versionName: '1.0.7',
-    versionCode: 10007,
+    versionName: '1.0.8',
+    versionCode: 10008,
     minimumVersionCode: 10000,
     mandatory: false,
-    downloadUrl: 'https://example.com/AMRtech-Payment-1.0.7.apk',
+    downloadUrl: 'https://example.com/AMRtech-Payment-1.0.8.apk',
     sha256: 'b'.repeat(64),
     sizeBytes: 2048,
     publishedAt: '2026-08-06T17:00:00.000Z',
     releaseNotes: 'Nativer Updatepfad.',
-    releaseTag: 'v1.0.7',
+    releaseTag: 'v1.0.8',
     sourceCommit: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     ...overrides,
   };

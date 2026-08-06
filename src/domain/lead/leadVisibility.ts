@@ -44,7 +44,7 @@ export function getAdvisorDisplayLabel(
 ): string {
   const trimmed = assignedSalesUserId?.trim() ?? '';
   if (!trimmed) {
-    return 'Nicht zugewiesen';
+    return 'Noch nicht zugewiesen';
   }
   return resolveName(trimmed)?.trim() || 'Unbekannt';
 }

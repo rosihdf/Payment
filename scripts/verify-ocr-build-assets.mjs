@@ -70,11 +70,18 @@ async function verify() {
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm.js'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm'))) &&
-    (await exists(path.join(distDir, 'ocr/lang/deu.traineddata.gz'))) &&
-    (await exists(path.join(distDir, 'ocr/lang/eng.traineddata.gz')));
+    (await exists(path.join(distDir, 'ocr/lang/deu.traineddata'))) &&
+    (await exists(path.join(distDir, 'ocr/lang/eng.traineddata')));
 
   if (!hasOcrAssets) {
     throw new Error('Required OCR assets missing in dist/ocr (inkl. SIMD-Core)');
+  }
+
+  if (await exists(path.join(distDir, 'ocr/lang/deu.traineddata.gz'))) {
+    throw new Error('Stale deu.traineddata.gz must not be shipped (aapt would unpack .gz)');
+  }
+  if (await exists(path.join(distDir, 'ocr/lang/eng.traineddata.gz'))) {
+    throw new Error('Stale eng.traineddata.gz must not be shipped (aapt would unpack .gz)');
   }
 
   let sameOriginPathFound = false;

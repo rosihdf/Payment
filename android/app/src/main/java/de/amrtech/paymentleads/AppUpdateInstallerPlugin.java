@@ -26,7 +26,13 @@ import java.io.IOException;
 @CapacitorPlugin(name = "AppUpdateInstaller")
 public class AppUpdateInstallerPlugin extends Plugin {
 
-    public static final String MSG_INSTALL_SOURCE_BLOCKED = "install_source_blocked";
+    /**
+     * Präfix für Client/TypeScript ({@literal install_source_blocked}), analog ArioVan Wartung.
+     */
+    public static final String MSG_INSTALL_SOURCE_BLOCKED =
+            "install_source_blocked: Falls Android die Installation blockiert: unter Einstellungen die Installation aus "
+                    + "dieser Quelle für AMRtech Payment erlauben („Apps aus unbekannten Quellen“ / Paketinstaller). Danach "
+                    + "„Installation starten“ erneut tippen.";
 
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
@@ -81,7 +87,7 @@ public class AppUpdateInstallerPlugin extends Plugin {
     }
 
     /**
-     * @param relativePath Relativ zum Cache, z. B. {@code amrtech-updates/AMRtech-Payment-1.0.7.apk}.
+     * @param relativePath Relativ zum Cache, z. B. {@code amrtech-updates/AMRtech-Payment-1.0.8.apk}.
      */
     @PluginMethod
     public void openApkFromCacheRelativePath(final PluginCall call) {

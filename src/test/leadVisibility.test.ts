@@ -33,7 +33,7 @@ describe('leadVisibility', () => {
   });
 
   it('labels missing advisors clearly', () => {
-    expect(getAdvisorDisplayLabel('', () => 'X')).toBe('Nicht zugewiesen');
+    expect(getAdvisorDisplayLabel('', () => 'X')).toBe('Noch nicht zugewiesen');
     expect(getAdvisorDisplayLabel('user_a', () => 'Laura')).toBe('Laura');
     expect(getAdvisorDisplayLabel('missing', () => null)).toBe('Unbekannt');
   });

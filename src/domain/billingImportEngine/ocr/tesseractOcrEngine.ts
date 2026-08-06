@@ -31,6 +31,8 @@ async function ensureSharedWorker(
         workerPath: paths.workerPath,
         corePath: paths.corePath,
         langPath: paths.langPath,
+        // Unkomprimierte .traineddata – Android aapt würde .gz sonst entpacken/umbenennen.
+        gzip: false,
         workerBlobURL: false,
         logger: (message) => {
           if (message.status) {

@@ -50,7 +50,7 @@ export async function checkBillingOcrAssetsAvailable(
     const languageCodes = BILLING_OCR_CONFIG.languages.split('+').filter(Boolean);
     const languageChecks = await Promise.all(
       languageCodes.map(async (language) => {
-        const url = `${paths.langPath.replace(/\/$/, '')}/${language}.traineddata.gz`;
+        const url = `${paths.langPath.replace(/\/$/, '')}/${language}.traineddata`;
         return [language, await probeAsset(url)] as const;
       }),
     );

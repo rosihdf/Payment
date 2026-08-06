@@ -9,16 +9,16 @@ import { AppUpdateService } from '../services/appUpdateService';
 
 function validManifest(overrides: Record<string, unknown> = {}) {
   return {
-    versionName: '1.0.7',
-    versionCode: 10007,
+    versionName: '1.0.8',
+    versionCode: 10008,
     minimumVersionCode: 10000,
     mandatory: false,
-    downloadUrl: 'https://amrtech-payment-downloads.amrtech.workers.dev/android/v1.0.7/AMRtech-Payment-1.0.7.apk',
+    downloadUrl: 'https://amrtech-payment-downloads.amrtech.workers.dev/android/v1.0.8/AMRtech-Payment-1.0.8.apk',
     sha256: 'a'.repeat(64),
     sizeBytes: 4,
     publishedAt: '2026-08-06T17:00:00.000Z',
     releaseNotes: 'Nativer In-App-Update.',
-    releaseTag: 'v1.0.7',
+    releaseTag: 'v1.0.8',
     sourceCommit: '6720132bdb8d0b5403c3a0cf29aa8a819b9a0756',
     ...overrides,
   };
@@ -183,7 +183,7 @@ describe('AppUpdateService native install', () => {
     expect(result.ok).toBe(true);
     expect(openUrl).not.toHaveBeenCalled();
     expect(openFromCache).toHaveBeenCalledTimes(1);
-    expect([...cache.files.keys()][0]).toContain('AMRtech-Payment-1.0.7.apk');
+    expect([...cache.files.keys()][0]).toContain('AMRtech-Payment-1.0.8.apk');
     expect(service.getSnapshot().status).toBe('readyToInstall');
   });
 
