@@ -34,6 +34,9 @@ const ALLOWED_PATHS = new Set([
   '/android/v1.0.5/AMRtech-Payment-1.0.5.apk',
   '/android/v1.0.5/AMRtech-Payment-1.0.5.apk.sha256',
   '/android/v1.0.5/manifest.json',
+  '/android/v1.0.6/AMRtech-Payment-1.0.6.apk',
+  '/android/v1.0.6/AMRtech-Payment-1.0.6.apk.sha256',
+  '/android/v1.0.6/manifest.json',
 ]);
 
 /** Öffentliche Release-Dateien; Capacitor Android nutzt https://localhost als Origin. */

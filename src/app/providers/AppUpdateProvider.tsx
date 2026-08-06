@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -12,12 +13,14 @@ import {
   AppUpdateService,
   createAppUpdateService,
 } from '../../services/appUpdateService';
+import { CurrentUserContext } from './currentUserContext';
 
 interface AppUpdateContextValue {
   snapshot: AppUpdateSnapshot;
   checkNow: () => Promise<AppUpdateSnapshot>;
   openDownload: () => Promise<{ ok: true } | { ok: false; error: string }>;
   dismissOptional: () => void;
+  shouldShowOptionalBanner: boolean;
   service: AppUpdateService;
 }
 
@@ -30,15 +33,36 @@ interface AppUpdateProviderProps {
 
 export function AppUpdateProvider({ children, service: injected }: AppUpdateProviderProps) {
   const service = useMemo(() => injected ?? createAppUpdateService(), [injected]);
+  const currentUserCtx = useContext(CurrentUserContext);
+  const currentUser = currentUserCtx?.currentUser ?? null;
+  const isLoading = currentUserCtx?.isLoading ?? false;
   const [snapshot, setSnapshot] = useState<AppUpdateSnapshot>(() => service.getSnapshot());
+  const [bannerEpoch, setBannerEpoch] = useState(0);
+  const startedForUserRef = useRef<string | null>(null);
 
   const sync = useCallback(() => {
     setSnapshot(service.getSnapshot());
+    setBannerEpoch((value) => value + 1);
   }, [service]);
+
+  const runAutomaticCheck = useCallback(async () => {
+    if (!service.shouldAutoCheck() || !service.shouldRunAutomaticCheck()) {
+      sync();
+      return;
+    }
+    try {
+      const next = await service.checkForUpdate({ automatic: true });
+      setSnapshot(next);
+      setBannerEpoch((value) => value + 1);
+    } catch {
+      sync();
+    }
+  }, [service, sync]);
 
   const checkNow = useCallback(async () => {
     const next = await service.checkForUpdate({ manual: true });
     setSnapshot(next);
+    setBannerEpoch((value) => value + 1);
     return next;
   }, [service]);
 
@@ -53,21 +77,53 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
     sync();
   }, [service, sync]);
 
+  // Auto-Check erst nach Auth + geladenem Profil, nicht auf dem Login.
   useEffect(() => {
+    if (!currentUserCtx) {
+      sync();
+      return;
+    }
+    if (isLoading || !currentUser) {
+      startedForUserRef.current = null;
+      sync();
+      return;
+    }
     if (!service.shouldAutoCheck()) {
       sync();
       return;
     }
-    let cancelled = false;
-    void service.checkForUpdate().then((next) => {
-      if (!cancelled) {
-        setSnapshot(next);
+    if (startedForUserRef.current === currentUser.id) {
+      return;
+    }
+    startedForUserRef.current = currentUser.id;
+    void runAutomaticCheck();
+  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service, sync]);
+
+  // Vordergrund: nur wenn 24h-Intervall abgelaufen.
+  useEffect(() => {
+    if (typeof document === 'undefined' || !currentUserCtx) {
+      return;
+    }
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
       }
-    });
-    return () => {
-      cancelled = true;
+      if (isLoading || !currentUser || !service.shouldAutoCheck()) {
+        return;
+      }
+      void runAutomaticCheck();
     };
-  }, [service, sync]);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service]);
+
+  const shouldShowOptionalBanner = useMemo(
+    () => service.shouldShowOptionalBanner(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutable service snapshot
+    [service, snapshot, bannerEpoch],
+  );
 
   const value = useMemo(
     () => ({
@@ -75,9 +131,10 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       checkNow,
       openDownload,
       dismissOptional,
+      shouldShowOptionalBanner,
       service,
     }),
-    [snapshot, checkNow, openDownload, dismissOptional, service],
+    [snapshot, checkNow, openDownload, dismissOptional, shouldShowOptionalBanner, service],
   );
 
   return <AppUpdateContext.Provider value={value}>{children}</AppUpdateContext.Provider>;

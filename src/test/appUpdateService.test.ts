@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AppUpdatePreferenceStore } from '../domain/appUpdate/appUpdatePreferences';
 import {
   deriveUpdateStatus,
   parseUpdateManifest,
@@ -22,12 +23,26 @@ function validManifest(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function memoryStore(): AppUpdatePreferenceStore {
+  const data: Record<string, string> = {};
+  return {
+    getItem: (key) => data[key] ?? null,
+    setItem: (key, value) => {
+      data[key] = value;
+    },
+    removeItem: (key) => {
+      delete data[key];
+    },
+  };
+}
+
 function createService(options: ConstructorParameters<typeof AppUpdateService>[0] = {}) {
   return new AppUpdateService({
     installedVersionName: '1.0.0',
     installedVersionCode: 10000,
     isNativeAndroidFn: () => true,
     log: () => undefined,
+    preferenceStore: memoryStore(),
     ...options,
   });
 }
@@ -299,6 +314,7 @@ describe('AppUpdateService', () => {
     await optional.checkForUpdate();
     optional.dismissOptionalUpdate();
     expect(optional.getSnapshot().optionalDismissed).toBe(true);
+    expect(optional.shouldShowOptionalBanner()).toBe(false);
 
     const mandatory = createService({
       fetchImpl: async () =>
@@ -307,5 +323,69 @@ describe('AppUpdateService', () => {
     await mandatory.checkForUpdate();
     mandatory.dismissOptionalUpdate();
     expect(mandatory.getSnapshot().optionalDismissed).toBe(false);
+  });
+
+  it('führt Auto-Check nur wenn Intervall abgelaufen', async () => {
+    const store = memoryStore();
+    let nowMs = 10_000;
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(validManifest()), { status: 200 }),
+    );
+    const service = createService({
+      preferenceStore: store,
+      nowMs: () => nowMs,
+      fetchImpl,
+    });
+
+    expect(service.shouldRunAutomaticCheck()).toBe(true);
+    await service.checkForUpdate({ automatic: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    expect(service.shouldRunAutomaticCheck()).toBe(false);
+    await service.checkForUpdate({ automatic: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    nowMs += 24 * 60 * 60 * 1000;
+    expect(service.shouldRunAutomaticCheck()).toBe(true);
+    await service.checkForUpdate({ automatic: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('manuelle Prüfung ignoriert Auto-Intervall', async () => {
+    const store = memoryStore();
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(validManifest({ versionCode: 10000 })), { status: 200 }),
+    );
+    const service = createService({
+      installedVersionCode: 10000,
+      preferenceStore: store,
+      nowMs: () => 50_000,
+      fetchImpl,
+    });
+    await service.checkForUpdate({ automatic: true });
+    await service.checkForUpdate({ manual: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('zeigt kein Banner bei aktueller Version', async () => {
+    const service = createService({
+      installedVersionCode: 10001,
+      fetchImpl: async () =>
+        new Response(JSON.stringify(validManifest({ versionCode: 10001 })), { status: 200 }),
+    });
+    await service.checkForUpdate();
+    expect(service.shouldShowOptionalBanner()).toBe(false);
+  });
+
+  it('Web/PWA: shouldAutoCheck false und kein Fetch', async () => {
+    const fetchImpl = vi.fn();
+    const service = createService({
+      isNativeAndroidFn: () => false,
+      fetchImpl,
+    });
+    expect(service.shouldAutoCheck()).toBe(false);
+    expect(service.shouldRunAutomaticCheck()).toBe(false);
+    await service.checkForUpdate({ automatic: true });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

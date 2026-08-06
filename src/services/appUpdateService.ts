@@ -1,4 +1,15 @@
 import {
+  APP_UPDATE_AUTO_CHECK_INTERVAL_MS,
+  APP_UPDATE_SNOOZE_MS,
+  type AppUpdatePreferenceStore,
+  createLocalStoragePreferenceStore,
+  isUpdateVersionSnoozed,
+  recordAutomaticCheck,
+  shouldRunAutomaticCheck,
+  snoozeUpdateVersion,
+  clearUpdateSnooze,
+} from '../domain/appUpdate/appUpdatePreferences';
+import {
   ANDROID_UPDATE_MANIFEST_URL,
   APP_UPDATE_FETCH_TIMEOUT_MS,
   type AppUpdateSnapshot,
@@ -20,7 +31,11 @@ export interface AppUpdateServiceOptions {
   installedVersionCode?: number;
   isNativeAndroidFn?: () => boolean;
   now?: () => string;
+  nowMs?: () => number;
   openUrl?: (url: string) => void;
+  preferenceStore?: AppUpdatePreferenceStore;
+  autoCheckIntervalMs?: number;
+  snoozeMs?: number;
   /** Diagnoseausgaben für Logcat/WebView – keine Secrets. */
   log?: (event: string, details?: Record<string, string | number | boolean | null>) => void;
 }
@@ -46,7 +61,6 @@ function defaultLog(event: string, details: Record<string, string | number | boo
   if (import.meta.env.MODE === 'test') {
     return;
   }
-  // Capacitor/WebView: sichtbar in logcat (chromium console).
   console.info(`[AppUpdate] ${event}`, details);
 }
 
@@ -66,7 +80,11 @@ export class AppUpdateService {
   private readonly installedVersionCode: number;
   private readonly isNativeAndroidFn: () => boolean;
   private readonly now: () => string;
+  private readonly nowMs: () => number;
   private readonly openUrl: (url: string) => void;
+  private readonly preferenceStore: AppUpdatePreferenceStore;
+  private readonly autoCheckIntervalMs: number;
+  private readonly snoozeMs: number;
   private readonly log: (
     event: string,
     details?: Record<string, string | number | boolean | null>,
@@ -74,6 +92,7 @@ export class AppUpdateService {
 
   private snapshot: AppUpdateSnapshot;
   private checkPromise: Promise<AppUpdateSnapshot> | null = null;
+  private downloadPromise: Promise<{ ok: true } | { ok: false; error: string }> | null = null;
 
   constructor(options: AppUpdateServiceOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
@@ -83,7 +102,11 @@ export class AppUpdateService {
     this.installedVersionCode = options.installedVersionCode ?? APP_VERSION_CODE;
     this.isNativeAndroidFn = options.isNativeAndroidFn ?? isNativeAndroid;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.nowMs = options.nowMs ?? (() => Date.now());
     this.openUrl = options.openUrl ?? defaultOpenUrl;
+    this.preferenceStore = options.preferenceStore ?? createLocalStoragePreferenceStore();
+    this.autoCheckIntervalMs = options.autoCheckIntervalMs ?? APP_UPDATE_AUTO_CHECK_INTERVAL_MS;
+    this.snoozeMs = options.snoozeMs ?? APP_UPDATE_SNOOZE_MS;
     this.log = options.log ?? defaultLog;
 
     const native = this.isNativeAndroidFn();
@@ -108,7 +131,32 @@ export class AppUpdateService {
     return this.isNativeAndroidFn();
   }
 
-  async checkForUpdate(options: { manual?: boolean } = {}): Promise<AppUpdateSnapshot> {
+  /** Ob eine automatische Prüfung laut 24-Stunden-Regel fällig ist. */
+  shouldRunAutomaticCheck(): boolean {
+    if (!this.shouldAutoCheck()) {
+      return false;
+    }
+    return shouldRunAutomaticCheck(
+      this.preferenceStore,
+      this.nowMs(),
+      this.autoCheckIntervalMs,
+    );
+  }
+
+  shouldShowOptionalBanner(): boolean {
+    const { status, manifest, isNativeAndroid: native } = this.snapshot;
+    if (!native || status !== 'available' || !manifest) {
+      return false;
+    }
+    if (isUpdateVersionSnoozed(this.preferenceStore, manifest.versionCode, this.nowMs())) {
+      return false;
+    }
+    return !this.snapshot.optionalDismissed;
+  }
+
+  async checkForUpdate(
+    options: { manual?: boolean; automatic?: boolean } = {},
+  ): Promise<AppUpdateSnapshot> {
     if (!this.isNativeAndroidFn() && !options.manual) {
       this.snapshot = {
         ...this.snapshot,
@@ -130,6 +178,14 @@ export class AppUpdateService {
       return this.getSnapshot();
     }
 
+    if (options.automatic && !this.shouldRunAutomaticCheck()) {
+      this.log('auto_check_skipped', {
+        reason: 'interval',
+        intervalMs: this.autoCheckIntervalMs,
+      });
+      return this.getSnapshot();
+    }
+
     if (this.checkPromise) {
       return this.checkPromise;
     }
@@ -141,19 +197,34 @@ export class AppUpdateService {
       isNativeAndroid: true,
     };
 
-    this.checkPromise = this.runCheck().finally(() => {
+    this.checkPromise = (async () => {
+      try {
+        return await this.runCheck();
+      } finally {
+        if (options.automatic) {
+          recordAutomaticCheck(this.preferenceStore, this.nowMs());
+          this.log('auto_check_recorded', { at: this.nowMs() });
+        }
+      }
+    })().finally(() => {
       this.checkPromise = null;
     });
+
     return this.checkPromise;
   }
 
   dismissOptionalUpdate(): void {
-    if (this.snapshot.status === 'available') {
-      this.snapshot = { ...this.snapshot, optionalDismissed: true };
+    if (this.snapshot.status !== 'available' || !this.snapshot.manifest) {
+      return;
     }
+    const versionCode = this.snapshot.manifest.versionCode;
+    snoozeUpdateVersion(this.preferenceStore, versionCode, this.nowMs(), this.snoozeMs);
+    this.snapshot = { ...this.snapshot, optionalDismissed: true };
+    this.log('banner_snoozed', { versionCode, snoozeMs: this.snoozeMs });
   }
 
   clearOptionalDismissal(): void {
+    clearUpdateSnooze(this.preferenceStore);
     this.snapshot = { ...this.snapshot, optionalDismissed: false };
   }
 
@@ -162,6 +233,17 @@ export class AppUpdateService {
    * Die Android-Paketsignatur bleibt die entscheidende Installationsprüfung.
    */
   async openVerifiedDownload(): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (this.downloadPromise) {
+      return this.downloadPromise;
+    }
+
+    this.downloadPromise = this.runVerifiedDownload().finally(() => {
+      this.downloadPromise = null;
+    });
+    return this.downloadPromise;
+  }
+
+  private async runVerifiedDownload(): Promise<{ ok: true } | { ok: false; error: string }> {
     const manifest = this.snapshot.manifest;
     if (!manifest) {
       return { ok: false, error: 'Kein Update-Manifest vorhanden.' };
@@ -203,6 +285,13 @@ export class AppUpdateService {
     }
   }
 
+  private applySnoozeState(status: AppUpdateStatus, versionCode: number | null): boolean {
+    if (status !== 'available' || versionCode == null) {
+      return false;
+    }
+    return isUpdateVersionSnoozed(this.preferenceStore, versionCode, this.nowMs());
+  }
+
   private async runCheck(): Promise<AppUpdateSnapshot> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -218,7 +307,6 @@ export class AppUpdateService {
     });
 
     try {
-      // navigator.onLine bewusst nicht als Vorab-Abbruch – WebView meldet oft falsch.
       const response = await this.fetchImpl(this.manifestUrl, {
         method: 'GET',
         signal: controller.signal,
@@ -265,6 +353,7 @@ export class AppUpdateService {
       }
 
       const status = deriveUpdateStatus(this.installedVersionCode, parsed.manifest);
+      const snoozed = this.applySnoozeState(status, parsed.manifest.versionCode);
       this.snapshot = {
         status,
         installedVersionName: this.installedVersionName,
@@ -273,13 +362,14 @@ export class AppUpdateService {
         lastCheckedAt: this.now(),
         errorMessage: null,
         isNativeAndroid: true,
-        optionalDismissed: status === 'available' ? this.snapshot.optionalDismissed : false,
+        optionalDismissed: snoozed,
       };
       this.log('check_ok', {
         host,
         status,
         remoteVersionCode: parsed.manifest.versionCode,
         jsonValid: true,
+        snoozed,
       });
       return this.getSnapshot();
     } catch (error) {
@@ -299,7 +389,6 @@ export class AppUpdateService {
         });
       }
 
-      // Nur wenn OS/Browser explizit offline meldet – sonst kein sicherer Offline-Nachweis.
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         return this.setError('Keine Internetverbindung.', 'offline', {
           host,
@@ -309,7 +398,6 @@ export class AppUpdateService {
         });
       }
 
-      // Typisch CORS/DNS/TLS bei ansonsten bestehender Verbindung (Capacitor https://localhost).
       return this.setError('Update-Informationen konnten nicht geladen werden.', 'error', {
         host,
         errorClass: 'network_or_cors',
