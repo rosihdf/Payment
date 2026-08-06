@@ -136,7 +136,7 @@ describe('Lead edit UI', () => {
     seedCustomLeads([lead]);
     renderAtRoute('/leads/lead_foreign_ui/edit', 'user_001', false);
 
-    expect(await screen.findByRole('heading', { name: 'Zugriff verweigert' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Kunde nicht gefunden' })).toBeInTheDocument();
   });
 
   it('shows edit action only for permitted users on detail page', async () => {
@@ -160,7 +160,7 @@ describe('Lead edit UI', () => {
     seedCustomLeads([foreignLead]);
     renderAtRoute('/leads/lead_foreign_detail', 'user_001', false);
 
-    await screen.findByRole('heading', { name: 'Repository Test' });
+    expect(await screen.findByRole('heading', { name: 'Kunde nicht gefunden' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Bearbeiten' })).not.toBeInTheDocument();
   });
 

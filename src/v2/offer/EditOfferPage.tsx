@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AccessDenied } from '../../components/feedback/AccessDenied';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import type { CreateOfferInput } from '../../domain/offer/offer';
@@ -31,7 +30,6 @@ export function EditOfferPage() {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isDraft, setIsDraft] = useState(true);
-  const [accessDenied, setAccessDenied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
@@ -58,12 +56,6 @@ export function EditOfferPage() {
       ]);
 
       if (!offer) {
-        setIsLoading(false);
-        return;
-      }
-
-      if (!offerService.canUserAccessOffer(offer, context)) {
-        setAccessDenied(true);
         setIsLoading(false);
         return;
       }
@@ -123,10 +115,6 @@ export function EditOfferPage() {
       leaveToDetail();
     })();
   };
-
-  if (accessDenied) {
-    return <AccessDenied description="Sie haben keinen Zugriff auf dieses Angebot." />;
-  }
 
   if (isLoading) {
     return (

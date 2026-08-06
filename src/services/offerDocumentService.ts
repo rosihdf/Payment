@@ -57,7 +57,10 @@ export class OfferDocumentService {
     context: OfferUserContext,
   ): Promise<Offer | null> {
     const offer = await this.offerRepository.getById(offerId);
-    if (!offer || !this.canAccessOffer(offer, context)) {
+    if (!offer) {
+      return null;
+    }
+    if (!(await this.canAccessOffer(offer, context))) {
       return null;
     }
 
@@ -338,12 +341,14 @@ export class OfferDocumentService {
 export function createOfferDocumentService(
   offerDocumentRepository: OfferDocumentRepository,
   offerRepository: OfferRepository,
-  offerService: { canUserAccessOffer: (offer: Offer, context: OfferUserContext) => boolean },
+  offerService: {
+    getOfferById: (id: string, context: OfferUserContext) => Promise<Offer | null>;
+  },
 ): OfferDocumentService {
   return new OfferDocumentService(
     offerDocumentRepository,
     offerRepository,
-    (offer, context) => offerService.canUserAccessOffer(offer, context),
+    async (offer, context) => (await offerService.getOfferById(offer.id, context)) !== null,
   );
 }
 

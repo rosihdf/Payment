@@ -51,7 +51,7 @@ describe('Routing', () => {
   it('renders the edit lead page on /leads/:id/edit', async () => {
     renderApp('/leads/lead_001/edit');
     expect(await screen.findByRole('heading', { name: 'Kunde bearbeiten' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Änderungen speichern' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Änderungen speichern' })).toBeEnabled();
   });
 
   it('leitet /advice/quick auf den Beratungshub um', async () => {

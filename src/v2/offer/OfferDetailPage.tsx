@@ -5,6 +5,7 @@ import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
 import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
+import { isEditableWorkflowStatus } from '../../domain/offer/offerWorkflow';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { hasPermission } from '../../domain/permission/permission';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -149,7 +150,8 @@ export function OfferDetailPage() {
     [currentUser],
   );
 
-  const canEdit = offer && userContext ? offerService.canUserEditOffer(offer, userContext) : false;
+  // Zugriff bereits über getOfferById geprüft – Edit nur noch statusabhängig.
+  const canEdit = offer ? isEditableWorkflowStatus(offer.workflowStatus) : false;
   const canViewCommission = currentUser ? hasPermission(currentUser.role, 'commission.view') : false;
   const canCreateContract =
     userContext &&

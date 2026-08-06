@@ -104,7 +104,7 @@ export function createOfferServicesForTests(): {
   const offerDocumentService = new OfferDocumentService(
     offerDocumentRepository,
     offerRepository,
-    (offer, context) => offerService.canUserAccessOffer(offer, context),
+    async (offer, context) => (await offerService.getOfferById(offer.id, context)) !== null,
   );
 
   return {
