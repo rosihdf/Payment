@@ -40,12 +40,12 @@ export class OfferDocumentService {
   private readonly canAccessOffer: (
     offer: Offer,
     context: OfferUserContext,
-  ) => boolean;
+  ) => boolean | Promise<boolean>;
 
   constructor(
     offerDocumentRepository: OfferDocumentRepository,
     offerRepository: OfferRepository,
-    canAccessOffer: (offer: Offer, context: OfferUserContext) => boolean,
+    canAccessOffer: (offer: Offer, context: OfferUserContext) => boolean | Promise<boolean>,
   ) {
     this.offerDocumentRepository = offerDocumentRepository;
     this.offerRepository = offerRepository;
