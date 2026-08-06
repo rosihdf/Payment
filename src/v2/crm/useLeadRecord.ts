@@ -21,15 +21,21 @@ export function useLeadRecord() {
 
   useEffect(() => {
     if (!id) {
+      setLead(null);
       setIsLoading(false);
       return;
     }
+    if (!currentUser) {
+      return;
+    }
     setIsLoading(true);
-    void services.leadService.getLeadById(id).then((result) => {
-      setLead(result);
-      setIsLoading(false);
-    });
-  }, [id, services.leadService, location.key, reloadToken]);
+    void services.leadService
+      .getLeadById(id, { userId: currentUser.id, role: currentUser.role })
+      .then((result) => {
+        setLead(result);
+        setIsLoading(false);
+      });
+  }, [id, services.leadService, location.key, reloadToken, currentUser]);
 
   useEffect(() => {
     if (!id || !currentUser) {

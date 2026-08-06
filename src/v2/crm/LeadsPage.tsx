@@ -4,6 +4,7 @@ import { EmptyState } from '../../components/feedback/EmptyState';
 import type { EditLeadInput, Lead } from '../../domain/lead/lead';
 import { LEAD_STATUS_LABELS } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
+import { getAdvisorDisplayLabel } from '../../domain/lead/leadVisibility';
 import { leadToEditInput } from '../../domain/lead/leadFormMapping';
 import type { User } from '../../domain/user/user';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -92,19 +93,33 @@ export function LeadsPage() {
     }
     setIsEditLoading(true);
     setEditErrors({});
-    void leadService.getLeadById(editingLeadId).then((lead) => {
-      if (lead) {
-        setEditValues(leadToEditInput(lead));
-      } else {
-        setEditingLeadId(null);
-        showToast('Kunde nicht gefunden', 'error');
-      }
-      setIsEditLoading(false);
-    });
-  }, [editingLeadId, leadService, showToast]);
+    if (!currentUser) {
+      return;
+    }
+    void leadService
+      .getLeadById(editingLeadId, { userId: currentUser.id, role: currentUser.role })
+      .then((lead) => {
+        if (lead) {
+          setEditValues(leadToEditInput(lead));
+        } else {
+          setEditingLeadId(null);
+          showToast('Kunde nicht gefunden', 'error');
+        }
+        setIsEditLoading(false);
+      });
+  }, [editingLeadId, leadService, showToast, currentUser]);
 
   const getUserName = (userId: string): string =>
-    users.find((user) => user.id === userId)?.name ?? 'Unbekannt';
+    getAdvisorDisplayLabel(userId, (id) => users.find((user) => user.id === id)?.name);
+
+  const emptyTitle =
+    currentUser?.role === 'field_service' && !query.trim()
+      ? 'Dir sind derzeit keine Kunden zugewiesen.'
+      : 'Keine Kunden gefunden';
+  const emptyDescription =
+    currentUser?.role === 'field_service' && !query.trim()
+      ? 'Sobald Ihnen Kunden zugewiesen werden, erscheinen sie hier.'
+      : 'Passen Sie die Suche an oder legen Sie einen neuen Kunden an.';
 
   const closeEditDialog = () => {
     if (isEditSubmitting) {
@@ -171,8 +186,8 @@ export function LeadsPage() {
         <EmptyState title="Kunden werden geladen" description="Die Kundenliste wird vorbereitet." />
       ) : leads.length === 0 ? (
         <EmptyState
-          title="Keine Kunden gefunden"
-          description="Passen Sie die Suche an oder legen Sie einen neuen Kunden an."
+          title={emptyTitle}
+          description={emptyDescription}
           action={
             <Link to="/leads/new">
               <Button>Neuer Kunde</Button>

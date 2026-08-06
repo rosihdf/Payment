@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { LEAD_STATUS_LABELS } from '../../domain/lead/lead';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
+import { getAdvisorDisplayLabel } from '../../domain/lead/leadVisibility';
 import type { User } from '../../domain/user/user';
 import { formatContactName, formatDate } from '../../utils/format';
 import { Button } from '../ui/Button';
@@ -61,8 +62,10 @@ export function LeadRecordPage() {
   }
 
   const lead = data.lead;
-  const advisorName =
-    users.find((user) => user.id === lead.assignedSalesUserId)?.name ?? 'Unbekannt';
+  const advisorName = getAdvisorDisplayLabel(
+    lead.assignedSalesUserId,
+    (userId) => users.find((user) => user.id === userId)?.name,
+  );
 
   return (
     <section>

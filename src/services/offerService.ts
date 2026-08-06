@@ -1,4 +1,5 @@
 import type { Lead } from '../domain/lead/lead';
+import { canUserAccessLead as canAccessAssignedLead } from '../domain/lead/leadVisibility';
 import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { Product } from '../domain/product/product';
 import type { Tariff } from '../domain/tariff/tariff';
@@ -72,16 +73,25 @@ function sortOffers(offers: Offer[]): Offer[] {
 }
 
 function canUserAccessLead(lead: Lead, context: OfferUserContext): boolean {
+  return canAccessAssignedLead(lead, context);
+}
+
+function canUserAccessOffer(
+  offer: Offer,
+  context: OfferUserContext,
+  leadById?: Map<string, Lead>,
+): boolean {
   if (context.role === 'admin') {
     return true;
   }
 
-  return lead.assignedSalesUserId === context.userId || lead.createdByUserId === context.userId;
-}
-
-function canUserAccessOffer(offer: Offer, context: OfferUserContext): boolean {
-  if (context.role === 'admin') {
-    return true;
+  const leadId = offer.leadId?.trim() ?? '';
+  if (leadId) {
+    const lead = leadById?.get(leadId);
+    if (lead) {
+      return canAccessAssignedLead(lead, context);
+    }
+    return false;
   }
 
   return offer.createdByUserId === context.userId;
@@ -196,23 +206,39 @@ export class OfferService {
     this.activityService = activityService;
   }
 
-  canUserAccessOffer(offer: Offer, context: OfferUserContext): boolean {
-    return canUserAccessOffer(offer, context);
+  canUserAccessOffer(offer: Offer, context: OfferUserContext, leadById?: Map<string, Lead>): boolean {
+    return canUserAccessOffer(offer, context, leadById);
   }
 
-  canUserEditOffer(offer: Offer, context: OfferUserContext): boolean {
-    return isEditableWorkflowStatus(offer.workflowStatus) && canUserAccessOffer(offer, context);
+  canUserEditOffer(offer: Offer, context: OfferUserContext, leadById?: Map<string, Lead>): boolean {
+    return isEditableWorkflowStatus(offer.workflowStatus) && canUserAccessOffer(offer, context, leadById);
+  }
+
+  private async loadLeadAccessMap(): Promise<Map<string, Lead>> {
+    const leads = await this.leadRepository.getAll();
+    return new Map(leads.map((lead) => [lead.id, lead]));
+  }
+
+  private async canAccessOfferRecord(offer: Offer, context: OfferUserContext): Promise<boolean> {
+    const leadById = await this.loadLeadAccessMap();
+    return canUserAccessOffer(offer, context, leadById);
   }
 
   async getOffers(context: OfferUserContext): Promise<Offer[]> {
-    const offers = await this.offerRepository.getAll();
-    const visible = offers.filter((offer) => canUserAccessOffer(offer, context));
+    const [offers, leadById] = await Promise.all([
+      this.offerRepository.getAll(),
+      this.loadLeadAccessMap(),
+    ]);
+    const visible = offers.filter((offer) => canUserAccessOffer(offer, context, leadById));
     return sortOffers(visible);
   }
 
   async getOfferById(id: string, context: OfferUserContext): Promise<Offer | null> {
     const offer = await this.offerRepository.getById(id);
-    if (!offer || !canUserAccessOffer(offer, context)) {
+    if (!offer) {
+      return null;
+    }
+    if (!(await this.canAccessOfferRecord(offer, context))) {
       return null;
     }
 
@@ -480,7 +506,7 @@ export class OfferService {
       return { ok: false, error: 'not_found' };
     }
 
-    if (!canUserAccessOffer(existing, context)) {
+    if (!(await this.canAccessOfferRecord(existing, context))) {
       return { ok: false, error: 'forbidden' };
     }
 
@@ -566,7 +592,7 @@ export class OfferService {
       return { ok: false, error: 'not_found' };
     }
 
-    if (!canUserAccessOffer(existing, context)) {
+    if (!(await this.canAccessOfferRecord(existing, context))) {
       return { ok: false, error: 'forbidden' };
     }
 
@@ -644,7 +670,7 @@ export class OfferService {
       return { ok: false, error: 'not_found' };
     }
 
-    if (!canUserAccessOffer(existing, context)) {
+    if (!(await this.canAccessOfferRecord(existing, context))) {
       return { ok: false, error: 'forbidden' };
     }
 
@@ -690,7 +716,7 @@ export class OfferService {
       return { ok: false, error: 'not_found' };
     }
 
-    if (!canUserAccessOffer(existing, context)) {
+    if (!(await this.canAccessOfferRecord(existing, context))) {
       return { ok: false, error: 'forbidden' };
     }
 
@@ -744,14 +770,7 @@ export class OfferService {
 
   async getAccessibleLeads(context: OfferUserContext): Promise<Lead[]> {
     const leads = await this.leadRepository.getAll();
-
-    if (context.role === 'admin') {
-      return leads;
-    }
-
-    return leads.filter(
-      (lead) => lead.assignedSalesUserId === context.userId || lead.createdByUserId === context.userId,
-    );
+    return leads.filter((lead) => canUserAccessLead(lead, context));
   }
 
   async getActiveTariffsForSelection(): Promise<Tariff[]> {

@@ -152,6 +152,47 @@ describe('LeadService', () => {
     expect(allLeads.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('creates admin lead without advisor when none selected', async () => {
+    const result = await leadService.createLead(
+      createValidLeadInput({ companyName: 'Admin ohne Betreuer', assignedSalesUserId: '' }),
+      'user_004',
+      { userId: 'user_004', role: 'admin' },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.lead.assignedSalesUserId).toBe('');
+    }
+  });
+
+  it('hides unassigned leads from field service', async () => {
+    await leadService.createLead(
+      createValidLeadInput({ companyName: 'Unassigned Sichtbarkeit', assignedSalesUserId: '' }),
+      'user_004',
+      { userId: 'user_004', role: 'admin' },
+    );
+    const visible = await leadService.getVisibleLeads({
+      userId: 'user_001',
+      role: 'field_service',
+    });
+    expect(visible.every((lead) => lead.assignedSalesUserId === 'user_001')).toBe(true);
+    expect(visible.some((lead) => lead.companyName === 'Unassigned Sichtbarkeit')).toBe(false);
+  });
+
+  it('returns null for foreign lead by id for field service', async () => {
+    const created = await leadService.createLead(
+      createValidLeadInput({ companyName: 'Fremd Direktlink' }),
+      'user_002',
+      { userId: 'user_002', role: 'field_service' },
+    );
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const foreign = await leadService.getLeadById(created.lead.id, {
+      userId: 'user_001',
+      role: 'field_service',
+    });
+    expect(foreign).toBeNull();
+  });
+
   it('searches leads by company name and provider', async () => {
     const results = await leadService.searchLeads('Café Sonnenschein', {
       userId: 'user_004',

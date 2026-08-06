@@ -279,7 +279,7 @@ export function LeadForm(props: LeadFormProps) {
                 } as EditLeadInput)
               }
             >
-              <option value="">Bitte wählen…</option>
+              <option value="">Noch nicht zugewiesen</option>
               {advisorOptions.map((advisor) => (
                 <option key={advisor.id} value={advisor.id}>
                   {advisor.name} ({advisor.email})

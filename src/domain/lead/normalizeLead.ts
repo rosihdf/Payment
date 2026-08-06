@@ -130,9 +130,12 @@ export function normalizeLead(raw: unknown): Lead {
     contactLastName = legacyContact.lastName;
   }
 
+  const rawAssigned = data.assignedSalesUserId;
   const assignedSalesUserId =
-    asString(data.assignedSalesUserId) || DEMO_LEAD_ASSIGNMENTS[id] || 'user_001';
-  const createdByUserId = asString(data.createdByUserId) || assignedSalesUserId;
+    typeof rawAssigned === 'string'
+      ? rawAssigned.trim()
+      : DEMO_LEAD_ASSIGNMENTS[id] || 'user_001';
+  const createdByUserId = asString(data.createdByUserId) || assignedSalesUserId || 'user_001';
 
   return {
     id,

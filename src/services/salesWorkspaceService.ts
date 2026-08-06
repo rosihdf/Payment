@@ -1,6 +1,7 @@
 import type { BestPayComparisonSession } from '../domain/bestPayComparison/bestPayComparisonSession';
 import type { Lead } from '../domain/lead/lead';
 import { getLeadDisplayName, getSessionCustomerDisplayName } from '../domain/lead/getLeadDisplayName';
+import { canUserAccessLead } from '../domain/lead/leadVisibility';
 import type { Offer } from '../domain/offer/offer';
 import type { SalesActivity } from '../domain/salesWorkspace/salesActivity';
 import {
@@ -185,15 +186,20 @@ export class SalesWorkspaceService {
   }
 
   private isLeadVisible(lead: Lead, context: SalesWorkspaceUserContext): boolean {
+    return canUserAccessLead(lead, context);
+  }
+
+  private isOfferVisible(
+    offer: Offer,
+    context: SalesWorkspaceUserContext,
+    visibleLeadIds: Set<string>,
+  ): boolean {
     if (context.role === 'admin') {
       return true;
     }
-    return lead.assignedSalesUserId === context.userId;
-  }
-
-  private isOfferVisible(offer: Offer, context: SalesWorkspaceUserContext): boolean {
-    if (context.role === 'admin') {
-      return true;
+    const leadId = offer.leadId?.trim() ?? '';
+    if (leadId) {
+      return visibleLeadIds.has(leadId);
     }
     return offer.createdByUserId === context.userId;
   }
@@ -201,9 +207,14 @@ export class SalesWorkspaceService {
   private isSessionVisible(
     session: BestPayComparisonSession,
     context: SalesWorkspaceUserContext,
+    visibleLeadIds: Set<string>,
   ): boolean {
     if (context.role === 'admin') {
       return true;
+    }
+    const leadId = session.leadId?.trim() ?? '';
+    if (leadId) {
+      return visibleLeadIds.has(leadId);
     }
     return session.createdByUserId === context.userId;
   }
@@ -236,9 +247,13 @@ export class SalesWorkspaceService {
       return;
     }
 
-    const offers = (await this.offerRepository.getAll()).filter((offer) =>
-      this.isOfferVisible(offer, context),
+    const allOffers = await this.offerRepository.getAll();
+    const visibleLeadIds = new Set(
+      (await this.leadRepository.getAll())
+        .filter((lead) => this.isLeadVisible(lead, context))
+        .map((lead) => lead.id),
     );
+    const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context, visibleLeadIds));
     const syncJobs: Array<Promise<unknown>> = [];
 
     const staleContinueTasks = (await this.taskRepository.getAll()).filter(
@@ -333,7 +348,8 @@ export class SalesWorkspaceService {
       ]);
 
     const leads = allLeads.filter((lead) => this.isLeadVisible(lead, context));
-    const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context));
+    const visibleLeadIds = new Set(leads.map((lead) => lead.id));
+    const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context, visibleLeadIds));
 
     const draftApprovalFlags = new Map<string, boolean>();
     await Promise.all(
@@ -344,8 +360,9 @@ export class SalesWorkspaceService {
         }),
     );
 
-    const sessions = allSessions.filter((session) => this.isSessionVisible(session, context));
-    const visibleLeadIds = new Set(leads.map((lead) => lead.id));
+    const sessions = allSessions.filter((session) =>
+      this.isSessionVisible(session, context, visibleLeadIds),
+    );
     const visibleOfferIds = new Set(offers.map((offer) => offer.id));
     const visibleSessionIds = new Set(sessions.map((session) => session.id));
 

@@ -741,8 +741,7 @@ export class BestPayComparisonService {
 
     if (
       context.role !== 'admin' &&
-      lead.assignedSalesUserId !== context.userId &&
-      lead.createdByUserId !== context.userId
+      lead.assignedSalesUserId !== context.userId
     ) {
       return { ok: false, error: 'forbidden' };
     }

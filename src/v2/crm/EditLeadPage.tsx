@@ -94,13 +94,16 @@ export function EditLeadPage() {
       setIsLoading(false);
       return;
     }
+    if (!currentUser) {
+      return;
+    }
 
     setIsLoading(true);
     setLoadError(false);
     setIsFormReady(false);
 
     void leadService
-      .getLeadById(id)
+      .getLeadById(id, { userId: currentUser.id, role: currentUser.role })
       .then((result) => {
         if (!result) {
           setLead(null);
@@ -119,7 +122,7 @@ export function EditLeadPage() {
         setLoadError(true);
         setIsLoading(false);
       });
-  }, [id, leadService]);
+  }, [id, leadService, currentUser]);
 
   const handleDraftRestored = useCallback(() => {
     showToast('Gespeicherte Änderungen wurden wiederhergestellt', 'info');

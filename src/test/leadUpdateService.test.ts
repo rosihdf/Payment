@@ -35,7 +35,7 @@ describe('LeadService updateLead', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('allows field service users to update leads they created', async () => {
+  it('forbids field service users from updating leads they only created', async () => {
     const lead = createTestLead({
       id: 'lead_created',
       assignedSalesUserId: 'user_002',
@@ -49,7 +49,33 @@ describe('LeadService updateLead', () => {
       { userId: 'user_001', role: 'field_service' },
     );
 
+    expect(result.ok).toBe(false);
+    if (!result.ok && 'error' in result) {
+      expect(result.error).toBe('forbidden');
+    }
+  });
+
+  it('ignores field service attempts to reassign advisor', async () => {
+    const lead = createTestLead({
+      id: 'lead_own_assign',
+      assignedSalesUserId: 'user_001',
+      createdByUserId: 'user_001',
+    });
+    await repository.create(lead);
+
+    const result = await leadService.updateLead(
+      'lead_own_assign',
+      createValidEditInput({
+        companyName: 'Eigen geändert',
+        assignedSalesUserId: 'user_002',
+      }),
+      { userId: 'user_001', role: 'field_service' },
+    );
+
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.lead.assignedSalesUserId).toBe('user_001');
+    }
   });
 
   it('forbids field service users from updating foreign leads', async () => {
@@ -243,14 +269,14 @@ describe('LeadService updateLead', () => {
 });
 
 describe('LeadService canUserEditLead', () => {
-  it('checks assigned and created ownership for field service', () => {
+  it('checks assigned ownership only for field service', () => {
     const service = new LeadService(new LocalLeadRepository());
     const lead = createTestLead({
       assignedSalesUserId: 'user_002',
       createdByUserId: 'user_001',
     });
 
-    expect(service.canUserEditLead(lead, { userId: 'user_001', role: 'field_service' })).toBe(true);
+    expect(service.canUserEditLead(lead, { userId: 'user_001', role: 'field_service' })).toBe(false);
     expect(service.canUserEditLead(lead, { userId: 'user_002', role: 'field_service' })).toBe(true);
     expect(service.canUserEditLead(lead, { userId: 'user_003', role: 'field_service' })).toBe(false);
     expect(service.canUserEditLead(lead, { userId: 'user_004', role: 'admin' })).toBe(true);

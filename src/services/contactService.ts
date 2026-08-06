@@ -5,6 +5,7 @@ import {
   type UpdateContactInput,
 } from '../domain/contact/contact';
 import type { Lead } from '../domain/lead/lead';
+import { canUserAccessLead } from '../domain/lead/leadVisibility';
 import type { User } from '../domain/user/user';
 import type { ContactRepository } from '../repositories/interfaces/ContactRepository';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
@@ -21,10 +22,7 @@ export interface ContactUserContext {
 export type ContactError = 'not_found' | 'forbidden' | 'validation' | 'conflict';
 
 function canAccessLead(lead: Lead, context: ContactUserContext): boolean {
-  if (context.role === 'admin') {
-    return true;
-  }
-  return lead.assignedSalesUserId === context.userId || lead.createdByUserId === context.userId;
+  return canUserAccessLead(lead, context);
 }
 
 /** Primärkontakt → Lead-Stammdaten (Name, Telefon, Mail). Eine Wahrheit. */

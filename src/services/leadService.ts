@@ -1,6 +1,11 @@
+import {
+  canUserAccessLead,
+  canUserAssignLeadAdvisor,
+  filterLeadsByVisibility,
+  type LeadVisibilityContext,
+} from '../domain/lead/leadVisibility';
 import type { CreateLeadInput, EditLeadInput, Lead } from '../domain/lead/lead';
 import { enrichLeadWithDisplayName, getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
-import type { UserRole } from '../domain/user/user';
 import { generateId, nowIso } from '../utils/id';
 import { formatContactName } from '../utils/format';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
@@ -23,10 +28,7 @@ export type UpdateLeadResult =
   | { ok: false; error: 'forbidden' }
   | { ok: false; error: 'storage' };
 
-export interface LeadSearchContext {
-  userId: string;
-  role: UserRole;
-}
+export type LeadSearchContext = LeadVisibilityContext;
 
 function mapInputToFields(input: CreateLeadInput) {
   return {
@@ -77,18 +79,18 @@ export class LeadService {
   }
 
   canUserEditLead(lead: Lead, context: LeadSearchContext): boolean {
-    if (context.role === 'admin') {
-      return true;
-    }
-
-    return (
-      lead.assignedSalesUserId === context.userId || lead.createdByUserId === context.userId
-    );
+    return canUserAccessLead(lead, context);
   }
 
-  async getLeadById(id: string): Promise<Lead | null> {
+  async getLeadById(id: string, context?: LeadSearchContext): Promise<Lead | null> {
     const lead = await this.leadRepository.getById(id);
-    return lead ? enrichLeadWithDisplayName(lead) : null;
+    if (!lead) {
+      return null;
+    }
+    if (context && !canUserAccessLead(lead, context)) {
+      return null;
+    }
+    return enrichLeadWithDisplayName(lead);
   }
 
   async getLeadCount(context?: LeadSearchContext): Promise<number> {
@@ -140,9 +142,7 @@ export class LeadService {
     }
 
     const assignedSalesUserId =
-      context?.role === 'admin'
-        ? input.assignedSalesUserId?.trim() || userId
-        : userId;
+      context?.role === 'admin' ? input.assignedSalesUserId?.trim() || '' : userId;
 
     const timestamp = nowIso();
     const lead: Lead = {
@@ -208,8 +208,8 @@ export class LeadService {
       createdAt: existing.createdAt,
       createdByUserId: existing.createdByUserId,
       assignedSalesUserId:
-        context.role === 'admin' && input.assignedSalesUserId?.trim()
-          ? input.assignedSalesUserId.trim()
+        context.role === 'admin'
+          ? input.assignedSalesUserId?.trim() || ''
           : existing.assignedSalesUserId,
       syncState: 'pending',
       updatedAt: nowIso(),
@@ -228,14 +228,10 @@ export class LeadService {
   }
 
   canUserAssignLead(context: LeadSearchContext): boolean {
-    return context.role === 'admin';
+    return canUserAssignLeadAdvisor(context);
   }
 
   private filterLeadsByRole(leads: Lead[], context?: LeadSearchContext): Lead[] {
-    if (!context || context.role === 'admin') {
-      return leads;
-    }
-
-    return leads.filter((lead) => lead.assignedSalesUserId === context.userId);
+    return filterLeadsByVisibility(leads, context);
   }
 }
