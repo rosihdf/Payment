@@ -5,10 +5,10 @@ import styles from './AppUpdateGate.module.css';
 
 /**
  * Pflichtupdate-Overlay der bestehenden Updatearchitektur.
- * Optionales Banner liegt zentral in der App-Shell unter dem Header.
+ * Während Download/Verify/Install wird die App nicht blockiert – Fortschritt im Banner.
  */
 export function AppUpdateGate({ children }: { children: React.ReactNode }) {
-  const { snapshot, openDownload } = useAppUpdate();
+  const { snapshot, startInstall, openUnknownSourcesSettings } = useAppUpdate();
   const location = useLocation();
   const onProfile = location.pathname === '/profile';
 
@@ -51,19 +51,28 @@ export function AppUpdateGate({ children }: { children: React.ReactNode }) {
             </div>
           </dl>
           <p className={styles.notes}>{snapshot.manifest.releaseNotes}</p>
-          <p className={styles.hash}>
-            SHA-256: <code>{snapshot.manifest.sha256}</code>
-          </p>
+          {snapshot.errorMessage ? <p className={styles.bannerError}>{snapshot.errorMessage}</p> : null}
           <div className={styles.bannerActions}>
             <button
               type="button"
               className={styles.primaryButton}
               onClick={() => {
-                void openDownload();
+                void startInstall();
               }}
             >
               Jetzt installieren
             </button>
+            {snapshot.needsUnknownSourcesPermission ? (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => {
+                  void openUnknownSourcesSettings();
+                }}
+              >
+                Einstellungen öffnen
+              </button>
+            ) : null}
             <Link className={styles.secondaryButton} to="/profile">
               App-Info öffnen
             </Link>

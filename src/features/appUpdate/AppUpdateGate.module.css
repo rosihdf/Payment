@@ -41,6 +41,12 @@
   font-weight: var(--font-weight-medium);
 }
 
+.progress {
+  width: 100%;
+  max-width: 24rem;
+  height: 0.65rem;
+}
+
 .bannerActions {
   display: flex;
   flex-wrap: wrap;

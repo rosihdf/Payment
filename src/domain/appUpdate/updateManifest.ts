@@ -2,12 +2,18 @@ export const ANDROID_UPDATE_MANIFEST_URL =
   'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json';
 
 export const APP_UPDATE_FETCH_TIMEOUT_MS = 12_000;
+export const APP_UPDATE_DOWNLOAD_TIMEOUT_MS = 180_000;
 
 export type AppUpdateStatus =
+  | 'idle'
   | 'checking'
   | 'current'
   | 'available'
   | 'mandatory'
+  | 'downloading'
+  | 'verifying'
+  | 'readyToInstall'
+  | 'installing'
   | 'offline'
   | 'error';
 
@@ -33,7 +39,13 @@ export interface AppUpdateSnapshot {
   lastCheckedAt: string | null;
   errorMessage: string | null;
   isNativeAndroid: boolean;
+  /** Banner-Snooze für optionale Updates (App-Info bleibt verfügbar). */
   optionalDismissed: boolean;
+  downloadProgress: number | null;
+  downloadBytesReceived: number | null;
+  downloadBytesTotal: number | null;
+  localApkRelativePath: string | null;
+  needsUnknownSourcesPermission: boolean;
 }
 
 const SHA256_HEX = /^[a-f0-9]{64}$/i;
@@ -92,14 +104,12 @@ export function parseUpdateManifest(raw: unknown):
   const sha256 = asNonEmptyString(record.sha256, 'sha256', issues);
   const releaseNotes = asNonEmptyString(record.releaseNotes, 'releaseNotes', issues);
   const sourceCommit = asNonEmptyString(record.sourceCommit, 'sourceCommit', issues);
-  // Produktions-Manifeste nutzen teils "tag" statt "releaseTag".
   let releaseTag =
     asNonEmptyString(record.releaseTag, 'releaseTag', []) ??
     asNonEmptyString(record.tag, 'tag', []);
   if (!releaseTag) {
     issues.push('Feld "releaseTag" fehlt oder ist leer.');
   }
-  // publishedAt optional – fehlt es, wird ein stabiler Platzhalter gesetzt.
   let publishedAt = asNonEmptyString(record.publishedAt, 'publishedAt', []);
   if (publishedAt && Number.isNaN(Date.parse(publishedAt))) {
     issues.push('Feld "publishedAt" ist kein gültiger Zeitstempel.');
@@ -161,7 +171,6 @@ export function deriveUpdateStatus(
   const remoteNewer = manifest.versionCode > installedVersionCode;
   const belowMinimum = installedVersionCode < manifest.minimumVersionCode;
 
-  // Ältere Remote-Versionen werden ignoriert, sofern das Minimum erfüllt ist.
   if (!remoteNewer && !belowMinimum) {
     return 'current';
   }
@@ -175,4 +184,37 @@ export function deriveUpdateStatus(
   }
 
   return 'available';
+}
+
+export function isUpdateOfferStatus(status: AppUpdateStatus): boolean {
+  return (
+    status === 'available' ||
+    status === 'mandatory' ||
+    status === 'downloading' ||
+    status === 'verifying' ||
+    status === 'readyToInstall' ||
+    status === 'installing'
+  );
+}
+
+export function createInitialAppUpdateSnapshot(
+  installedVersionName: string,
+  installedVersionCode: number,
+  isNativeAndroid: boolean,
+): AppUpdateSnapshot {
+  return {
+    status: isNativeAndroid ? 'idle' : 'current',
+    installedVersionName,
+    installedVersionCode,
+    manifest: null,
+    lastCheckedAt: null,
+    errorMessage: isNativeAndroid ? null : 'Updateprüfung nur in der nativen Android-App.',
+    isNativeAndroid,
+    optionalDismissed: false,
+    downloadProgress: null,
+    downloadBytesReceived: null,
+    downloadBytesTotal: null,
+    localApkRelativePath: null,
+    needsUnknownSourcesPermission: false,
+  };
 }

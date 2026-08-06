@@ -11,32 +11,47 @@ import {
 } from '../domain/appUpdate/appUpdatePreferences';
 import {
   ANDROID_UPDATE_MANIFEST_URL,
+  APP_UPDATE_DOWNLOAD_TIMEOUT_MS,
   APP_UPDATE_FETCH_TIMEOUT_MS,
   type AppUpdateSnapshot,
   type AppUpdateStatus,
   type UpdateManifest,
+  createInitialAppUpdateSnapshot,
   deriveUpdateStatus,
+  isUpdateOfferStatus,
   parseUpdateManifest,
 } from '../domain/appUpdate/updateManifest';
+import {
+  type ApkCacheWriter,
+  type ApkInstallerBridge,
+  INSTALL_SOURCE_BLOCKED,
+  apkRelativePathForVersion,
+  createFilesystemApkCacheWriter,
+  createNativeApkInstallerBridge,
+} from '../native/apkUpdateNative';
 import { APP_VERSION, APP_VERSION_CODE } from '../utils/appInfo';
 import { isNativeAndroid } from '../utils/nativePlatform';
 
 export type AppUpdateFetch = typeof fetch;
+export type AppUpdateListener = (snapshot: AppUpdateSnapshot) => void;
 
 export interface AppUpdateServiceOptions {
   fetchImpl?: AppUpdateFetch;
   manifestUrl?: string;
   timeoutMs?: number;
+  downloadTimeoutMs?: number;
   installedVersionName?: string;
   installedVersionCode?: number;
   isNativeAndroidFn?: () => boolean;
   now?: () => string;
   nowMs?: () => number;
+  /** Nur Notfall-Fallback – nicht der normale Installationspfad. */
   openUrl?: (url: string) => void;
   preferenceStore?: AppUpdatePreferenceStore;
   autoCheckIntervalMs?: number;
   snoozeMs?: number;
-  /** Diagnoseausgaben für Logcat/WebView – keine Secrets. */
+  apkCache?: ApkCacheWriter;
+  apkInstaller?: ApkInstallerBridge;
   log?: (event: string, details?: Record<string, string | number | boolean | null>) => void;
 }
 
@@ -72,10 +87,19 @@ function manifestHost(url: string): string {
   }
 }
 
+function looksLikeApkZip(buffer: ArrayBuffer): boolean {
+  if (buffer.byteLength < 4) {
+    return false;
+  }
+  const view = new Uint8Array(buffer);
+  return view[0] === 0x50 && view[1] === 0x4b;
+}
+
 export class AppUpdateService {
   private readonly fetchImpl: AppUpdateFetch;
   private readonly manifestUrl: string;
   private readonly timeoutMs: number;
+  private readonly downloadTimeoutMs: number;
   private readonly installedVersionName: string;
   private readonly installedVersionCode: number;
   private readonly isNativeAndroidFn: () => boolean;
@@ -85,6 +109,8 @@ export class AppUpdateService {
   private readonly preferenceStore: AppUpdatePreferenceStore;
   private readonly autoCheckIntervalMs: number;
   private readonly snoozeMs: number;
+  private readonly apkCache: ApkCacheWriter;
+  private readonly apkInstaller: ApkInstallerBridge;
   private readonly log: (
     event: string,
     details?: Record<string, string | number | boolean | null>,
@@ -92,12 +118,15 @@ export class AppUpdateService {
 
   private snapshot: AppUpdateSnapshot;
   private checkPromise: Promise<AppUpdateSnapshot> | null = null;
-  private downloadPromise: Promise<{ ok: true } | { ok: false; error: string }> | null = null;
+  private installPromise: Promise<{ ok: true } | { ok: false; error: string }> | null = null;
+  private downloadAbort: AbortController | null = null;
+  private readonly listeners = new Set<AppUpdateListener>();
 
   constructor(options: AppUpdateServiceOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
     this.manifestUrl = options.manifestUrl ?? ANDROID_UPDATE_MANIFEST_URL;
     this.timeoutMs = options.timeoutMs ?? APP_UPDATE_FETCH_TIMEOUT_MS;
+    this.downloadTimeoutMs = options.downloadTimeoutMs ?? APP_UPDATE_DOWNLOAD_TIMEOUT_MS;
     this.installedVersionName = options.installedVersionName ?? APP_VERSION;
     this.installedVersionCode = options.installedVersionCode ?? APP_VERSION_CODE;
     this.isNativeAndroidFn = options.isNativeAndroidFn ?? isNativeAndroid;
@@ -107,18 +136,22 @@ export class AppUpdateService {
     this.preferenceStore = options.preferenceStore ?? createLocalStoragePreferenceStore();
     this.autoCheckIntervalMs = options.autoCheckIntervalMs ?? APP_UPDATE_AUTO_CHECK_INTERVAL_MS;
     this.snoozeMs = options.snoozeMs ?? APP_UPDATE_SNOOZE_MS;
+    this.apkCache = options.apkCache ?? createFilesystemApkCacheWriter();
+    this.apkInstaller = options.apkInstaller ?? createNativeApkInstallerBridge();
     this.log = options.log ?? defaultLog;
 
-    const native = this.isNativeAndroidFn();
-    this.snapshot = {
-      status: native ? 'checking' : 'current',
-      installedVersionName: this.installedVersionName,
-      installedVersionCode: this.installedVersionCode,
-      manifest: null,
-      lastCheckedAt: null,
-      errorMessage: native ? null : 'Updateprüfung nur in der nativen Android-App.',
-      isNativeAndroid: native,
-      optionalDismissed: false,
+    this.snapshot = createInitialAppUpdateSnapshot(
+      this.installedVersionName,
+      this.installedVersionCode,
+      this.isNativeAndroidFn(),
+    );
+  }
+
+  subscribe(listener: AppUpdateListener): () => void {
+    this.listeners.add(listener);
+    listener(this.getSnapshot());
+    return () => {
+      this.listeners.delete(listener);
     };
   }
 
@@ -126,12 +159,10 @@ export class AppUpdateService {
     return { ...this.snapshot, manifest: this.snapshot.manifest };
   }
 
-  /** Web/PWA: keine native APK-Updateprüfung. */
   shouldAutoCheck(): boolean {
     return this.isNativeAndroidFn();
   }
 
-  /** Ob eine automatische Prüfung laut 24-Stunden-Regel fällig ist. */
   shouldRunAutomaticCheck(): boolean {
     if (!this.shouldAutoCheck()) {
       return false;
@@ -143,38 +174,88 @@ export class AppUpdateService {
     );
   }
 
+  /**
+   * Optionales Banner bzw. Fortschrittsbanner (kein Pflichtupdate-Overlay).
+   * Pflichtupdate nutzt AppUpdateGate; während Download trotzdem Fortschritt im Banner.
+   */
   shouldShowOptionalBanner(): boolean {
-    const { status, manifest, isNativeAndroid: native } = this.snapshot;
-    if (!native || status !== 'available' || !manifest) {
+    const { status, manifest, isNativeAndroid: native, optionalDismissed } = this.snapshot;
+    if (!native || !manifest) {
       return false;
     }
+
+    const activeTransfer =
+      status === 'downloading' || status === 'verifying' || status === 'installing';
+
+    if (manifest.mandatory) {
+      return activeTransfer;
+    }
+
+    if (activeTransfer) {
+      return true;
+    }
+
+    if (status !== 'available' && status !== 'readyToInstall' && status !== 'error') {
+      return false;
+    }
+
     if (isUpdateVersionSnoozed(this.preferenceStore, manifest.versionCode, this.nowMs())) {
       return false;
     }
-    return !this.snapshot.optionalDismissed;
+
+    return !optionalDismissed;
+  }
+
+  /** Später nur im Banner bei optionalem Update, nicht während Download. */
+  shouldShowBannerLaterAction(): boolean {
+    if (!this.shouldShowOptionalBanner() || !this.snapshot.manifest) {
+      return false;
+    }
+    if (this.snapshot.manifest.mandatory) {
+      return false;
+    }
+    const { status } = this.snapshot;
+    return status === 'available' || status === 'readyToInstall' || status === 'error';
+  }
+
+  private emit(): void {
+    const snapshot = this.getSnapshot();
+    for (const listener of this.listeners) {
+      listener(snapshot);
+    }
+  }
+
+  private patch(partial: Partial<AppUpdateSnapshot>): AppUpdateSnapshot {
+    this.snapshot = { ...this.snapshot, ...partial };
+    this.emit();
+    return this.getSnapshot();
   }
 
   async checkForUpdate(
     options: { manual?: boolean; automatic?: boolean } = {},
   ): Promise<AppUpdateSnapshot> {
     if (!this.isNativeAndroidFn() && !options.manual) {
-      this.snapshot = {
-        ...this.snapshot,
+      return this.patch({
         status: 'current',
         isNativeAndroid: false,
         errorMessage: 'Updateprüfung nur in der nativen Android-App.',
-      };
-      return this.getSnapshot();
+      });
     }
 
     if (!this.isNativeAndroidFn() && options.manual) {
-      this.snapshot = {
-        ...this.snapshot,
+      return this.patch({
         status: 'current',
         isNativeAndroid: false,
         lastCheckedAt: this.now(),
         errorMessage: 'Im Browser/PWA prüft der Service Worker Updates – keine APK-Updateprüfung.',
-      };
+      });
+    }
+
+    if (
+      this.snapshot.status === 'downloading' ||
+      this.snapshot.status === 'verifying' ||
+      this.snapshot.status === 'installing'
+    ) {
       return this.getSnapshot();
     }
 
@@ -190,12 +271,12 @@ export class AppUpdateService {
       return this.checkPromise;
     }
 
-    this.snapshot = {
-      ...this.snapshot,
+    this.patch({
       status: 'checking',
       errorMessage: null,
       isNativeAndroid: true,
-    };
+      needsUnknownSourcesPermission: false,
+    });
 
     this.checkPromise = (async () => {
       try {
@@ -213,76 +294,120 @@ export class AppUpdateService {
     return this.checkPromise;
   }
 
+  /** Nur Banner: Snooze 24h für die angebotene Version. App-Info bleibt auf available. */
   dismissOptionalUpdate(): void {
-    if (this.snapshot.status !== 'available' || !this.snapshot.manifest) {
+    if (!this.snapshot.manifest || this.snapshot.manifest.mandatory) {
+      return;
+    }
+    if (
+      this.snapshot.status !== 'available' &&
+      this.snapshot.status !== 'readyToInstall' &&
+      this.snapshot.status !== 'error'
+    ) {
       return;
     }
     const versionCode = this.snapshot.manifest.versionCode;
     snoozeUpdateVersion(this.preferenceStore, versionCode, this.nowMs(), this.snoozeMs);
-    this.snapshot = { ...this.snapshot, optionalDismissed: true };
+    this.patch({ optionalDismissed: true });
     this.log('banner_snoozed', { versionCode, snoozeMs: this.snoozeMs });
   }
 
   clearOptionalDismissal(): void {
     clearUpdateSnooze(this.preferenceStore);
-    this.snapshot = { ...this.snapshot, optionalDismissed: false };
+    this.patch({ optionalDismissed: false });
   }
 
   /**
-   * Lädt die HTTPS-APK, prüft SHA-256 soweit möglich und öffnet danach die finale Download-URL.
-   * Die Android-Paketsignatur bleibt die entscheidende Installationsprüfung.
+   * Nativer Download → SHA → Installer. Kein Browser.
    */
-  async openVerifiedDownload(): Promise<{ ok: true } | { ok: false; error: string }> {
-    if (this.downloadPromise) {
-      return this.downloadPromise;
+  async startInstall(): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!this.isNativeAndroidFn()) {
+      return { ok: false, error: 'Installation nur in der nativen Android-App.' };
+    }
+    if (this.installPromise) {
+      return this.installPromise;
+    }
+    if (this.snapshot.status === 'readyToInstall' && this.snapshot.localApkRelativePath) {
+      return this.openInstaller();
     }
 
-    this.downloadPromise = this.runVerifiedDownload().finally(() => {
-      this.downloadPromise = null;
+    this.installPromise = this.runNativeInstall().finally(() => {
+      this.installPromise = null;
     });
-    return this.downloadPromise;
+    return this.installPromise;
   }
 
-  private async runVerifiedDownload(): Promise<{ ok: true } | { ok: false; error: string }> {
-    const manifest = this.snapshot.manifest;
-    if (!manifest) {
-      return { ok: false, error: 'Kein Update-Manifest vorhanden.' };
+  async cancelDownload(): Promise<void> {
+    if (this.downloadAbort) {
+      this.downloadAbort.abort();
     }
-    if (!manifest.downloadUrl.startsWith('https://')) {
-      return { ok: false, error: 'Download-URL muss HTTPS verwenden.' };
-    }
+  }
 
+  async openInstaller(): Promise<{ ok: true } | { ok: false; error: string }> {
+    const path = this.snapshot.localApkRelativePath;
+    if (!path) {
+      return { ok: false, error: 'Keine lokale Update-Datei vorhanden.' };
+    }
+    this.patch({
+      status: 'installing',
+      errorMessage: null,
+      needsUnknownSourcesPermission: false,
+    });
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), Math.max(this.timeoutMs, 60_000));
-      const response = await this.fetchImpl(manifest.downloadUrl, {
-        signal: controller.signal,
-        cache: 'no-store',
-      });
-      clearTimeout(timer);
-      if (!response.ok) {
-        return { ok: false, error: `Download fehlgeschlagen (HTTP ${response.status}).` };
-      }
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength !== manifest.sizeBytes) {
-        return {
-          ok: false,
-          error: `Dateigröße weicht ab (erwartet ${manifest.sizeBytes}, erhalten ${buffer.byteLength}).`,
-        };
-      }
-      const hash = await sha256Hex(buffer);
-      if (hash !== manifest.sha256) {
-        return { ok: false, error: 'SHA-256 des Downloads stimmt nicht mit dem Manifest überein.' };
-      }
-      this.openUrl(manifest.downloadUrl);
+      await this.apkInstaller.openFromCache(path);
+      // Nutzer kann Installer abbrechen → bereit halten.
+      this.patch({ status: 'readyToInstall' });
       return { ok: true };
     } catch (error) {
-      const message =
-        error instanceof DOMException && error.name === 'AbortError'
-          ? 'Download-Zeitüberschreitung.'
-          : 'Download oder Hashprüfung fehlgeschlagen.';
-      return { ok: false, error: message };
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes(INSTALL_SOURCE_BLOCKED) || (error instanceof Error && error.name === INSTALL_SOURCE_BLOCKED)) {
+        this.patch({
+          status: 'readyToInstall',
+          needsUnknownSourcesPermission: true,
+          errorMessage:
+            'Android blockiert die Installation aus dieser Quelle. Bitte erlauben und danach „Installation starten“ tippen.',
+        });
+        return { ok: false, error: this.snapshot.errorMessage ?? message };
+      }
+      this.patch({
+        status: 'readyToInstall',
+        errorMessage: 'Der Installer konnte nicht geöffnet werden.',
+      });
+      return { ok: false, error: this.snapshot.errorMessage ?? message };
     }
+  }
+
+  async openUnknownSourcesSettings(): Promise<void> {
+    await this.apkInstaller.openUnknownSourcesSettings();
+  }
+
+  /** Expliziter Notfall-Fallback – nicht Teil des normalen Pfads. */
+  openBrowserFallback(): { ok: true } | { ok: false; error: string } {
+    const url = this.snapshot.manifest?.downloadUrl;
+    if (!url?.startsWith('https://')) {
+      return { ok: false, error: 'Keine Download-URL verfügbar.' };
+    }
+    this.openUrl(url);
+    return { ok: true };
+  }
+
+  /** Nach Upgrade oder wenn installierte Version >= remote. */
+  resetAfterSuccessfulUpgrade(): void {
+    const path = this.snapshot.localApkRelativePath;
+    if (path) {
+      void this.apkCache.delete(path);
+    }
+    clearUpdateSnooze(this.preferenceStore);
+    this.patch({
+      ...createInitialAppUpdateSnapshot(
+        this.installedVersionName,
+        this.installedVersionCode,
+        this.isNativeAndroidFn(),
+      ),
+      status: 'current',
+      lastCheckedAt: this.now(),
+      errorMessage: null,
+    });
   }
 
   private applySnoozeState(status: AppUpdateStatus, versionCode: number | null): boolean {
@@ -312,6 +437,7 @@ export class AppUpdateService {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
         cache: 'no-store',
+        redirect: 'follow',
       });
 
       this.log('check_http', {
@@ -335,7 +461,6 @@ export class AppUpdateService {
       } catch {
         return this.setError('Update-Informationen sind ungültig.', 'error', {
           host,
-          httpStatus: response.status,
           errorClass: 'json_parse',
           jsonValid: false,
         });
@@ -345,7 +470,6 @@ export class AppUpdateService {
       if (!parsed.ok) {
         return this.setError('Update-Informationen sind ungültig.', 'error', {
           host,
-          httpStatus: response.status,
           errorClass: 'schema',
           jsonValid: false,
           issues: parsed.issues.slice(0, 3).join('; '),
@@ -353,25 +477,46 @@ export class AppUpdateService {
       }
 
       const status = deriveUpdateStatus(this.installedVersionCode, parsed.manifest);
+      if (status === 'current') {
+        const path = this.snapshot.localApkRelativePath;
+        if (path) {
+          void this.apkCache.delete(path);
+        }
+        clearUpdateSnooze(this.preferenceStore);
+        return this.patch({
+          status: 'current',
+          manifest: parsed.manifest,
+          lastCheckedAt: this.now(),
+          errorMessage: null,
+          optionalDismissed: false,
+          downloadProgress: null,
+          downloadBytesReceived: null,
+          downloadBytesTotal: null,
+          localApkRelativePath: null,
+          needsUnknownSourcesPermission: false,
+        });
+      }
+
       const snoozed = this.applySnoozeState(status, parsed.manifest.versionCode);
-      this.snapshot = {
-        status,
-        installedVersionName: this.installedVersionName,
-        installedVersionCode: this.installedVersionCode,
+      const keepReady =
+        this.snapshot.status === 'readyToInstall' &&
+        this.snapshot.localApkRelativePath &&
+        this.snapshot.manifest?.versionCode === parsed.manifest.versionCode;
+
+      return this.patch({
+        status: keepReady ? 'readyToInstall' : status,
         manifest: parsed.manifest,
         lastCheckedAt: this.now(),
         errorMessage: null,
-        isNativeAndroid: true,
         optionalDismissed: snoozed,
-      };
-      this.log('check_ok', {
-        host,
-        status,
-        remoteVersionCode: parsed.manifest.versionCode,
-        jsonValid: true,
-        snoozed,
+        downloadProgress: keepReady ? this.snapshot.downloadProgress : null,
+        downloadBytesReceived: keepReady ? this.snapshot.downloadBytesReceived : null,
+        downloadBytesTotal: keepReady ? this.snapshot.downloadBytesTotal : null,
+        localApkRelativePath: keepReady ? this.snapshot.localApkRelativePath : null,
+        needsUnknownSourcesPermission: keepReady
+          ? this.snapshot.needsUnknownSourcesPermission
+          : false,
       });
-      return this.getSnapshot();
     } catch (error) {
       const name =
         error && typeof error === 'object' && 'name' in error
@@ -411,20 +556,189 @@ export class AppUpdateService {
     }
   }
 
+  private async runNativeInstall(): Promise<{ ok: true } | { ok: false; error: string }> {
+    const manifest = this.snapshot.manifest;
+    if (!manifest) {
+      return { ok: false, error: 'Kein Update-Manifest vorhanden.' };
+    }
+    if (!manifest.downloadUrl.startsWith('https://')) {
+      return { ok: false, error: 'Download-URL muss HTTPS verwenden.' };
+    }
+
+    const relativePath = apkRelativePathForVersion(manifest.versionName);
+    this.downloadAbort = new AbortController();
+    const timer = setTimeout(() => this.downloadAbort?.abort(), this.downloadTimeoutMs);
+
+    this.patch({
+      status: 'downloading',
+      errorMessage: null,
+      downloadProgress: 0,
+      downloadBytesReceived: 0,
+      downloadBytesTotal: manifest.sizeBytes,
+      localApkRelativePath: null,
+      needsUnknownSourcesPermission: false,
+      optionalDismissed: false,
+    });
+
+    try {
+      const buffer = await this.downloadApkBuffer(manifest, this.downloadAbort.signal);
+      clearTimeout(timer);
+
+      this.patch({
+        status: 'verifying',
+        downloadProgress: 100,
+        downloadBytesReceived: buffer.byteLength,
+        downloadBytesTotal: manifest.sizeBytes,
+      });
+
+      if (buffer.byteLength !== manifest.sizeBytes) {
+        await this.apkCache.delete(relativePath);
+        return this.failInstall('Die heruntergeladene Datei konnte nicht überprüft werden.', {
+          errorClass: 'size_mismatch',
+          expected: manifest.sizeBytes,
+          received: buffer.byteLength,
+        });
+      }
+
+      if (!looksLikeApkZip(buffer)) {
+        await this.apkCache.delete(relativePath);
+        return this.failInstall('Die heruntergeladene Datei konnte nicht überprüft werden.', {
+          errorClass: 'invalid_apk',
+        });
+      }
+
+      const hash = await sha256Hex(buffer);
+      if (hash !== manifest.sha256) {
+        await this.apkCache.delete(relativePath);
+        return this.failInstall('Die heruntergeladene Datei konnte nicht überprüft werden.', {
+          errorClass: 'sha_mismatch',
+        });
+      }
+
+      await this.apkCache.write(relativePath, buffer);
+      this.patch({
+        status: 'readyToInstall',
+        localApkRelativePath: relativePath,
+        errorMessage: null,
+      });
+
+      return this.openInstaller();
+    } catch (error) {
+      clearTimeout(timer);
+      await this.apkCache.delete(relativePath);
+      const name =
+        error && typeof error === 'object' && 'name' in error
+          ? String((error as { name: unknown }).name)
+          : 'Unknown';
+      if (name === 'AbortError') {
+        this.patch({
+          status: this.snapshot.manifest?.mandatory ? 'mandatory' : 'available',
+          errorMessage: null,
+          downloadProgress: null,
+          downloadBytesReceived: null,
+          downloadBytesTotal: null,
+          localApkRelativePath: null,
+        });
+        return { ok: false, error: 'Download abgebrochen.' };
+      }
+      const message =
+        typeof navigator !== 'undefined' && navigator.onLine === false
+          ? 'Keine Internetverbindung.'
+          : 'Download fehlgeschlagen.';
+      return this.failInstall(message, { errorClass: 'download', errorName: name });
+    } finally {
+      this.downloadAbort = null;
+    }
+  }
+
+  private async downloadApkBuffer(
+    manifest: UpdateManifest,
+    signal: AbortSignal,
+  ): Promise<ArrayBuffer> {
+    const response = await this.fetchImpl(manifest.downloadUrl, {
+      method: 'GET',
+      signal,
+      cache: 'no-store',
+      redirect: 'follow',
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const totalHeader = Number(response.headers.get('content-length') ?? manifest.sizeBytes);
+    const total = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : manifest.sizeBytes;
+
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      const buffer = await response.arrayBuffer();
+      this.patch({
+        downloadProgress: 100,
+        downloadBytesReceived: buffer.byteLength,
+        downloadBytesTotal: total,
+      });
+      return buffer;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value) {
+        chunks.push(value);
+        received += value.byteLength;
+        const progress = Math.min(99, Math.floor((received / total) * 100));
+        this.patch({
+          status: 'downloading',
+          downloadProgress: progress,
+          downloadBytesReceived: received,
+          downloadBytesTotal: total,
+        });
+      }
+    }
+
+    const merged = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return merged.buffer;
+  }
+
+  private failInstall(
+    message: string,
+    details: Record<string, string | number | boolean | null> = {},
+  ): { ok: false; error: string } {
+    this.log('install_error', { userMessage: message, ...details });
+    const offerStatus = this.snapshot.manifest?.mandatory ? 'mandatory' : 'available';
+    this.patch({
+      status: 'error',
+      errorMessage: message,
+      downloadProgress: null,
+      downloadBytesReceived: null,
+      downloadBytesTotal: null,
+      localApkRelativePath: null,
+    });
+    // UI kann von error erneut versuchen; Angebot bleibt im Manifest.
+    void offerStatus;
+    return { ok: false, error: message };
+  }
+
   private setError(
     message: string,
     status: Extract<AppUpdateStatus, 'error' | 'offline'> = 'error',
     details: Record<string, string | number | boolean | null> = {},
   ): AppUpdateSnapshot {
     this.log('check_error', { status, userMessage: message, ...details });
-    this.snapshot = {
-      ...this.snapshot,
+    return this.patch({
       status,
       errorMessage: message,
       lastCheckedAt: this.now(),
       isNativeAndroid: this.isNativeAndroidFn(),
-    };
-    return this.getSnapshot();
+    });
   }
 }
 
@@ -433,3 +747,4 @@ export function createAppUpdateService(options?: AppUpdateServiceOptions): AppUp
 }
 
 export type { UpdateManifest };
+export { isUpdateOfferStatus };

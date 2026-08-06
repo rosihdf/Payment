@@ -1,0 +1,76 @@
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { AppUpdateInstaller, INSTALL_SOURCE_BLOCKED } from './appUpdateInstaller';
+
+export const APP_UPDATE_CACHE_DIR = 'amrtech-updates';
+
+export function apkRelativePathForVersion(versionName: string): string {
+  const safe = versionName.replace(/[^0-9A-Za-z._-]/g, '_');
+  return `${APP_UPDATE_CACHE_DIR}/AMRtech-Payment-${safe}.apk`;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+export interface ApkCacheWriter {
+  write(relativePath: string, data: ArrayBuffer): Promise<void>;
+  delete(relativePath: string): Promise<void>;
+}
+
+export interface ApkInstallerBridge {
+  openFromCache(relativePath: string): Promise<void>;
+  openUnknownSourcesSettings(): Promise<void>;
+}
+
+export function createFilesystemApkCacheWriter(): ApkCacheWriter {
+  return {
+    async write(relativePath, data) {
+      await Filesystem.writeFile({
+        path: relativePath,
+        data: arrayBufferToBase64(data),
+        directory: Directory.Cache,
+        recursive: true,
+      });
+    },
+    async delete(relativePath) {
+      try {
+        await Filesystem.deleteFile({
+          path: relativePath,
+          directory: Directory.Cache,
+        });
+      } catch {
+        // Datei fehlt oder Cache nicht erreichbar – unkritisch.
+      }
+    },
+  };
+}
+
+export function createNativeApkInstallerBridge(): ApkInstallerBridge {
+  return {
+    async openFromCache(relativePath) {
+      try {
+        await AppUpdateInstaller.openApkFromCacheRelativePath({ relativePath });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes(INSTALL_SOURCE_BLOCKED)) {
+          const blocked = new Error(INSTALL_SOURCE_BLOCKED);
+          blocked.name = INSTALL_SOURCE_BLOCKED;
+          throw blocked;
+        }
+        throw error instanceof Error ? error : new Error(message);
+      }
+    },
+    async openUnknownSourcesSettings() {
+      await AppUpdateInstaller.openUnknownSourcesSettings();
+    },
+  };
+}
+
+export { INSTALL_SOURCE_BLOCKED };

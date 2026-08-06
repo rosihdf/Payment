@@ -1,26 +1,70 @@
-import { useState } from 'react';
 import { useAppUpdate } from '../../app/providers/AppUpdateProvider';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import { formatBytes, formatDateTime } from '../../utils/format';
 import styles from './ProfilePage.module.css';
 
-const STATUS_LABELS: Record<string, string> = {
-  checking: 'Prüfung läuft…',
-  current: 'Aktuell',
-  available: 'Update verfügbar',
-  mandatory: 'Pflichtupdate',
-  offline: 'Offline',
-  error: 'Fehler',
-};
+function statusLabel(snapshot: ReturnType<typeof useAppUpdate>['snapshot']): string {
+  switch (snapshot.status) {
+    case 'idle':
+      return 'Noch nicht geprüft';
+    case 'checking':
+      return 'Update wird geprüft …';
+    case 'current':
+      return 'Die App ist aktuell';
+    case 'available':
+    case 'mandatory':
+      return 'Neue Version verfügbar';
+    case 'downloading':
+      return 'Update wird heruntergeladen';
+    case 'verifying':
+      return 'Download wird überprüft …';
+    case 'readyToInstall':
+      return 'Update ist bereit zur Installation';
+    case 'installing':
+      return 'Installation wird vorbereitet …';
+    case 'offline':
+      return 'Keine Internetverbindung';
+    case 'error':
+      return snapshot.errorMessage ?? 'Fehler';
+    default:
+      return snapshot.status;
+  }
+}
 
 export function AppInfoSection() {
-  const { snapshot, checkNow, openDownload, dismissOptional } = useAppUpdate();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const {
+    snapshot,
+    checkNow,
+    startInstall,
+    openInstaller,
+    cancelDownload,
+    openUnknownSourcesSettings,
+    openBrowserFallback,
+  } = useAppUpdate();
 
   const manifest = snapshot.manifest;
-  const canDownload = snapshot.status === 'available' || snapshot.status === 'mandatory';
-  const canDismissLater = snapshot.status === 'available';
+  const hasOffer =
+    snapshot.status === 'available' ||
+    snapshot.status === 'mandatory' ||
+    snapshot.status === 'readyToInstall' ||
+    snapshot.status === 'downloading' ||
+    snapshot.status === 'verifying' ||
+    snapshot.status === 'installing' ||
+    (snapshot.status === 'error' && Boolean(manifest));
+
+  const showCheckFirst = snapshot.status === 'idle';
+  const showRecheck =
+    snapshot.status === 'current' ||
+    snapshot.status === 'available' ||
+    snapshot.status === 'mandatory' ||
+    snapshot.status === 'readyToInstall' ||
+    snapshot.status === 'error' ||
+    snapshot.status === 'offline';
+  const checking = snapshot.status === 'checking';
+  const downloading = snapshot.status === 'downloading';
+  const verifying = snapshot.status === 'verifying';
+  const installing = snapshot.status === 'installing';
+  const busy = checking || downloading || verifying || installing;
 
   return (
     <section className={styles.adminSection} aria-labelledby="app-info-title">
@@ -48,9 +92,9 @@ export function AppInfoSection() {
         </div>
         <div className={styles.row}>
           <dt>Update-Status</dt>
-          <dd>{STATUS_LABELS[snapshot.status] ?? snapshot.status}</dd>
+          <dd>{statusLabel(snapshot)}</dd>
         </div>
-        {manifest ? (
+        {hasOffer && manifest ? (
           <>
             <div className={styles.row}>
               <dt>Verfügbare Version</dt>
@@ -58,87 +102,153 @@ export function AppInfoSection() {
                 {manifest.versionName} (Build {manifest.versionCode})
               </dd>
             </div>
+            {manifest.releaseNotes ? (
+              <div className={styles.row}>
+                <dt>Release Notes</dt>
+                <dd>{manifest.releaseNotes}</dd>
+              </div>
+            ) : null}
             <div className={styles.row}>
               <dt>Dateigröße</dt>
               <dd>{formatBytes(manifest.sizeBytes)}</dd>
             </div>
-            <div className={styles.row}>
-              <dt>Veröffentlichungsdatum</dt>
-              <dd>{formatDateTime(manifest.publishedAt)}</dd>
-            </div>
-            <div className={styles.row}>
-              <dt>Release Notes</dt>
-              <dd>{manifest.releaseNotes}</dd>
-            </div>
-            <div className={styles.row}>
-              <dt>SHA-256</dt>
-              <dd className={styles.mono}>{manifest.sha256}</dd>
-            </div>
           </>
         ) : null}
-        {snapshot.errorMessage ? (
+        {downloading ? (
+          <div className={styles.row}>
+            <dt>Fortschritt</dt>
+            <dd>
+              {snapshot.downloadProgress ?? 0} %
+              {snapshot.downloadBytesReceived != null && snapshot.downloadBytesTotal != null
+                ? ` (${formatBytes(snapshot.downloadBytesReceived)} / ${formatBytes(snapshot.downloadBytesTotal)})`
+                : ''}
+              <progress
+                max={100}
+                value={snapshot.downloadProgress ?? 0}
+                style={{ display: 'block', width: '100%', marginTop: '0.5rem' }}
+              />
+            </dd>
+          </div>
+        ) : null}
+        {snapshot.errorMessage && snapshot.status === 'error' ? (
           <div className={styles.row}>
             <dt>Hinweis</dt>
             <dd>{snapshot.errorMessage}</dd>
           </div>
         ) : null}
+        {snapshot.needsUnknownSourcesPermission ? (
+          <div className={styles.row}>
+            <dt>Hinweis</dt>
+            <dd>
+              Android blockiert die Installation aus dieser Quelle. Bitte erlauben und danach
+              Installation starten.
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       <div className={styles.appInfoActions}>
-        <button
-          type="button"
-          className={styles.adminLink}
-          disabled={busy || snapshot.status === 'checking'}
-          onClick={() => {
-            setBusy(true);
-            setMessage(null);
-            void checkNow()
-              .then((next) => {
-                setMessage(
-                  next.status === 'current'
-                    ? 'Die App ist aktuell'
-                    : next.status === 'available' || next.status === 'mandatory'
-                      ? 'Update verfügbar'
-                      : next.errorMessage ?? 'Prüfung abgeschlossen.',
-                );
-              })
-              .finally(() => setBusy(false));
-          }}
-        >
-          {busy || snapshot.status === 'checking' ? 'Prüfe…' : 'Jetzt prüfen'}
-        </button>
+        {showCheckFirst ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            disabled={busy || !snapshot.isNativeAndroid}
+            onClick={() => {
+              void checkNow();
+            }}
+          >
+            Jetzt prüfen
+          </button>
+        ) : null}
 
-        {canDownload ? (
+        {hasOffer && (snapshot.status === 'available' || snapshot.status === 'mandatory') ? (
           <button
             type="button"
             className={styles.adminLink}
             disabled={busy}
             onClick={() => {
-              setBusy(true);
-              setMessage(null);
-              void openDownload()
-                .then((result) => {
-                  setMessage(
-                    result.ok
-                      ? 'Download geöffnet. Bitte Installation selbst bestätigen.'
-                      : result.error,
-                  );
-                })
-                .finally(() => setBusy(false));
+              void startInstall();
             }}
           >
-            Update herunterladen
+            Jetzt installieren
           </button>
         ) : null}
 
-        {canDismissLater ? (
-          <button type="button" className={styles.adminLink} onClick={dismissOptional}>
-            Später
+        {snapshot.status === 'readyToInstall' ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            disabled={busy}
+            onClick={() => {
+              void openInstaller();
+            }}
+          >
+            Installation starten
+          </button>
+        ) : null}
+
+        {snapshot.status === 'error' && manifest ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            disabled={busy}
+            onClick={() => {
+              void startInstall();
+            }}
+          >
+            Erneut versuchen
+          </button>
+        ) : null}
+
+        {downloading ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            onClick={() => {
+              void cancelDownload();
+            }}
+          >
+            Abbrechen
+          </button>
+        ) : null}
+
+        {snapshot.needsUnknownSourcesPermission ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            onClick={() => {
+              void openUnknownSourcesSettings();
+            }}
+          >
+            Einstellungen öffnen
+          </button>
+        ) : null}
+
+        {showRecheck && !showCheckFirst && !downloading && !verifying && !installing ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            disabled={busy || !snapshot.isNativeAndroid}
+            onClick={() => {
+              void checkNow();
+            }}
+          >
+            Erneut prüfen
+          </button>
+        ) : null}
+
+        {snapshot.status === 'error' && manifest ? (
+          <button
+            type="button"
+            className={styles.adminLink}
+            onClick={() => {
+              openBrowserFallback();
+            }}
+          >
+            Im Browser öffnen
           </button>
         ) : null}
       </div>
-
-      {message ? <p className={styles.appInfoMessage}>{message}</p> : null}
 
       {!snapshot.isNativeAndroid ? (
         <p className={styles.appInfoMessage}>

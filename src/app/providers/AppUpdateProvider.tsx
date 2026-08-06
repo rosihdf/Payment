@@ -18,9 +18,14 @@ import { CurrentUserContext } from './currentUserContext';
 interface AppUpdateContextValue {
   snapshot: AppUpdateSnapshot;
   checkNow: () => Promise<AppUpdateSnapshot>;
-  openDownload: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  startInstall: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  openInstaller: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  cancelDownload: () => Promise<void>;
   dismissOptional: () => void;
+  openUnknownSourcesSettings: () => Promise<void>;
+  openBrowserFallback: () => { ok: true } | { ok: false; error: string };
   shouldShowOptionalBanner: boolean;
+  shouldShowBannerLaterAction: boolean;
   service: AppUpdateService;
 }
 
@@ -37,59 +42,49 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
   const currentUser = currentUserCtx?.currentUser ?? null;
   const isLoading = currentUserCtx?.isLoading ?? false;
   const [snapshot, setSnapshot] = useState<AppUpdateSnapshot>(() => service.getSnapshot());
-  const [bannerEpoch, setBannerEpoch] = useState(0);
   const startedForUserRef = useRef<string | null>(null);
 
-  const sync = useCallback(() => {
-    setSnapshot(service.getSnapshot());
-    setBannerEpoch((value) => value + 1);
-  }, [service]);
+  useEffect(() => service.subscribe(setSnapshot), [service]);
 
   const runAutomaticCheck = useCallback(async () => {
     if (!service.shouldAutoCheck() || !service.shouldRunAutomaticCheck()) {
-      sync();
       return;
     }
     try {
-      const next = await service.checkForUpdate({ automatic: true });
-      setSnapshot(next);
-      setBannerEpoch((value) => value + 1);
+      await service.checkForUpdate({ automatic: true });
     } catch {
-      sync();
+      // Automatische Prüfung darf die App nicht blockieren.
     }
-  }, [service, sync]);
-
-  const checkNow = useCallback(async () => {
-    const next = await service.checkForUpdate({ manual: true });
-    setSnapshot(next);
-    setBannerEpoch((value) => value + 1);
-    return next;
   }, [service]);
 
-  const openDownload = useCallback(async () => {
-    const result = await service.openVerifiedDownload();
-    sync();
-    return result;
-  }, [service, sync]);
+  const checkNow = useCallback(async () => service.checkForUpdate({ manual: true }), [service]);
+
+  const startInstall = useCallback(async () => service.startInstall(), [service]);
+
+  const openInstaller = useCallback(async () => service.openInstaller(), [service]);
+
+  const cancelDownload = useCallback(async () => service.cancelDownload(), [service]);
 
   const dismissOptional = useCallback(() => {
     service.dismissOptionalUpdate();
-    sync();
-  }, [service, sync]);
+  }, [service]);
 
-  // Auto-Check erst nach Auth + geladenem Profil, nicht auf dem Login.
+  const openUnknownSourcesSettings = useCallback(
+    async () => service.openUnknownSourcesSettings(),
+    [service],
+  );
+
+  const openBrowserFallback = useCallback(() => service.openBrowserFallback(), [service]);
+
   useEffect(() => {
     if (!currentUserCtx) {
-      sync();
       return;
     }
     if (isLoading || !currentUser) {
       startedForUserRef.current = null;
-      sync();
       return;
     }
     if (!service.shouldAutoCheck()) {
-      sync();
       return;
     }
     if (startedForUserRef.current === currentUser.id) {
@@ -97,9 +92,8 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
     }
     startedForUserRef.current = currentUser.id;
     void runAutomaticCheck();
-  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service, sync]);
+  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service]);
 
-  // Vordergrund: nur wenn 24h-Intervall abgelaufen.
   useEffect(() => {
     if (typeof document === 'undefined' || !currentUserCtx) {
       return;
@@ -119,22 +113,36 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
     };
   }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service]);
 
-  const shouldShowOptionalBanner = useMemo(
-    () => service.shouldShowOptionalBanner(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutable service snapshot
-    [service, snapshot, bannerEpoch],
-  );
+  const shouldShowOptionalBanner = service.shouldShowOptionalBanner();
+  const shouldShowBannerLaterAction = service.shouldShowBannerLaterAction();
 
   const value = useMemo(
     () => ({
       snapshot,
       checkNow,
-      openDownload,
+      startInstall,
+      openInstaller,
+      cancelDownload,
       dismissOptional,
+      openUnknownSourcesSettings,
+      openBrowserFallback,
       shouldShowOptionalBanner,
+      shouldShowBannerLaterAction,
       service,
     }),
-    [snapshot, checkNow, openDownload, dismissOptional, shouldShowOptionalBanner, service],
+    [
+      snapshot,
+      checkNow,
+      startInstall,
+      openInstaller,
+      cancelDownload,
+      dismissOptional,
+      openUnknownSourcesSettings,
+      openBrowserFallback,
+      shouldShowOptionalBanner,
+      shouldShowBannerLaterAction,
+      service,
+    ],
   );
 
   return <AppUpdateContext.Provider value={value}>{children}</AppUpdateContext.Provider>;
