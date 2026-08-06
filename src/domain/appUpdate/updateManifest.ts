@@ -90,10 +90,24 @@ export function parseUpdateManifest(raw: unknown):
   );
   const downloadUrl = asNonEmptyString(record.downloadUrl, 'downloadUrl', issues);
   const sha256 = asNonEmptyString(record.sha256, 'sha256', issues);
-  const publishedAt = asNonEmptyString(record.publishedAt, 'publishedAt', issues);
   const releaseNotes = asNonEmptyString(record.releaseNotes, 'releaseNotes', issues);
-  const releaseTag = asNonEmptyString(record.releaseTag, 'releaseTag', issues);
   const sourceCommit = asNonEmptyString(record.sourceCommit, 'sourceCommit', issues);
+  // Produktions-Manifeste nutzen teils "tag" statt "releaseTag".
+  let releaseTag =
+    asNonEmptyString(record.releaseTag, 'releaseTag', []) ??
+    asNonEmptyString(record.tag, 'tag', []);
+  if (!releaseTag) {
+    issues.push('Feld "releaseTag" fehlt oder ist leer.');
+  }
+  // publishedAt optional – fehlt es, wird ein stabiler Platzhalter gesetzt.
+  let publishedAt = asNonEmptyString(record.publishedAt, 'publishedAt', []);
+  if (publishedAt && Number.isNaN(Date.parse(publishedAt))) {
+    issues.push('Feld "publishedAt" ist kein gültiger Zeitstempel.');
+    publishedAt = null;
+  }
+  if (!publishedAt) {
+    publishedAt = '1970-01-01T00:00:00.000Z';
+  }
 
   if (typeof record.mandatory !== 'boolean') {
     issues.push('Feld "mandatory" muss boolean sein.');
@@ -107,11 +121,18 @@ export function parseUpdateManifest(raw: unknown):
   if (downloadUrl) {
     assertHttpsUrl(downloadUrl, 'downloadUrl', issues);
   }
-  if (publishedAt && Number.isNaN(Date.parse(publishedAt))) {
-    issues.push('Feld "publishedAt" ist kein gültiger Zeitstempel.');
-  }
 
-  if (issues.length > 0 || !versionName || versionCode == null || minimumVersionCode == null || !downloadUrl || !sha256 || !publishedAt || !releaseNotes || !releaseTag || !sourceCommit) {
+  if (
+    issues.length > 0 ||
+    !versionName ||
+    versionCode == null ||
+    minimumVersionCode == null ||
+    !downloadUrl ||
+    !sha256 ||
+    !releaseNotes ||
+    !releaseTag ||
+    !sourceCommit
+  ) {
     return { ok: false, issues };
   }
 

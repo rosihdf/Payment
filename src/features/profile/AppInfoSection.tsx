@@ -96,9 +96,9 @@ export function AppInfoSection() {
               .then((next) => {
                 setMessage(
                   next.status === 'current'
-                    ? 'Die App ist auf dem neuesten Stand.'
+                    ? 'Die App ist aktuell'
                     : next.status === 'available' || next.status === 'mandatory'
-                      ? `Update ${next.manifest?.versionName ?? ''} erkannt.`
+                      ? 'Update verfügbar'
                       : next.errorMessage ?? 'Prüfung abgeschlossen.',
                 );
               })

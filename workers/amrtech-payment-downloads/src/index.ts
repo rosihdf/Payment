@@ -1,3 +1,15 @@
+/** Minimale R2-Typen – Worker wird auch von App-Tests importiert (ohne @cloudflare/workers-types). */
+interface R2ObjectBody {
+  size: number;
+  httpEtag: string;
+  writeHttpMetadata(headers: Headers): void;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+
+interface R2Bucket {
+  get(key: string): Promise<R2ObjectBody | null>;
+}
+
 interface Env {
   RELEASES: R2Bucket;
 }
@@ -19,7 +31,19 @@ const ALLOWED_PATHS = new Set([
   '/android/v1.0.4/AMRtech-Payment-1.0.4.apk',
   '/android/v1.0.4/AMRtech-Payment-1.0.4.apk.sha256',
   '/android/v1.0.4/manifest.json',
+  '/android/v1.0.5/AMRtech-Payment-1.0.5.apk',
+  '/android/v1.0.5/AMRtech-Payment-1.0.5.apk.sha256',
+  '/android/v1.0.5/manifest.json',
 ]);
+
+/** Öffentliche Release-Dateien; Capacitor Android nutzt https://localhost als Origin. */
+function applyCors(headers: Headers): Headers {
+  headers.set('Access-Control-Allow-Origin', '*');
+  headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Accept, Content-Type');
+  headers.set('Access-Control-Max-Age', '86400');
+  return headers;
+}
 
 function contentTypeFor(path: string): string {
   if (path.endsWith('.apk')) {
@@ -46,39 +70,41 @@ function filenameFor(path: string): string {
   return parts[parts.length - 1] || 'download';
 }
 
+function textResponse(body: string, status: number, extra: HeadersInit = {}): Response {
+  const headers = applyCors(new Headers(extra));
+  headers.set('Content-Type', 'text/plain; charset=utf-8');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  return new Response(body, { status, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        return new Response('Method Not Allowed', {
-          status: 405,
-          headers: {
-            Allow: 'GET, HEAD',
-            'X-Content-Type-Options': 'nosniff',
-          },
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: applyCors(new Headers()),
         });
+      }
+
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return textResponse('Method Not Allowed', 405, { Allow: 'GET, HEAD, OPTIONS' });
       }
 
       const url = new URL(request.url);
       const path = url.pathname.replace(/\/+$/, '') || '/';
 
       if (!ALLOWED_PATHS.has(path)) {
-        return new Response('Not Found', {
-          status: 404,
-          headers: { 'X-Content-Type-Options': 'nosniff' },
-        });
+        return textResponse('Not Found', 404);
       }
 
       const objectKey = path.replace(/^\//, '');
       const object = await env.RELEASES.get(objectKey);
       if (!object) {
-        return new Response('Not Found', {
-          status: 404,
-          headers: { 'X-Content-Type-Options': 'nosniff' },
-        });
+        return textResponse('Not Found', 404);
       }
 
-      const headers = new Headers();
+      const headers = applyCors(new Headers());
       object.writeHttpMetadata(headers);
       headers.set('Content-Type', contentTypeFor(path));
       headers.set('Content-Disposition', `attachment; filename="${filenameFor(path)}"`);
@@ -95,10 +121,7 @@ export default {
       headers.set('Content-Length', String(body.byteLength));
       return new Response(body, { status: 200, headers });
     } catch {
-      return new Response('Bad Gateway', {
-        status: 502,
-        headers: { 'X-Content-Type-Options': 'nosniff' },
-      });
+      return textResponse('Bad Gateway', 502);
     }
   },
 };

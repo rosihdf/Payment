@@ -27,6 +27,7 @@ function createService(options: ConstructorParameters<typeof AppUpdateService>[0
     installedVersionName: '1.0.0',
     installedVersionCode: 10000,
     isNativeAndroidFn: () => true,
+    log: () => undefined,
     ...options,
   });
 }
@@ -35,6 +36,16 @@ describe('AppUpdate Manifest', () => {
   it('akzeptiert vollständige HTTPS-Manifeste', () => {
     const parsed = parseUpdateManifest(validManifest());
     expect(parsed.ok).toBe(true);
+  });
+
+  it('akzeptiert Produktionsform mit tag statt releaseTag und ohne publishedAt', () => {
+    const { releaseTag: _ignored, publishedAt: _p, ...rest } = validManifest();
+    const parsed = parseUpdateManifest({ ...rest, tag: 'v1.0.4' });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.manifest.releaseTag).toBe('v1.0.4');
+      expect(parsed.manifest.publishedAt).toBeTruthy();
+    }
   });
 
   it('lehnt unvollständige Manifeste ab', () => {
@@ -129,7 +140,9 @@ describe('AppUpdateService', () => {
     const invalid = createService({
       fetchImpl: async () => new Response(JSON.stringify({ versionName: 'x' }), { status: 200 }),
     });
-    expect((await invalid.checkForUpdate()).status).toBe('error');
+    const invalidSnapshot = await invalid.checkForUpdate();
+    expect(invalidSnapshot.status).toBe('error');
+    expect(invalidSnapshot.errorMessage).toMatch(/ungültig/i);
 
     const timeout = createService({
       timeoutMs: 5,
@@ -139,17 +152,93 @@ describe('AppUpdateService', () => {
           setTimeout(() => reject(error), 1);
         }),
     });
-    expect((await timeout.checkForUpdate()).status).toBe('error');
+    const timeoutSnapshot = await timeout.checkForUpdate();
+    expect(timeoutSnapshot.status).toBe('error');
+    expect(timeoutSnapshot.errorMessage).toMatch(/Zeitüberschreitung/i);
   });
 
-  it('setzt offline bei Netzwerkfehler', async () => {
+  it('setzt offline nur bei explizit fehlender Verbindung', async () => {
     vi.stubGlobal('navigator', { onLine: false });
-    const service = createService({
+    const offline = createService({
       fetchImpl: async () => {
         throw new TypeError('Failed to fetch');
       },
     });
-    expect((await service.checkForUpdate()).status).toBe('offline');
+    const offlineSnapshot = await offline.checkForUpdate();
+    expect(offlineSnapshot.status).toBe('offline');
+    expect(offlineSnapshot.errorMessage).toMatch(/Internetverbindung/i);
+
+    vi.stubGlobal('navigator', { onLine: true });
+    const corsOrNetwork = createService({
+      fetchImpl: async () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    const errorSnapshot = await corsOrNetwork.checkForUpdate();
+    expect(errorSnapshot.status).toBe('error');
+    expect(errorSnapshot.errorMessage).toMatch(/konnten nicht geladen werden/i);
+    expect(errorSnapshot.errorMessage).not.toMatch(/^Offline/i);
+  });
+
+  it('versucht Fetch auch wenn navigator.onLine false ist und akzeptiert Erfolg', async () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    const service = createService({
+      installedVersionCode: 10001,
+      fetchImpl: async () =>
+        new Response(JSON.stringify(validManifest({ versionCode: 10001 })), { status: 200 }),
+    });
+    const snapshot = await service.checkForUpdate();
+    expect(snapshot.status).toBe('current');
+    expect(snapshot.errorMessage).toBeNull();
+  });
+
+  it('meldet HTTP- und JSON-Fehler verständlich', async () => {
+    const http404 = createService({
+      fetchImpl: async () => new Response('nope', { status: 404 }),
+    });
+    expect((await http404.checkForUpdate()).errorMessage).toMatch(/Update-Server nicht erreichbar/i);
+
+    const http500 = createService({
+      fetchImpl: async () => new Response('nope', { status: 500 }),
+    });
+    expect((await http500.checkForUpdate()).errorMessage).toMatch(/Update-Server nicht erreichbar/i);
+
+    const badJson = createService({
+      fetchImpl: async () =>
+        new Response('{', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    });
+    expect((await badJson.checkForUpdate()).errorMessage).toMatch(/ungültig/i);
+
+    const missingCode = createService({
+      fetchImpl: async () =>
+        new Response(JSON.stringify(validManifest({ versionCode: undefined })), { status: 200 }),
+    });
+    expect((await missingCode.checkForUpdate()).errorMessage).toMatch(/ungültig/i);
+
+    const missingUrl = createService({
+      fetchImpl: async () =>
+        new Response(JSON.stringify(validManifest({ downloadUrl: '' })), { status: 200 }),
+    });
+    expect((await missingUrl.checkForUpdate()).errorMessage).toMatch(/ungültig/i);
+  });
+
+  it('beendet busy/checkPromise immer und erlaubt erneute Prüfung', async () => {
+    let calls = 0;
+    const service = createService({
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) {
+          throw new TypeError('Failed to fetch');
+        }
+        return new Response(JSON.stringify(validManifest({ versionCode: 10000 })), { status: 200 });
+      },
+    });
+    vi.stubGlobal('navigator', { onLine: true });
+    const first = await service.checkForUpdate();
+    expect(first.status).toBe('error');
+    const second = await service.checkForUpdate();
+    expect(second.status).toBe('current');
+    expect(calls).toBe(2);
   });
 
   it('prüft nur native Android automatisch; Web/PWA nicht', async () => {
