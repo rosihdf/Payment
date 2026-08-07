@@ -43,6 +43,7 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
   const isLoading = currentUserCtx?.isLoading ?? false;
   const [snapshot, setSnapshot] = useState<AppUpdateSnapshot>(() => service.getSnapshot());
   const startedForUserRef = useRef<string | null>(null);
+  const resumeInFlightRef = useRef(false);
 
   useEffect(() => service.subscribe(setSnapshot), [service]);
 
@@ -56,6 +57,25 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       // Automatische Prüfung darf die App nicht blockieren.
     }
   }, [service]);
+
+  /** Resume: immer native Version reconcilen; Manifest nur wenn Intervall erlaubt. */
+  const runForegroundReconcile = useCallback(async () => {
+    if (!service.shouldAutoCheck()) {
+      return;
+    }
+    if (resumeInFlightRef.current) {
+      return;
+    }
+    resumeInFlightRef.current = true;
+    try {
+      await service.reconcileAfterResume();
+      await runAutomaticCheck();
+    } catch {
+      // Resume darf die App nicht blockieren.
+    } finally {
+      resumeInFlightRef.current = false;
+    }
+  }, [runAutomaticCheck, service]);
 
   const checkNow = useCallback(async () => service.checkForUpdate({ manual: true }), [service]);
 
@@ -91,8 +111,8 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       return;
     }
     startedForUserRef.current = currentUser.id;
-    void runAutomaticCheck();
-  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service]);
+    void runForegroundReconcile();
+  }, [currentUser, currentUserCtx, isLoading, runForegroundReconcile, service]);
 
   useEffect(() => {
     if (typeof document === 'undefined' || !currentUserCtx) {
@@ -105,13 +125,13 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       if (isLoading || !currentUser || !service.shouldAutoCheck()) {
         return;
       }
-      void runAutomaticCheck();
+      void runForegroundReconcile();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [currentUser, currentUserCtx, isLoading, runAutomaticCheck, service]);
+  }, [currentUser, currentUserCtx, isLoading, runForegroundReconcile, service]);
 
   const shouldShowOptionalBanner = service.shouldShowOptionalBanner();
   const shouldShowBannerLaterAction = service.shouldShowBannerLaterAction();

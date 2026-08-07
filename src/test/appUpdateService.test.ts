@@ -4,7 +4,7 @@ import {
   deriveUpdateStatus,
   parseUpdateManifest,
 } from '../domain/appUpdate/updateManifest';
-import type { ApkCacheWriter } from '../native/apkUpdateNative';
+import type { ApkCacheWriter, ApkInstallerBridge } from '../native/apkUpdateNative';
 import { AppUpdateService } from '../services/appUpdateService';
 
 function validManifest(overrides: Record<string, unknown> = {}) {
@@ -50,19 +50,36 @@ function memoryCache(): ApkCacheWriter & { files: Map<string, ArrayBuffer> } {
   };
 }
 
+function stubInstaller(
+  overrides: Partial<ApkInstallerBridge> = {},
+  version: { versionName: string; versionCode: number } = {
+    versionName: '1.0.6',
+    versionCode: 10006,
+  },
+): ApkInstallerBridge {
+  return {
+    openFromCache: async () => undefined,
+    openUnknownSourcesSettings: async () => undefined,
+    getInstalledVersion: async () => ({ ...version }),
+    ...overrides,
+  };
+}
+
 function createService(options: ConstructorParameters<typeof AppUpdateService>[0] = {}) {
+  const installedVersionName = options.installedVersionName ?? '1.0.6';
+  const installedVersionCode = options.installedVersionCode ?? 10006;
+  const baseInstaller = stubInstaller({}, { versionName: installedVersionName, versionCode: installedVersionCode });
   return new AppUpdateService({
-    installedVersionName: '1.0.6',
-    installedVersionCode: 10006,
+    installedVersionName,
+    installedVersionCode,
     isNativeAndroidFn: () => true,
     log: () => undefined,
     preferenceStore: memoryStore(),
     apkCache: memoryCache(),
-    apkInstaller: {
-      openFromCache: async () => undefined,
-      openUnknownSourcesSettings: async () => undefined,
-    },
     ...options,
+    apkInstaller: options.apkInstaller
+      ? { ...baseInstaller, ...options.apkInstaller }
+      : baseInstaller,
   });
 }
 
@@ -298,6 +315,7 @@ describe('AppUpdateService native install', () => {
       apkInstaller: {
         openFromCache,
         openUnknownSourcesSettings: async () => undefined,
+        getInstalledVersion: async () => ({ versionName: '1.0.6', versionCode: 10006 }),
       },
       fetchImpl: async (input) => {
         const url = String(input);
@@ -323,5 +341,130 @@ describe('AppUpdateService native install', () => {
     expect(again.ok).toBe(true);
     expect(service.getSnapshot().status).toBe('readyToInstall');
     expect(openFromCache).toHaveBeenCalledTimes(2);
+
+    // Resume ohne Versionswechsel → readyToInstall bleibt
+    await service.reconcileAfterResume();
+    expect(service.getSnapshot().status).toBe('readyToInstall');
+    expect(service.shouldShowOptionalBanner()).toBe(true);
+  });
+
+  it('Resume nach Upgrade: State current, Banner weg, APK gelöscht', async () => {
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const sha256 = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const cache = memoryCache();
+    let installedCode = 10006;
+    const service = createService({
+      apkCache: cache,
+      apkInstaller: {
+        openFromCache: async () => undefined,
+        openUnknownSourcesSettings: async () => undefined,
+        getInstalledVersion: async () => ({
+          versionName: installedCode >= 10008 ? '1.0.8' : '1.0.6',
+          versionCode: installedCode,
+        }),
+      },
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.includes('latest.json')) {
+          return new Response(
+            JSON.stringify(
+              validManifest({
+                sha256,
+                sizeBytes: bytes.byteLength,
+                downloadUrl: 'https://example.com/app.apk',
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+        return new Response(bytes, { status: 200 });
+      },
+    });
+
+    await service.checkForUpdate();
+    expect(service.getSnapshot().status).toBe('available');
+    expect(service.shouldShowOptionalBanner()).toBe(true);
+
+    await service.startInstall();
+    expect(service.getSnapshot().status).toBe('readyToInstall');
+    expect(cache.files.size).toBe(1);
+
+    installedCode = 10008;
+    await service.reconcileAfterResume();
+
+    expect(service.getSnapshot().status).toBe('current');
+    expect(service.getSnapshot().installedVersionCode).toBe(10008);
+    expect(service.getSnapshot().manifest).toBeNull();
+    expect(service.getSnapshot().localApkRelativePath).toBeNull();
+    expect(cache.files.size).toBe(0);
+    expect(service.shouldShowOptionalBanner()).toBe(false);
+  });
+
+  it('alte lokale APK bei bereits aktueller App wird entfernt', async () => {
+    const cache = memoryCache();
+    let installedCode = 10006;
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const sha256 = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const service = createService({
+      apkCache: cache,
+      apkInstaller: {
+        openFromCache: async () => undefined,
+        openUnknownSourcesSettings: async () => undefined,
+        getInstalledVersion: async () => ({
+          versionName: installedCode >= 10008 ? '1.0.8' : '1.0.6',
+          versionCode: installedCode,
+        }),
+      },
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.includes('latest.json')) {
+          return new Response(
+            JSON.stringify(
+              validManifest({
+                sha256,
+                sizeBytes: bytes.byteLength,
+                downloadUrl: 'https://example.com/app.apk',
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+        return new Response(bytes, { status: 200 });
+      },
+    });
+
+    await service.checkForUpdate();
+    await service.startInstall();
+    expect(service.getSnapshot().status).toBe('readyToInstall');
+
+    installedCode = 10008;
+    await service.reconcileAfterResume();
+    expect(service.getSnapshot().status).toBe('current');
+    expect(service.getSnapshot().localApkRelativePath).toBeNull();
+    expect(cache.files.size).toBe(0);
+    expect(service.shouldShowOptionalBanner()).toBe(false);
+  });
+
+  it('parallele Resume-Reconciles teilen sich einen Lauf', async () => {
+    let calls = 0;
+    const service = createService({
+      apkInstaller: {
+        openFromCache: async () => undefined,
+        openUnknownSourcesSettings: async () => undefined,
+        getInstalledVersion: async () => {
+          calls += 1;
+          await new Promise((r) => setTimeout(r, 20));
+          return { versionName: '1.0.6', versionCode: 10006 };
+        },
+      },
+    });
+    await Promise.all([service.reconcileAfterResume(), service.reconcileAfterResume()]);
+    expect(calls).toBe(1);
   });
 });

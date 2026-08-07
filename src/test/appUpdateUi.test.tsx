@@ -9,7 +9,7 @@ import type { User } from '../domain/user/user';
 import { AppUpdateBanner } from '../features/appUpdate/AppUpdateBanner';
 import { AppUpdateGate } from '../features/appUpdate/AppUpdateGate';
 import { AppInfoSection } from '../features/profile/AppInfoSection';
-import type { ApkCacheWriter } from '../native/apkUpdateNative';
+import type { ApkCacheWriter, ApkInstallerBridge } from '../native/apkUpdateNative';
 import { AppUpdateService } from '../services/appUpdateService';
 
 function validManifest(overrides: Record<string, unknown> = {}) {
@@ -46,6 +46,15 @@ function memoryCache(): ApkCacheWriter {
   return {
     async write() {},
     async delete() {},
+  };
+}
+
+function stubInstaller(overrides: Partial<ApkInstallerBridge> = {}): ApkInstallerBridge {
+  return {
+    openFromCache: async () => undefined,
+    openUnknownSourcesSettings: async () => undefined,
+    getInstalledVersion: async () => ({ versionName: '1.0.6', versionCode: 10006 }),
+    ...overrides,
   };
 }
 
@@ -96,19 +105,19 @@ function renderAuthenticated(
 function createAndroidService(
   overrides: ConstructorParameters<typeof AppUpdateService>[0] = {},
 ) {
+  const baseInstaller = stubInstaller();
   return new AppUpdateService({
     installedVersionCode: 10006,
     installedVersionName: '1.0.6',
     isNativeAndroidFn: () => true,
     preferenceStore: memoryStore(),
     apkCache: memoryCache(),
-    apkInstaller: {
-      openFromCache: async () => undefined,
-      openUnknownSourcesSettings: async () => undefined,
-    },
     log: () => undefined,
     fetchImpl: async () => new Response(JSON.stringify(validManifest()), { status: 200 }),
     ...overrides,
+    apkInstaller: overrides.apkInstaller
+      ? { ...baseInstaller, ...overrides.apkInstaller }
+      : baseInstaller,
   });
 }
 

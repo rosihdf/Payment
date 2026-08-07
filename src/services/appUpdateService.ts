@@ -51,7 +51,8 @@ export interface AppUpdateServiceOptions {
   autoCheckIntervalMs?: number;
   snoozeMs?: number;
   apkCache?: ApkCacheWriter;
-  apkInstaller?: ApkInstallerBridge;
+  /** Teilweise stubs in Tests erlaubt; fehlendes getInstalledVersion fällt auf Build-Konstanten zurück. */
+  apkInstaller?: Partial<ApkInstallerBridge>;
   log?: (event: string, details?: Record<string, string | number | boolean | null>) => void;
 }
 
@@ -100,8 +101,8 @@ export class AppUpdateService {
   private readonly manifestUrl: string;
   private readonly timeoutMs: number;
   private readonly downloadTimeoutMs: number;
-  private readonly installedVersionName: string;
-  private readonly installedVersionCode: number;
+  private installedVersionName: string;
+  private installedVersionCode: number;
   private readonly isNativeAndroidFn: () => boolean;
   private readonly now: () => string;
   private readonly nowMs: () => number;
@@ -119,7 +120,10 @@ export class AppUpdateService {
   private snapshot: AppUpdateSnapshot;
   private checkPromise: Promise<AppUpdateSnapshot> | null = null;
   private installPromise: Promise<{ ok: true } | { ok: false; error: string }> | null = null;
+  private reconcilePromise: Promise<AppUpdateSnapshot> | null = null;
   private downloadAbort: AbortController | null = null;
+  /** Nach Installer-Öffnung: nächstes Resume erzwingt Versions-Reconcile. */
+  private awaitingInstallerReturn = false;
   private readonly listeners = new Set<AppUpdateListener>();
 
   constructor(options: AppUpdateServiceOptions = {}) {
@@ -137,7 +141,19 @@ export class AppUpdateService {
     this.autoCheckIntervalMs = options.autoCheckIntervalMs ?? APP_UPDATE_AUTO_CHECK_INTERVAL_MS;
     this.snoozeMs = options.snoozeMs ?? APP_UPDATE_SNOOZE_MS;
     this.apkCache = options.apkCache ?? createFilesystemApkCacheWriter();
-    this.apkInstaller = options.apkInstaller ?? createNativeApkInstallerBridge();
+    const nativeInstaller = createNativeApkInstallerBridge();
+    const partial = options.apkInstaller ?? {};
+    this.apkInstaller = {
+      openFromCache: partial.openFromCache ?? nativeInstaller.openFromCache,
+      openUnknownSourcesSettings:
+        partial.openUnknownSourcesSettings ?? nativeInstaller.openUnknownSourcesSettings,
+      getInstalledVersion:
+        partial.getInstalledVersion ??
+        (async () => ({
+          versionName: this.installedVersionName,
+          versionCode: this.installedVersionCode,
+        })),
+    };
     this.log = options.log ?? defaultLog;
 
     this.snapshot = createInitialAppUpdateSnapshot(
@@ -354,11 +370,13 @@ export class AppUpdateService {
       needsUnknownSourcesPermission: false,
     });
     try {
+      this.awaitingInstallerReturn = true;
       await this.apkInstaller.openFromCache(path);
-      // Nutzer kann Installer abbrechen → bereit halten.
+      // Nutzer kann Installer abbrechen → bereit halten, bis Resume die Version prüft.
       this.patch({ status: 'readyToInstall' });
       return { ok: true };
     } catch (error) {
+      this.awaitingInstallerReturn = false;
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes(INSTALL_SOURCE_BLOCKED) || (error instanceof Error && error.name === INSTALL_SOURCE_BLOCKED)) {
         this.patch({
@@ -398,6 +416,7 @@ export class AppUpdateService {
       void this.apkCache.delete(path);
     }
     clearUpdateSnooze(this.preferenceStore);
+    this.awaitingInstallerReturn = false;
     this.patch({
       ...createInitialAppUpdateSnapshot(
         this.installedVersionName,
@@ -407,7 +426,127 @@ export class AppUpdateService {
       status: 'current',
       lastCheckedAt: this.now(),
       errorMessage: null,
+      optionalDismissed: false,
+      downloadProgress: null,
+      downloadBytesReceived: null,
+      downloadBytesTotal: null,
+      localApkRelativePath: null,
+      needsUnknownSourcesPermission: false,
+      manifest: null,
     });
+    this.log('upgrade_reset', {
+      installedVersionCode: this.installedVersionCode,
+      installedVersionName: this.installedVersionName,
+    });
+  }
+
+  /**
+   * Liest die native installierte Version und setzt den State zurück,
+   * wenn sie >= der angebotenen Manifest-Version ist.
+   * Kein Manifest-Fetch – für Resume nach Installer.
+   */
+  async refreshInstalledVersionFromNative(): Promise<{
+    versionName: string;
+    versionCode: number;
+  }> {
+    if (!this.isNativeAndroidFn()) {
+      return {
+        versionName: this.installedVersionName,
+        versionCode: this.installedVersionCode,
+      };
+    }
+    const installed = await this.apkInstaller.getInstalledVersion();
+    this.installedVersionName = installed.versionName;
+    this.installedVersionCode = installed.versionCode;
+    this.patch({
+      installedVersionName: installed.versionName,
+      installedVersionCode: installed.versionCode,
+      isNativeAndroid: true,
+    });
+    this.log('installed_version_refreshed', {
+      versionName: installed.versionName,
+      versionCode: installed.versionCode,
+    });
+    return installed;
+  }
+
+  /**
+   * Resume-/Foreground-Reconcile:
+   * 1. Native Version neu lesen
+   * 2. Bei installed >= offered → current, Banner weg, APK löschen
+   * 3. Bei Abbruch (Version unverändert) → readyToInstall behalten
+   * Kein doppelter paralleler Lauf.
+   */
+  async reconcileAfterResume(): Promise<AppUpdateSnapshot> {
+    if (this.reconcilePromise) {
+      return this.reconcilePromise;
+    }
+
+    this.reconcilePromise = (async () => {
+      const wasAwaitingInstaller = this.awaitingInstallerReturn;
+      try {
+        if (!this.isNativeAndroidFn()) {
+          return this.getSnapshot();
+        }
+
+        // Während aktiver Download/Verify nicht in den Resume-Reset eingreifen.
+        if (
+          this.snapshot.status === 'downloading' ||
+          this.snapshot.status === 'verifying' ||
+          this.snapshot.status === 'checking'
+        ) {
+          return this.getSnapshot();
+        }
+
+        await this.refreshInstalledVersionFromNative();
+
+        const offeredCode = this.snapshot.manifest?.versionCode ?? null;
+        const localPath = this.snapshot.localApkRelativePath;
+
+        if (offeredCode != null && this.installedVersionCode >= offeredCode) {
+          this.resetAfterSuccessfulUpgrade();
+          recordAutomaticCheck(this.preferenceStore, this.nowMs());
+          return this.getSnapshot();
+        }
+
+        // Lokales Artefakt ohne gültiges Angebot oder bereits überholt: aufräumen.
+        if (localPath && (offeredCode == null || this.installedVersionCode >= offeredCode)) {
+          void this.apkCache.delete(localPath);
+          if (offeredCode == null) {
+            this.patch({
+              localApkRelativePath: null,
+              downloadProgress: null,
+              downloadBytesReceived: null,
+              downloadBytesTotal: null,
+              needsUnknownSourcesPermission: false,
+              status:
+                this.snapshot.status === 'readyToInstall' || this.snapshot.status === 'installing'
+                  ? 'idle'
+                  : this.snapshot.status,
+            });
+          }
+        }
+
+        if (wasAwaitingInstaller) {
+          this.awaitingInstallerReturn = false;
+          // Installer abgebrochen / Version unverändert → readyToInstall beibehalten.
+          if (
+            localPath &&
+            offeredCode != null &&
+            this.installedVersionCode < offeredCode &&
+            (this.snapshot.status === 'readyToInstall' || this.snapshot.status === 'installing')
+          ) {
+            this.patch({ status: 'readyToInstall' });
+          }
+        }
+
+        return this.getSnapshot();
+      } finally {
+        this.reconcilePromise = null;
+      }
+    })();
+
+    return this.reconcilePromise;
   }
 
   private applySnoozeState(status: AppUpdateStatus, versionCode: number | null): boolean {
@@ -432,6 +571,10 @@ export class AppUpdateService {
     });
 
     try {
+      if (this.isNativeAndroidFn()) {
+        await this.refreshInstalledVersionFromNative();
+      }
+
       const response = await this.fetchImpl(this.manifestUrl, {
         method: 'GET',
         signal: controller.signal,

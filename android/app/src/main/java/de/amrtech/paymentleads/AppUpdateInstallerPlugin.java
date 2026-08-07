@@ -3,6 +3,7 @@ package de.amrtech.paymentleads;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -60,6 +61,36 @@ public class AppUpdateInstallerPlugin extends Plugin {
         }
         result.put("allowed", allowed);
         call.resolve(result);
+    }
+
+    /**
+     * Liest die tatsächlich installierte App-Version aus dem PackageManager
+     * (Wahrheit nach In-App-Upgrade, unabhängig vom JS-Bundle-Stand).
+     */
+    @PluginMethod
+    public void getInstalledVersion(final PluginCall call) {
+        try {
+            final PackageManager pm = getContext().getPackageManager();
+            final String packageName = getContext().getPackageName();
+            final PackageInfo info;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                info = pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0));
+            } else {
+                info = pm.getPackageInfo(packageName, 0);
+            }
+            final JSObject result = new JSObject();
+            result.put("versionName", info.versionName != null ? info.versionName : "");
+            final long versionCode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                versionCode = info.getLongVersionCode();
+            } else {
+                versionCode = info.versionCode;
+            }
+            result.put("versionCode", versionCode);
+            call.resolve(result);
+        } catch (final Exception e) {
+            call.reject("Installierte App-Version konnte nicht gelesen werden.", e);
+        }
     }
 
     @PluginMethod

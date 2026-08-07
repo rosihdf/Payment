@@ -1,5 +1,10 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
-import { AppUpdateInstaller, INSTALL_SOURCE_BLOCKED } from './appUpdateInstaller';
+import {
+  AppUpdateInstaller,
+  INSTALL_SOURCE_BLOCKED,
+  type InstalledAppVersion,
+} from './appUpdateInstaller';
+import { APP_VERSION, APP_VERSION_CODE } from '../utils/appInfo';
 
 export const APP_UPDATE_CACHE_DIR = 'amrtech-updates';
 
@@ -27,6 +32,8 @@ export interface ApkCacheWriter {
 export interface ApkInstallerBridge {
   openFromCache(relativePath: string): Promise<void>;
   openUnknownSourcesSettings(): Promise<void>;
+  /** PackageManager – Wahrheit nach Upgrade. Fallback: Build-Konstanten. */
+  getInstalledVersion(): Promise<InstalledAppVersion>;
 }
 
 export function createFilesystemApkCacheWriter(): ApkCacheWriter {
@@ -70,7 +77,23 @@ export function createNativeApkInstallerBridge(): ApkInstallerBridge {
     async openUnknownSourcesSettings() {
       await AppUpdateInstaller.openUnknownSourcesSettings();
     },
+    async getInstalledVersion() {
+      try {
+        const result = await AppUpdateInstaller.getInstalledVersion();
+        const versionCode = Number(result.versionCode);
+        if (!Number.isFinite(versionCode) || versionCode < 1) {
+          throw new Error('invalid versionCode');
+        }
+        return {
+          versionName: result.versionName?.trim() || APP_VERSION,
+          versionCode: Math.trunc(versionCode),
+        };
+      } catch {
+        return { versionName: APP_VERSION, versionCode: APP_VERSION_CODE };
+      }
+    },
   };
 }
 
 export { INSTALL_SOURCE_BLOCKED };
+export type { InstalledAppVersion };
