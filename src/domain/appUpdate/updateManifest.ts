@@ -1,6 +1,12 @@
 export const ANDROID_UPDATE_MANIFEST_URL =
   'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json';
 
+export {
+  ANDROID_UPDATE_MANIFEST_URL_PRODUCTION,
+  ANDROID_UPDATE_MANIFEST_URL_TEST,
+  type AppUpdateChannel,
+} from './appUpdateChannel';
+
 export const APP_UPDATE_FETCH_TIMEOUT_MS = 12_000;
 export const APP_UPDATE_DOWNLOAD_TIMEOUT_MS = 180_000;
 
@@ -46,6 +52,9 @@ export interface AppUpdateSnapshot {
   downloadBytesTotal: number | null;
   localApkRelativePath: string | null;
   needsUnknownSourcesPermission: boolean;
+  /** production | test – steuert Manifest-URL. */
+  updateChannel: 'production' | 'test';
+  developerModeEnabled: boolean;
 }
 
 const SHA256_HEX = /^[a-f0-9]{64}$/i;
@@ -201,6 +210,8 @@ export function createInitialAppUpdateSnapshot(
   installedVersionName: string,
   installedVersionCode: number,
   isNativeAndroid: boolean,
+  updateChannel: 'production' | 'test' = 'production',
+  developerModeEnabled = false,
 ): AppUpdateSnapshot {
   return {
     status: isNativeAndroid ? 'idle' : 'current',
@@ -216,5 +227,7 @@ export function createInitialAppUpdateSnapshot(
     downloadBytesTotal: null,
     localApkRelativePath: null,
     needsUnknownSourcesPermission: false,
+    updateChannel,
+    developerModeEnabled,
   };
 }

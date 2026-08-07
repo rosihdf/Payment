@@ -24,6 +24,11 @@ interface AppUpdateContextValue {
   dismissOptional: () => void;
   openUnknownSourcesSettings: () => Promise<void>;
   openBrowserFallback: () => { ok: true } | { ok: false; error: string };
+  enableDeveloperMode: () => void;
+  hideDeveloperOptions: () => void;
+  setUpdateChannel: (channel: 'production' | 'test') => Promise<AppUpdateSnapshot>;
+  clearUpdateCache: () => Promise<AppUpdateSnapshot>;
+  deactivateTestChannel: () => Promise<AppUpdateSnapshot>;
   shouldShowOptionalBanner: boolean;
   shouldShowBannerLaterAction: boolean;
   service: AppUpdateService;
@@ -96,6 +101,26 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
 
   const openBrowserFallback = useCallback(() => service.openBrowserFallback(), [service]);
 
+  const enableDeveloperMode = useCallback(() => {
+    service.enableDeveloperMode();
+  }, [service]);
+
+  const hideDeveloperOptions = useCallback(() => {
+    service.hideDeveloperOptions();
+  }, [service]);
+
+  const setUpdateChannel = useCallback(
+    async (channel: 'production' | 'test') => service.setUpdateChannel(channel),
+    [service],
+  );
+
+  const clearUpdateCache = useCallback(async () => service.clearUpdateCache(), [service]);
+
+  const deactivateTestChannel = useCallback(
+    async () => service.deactivateTestChannel(),
+    [service],
+  );
+
   useEffect(() => {
     if (!currentUserCtx) {
       return;
@@ -146,6 +171,11 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       dismissOptional,
       openUnknownSourcesSettings,
       openBrowserFallback,
+      enableDeveloperMode,
+      hideDeveloperOptions,
+      setUpdateChannel,
+      clearUpdateCache,
+      deactivateTestChannel,
       shouldShowOptionalBanner,
       shouldShowBannerLaterAction,
       service,
@@ -159,6 +189,11 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       dismissOptional,
       openUnknownSourcesSettings,
       openBrowserFallback,
+      enableDeveloperMode,
+      hideDeveloperOptions,
+      setUpdateChannel,
+      clearUpdateCache,
+      deactivateTestChannel,
       shouldShowOptionalBanner,
       shouldShowBannerLaterAction,
       service,

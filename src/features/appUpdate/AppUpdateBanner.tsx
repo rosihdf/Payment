@@ -39,7 +39,12 @@ export function AppUpdateBanner() {
   return (
     <div className={styles.optionalBanner} role="status" aria-live="polite">
       <div className={styles.bannerText}>
-        <strong className={styles.bannerTitle}>Neue Version verfügbar</strong>
+        <strong className={styles.bannerTitle}>
+          Neue Version verfügbar
+          {snapshot.developerModeEnabled && snapshot.updateChannel === 'test' ? (
+            <span className={styles.testBadge}> TEST</span>
+          ) : null}
+        </strong>
         <span className={styles.bannerVersion}>Version {manifest.versionName}</span>
         <span className={styles.bannerSubtitle}>
           Eine neue Version von {APP_DISPLAY_NAME} steht bereit.

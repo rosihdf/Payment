@@ -46,6 +46,13 @@ const ALLOWED_PATHS = new Set([
   '/android/v1.0.9/AMRtech-Payment-1.0.9.apk',
   '/android/v1.0.9/AMRtech-Payment-1.0.9.apk.sha256',
   '/android/v1.0.9/manifest.json',
+  '/android/v1.0.10/AMRtech-Payment-1.0.10.apk',
+  '/android/v1.0.10/AMRtech-Payment-1.0.10.apk.sha256',
+  '/android/v1.0.10/manifest.json',
+  '/android/latest-test.json',
+  '/android/latest-test.apk',
+  '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk',
+  '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk.sha256',
 ]);
 
 /** Öffentliche Release-Dateien; Capacitor Android nutzt https://localhost als Origin. */
@@ -71,7 +78,7 @@ function contentTypeFor(path: string): string {
 }
 
 function cacheControlFor(path: string): string {
-  if (path.includes('/latest.')) {
+  if (path.includes('/latest.') || path.includes('/latest-test.')) {
     return 'public, max-age=300, must-revalidate';
   }
   return 'public, max-age=31536000, immutable';

@@ -1,4 +1,10 @@
+import { useCallback, useRef, useState } from 'react';
 import { useAppUpdate } from '../../app/providers/AppUpdateProvider';
+import {
+  DEVELOPER_MODE_TAP_COUNT,
+  DEVELOPER_MODE_TAP_WINDOW_MS,
+  type AppUpdateChannel,
+} from '../../domain/appUpdate/appUpdateChannel';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import { formatBytes, formatDateTime } from '../../utils/format';
 import styles from './ProfilePage.module.css';
@@ -31,6 +37,10 @@ function statusLabel(snapshot: ReturnType<typeof useAppUpdate>['snapshot']): str
   }
 }
 
+function channelLabel(channel: AppUpdateChannel): string {
+  return channel === 'test' ? 'Test' : 'Produktion';
+}
+
 export function AppInfoSection() {
   const {
     snapshot,
@@ -40,7 +50,30 @@ export function AppInfoSection() {
     cancelDownload,
     openUnknownSourcesSettings,
     openBrowserFallback,
+    enableDeveloperMode,
+    hideDeveloperOptions,
+    setUpdateChannel,
+    clearUpdateCache,
+    deactivateTestChannel,
   } = useAppUpdate();
+
+  const [devToast, setDevToast] = useState<string | null>(null);
+  const tapTimesRef = useRef<number[]>([]);
+
+  const onVersionTap = useCallback(() => {
+    const now = Date.now();
+    const recent = tapTimesRef.current.filter((t) => now - t <= DEVELOPER_MODE_TAP_WINDOW_MS);
+    recent.push(now);
+    tapTimesRef.current = recent;
+    if (recent.length >= DEVELOPER_MODE_TAP_COUNT) {
+      tapTimesRef.current = [];
+      if (!snapshot.developerModeEnabled) {
+        enableDeveloperMode();
+        setDevToast('Entwickleroptionen aktiviert');
+        window.setTimeout(() => setDevToast(null), 2500);
+      }
+    }
+  }, [enableDeveloperMode, snapshot.developerModeEnabled]);
 
   const manifest = snapshot.manifest;
   const hasOffer =
@@ -78,12 +111,30 @@ export function AppInfoSection() {
         </div>
         <div className={styles.row}>
           <dt>Installierte Version</dt>
-          <dd>{snapshot.installedVersionName}</dd>
+          <dd>
+            <button
+              type="button"
+              className={styles.versionTapTarget}
+              onClick={onVersionTap}
+              aria-label={`Version ${snapshot.installedVersionName}`}
+            >
+              {snapshot.installedVersionName}
+              {snapshot.developerModeEnabled && snapshot.updateChannel === 'test' ? (
+                <span className={styles.testBadge}>TEST</span>
+              ) : null}
+            </button>
+          </dd>
         </div>
         <div className={styles.row}>
           <dt>Buildnummer</dt>
           <dd>{snapshot.installedVersionCode}</dd>
         </div>
+        {snapshot.developerModeEnabled ? (
+          <div className={styles.row}>
+            <dt>Updatekanal</dt>
+            <dd>{channelLabel(snapshot.updateChannel)}</dd>
+          </div>
+        ) : null}
         <div className={styles.row}>
           <dt>Letzte Updateprüfung</dt>
           <dd>
@@ -146,6 +197,8 @@ export function AppInfoSection() {
           </div>
         ) : null}
       </dl>
+
+      {devToast ? <p className={styles.devToast}>{devToast}</p> : null}
 
       <div className={styles.appInfoActions}>
         {showCheckFirst ? (
@@ -249,6 +302,71 @@ export function AppInfoSection() {
           </button>
         ) : null}
       </div>
+
+      {snapshot.developerModeEnabled ? (
+        <div className={styles.developerOptions} aria-labelledby="developer-options-title">
+          <h3 id="developer-options-title" className={styles.developerTitle}>
+            Entwickleroptionen
+          </h3>
+          <label className={styles.developerField} htmlFor="update-channel-select">
+            Updatekanal
+            <select
+              id="update-channel-select"
+              className={styles.developerSelect}
+              value={snapshot.updateChannel}
+              disabled={busy}
+              onChange={(event) => {
+                void setUpdateChannel(event.target.value as AppUpdateChannel);
+              }}
+            >
+              <option value="production">Produktion</option>
+              <option value="test">Test</option>
+            </select>
+          </label>
+          <div className={styles.appInfoActions}>
+            <button
+              type="button"
+              className={styles.adminLink}
+              disabled={busy || !snapshot.isNativeAndroid}
+              onClick={() => {
+                void checkNow();
+              }}
+            >
+              Jetzt prüfen
+            </button>
+            <button
+              type="button"
+              className={styles.adminLink}
+              disabled={busy}
+              onClick={() => {
+                void clearUpdateCache();
+              }}
+            >
+              Update-Cache löschen
+            </button>
+            <button
+              type="button"
+              className={styles.adminLink}
+              disabled={busy}
+              onClick={() => {
+                void deactivateTestChannel();
+              }}
+            >
+              Testkanal deaktivieren
+            </button>
+            <button
+              type="button"
+              className={styles.adminLink}
+              disabled={busy}
+              onClick={() => {
+                hideDeveloperOptions();
+              }}
+            >
+              Entwickleroptionen ausblenden
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {!snapshot.isNativeAndroid ? (
         <p className={styles.appInfoMessage}>

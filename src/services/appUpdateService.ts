@@ -10,7 +10,14 @@ import {
   clearUpdateSnooze,
 } from '../domain/appUpdate/appUpdatePreferences';
 import {
-  ANDROID_UPDATE_MANIFEST_URL,
+  type AppUpdateChannel,
+  manifestUrlForChannel,
+  readAppUpdateChannel,
+  readDeveloperModeEnabled,
+  writeAppUpdateChannel,
+  writeDeveloperModeEnabled,
+} from '../domain/appUpdate/appUpdateChannel';
+import {
   APP_UPDATE_DOWNLOAD_TIMEOUT_MS,
   APP_UPDATE_FETCH_TIMEOUT_MS,
   type AppUpdateSnapshot,
@@ -54,6 +61,8 @@ export interface AppUpdateServiceOptions {
   /** Teilweise stubs in Tests erlaubt; fehlendes getInstalledVersion fällt auf Build-Konstanten zurück. */
   apkInstaller?: Partial<ApkInstallerBridge>;
   log?: (event: string, details?: Record<string, string | number | boolean | null>) => void;
+  updateChannel?: AppUpdateChannel;
+  developerModeEnabled?: boolean;
 }
 
 async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
@@ -98,7 +107,7 @@ function looksLikeApkZip(buffer: ArrayBuffer): boolean {
 
 export class AppUpdateService {
   private readonly fetchImpl: AppUpdateFetch;
-  private readonly manifestUrl: string;
+  private manifestUrl: string;
   private readonly timeoutMs: number;
   private readonly downloadTimeoutMs: number;
   private installedVersionName: string;
@@ -128,7 +137,6 @@ export class AppUpdateService {
 
   constructor(options: AppUpdateServiceOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
-    this.manifestUrl = options.manifestUrl ?? ANDROID_UPDATE_MANIFEST_URL;
     this.timeoutMs = options.timeoutMs ?? APP_UPDATE_FETCH_TIMEOUT_MS;
     this.downloadTimeoutMs = options.downloadTimeoutMs ?? APP_UPDATE_DOWNLOAD_TIMEOUT_MS;
     this.installedVersionName = options.installedVersionName ?? APP_VERSION;
@@ -156,10 +164,18 @@ export class AppUpdateService {
     };
     this.log = options.log ?? defaultLog;
 
+    const channel =
+      options.updateChannel ?? readAppUpdateChannel(this.preferenceStore);
+    const developerMode =
+      options.developerModeEnabled ?? readDeveloperModeEnabled(this.preferenceStore);
+    this.manifestUrl = options.manifestUrl ?? manifestUrlForChannel(channel);
+
     this.snapshot = createInitialAppUpdateSnapshot(
       this.installedVersionName,
       this.installedVersionCode,
       this.isNativeAndroidFn(),
+      channel,
+      developerMode,
     );
   }
 
@@ -422,6 +438,8 @@ export class AppUpdateService {
         this.installedVersionName,
         this.installedVersionCode,
         this.isNativeAndroidFn(),
+        this.snapshot.updateChannel,
+        this.snapshot.developerModeEnabled,
       ),
       status: 'current',
       lastCheckedAt: this.now(),
@@ -438,6 +456,105 @@ export class AppUpdateService {
       installedVersionCode: this.installedVersionCode,
       installedVersionName: this.installedVersionName,
     });
+  }
+
+  getUpdateChannel(): AppUpdateChannel {
+    return this.snapshot.updateChannel;
+  }
+
+  isDeveloperModeEnabled(): boolean {
+    return this.snapshot.developerModeEnabled;
+  }
+
+  enableDeveloperMode(): void {
+    writeDeveloperModeEnabled(this.preferenceStore, true);
+    this.patch({ developerModeEnabled: true });
+    this.log('developer_mode_enabled', {});
+  }
+
+  hideDeveloperOptions(): void {
+    writeDeveloperModeEnabled(this.preferenceStore, false);
+    this.patch({ developerModeEnabled: false });
+  }
+
+  /**
+   * Wechselt den Updatekanal und setzt Manifest-/Download-State zurück.
+   */
+  async setUpdateChannel(channel: AppUpdateChannel): Promise<AppUpdateSnapshot> {
+    if (channel === this.snapshot.updateChannel) {
+      return this.getSnapshot();
+    }
+    await this.clearUpdateCacheInternal();
+    writeAppUpdateChannel(this.preferenceStore, channel);
+    this.manifestUrl = manifestUrlForChannel(channel);
+    this.patch({
+      updateChannel: channel,
+      status: this.isNativeAndroidFn() ? 'idle' : 'current',
+      manifest: null,
+      lastCheckedAt: null,
+      errorMessage: null,
+      optionalDismissed: false,
+      downloadProgress: null,
+      downloadBytesReceived: null,
+      downloadBytesTotal: null,
+      localApkRelativePath: null,
+      needsUnknownSourcesPermission: false,
+    });
+    this.log('update_channel_changed', { channel });
+    return this.getSnapshot();
+  }
+
+  /** Snooze + lokales APK + Manifest-State löschen; Kanal bleibt. */
+  async clearUpdateCache(): Promise<AppUpdateSnapshot> {
+    await this.clearUpdateCacheInternal();
+    this.patch({
+      status: this.isNativeAndroidFn() ? 'idle' : 'current',
+      manifest: null,
+      lastCheckedAt: null,
+      errorMessage: null,
+      optionalDismissed: false,
+      downloadProgress: null,
+      downloadBytesReceived: null,
+      downloadBytesTotal: null,
+      localApkRelativePath: null,
+      needsUnknownSourcesPermission: false,
+    });
+    return this.getSnapshot();
+  }
+
+  /** Testkanal → Produktion, Cache/Snooze/State zurücksetzen. Entwicklermodus bleibt. */
+  async deactivateTestChannel(): Promise<AppUpdateSnapshot> {
+    await this.clearUpdateCacheInternal();
+    writeAppUpdateChannel(this.preferenceStore, 'production');
+    this.manifestUrl = manifestUrlForChannel('production');
+    this.patch({
+      updateChannel: 'production',
+      status: this.isNativeAndroidFn() ? 'idle' : 'current',
+      manifest: null,
+      lastCheckedAt: null,
+      errorMessage: null,
+      optionalDismissed: false,
+      downloadProgress: null,
+      downloadBytesReceived: null,
+      downloadBytesTotal: null,
+      localApkRelativePath: null,
+      needsUnknownSourcesPermission: false,
+    });
+    this.log('test_channel_deactivated', {});
+    return this.getSnapshot();
+  }
+
+  private async clearUpdateCacheInternal(): Promise<void> {
+    if (this.downloadAbort) {
+      this.downloadAbort.abort();
+      this.downloadAbort = null;
+    }
+    const path = this.snapshot.localApkRelativePath;
+    if (path) {
+      await this.apkCache.delete(path);
+    }
+    clearUpdateSnooze(this.preferenceStore);
+    this.awaitingInstallerReturn = false;
   }
 
   /**
