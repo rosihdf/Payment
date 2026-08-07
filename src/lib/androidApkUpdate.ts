@@ -1,20 +1,27 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { isNewerVersion, isSemverComparable } from './versionUtils';
-import {
-  ANDROID_UPDATE_MANIFEST_URL_PRODUCTION,
-  manifestUrlForChannel,
-  readAppUpdateChannel,
-} from './appUpdateChannel';
 
-/** Produktiv-Manifest Payment. */
-export const ANDROID_UPDATE_MANIFEST_URL = ANDROID_UPDATE_MANIFEST_URL_PRODUCTION;
+/** Produktiv-Manifest Payment (einzige Update-URL). */
+export const ANDROID_UPDATE_MANIFEST_URL =
+  'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json';
 
 export const ANDROID_FALLBACK_APK_URL =
   'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.apk';
 
-export const ANDROID_FALLBACK_APK_URL_TEST =
-  'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest-test.apk';
+/** Einmalig alte Testkanal-/DevMode-Keys aus früheren Builds entfernen. */
+const STALE_UPDATE_PREF_KEYS = ['app_update_channel', 'app_update_developer_mode'] as const;
+
+export function clearStaleUpdateChannelPreferences(): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    for (const key of STALE_UPDATE_PREF_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Bekanntes JSON-Format (Wartung) + Payment-Feldnamen als Alias. */
 export type AndroidLatestManifest = {
@@ -63,15 +70,16 @@ export function parseAndroidLatestManifest(raw: unknown): AndroidLatestManifest 
 }
 
 export function resolveAndroidUpdateManifestUrl(): string {
+  clearStaleUpdateChannelPreferences();
   const explicit = import.meta.env.VITE_ANDROID_UPDATE_MANIFEST_URL?.trim();
   if (explicit) return explicit;
-  return manifestUrlForChannel(readAppUpdateChannel());
+  return ANDROID_UPDATE_MANIFEST_URL;
 }
 
 export function resolveApkDownloadUrl(manifest: AndroidLatestManifest | null): string {
   const u = manifest?.apkUrl?.trim();
   if (u && u.startsWith('https://')) return u;
-  return readAppUpdateChannel() === 'test' ? ANDROID_FALLBACK_APK_URL_TEST : ANDROID_FALLBACK_APK_URL;
+  return ANDROID_FALLBACK_APK_URL;
 }
 
 export function appendManifestFetchCacheBuster(manifestUrl: string, nonceMs: number): string {

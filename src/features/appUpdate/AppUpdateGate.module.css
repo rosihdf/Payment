@@ -25,17 +25,6 @@
   color: var(--color-primary);
 }
 
-.testBadge {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold, 600);
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-}
-
-.bannerVersion {
-  font-weight: var(--font-weight-medium);
-}
-
 .bannerSubtitle,
 .bannerNotes {
   color: var(--color-text-muted);

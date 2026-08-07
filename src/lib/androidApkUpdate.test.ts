@@ -114,7 +114,6 @@ describe('compareAndroidInstallToManifest', () => {
 
 describe('resolveAndroidUpdateManifestUrl', () => {
   it('liefert Payment-Produktions-URL ohne Override', () => {
-    localStorage.removeItem('app_update_channel');
     vi.stubEnv('VITE_ANDROID_UPDATE_MANIFEST_URL', '');
     expect(resolveAndroidUpdateManifestUrl()).toBe(ANDROID_UPDATE_MANIFEST_URL);
     vi.unstubAllEnvs();
@@ -123,6 +122,16 @@ describe('resolveAndroidUpdateManifestUrl', () => {
   it('respektiert expliziten Override', () => {
     vi.stubEnv('VITE_ANDROID_UPDATE_MANIFEST_URL', 'https://example.dev/android/latest.json');
     expect(resolveAndroidUpdateManifestUrl()).toBe('https://example.dev/android/latest.json');
+    vi.unstubAllEnvs();
+  });
+
+  it('entfernt veraltete Testkanal-Keys', () => {
+    localStorage.setItem('app_update_channel', 'test');
+    localStorage.setItem('app_update_developer_mode', '1');
+    vi.stubEnv('VITE_ANDROID_UPDATE_MANIFEST_URL', '');
+    expect(resolveAndroidUpdateManifestUrl()).toBe(ANDROID_UPDATE_MANIFEST_URL);
+    expect(localStorage.getItem('app_update_channel')).toBeNull();
+    expect(localStorage.getItem('app_update_developer_mode')).toBeNull();
     vi.unstubAllEnvs();
   });
 });

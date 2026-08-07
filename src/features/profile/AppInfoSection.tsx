@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { getAppBuildInfo } from '../../lib/appBuildInfo';
 import {
@@ -11,15 +11,6 @@ import {
   readAndroidApkDownloadState,
 } from '../../lib/androidApkDownloadState';
 import { AppUpdateDownload } from '../../lib/appUpdateDownload';
-import {
-  DEVELOPER_MODE_TAP_COUNT,
-  DEVELOPER_MODE_TAP_WINDOW_MS,
-  readAppUpdateChannel,
-  readDeveloperModeEnabled,
-  writeAppUpdateChannel,
-  writeDeveloperModeEnabled,
-  type AppUpdateChannel,
-} from '../../lib/appUpdateChannel';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './ProfilePage.module.css';
 
@@ -40,11 +31,6 @@ export function AppInfoSection() {
   const [busy, setBusy] = useState(false);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
   const [downloadActive, setDownloadActive] = useState(false);
-  const [developerMode, setDeveloperMode] = useState(() => readDeveloperModeEnabled());
-  const [channel, setChannel] = useState<AppUpdateChannel>(() => readAppUpdateChannel());
-  const [devToast, setDevToast] = useState<string | null>(null);
-  const tapCountRef = useRef(0);
-  const tapWindowStartRef = useRef(0);
 
   const refreshManifest = ctx?.refreshManifest;
   const installKind = ctx?.installKind;
@@ -132,29 +118,6 @@ export function AppInfoSection() {
     }
   };
 
-  const handleVersionTap = () => {
-    const now = Date.now();
-    if (now - tapWindowStartRef.current > DEVELOPER_MODE_TAP_WINDOW_MS) {
-      tapCountRef.current = 0;
-      tapWindowStartRef.current = now;
-    }
-    tapCountRef.current += 1;
-    if (tapCountRef.current < DEVELOPER_MODE_TAP_COUNT) return;
-    tapCountRef.current = 0;
-    writeDeveloperModeEnabled(true);
-    setDeveloperMode(true);
-    setDevToast('Entwickleroptionen freigeschaltet');
-  };
-
-  const handleChannelChange = async (next: AppUpdateChannel) => {
-    writeAppUpdateChannel(next);
-    setChannel(next);
-    setDevToast(next === 'test' ? 'Testkanal aktiv' : 'Produktionskanal aktiv');
-    if (ctx) {
-      await ctx.refreshManifest({ force: true, reason: 'manual' });
-    }
-  };
-
   if (!ctx || ctx.installKind !== 'android') {
     return (
       <section className={styles.appInfo} aria-labelledby="app-info-heading">
@@ -168,11 +131,7 @@ export function AppInfoSection() {
           </div>
           <div className={styles.row}>
             <dt>Version</dt>
-            <dd>
-              <button type="button" className={styles.versionTapTarget} onClick={handleVersionTap}>
-                {info.version}
-              </button>
-            </dd>
+            <dd>{info.version}</dd>
           </div>
           <div className={styles.row}>
             <dt>Hinweis</dt>
@@ -206,7 +165,6 @@ export function AppInfoSection() {
       ) : null}
 
       {flowMessage ? <p className={styles.appInfoMessage}>{flowMessage}</p> : null}
-      {devToast ? <p className={styles.devToast}>{devToast}</p> : null}
 
       <dl className={styles.appInfoList}>
         <div className={styles.row}>
@@ -215,12 +173,7 @@ export function AppInfoSection() {
         </div>
         <div className={styles.row}>
           <dt>Installierte Version</dt>
-          <dd>
-            <button type="button" className={styles.versionTapTarget} onClick={handleVersionTap}>
-              {installedLabel}
-              {channel === 'test' ? <span className={styles.testBadge}>TEST</span> : null}
-            </button>
-          </dd>
+          <dd>{installedLabel}</dd>
         </div>
         {ctx.hasCheckedOnce && !ctx.checking ? (
           <div className={styles.row}>
@@ -271,25 +224,6 @@ export function AppInfoSection() {
           </button>
         ) : null}
       </div>
-
-      {developerMode ? (
-        <div className={styles.developerOptions}>
-          <h3 className={styles.developerTitle}>Entwickleroptionen</h3>
-          <label className={styles.developerField}>
-            Updatekanal
-            <select
-              className={styles.developerSelect}
-              value={channel}
-              onChange={(e) => {
-                void handleChannelChange(e.target.value === 'test' ? 'test' : 'production');
-              }}
-            >
-              <option value="production">Produktion (latest.json)</option>
-              <option value="test">Test (latest-test.json)</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
     </section>
   );
 }
