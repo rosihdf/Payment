@@ -3,14 +3,12 @@ package de.amrtech.paymentleads;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 
 import androidx.core.content.FileProvider;
 
-import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -21,20 +19,15 @@ import java.io.IOException;
 
 /**
  * Öffnet eine APK unter {@link android.content.Context#getCacheDir()} über FileProvider und Intent {@link
- * Intent#ACTION_VIEW} (Paketinstaller). Keine stille Installation – der Nutzer bestätigt im Systemdialog.
- * Installer-Logik 1:1 wie ArioVan Wartung ({@code AppUpdateInstallerPlugin}).
+ * Intent#ACTION_VIEW} (Paketinstaller). 1:1 ArioVan Wartung.
  */
 @CapacitorPlugin(name = "AppUpdateInstaller")
 public class AppUpdateInstallerPlugin extends Plugin {
 
-    /**
-     * Präfix ist für Client/TypeScript gedacht ({@literal install_source_blocked}), damit die UI ohne fragile
-     * Parsing-Mechanismen weiterhelfen kann.
-     */
     public static final String MSG_INSTALL_SOURCE_BLOCKED =
             "install_source_blocked: Falls Android die Installation blockiert: unter Einstellungen die Installation aus "
                     + "dieser Quelle für AMRtech Payment erlauben („Apps aus unbekannten Quellen“ / Paketinstaller). Danach "
-                    + "„Installation starten“ erneut tippen.";
+                    + "„Update installieren“ erneut tippen.";
 
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
@@ -53,39 +46,6 @@ public class AppUpdateInstallerPlugin extends Plugin {
         return false;
     }
 
-    /**
-     * Payment-Erweiterung: liest die installierte Version aus dem PackageManager
-     * (Wahrheit nach In-App-Upgrade für State-Reconcile).
-     */
-    @PluginMethod
-    public void getInstalledVersion(final PluginCall call) {
-        try {
-            final PackageManager pm = getContext().getPackageManager();
-            final String packageName = getContext().getPackageName();
-            final PackageInfo info;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                info = pm.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0));
-            } else {
-                info = pm.getPackageInfo(packageName, 0);
-            }
-            final JSObject result = new JSObject();
-            result.put("versionName", info.versionName != null ? info.versionName : "");
-            final long versionCode;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                versionCode = info.getLongVersionCode();
-            } else {
-                versionCode = info.versionCode;
-            }
-            result.put("versionCode", versionCode);
-            call.resolve(result);
-        } catch (final Exception e) {
-            call.reject("Installierte App-Version konnte nicht gelesen werden.", e);
-        }
-    }
-
-    /**
-     * @param relativePath Relativ zum internen Cache z.&nbsp;B. {@code amrtech-updates/AMRtech-Payment-1.0.11.apk}.
-     */
     @PluginMethod
     public void openApkFromCacheRelativePath(final PluginCall call) {
         final String rel = call.getString("relativePath");

@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { AppUpdateProvider } from './AppUpdateProvider';
+import { AndroidApkUpdateProvider } from '../../context/AndroidApkUpdateProvider';
 import { CurrentUserProvider } from './CurrentUserProvider';
 import { ServicesProvider } from './ServicesProvider';
 import { ToastProvider } from './ToastProvider';
@@ -12,9 +12,9 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ServicesProvider>
       <CurrentUserProvider>
-        <AppUpdateProvider>
+        <AndroidApkUpdateProvider>
           <ToastProvider>{children}</ToastProvider>
-        </AppUpdateProvider>
+        </AndroidApkUpdateProvider>
       </CurrentUserProvider>
     </ServicesProvider>
   );
