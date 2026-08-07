@@ -48,7 +48,6 @@ export function AppInfoSection() {
     startInstall,
     openInstaller,
     cancelDownload,
-    openUnknownSourcesSettings,
     openBrowserFallback,
     enableDeveloperMode,
     hideDeveloperOptions,
@@ -187,15 +186,6 @@ export function AppInfoSection() {
             <dd>{snapshot.errorMessage}</dd>
           </div>
         ) : null}
-        {snapshot.needsUnknownSourcesPermission ? (
-          <div className={styles.row}>
-            <dt>Hinweis</dt>
-            <dd>
-              Android blockiert die Installation aus dieser Quelle. Bitte erlauben und danach
-              Installation starten.
-            </dd>
-          </div>
-        ) : null}
       </dl>
 
       {devToast ? <p className={styles.devToast}>{devToast}</p> : null}
@@ -262,18 +252,6 @@ export function AppInfoSection() {
             }}
           >
             Abbrechen
-          </button>
-        ) : null}
-
-        {snapshot.needsUnknownSourcesPermission ? (
-          <button
-            type="button"
-            className={styles.adminLink}
-            onClick={() => {
-              void openUnknownSourcesSettings();
-            }}
-          >
-            Einstellungen öffnen
           </button>
         ) : null}
 

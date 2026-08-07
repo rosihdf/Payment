@@ -22,7 +22,6 @@ interface AppUpdateContextValue {
   openInstaller: () => Promise<{ ok: true } | { ok: false; error: string }>;
   cancelDownload: () => Promise<void>;
   dismissOptional: () => void;
-  openUnknownSourcesSettings: () => Promise<void>;
   openBrowserFallback: () => { ok: true } | { ok: false; error: string };
   enableDeveloperMode: () => void;
   hideDeveloperOptions: () => void;
@@ -94,11 +93,6 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
     service.dismissOptionalUpdate();
   }, [service]);
 
-  const openUnknownSourcesSettings = useCallback(
-    async () => service.openUnknownSourcesSettings(),
-    [service],
-  );
-
   const openBrowserFallback = useCallback(() => service.openBrowserFallback(), [service]);
 
   const enableDeveloperMode = useCallback(() => {
@@ -169,7 +163,6 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       openInstaller,
       cancelDownload,
       dismissOptional,
-      openUnknownSourcesSettings,
       openBrowserFallback,
       enableDeveloperMode,
       hideDeveloperOptions,
@@ -187,7 +180,6 @@ export function AppUpdateProvider({ children, service: injected }: AppUpdateProv
       openInstaller,
       cancelDownload,
       dismissOptional,
-      openUnknownSourcesSettings,
       openBrowserFallback,
       enableDeveloperMode,
       hideDeveloperOptions,

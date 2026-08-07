@@ -20,7 +20,6 @@ export function AppUpdateBanner() {
     openInstaller,
     cancelDownload,
     dismissOptional,
-    openUnknownSourcesSettings,
     shouldShowOptionalBanner,
     shouldShowBannerLaterAction,
   } = useAppUpdate();
@@ -75,12 +74,6 @@ export function AppUpdateBanner() {
         {snapshot.errorMessage ? (
           <span className={styles.bannerError}>{snapshot.errorMessage}</span>
         ) : null}
-        {snapshot.needsUnknownSourcesPermission ? (
-          <span className={styles.bannerNotes}>
-            Erlauben Sie die Installation aus dieser Quelle und tippen Sie erneut auf Installation
-            starten.
-          </span>
-        ) : null}
       </div>
 
       <div className={styles.bannerActions}>
@@ -119,18 +112,6 @@ export function AppUpdateBanner() {
             }}
           >
             {snapshot.status === 'error' ? 'Erneut versuchen' : 'Jetzt installieren'}
-          </button>
-        ) : null}
-
-        {snapshot.needsUnknownSourcesPermission ? (
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={() => {
-              void openUnknownSourcesSettings();
-            }}
-          >
-            Einstellungen öffnen
           </button>
         ) : null}
 

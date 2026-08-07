@@ -8,7 +8,7 @@ import styles from './AppUpdateGate.module.css';
  * Während Download/Verify/Install wird die App nicht blockiert – Fortschritt im Banner.
  */
 export function AppUpdateGate({ children }: { children: React.ReactNode }) {
-  const { snapshot, startInstall, openUnknownSourcesSettings } = useAppUpdate();
+  const { snapshot, startInstall } = useAppUpdate();
   const location = useLocation();
   const onProfile = location.pathname === '/profile';
 
@@ -62,17 +62,6 @@ export function AppUpdateGate({ children }: { children: React.ReactNode }) {
             >
               Jetzt installieren
             </button>
-            {snapshot.needsUnknownSourcesPermission ? (
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => {
-                  void openUnknownSourcesSettings();
-                }}
-              >
-                Einstellungen öffnen
-              </button>
-            ) : null}
             <Link className={styles.secondaryButton} to="/profile">
               App-Info öffnen
             </Link>

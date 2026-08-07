@@ -59,7 +59,6 @@ function stubInstaller(
 ): ApkInstallerBridge {
   return {
     openFromCache: async () => undefined,
-    openUnknownSourcesSettings: async () => undefined,
     getInstalledVersion: async () => ({ ...version }),
     ...overrides,
   };
@@ -175,7 +174,6 @@ describe('AppUpdateService native install', () => {
       apkCache: cache,
       apkInstaller: {
         openFromCache,
-        openUnknownSourcesSettings: async () => undefined,
       },
       fetchImpl: async (input) => {
         const url = String(input);
@@ -210,7 +208,6 @@ describe('AppUpdateService native install', () => {
     const cache = memoryCache();
     const service = createService({
       apkCache: cache,
-      apkInstaller: { openFromCache, openUnknownSourcesSettings: async () => undefined },
       fetchImpl: async (input) => {
         const url = String(input);
         if (url.includes('latest.json')) {
@@ -255,7 +252,6 @@ describe('AppUpdateService native install', () => {
           await new Promise((r) => setTimeout(r, 30));
           inflight -= 1;
         },
-        openUnknownSourcesSettings: async () => undefined,
       },
       fetchImpl: async (input) => {
         const url = String(input);
@@ -314,7 +310,6 @@ describe('AppUpdateService native install', () => {
     const service = createService({
       apkInstaller: {
         openFromCache,
-        openUnknownSourcesSettings: async () => undefined,
         getInstalledVersion: async () => ({ versionName: '1.0.6', versionCode: 10006 }),
       },
       fetchImpl: async (input) => {
@@ -360,7 +355,6 @@ describe('AppUpdateService native install', () => {
       apkCache: cache,
       apkInstaller: {
         openFromCache: async () => undefined,
-        openUnknownSourcesSettings: async () => undefined,
         getInstalledVersion: async () => ({
           versionName: installedCode >= 10008 ? '1.0.8' : '1.0.6',
           versionCode: installedCode,
@@ -415,7 +409,6 @@ describe('AppUpdateService native install', () => {
       apkCache: cache,
       apkInstaller: {
         openFromCache: async () => undefined,
-        openUnknownSourcesSettings: async () => undefined,
         getInstalledVersion: async () => ({
           versionName: installedCode >= 10008 ? '1.0.8' : '1.0.6',
           versionCode: installedCode,
@@ -456,7 +449,6 @@ describe('AppUpdateService native install', () => {
     const service = createService({
       apkInstaller: {
         openFromCache: async () => undefined,
-        openUnknownSourcesSettings: async () => undefined,
         getInstalledVersion: async () => {
           calls += 1;
           await new Promise((r) => setTimeout(r, 20));

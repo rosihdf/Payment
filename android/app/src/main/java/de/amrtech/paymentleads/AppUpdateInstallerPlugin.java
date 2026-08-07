@@ -7,7 +7,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
-import android.provider.Settings;
 
 import androidx.core.content.FileProvider;
 
@@ -27,14 +26,6 @@ import java.io.IOException;
 @CapacitorPlugin(name = "AppUpdateInstaller")
 public class AppUpdateInstallerPlugin extends Plugin {
 
-    /**
-     * Präfix für Client/TypeScript ({@literal install_source_blocked}), analog ArioVan Wartung.
-     */
-    public static final String MSG_INSTALL_SOURCE_BLOCKED =
-            "install_source_blocked: Falls Android die Installation blockiert: unter Einstellungen die Installation aus "
-                    + "dieser Quelle für AMRtech Payment erlauben („Apps aus unbekannten Quellen“ / Paketinstaller). Danach "
-                    + "„Installation starten“ erneut tippen.";
-
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
             return true;
@@ -50,17 +41,6 @@ public class AppUpdateInstallerPlugin extends Plugin {
             }
         }
         return false;
-    }
-
-    @PluginMethod
-    public void canRequestPackageInstalls(final PluginCall call) {
-        final JSObject result = new JSObject();
-        boolean allowed = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            allowed = getContext().getPackageManager().canRequestPackageInstalls();
-        }
-        result.put("allowed", allowed);
-        call.resolve(result);
     }
 
     /**
@@ -90,30 +70,6 @@ public class AppUpdateInstallerPlugin extends Plugin {
             call.resolve(result);
         } catch (final Exception e) {
             call.reject("Installierte App-Version konnte nicht gelesen werden.", e);
-        }
-    }
-
-    @PluginMethod
-    public void openUnknownSourcesSettings(final PluginCall call) {
-        try {
-            final Intent intent;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                intent = new Intent(
-                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:" + getContext().getPackageName()));
-            } else {
-                intent = new Intent(Settings.ACTION_SECURITY_SETTINGS);
-            }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            final android.app.Activity act = getActivity();
-            if (act == null) {
-                call.reject("Keine Activity — Einstellungen können nicht geöffnet werden.");
-                return;
-            }
-            act.startActivity(intent);
-            call.resolve();
-        } catch (final Exception e) {
-            call.reject("Einstellungen für unbekannte Quellen konnten nicht geöffnet werden.", e);
         }
     }
 
@@ -164,14 +120,6 @@ public class AppUpdateInstallerPlugin extends Plugin {
         if (!apkCanon.isFile()) {
             call.reject("APK-Datei nicht gefunden. Bitte den Download erneut starten.");
             return;
-        }
-
-        final PackageManager pm = getContext().getPackageManager();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!pm.canRequestPackageInstalls()) {
-                call.reject(MSG_INSTALL_SOURCE_BLOCKED);
-                return;
-            }
         }
 
         try {

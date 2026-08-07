@@ -31,7 +31,6 @@ import {
 import {
   type ApkCacheWriter,
   type ApkInstallerBridge,
-  INSTALL_SOURCE_BLOCKED,
   apkRelativePathForVersion,
   createFilesystemApkCacheWriter,
   createNativeApkInstallerBridge,
@@ -153,8 +152,6 @@ export class AppUpdateService {
     const partial = options.apkInstaller ?? {};
     this.apkInstaller = {
       openFromCache: partial.openFromCache ?? nativeInstaller.openFromCache,
-      openUnknownSourcesSettings:
-        partial.openUnknownSourcesSettings ?? nativeInstaller.openUnknownSourcesSettings,
       getInstalledVersion:
         partial.getInstalledVersion ??
         (async () => ({
@@ -307,7 +304,6 @@ export class AppUpdateService {
       status: 'checking',
       errorMessage: null,
       isNativeAndroid: true,
-      needsUnknownSourcesPermission: false,
     });
 
     this.checkPromise = (async () => {
@@ -383,7 +379,6 @@ export class AppUpdateService {
     this.patch({
       status: 'installing',
       errorMessage: null,
-      needsUnknownSourcesPermission: false,
     });
     try {
       this.awaitingInstallerReturn = true;
@@ -393,26 +388,13 @@ export class AppUpdateService {
       return { ok: true };
     } catch (error) {
       this.awaitingInstallerReturn = false;
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes(INSTALL_SOURCE_BLOCKED) || (error instanceof Error && error.name === INSTALL_SOURCE_BLOCKED)) {
-        this.patch({
-          status: 'readyToInstall',
-          needsUnknownSourcesPermission: true,
-          errorMessage:
-            'Android blockiert die Installation aus dieser Quelle. Bitte erlauben und danach „Installation starten“ tippen.',
-        });
-        return { ok: false, error: this.snapshot.errorMessage ?? message };
-      }
       this.patch({
         status: 'readyToInstall',
         errorMessage: 'Der Installer konnte nicht geöffnet werden.',
       });
+      const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: this.snapshot.errorMessage ?? message };
     }
-  }
-
-  async openUnknownSourcesSettings(): Promise<void> {
-    await this.apkInstaller.openUnknownSourcesSettings();
   }
 
   /** Expliziter Notfall-Fallback – nicht Teil des normalen Pfads. */
@@ -449,7 +431,6 @@ export class AppUpdateService {
       downloadBytesReceived: null,
       downloadBytesTotal: null,
       localApkRelativePath: null,
-      needsUnknownSourcesPermission: false,
       manifest: null,
     });
     this.log('upgrade_reset', {
@@ -498,7 +479,6 @@ export class AppUpdateService {
       downloadBytesReceived: null,
       downloadBytesTotal: null,
       localApkRelativePath: null,
-      needsUnknownSourcesPermission: false,
     });
     this.log('update_channel_changed', { channel });
     return this.getSnapshot();
@@ -517,7 +497,6 @@ export class AppUpdateService {
       downloadBytesReceived: null,
       downloadBytesTotal: null,
       localApkRelativePath: null,
-      needsUnknownSourcesPermission: false,
     });
     return this.getSnapshot();
   }
@@ -538,7 +517,6 @@ export class AppUpdateService {
       downloadBytesReceived: null,
       downloadBytesTotal: null,
       localApkRelativePath: null,
-      needsUnknownSourcesPermission: false,
     });
     this.log('test_channel_deactivated', {});
     return this.getSnapshot();
@@ -635,7 +613,6 @@ export class AppUpdateService {
               downloadProgress: null,
               downloadBytesReceived: null,
               downloadBytesTotal: null,
-              needsUnknownSourcesPermission: false,
               status:
                 this.snapshot.status === 'readyToInstall' || this.snapshot.status === 'installing'
                   ? 'idle'
@@ -753,7 +730,6 @@ export class AppUpdateService {
           downloadBytesReceived: null,
           downloadBytesTotal: null,
           localApkRelativePath: null,
-          needsUnknownSourcesPermission: false,
         });
       }
 
@@ -773,9 +749,6 @@ export class AppUpdateService {
         downloadBytesReceived: keepReady ? this.snapshot.downloadBytesReceived : null,
         downloadBytesTotal: keepReady ? this.snapshot.downloadBytesTotal : null,
         localApkRelativePath: keepReady ? this.snapshot.localApkRelativePath : null,
-        needsUnknownSourcesPermission: keepReady
-          ? this.snapshot.needsUnknownSourcesPermission
-          : false,
       });
     } catch (error) {
       const name =
@@ -836,7 +809,6 @@ export class AppUpdateService {
       downloadBytesReceived: 0,
       downloadBytesTotal: manifest.sizeBytes,
       localApkRelativePath: null,
-      needsUnknownSourcesPermission: false,
       optionalDismissed: false,
     });
 

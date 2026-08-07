@@ -52,7 +52,6 @@ function memoryCache(): ApkCacheWriter {
 function stubInstaller(overrides: Partial<ApkInstallerBridge> = {}): ApkInstallerBridge {
   return {
     openFromCache: async () => undefined,
-    openUnknownSourcesSettings: async () => undefined,
     getInstalledVersion: async () => ({ versionName: '1.0.6', versionCode: 10006 }),
     ...overrides,
   };
@@ -217,7 +216,6 @@ describe('Update Banner und App-Info Aktionen', () => {
       openUrl,
       apkInstaller: {
         openFromCache,
-        openUnknownSourcesSettings: async () => undefined,
       },
       fetchImpl: async (input) => {
         const url = String(input);

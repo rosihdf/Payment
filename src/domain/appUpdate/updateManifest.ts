@@ -51,7 +51,6 @@ export interface AppUpdateSnapshot {
   downloadBytesReceived: number | null;
   downloadBytesTotal: number | null;
   localApkRelativePath: string | null;
-  needsUnknownSourcesPermission: boolean;
   /** production | test – steuert Manifest-URL. */
   updateChannel: 'production' | 'test';
   developerModeEnabled: boolean;
@@ -226,7 +225,6 @@ export function createInitialAppUpdateSnapshot(
     downloadBytesReceived: null,
     downloadBytesTotal: null,
     localApkRelativePath: null,
-    needsUnknownSourcesPermission: false,
     updateChannel,
     developerModeEnabled,
   };

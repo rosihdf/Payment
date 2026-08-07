@@ -32,7 +32,6 @@ describe('AppUpdateChannel', () => {
       log: () => undefined,
       apkInstaller: {
         openFromCache: async () => undefined,
-        openUnknownSourcesSettings: async () => undefined,
         getInstalledVersion: async () => ({ versionName: '1.0.9', versionCode: 10009 }),
       },
       fetchImpl: async (input) => {
