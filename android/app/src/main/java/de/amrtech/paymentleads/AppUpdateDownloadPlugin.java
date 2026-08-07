@@ -1,7 +1,9 @@
 package de.amrtech.paymentleads;
 
 import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
@@ -102,17 +104,88 @@ public class AppUpdateDownloadPlugin extends Plugin {
             return;
         }
 
+        try {
+            call.resolve(queryStatus(dm, downloadId));
+        } catch (final Exception e) {
+            call.reject("Download-Status konnte nicht gelesen werden.", e);
+        }
+    }
+
+    /**
+     * Öffnet eine bereits erfolgreiche DownloadManager-APK (gleiche URI wie die System-Benachrichtigung).
+     * Startet keinen neuen Download und installiert nicht selbst.
+     */
+    @PluginMethod
+    public void openDownloadedApk(final PluginCall call) {
+        final Long downloadIdObj = call.getLong("downloadId");
+        if (downloadIdObj == null) {
+            call.reject("downloadId fehlt.");
+            return;
+        }
+        final long downloadId = downloadIdObj;
+
+        final Context ctx = getContext();
+        final DownloadManager dm = (DownloadManager) ctx.getSystemService(Context.DOWNLOAD_SERVICE);
+        if (dm == null) {
+            call.reject("DownloadManager ist auf diesem Gerät nicht verfügbar.");
+            return;
+        }
+
+        final JSObject statusObj = queryStatus(dm, downloadId);
+        final String status = statusObj.getString("status");
+        if (!"successful".equals(status)) {
+            call.reject("Download ist noch nicht abgeschlossen.");
+            return;
+        }
+
+        final Uri uri = dm.getUriForDownloadedFile(downloadId);
+        if (uri == null) {
+            openDownloadsUi(call);
+            return;
+        }
+
+        final Intent view = new Intent(Intent.ACTION_VIEW);
+        view.setDataAndType(uri, "application/vnd.android.package-archive");
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            getContext().startActivity(view);
+            final JSObject result = new JSObject();
+            result.put("opened", true);
+            result.put("via", "download_uri");
+            call.resolve(result);
+        } catch (final ActivityNotFoundException e) {
+            openDownloadsUi(call);
+        } catch (final Exception e) {
+            call.reject("Heruntergeladene APK konnte nicht geöffnet werden.", e);
+        }
+    }
+
+    private void openDownloadsUi(final PluginCall call) {
+        try {
+            final Intent downloads = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+            downloads.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(downloads);
+            final JSObject result = new JSObject();
+            result.put("opened", true);
+            result.put("via", "downloads_ui");
+            call.resolve(result);
+        } catch (final Exception e) {
+            call.reject("Downloads-Übersicht konnte nicht geöffnet werden.", e);
+        }
+    }
+
+    private static JSObject queryStatus(final DownloadManager dm, final long downloadId) {
         final DownloadManager.Query query = new DownloadManager.Query();
         query.setFilterById(downloadId);
         Cursor cursor = null;
+        final JSObject result = new JSObject();
+        result.put("downloadId", downloadId);
         try {
             cursor = dm.query(query);
-            final JSObject result = new JSObject();
-            result.put("downloadId", downloadId);
             if (cursor == null || !cursor.moveToFirst()) {
                 result.put("status", "not_found");
-                call.resolve(result);
-                return;
+                return result;
             }
             final int statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
             final int reasonIdx = cursor.getColumnIndex(DownloadManager.COLUMN_REASON);
@@ -120,9 +193,7 @@ public class AppUpdateDownloadPlugin extends Plugin {
             final int reason = reasonIdx >= 0 ? cursor.getInt(reasonIdx) : 0;
             result.put("status", mapStatus(status));
             result.put("reason", reason);
-            call.resolve(result);
-        } catch (final Exception e) {
-            call.reject("Download-Status konnte nicht gelesen werden.", e);
+            return result;
         } finally {
             if (cursor != null) {
                 cursor.close();

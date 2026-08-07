@@ -1,5 +1,7 @@
 /** Lokaler Zustand für DownloadManager-Deduplizierung (kein Installer-State). */
 
+import type { AndroidDownloadManagerStatus } from './appUpdateDownload';
+
 export const ANDROID_APK_DOWNLOAD_STATE_KEY = 'amrtech_payment_android_apk_download_state';
 
 export type AndroidApkDownloadState = {
@@ -8,6 +10,9 @@ export type AndroidApkDownloadState = {
   filename: string;
   enqueuedAt: string;
 };
+
+/** UI-Phase abgeleitet vom DownloadManager-Status. */
+export type AndroidApkDownloadUiPhase = 'idle' | 'downloading' | 'downloaded' | 'failed';
 
 export function readAndroidApkDownloadState(): AndroidApkDownloadState | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
@@ -62,4 +67,21 @@ export function isBlockingDownloadStatus(status: string): boolean {
     status === 'paused' ||
     status === 'successful'
   );
+}
+
+export function isInProgressDownloadStatus(status: string): boolean {
+  return status === 'pending' || status === 'running' || status === 'paused';
+}
+
+export function isSuccessfulDownloadStatus(status: string): boolean {
+  return status === 'successful';
+}
+
+export function mapDownloadManagerStatusToUiPhase(
+  status: AndroidDownloadManagerStatus | string,
+): AndroidApkDownloadUiPhase {
+  if (isInProgressDownloadStatus(status)) return 'downloading';
+  if (isSuccessfulDownloadStatus(status)) return 'downloaded';
+  if (status === 'failed') return 'failed';
+  return 'idle';
 }

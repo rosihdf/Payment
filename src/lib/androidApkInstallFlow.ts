@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import {
   isBlockingDownloadStatus,
+  isSuccessfulDownloadStatus,
   clearAndroidApkDownloadState,
   readAndroidApkDownloadState,
   writeAndroidApkDownloadState,
@@ -15,7 +16,16 @@ import { AppUpdateDownload } from './appUpdateDownload';
 import { APP_DISPLAY_NAME } from '../utils/appInfo';
 
 export type AndroidApkSystemDownloadResult =
-  | { ok: true; notice: string; downloadId: number; skippedDuplicate: boolean }
+  | {
+      ok: true;
+      notice: string;
+      downloadId: number;
+      outcome: 'enqueued' | 'in_progress' | 'already_downloaded';
+    }
+  | { ok: false; message: string };
+
+export type AndroidApkOpenDownloadedResult =
+  | { ok: true; via?: string }
   | { ok: false; message: string };
 
 export function buildAndroidUpdateApkFilename(manifest: AndroidLatestManifest | null): string {
@@ -58,15 +68,20 @@ export async function runAndroidSystemApkDownloadFlow(
   if (existing != null && existing.versionCode === Math.trunc(versionCode)) {
     try {
       const st = await AppUpdateDownload.getDownloadStatus({ downloadId: existing.downloadId });
+      if (isSuccessfulDownloadStatus(st.status)) {
+        return {
+          ok: true,
+          downloadId: existing.downloadId,
+          outcome: 'already_downloaded',
+          notice: 'Update heruntergeladen. Tippe auf „Jetzt installieren“, um die APK zu öffnen.',
+        };
+      }
       if (isBlockingDownloadStatus(st.status)) {
         return {
           ok: true,
           downloadId: existing.downloadId,
-          skippedDuplicate: true,
-          notice:
-            st.status === 'successful'
-              ? 'Download bereits abgeschlossen. Tippe in der Android-Benachrichtigung oder unter Downloads auf die APK.'
-              : 'Download läuft bereits. Android informiert dich, sobald das Update bereit zur Installation ist.',
+          outcome: 'in_progress',
+          notice: 'Download läuft bereits. Android informiert dich, sobald das Update bereit ist.',
         };
       }
       clearAndroidApkDownloadState();
@@ -99,9 +114,8 @@ export async function runAndroidSystemApkDownloadFlow(
     return {
       ok: true,
       downloadId,
-      skippedDuplicate: false,
-      notice:
-        'Download gestartet. Android informiert dich, sobald das Update bereit zur Installation ist.',
+      outcome: 'enqueued',
+      notice: 'Download gestartet. Bitte warten — danach kannst du die Installation öffnen.',
     };
   } catch (e) {
     const msg =
@@ -114,6 +128,31 @@ export async function runAndroidSystemApkDownloadFlow(
         msg.length > 0
           ? msg
           : 'Update-Download konnte nicht gestartet werden. Bitte erneut versuchen.',
+    };
+  }
+}
+
+/** Öffnet die bereits heruntergeladene APK über die gespeicherte Download-ID (kein neuer Download). */
+export async function openAndroidDownloadedApk(
+  downloadId: number,
+): Promise<AndroidApkOpenDownloadedResult> {
+  if (Capacitor.getPlatform() !== 'android') {
+    return { ok: false, message: 'Dieser Ablauf ist nur in der Android-App verfügbar.' };
+  }
+  try {
+    const res = await AppUpdateDownload.openDownloadedApk({ downloadId });
+    return { ok: true, via: res.via };
+  } catch (e) {
+    const msg =
+      typeof e === 'object' && e !== null && 'message' in e
+        ? String((e as { message?: unknown }).message ?? '').trim()
+        : '';
+    return {
+      ok: false,
+      message:
+        msg.length > 0
+          ? msg
+          : 'Heruntergeladene APK konnte nicht geöffnet werden. Bitte die Download-Benachrichtigung nutzen.',
     };
   }
 }

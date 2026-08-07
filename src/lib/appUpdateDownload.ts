@@ -30,10 +30,20 @@ export type GetDownloadStatusResult = {
   reason?: number;
 };
 
+export type OpenDownloadedApkOptions = {
+  downloadId: number;
+};
+
+export type OpenDownloadedApkResult = {
+  opened: boolean;
+  via?: 'download_uri' | 'downloads_ui' | string;
+};
+
 /** Natives Bridge: APK über Android DownloadManager in den öffentlichen Download-Ordner. */
 export interface AppUpdateDownloadPlugin {
   enqueueApkDownload: (opts: EnqueueApkDownloadOptions) => Promise<EnqueueApkDownloadResult>;
   getDownloadStatus: (opts: GetDownloadStatusOptions) => Promise<GetDownloadStatusResult>;
+  openDownloadedApk: (opts: OpenDownloadedApkOptions) => Promise<OpenDownloadedApkResult>;
 }
 
 export const AppUpdateDownload = registerPlugin<AppUpdateDownloadPlugin>('AppUpdateDownload');
