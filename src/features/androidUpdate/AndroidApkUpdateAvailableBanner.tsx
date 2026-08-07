@@ -1,10 +1,8 @@
-import { useState, type KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
-import { useAndroidApkDownloadProgress } from '../../hooks/useAndroidApkDownloadProgress';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../../lib/androidApkUpdateBanner';
 import {
-  openAndroidDownloadedApk,
+  isAndroidApkSystemDownloadActive,
   runAndroidSystemApkDownloadFlow,
 } from '../../lib/androidApkInstallFlow';
 import styles from '../appUpdate/AppUpdateGate.module.css';
@@ -14,12 +12,23 @@ export function AndroidApkUpdateAvailableBanner() {
   const ctx = useAndroidApkUpdateOptional();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [systemDownloadActive, setSystemDownloadActive] = useState(false);
 
-  const download = useAndroidApkDownloadProgress({
-    enabled: ctx?.installKind === 'android',
-    offeredVersionCode: ctx?.manifest?.versionCode,
-    installedVersionCode: ctx?.installed.nativeVersionCode,
-  });
+  const offeredCode = ctx?.manifest?.versionCode;
+
+  useEffect(() => {
+    if (ctx?.installKind !== 'android' || typeof offeredCode !== 'number') {
+      setSystemDownloadActive(false);
+      return;
+    }
+    let cancelled = false;
+    void isAndroidApkSystemDownloadActive(offeredCode).then((active) => {
+      if (!cancelled) setSystemDownloadActive(active);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ctx?.installKind, offeredCode]);
 
   const bannerInput =
     ctx == null
@@ -45,96 +54,78 @@ export function AndroidApkUpdateAvailableBanner() {
   }
 
   const { manifest } = ctx;
-  if (!visibilityEval.shouldShow || manifest == null) {
-    return null;
-  }
+  // Während enqueue: Banner aus (wie Wartung bei installBusy).
+  // Nach Start: Statusbanner ohne zweite Installationsaktion.
+  if (manifest == null) return null;
+  if (!visibilityEval.shouldShow && !systemDownloadActive) return null;
+  if (!visibilityEval.shouldShow && busy) return null;
+
+  const versionLabel =
+    (manifest.latestVersion ?? '').trim() ||
+    (typeof manifest.versionCode === 'number' ? `Build ${manifest.versionCode}` : '—');
+  const releaseNotes = (manifest.releaseNotes ?? '').trim();
+  const showStatusOnly = systemDownloadActive && !busy;
 
   const handleLater = () => {
     ctx.snoozeCurrentManifest();
   };
 
-  const handlePrimaryClick = async () => {
-    if (!visibilityEval.shouldShow || busy) return;
-    if (download.phase === 'downloading') return;
-
+  const handleInstallClick = async () => {
+    if (busy || systemDownloadActive) return;
+    if (!visibilityEval.shouldShow) return;
     setError(null);
     setBusy(true);
     try {
-      if (download.phase === 'downloaded' && download.downloadId != null) {
-        const res = await openAndroidDownloadedApk(download.downloadId);
-        if (!res.ok) setError(res.message);
-        return;
-      }
-
       const res = await runAndroidSystemApkDownloadFlow(manifest);
       if (!res.ok) {
         setError(res.message);
         return;
       }
-      await download.refresh();
+      setSystemDownloadActive(true);
     } finally {
       setBusy(false);
     }
   };
 
-  const handlePrimaryKeyDown = (e: KeyboardEvent) => {
+  const handleInstallKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      void handlePrimaryClick();
+      void handleInstallClick();
     }
   };
-
-  const downloading = download.phase === 'downloading' || busy;
-  const downloaded = download.phase === 'downloaded';
-
-  const primaryLabel = downloading
-    ? 'Wird heruntergeladen …'
-    : downloaded
-      ? 'Jetzt installieren'
-      : 'Jetzt installieren';
-
-  const subtitle = downloading
-    ? 'Update wird über Android heruntergeladen.'
-    : downloaded
-      ? 'Update heruntergeladen — tippe auf „Jetzt installieren“, um die APK zu öffnen.'
-      : 'Tippe auf „Jetzt installieren“, um den Android-Systemdownload zu starten.';
-
-  const statusLine = downloading
-    ? 'Update wird heruntergeladen'
-    : downloaded
-      ? 'Update heruntergeladen'
-      : null;
 
   return (
     <div className={styles.optionalBanner} role="region" aria-label="Android App-Update verfügbar">
       <div className={styles.bannerText}>
-        <strong className={styles.bannerTitle}>Neue Version verfügbar</strong>
-        {statusLine ? <span className={styles.bannerSubtitle}>{statusLine}</span> : null}
-        <span className={styles.bannerSubtitle}>{subtitle}</span>
-        {error != null ? <span className={styles.bannerError}>{error}</span> : null}
-        {download.phase === 'failed' ? (
-          <span className={styles.bannerError}>Download fehlgeschlagen — bitte erneut versuchen.</span>
+        <strong className={styles.bannerTitle}>
+          {showStatusOnly
+            ? 'Update wird heruntergeladen'
+            : `Neue Version verfügbar: ${versionLabel}`}
+        </strong>
+        <span className={styles.bannerSubtitle}>
+          {showStatusOnly
+            ? 'Android benachrichtigt dich, sobald die Installation möglich ist. Tippe dann auf die Download-Benachrichtigung.'
+            : 'Tippe auf „Jetzt installieren“, um den Android-Systemdownload zu starten.'}
+        </span>
+        {!showStatusOnly && releaseNotes ? (
+          <span className={styles.bannerNotes}>{releaseNotes}</span>
         ) : null}
-        <Link to="/profile" className={styles.bannerSubtitle}>
-          Details
-        </Link>
+        {error != null ? <span className={styles.bannerError}>{error}</span> : null}
       </div>
       <div className={styles.bannerActions}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={() => void handlePrimaryClick()}
-          onKeyDown={handlePrimaryKeyDown}
-          disabled={downloading}
-          aria-busy={busy || download.phase === 'downloading' ? 'true' : 'false'}
-          aria-label={
-            downloaded
-              ? 'Heruntergeladene APK zur Installation öffnen'
-              : 'Update über Android DownloadManager starten'
-          }
-        >
-          {primaryLabel}
-        </button>
+        {!showStatusOnly ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={() => void handleInstallClick()}
+            onKeyDown={handleInstallKeyDown}
+            disabled={busy}
+            aria-busy={busy ? 'true' : 'false'}
+            aria-label="Update über Android DownloadManager starten"
+          >
+            {busy ? 'Update wird heruntergeladen' : 'Jetzt installieren'}
+          </button>
+        ) : null}
         <button
           type="button"
           className={styles.secondaryButton}

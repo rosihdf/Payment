@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import {
   isBlockingDownloadStatus,
-  isSuccessfulDownloadStatus,
   clearAndroidApkDownloadState,
   readAndroidApkDownloadState,
   writeAndroidApkDownloadState,
@@ -24,10 +23,6 @@ export type AndroidApkSystemDownloadResult =
     }
   | { ok: false; message: string };
 
-export type AndroidApkOpenDownloadedResult =
-  | { ok: true; via?: string }
-  | { ok: false; message: string };
-
 export function buildAndroidUpdateApkFilename(manifest: AndroidLatestManifest | null): string {
   const tag = sanitizeAndroidApkFilenameTag(deriveAndroidUpdateApkVersionTag(manifest));
   const semver = manifest?.latestVersion?.trim();
@@ -47,7 +42,7 @@ export function buildAndroidUpdateDownloadTitle(manifest: AndroidLatestManifest 
 
 /**
  * Startet den System-DownloadManager für die Manifest-APK.
- * Payment öffnet keinen Paketinstaller.
+ * Payment öffnet keinen Paketinstaller — Android-Notification übernimmt.
  */
 export async function runAndroidSystemApkDownloadFlow(
   manifest: AndroidLatestManifest,
@@ -68,20 +63,13 @@ export async function runAndroidSystemApkDownloadFlow(
   if (existing != null && existing.versionCode === Math.trunc(versionCode)) {
     try {
       const st = await AppUpdateDownload.getDownloadStatus({ downloadId: existing.downloadId });
-      if (isSuccessfulDownloadStatus(st.status)) {
-        return {
-          ok: true,
-          downloadId: existing.downloadId,
-          outcome: 'already_downloaded',
-          notice: 'Update heruntergeladen. Tippe auf „Jetzt installieren“, um die APK zu öffnen.',
-        };
-      }
       if (isBlockingDownloadStatus(st.status)) {
         return {
           ok: true,
           downloadId: existing.downloadId,
-          outcome: 'in_progress',
-          notice: 'Download läuft bereits. Android informiert dich, sobald das Update bereit ist.',
+          outcome: st.status === 'successful' ? 'already_downloaded' : 'in_progress',
+          notice:
+            'Android lädt das Update bereits bzw. hat es heruntergeladen. Nutze die Android-Downloadbenachrichtigung zum Aktualisieren.',
         };
       }
       clearAndroidApkDownloadState();
@@ -115,7 +103,8 @@ export async function runAndroidSystemApkDownloadFlow(
       ok: true,
       downloadId,
       outcome: 'enqueued',
-      notice: 'Download gestartet. Bitte warten — danach kannst du die Installation öffnen.',
+      notice:
+        'Update wird heruntergeladen. Android benachrichtigt dich, sobald die Installation möglich ist.',
     };
   } catch (e) {
     const msg =
@@ -132,28 +121,21 @@ export async function runAndroidSystemApkDownloadFlow(
   }
 }
 
-/** Öffnet die bereits heruntergeladene APK über die gespeicherte Download-ID (kein neuer Download). */
-export async function openAndroidDownloadedApk(
-  downloadId: number,
-): Promise<AndroidApkOpenDownloadedResult> {
-  if (Capacitor.getPlatform() !== 'android') {
-    return { ok: false, message: 'Dieser Ablauf ist nur in der Android-App verfügbar.' };
-  }
+/**
+ * Einmaliger Check: läuft für die angebotene Version bereits ein Systemdownload
+ * bzw. ist er abgeschlossen (Android-Notification zuständig).
+ */
+export async function isAndroidApkSystemDownloadActive(
+  offeredVersionCode: number | null | undefined,
+): Promise<boolean> {
+  if (typeof offeredVersionCode !== 'number' || !Number.isFinite(offeredVersionCode)) return false;
+  const state = readAndroidApkDownloadState();
+  if (state == null || state.versionCode !== Math.trunc(offeredVersionCode)) return false;
   try {
-    const res = await AppUpdateDownload.openDownloadedApk({ downloadId });
-    return { ok: true, via: res.via };
-  } catch (e) {
-    const msg =
-      typeof e === 'object' && e !== null && 'message' in e
-        ? String((e as { message?: unknown }).message ?? '').trim()
-        : '';
-    return {
-      ok: false,
-      message:
-        msg.length > 0
-          ? msg
-          : 'Heruntergeladene APK konnte nicht geöffnet werden. Bitte die Download-Benachrichtigung nutzen.',
-    };
+    const st = await AppUpdateDownload.getDownloadStatus({ downloadId: state.downloadId });
+    return isBlockingDownloadStatus(st.status);
+  } catch {
+    return false;
   }
 }
 

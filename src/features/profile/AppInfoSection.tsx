@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
-import { useAndroidApkDownloadProgress } from '../../hooks/useAndroidApkDownloadProgress';
 import { getAppBuildInfo } from '../../lib/appBuildInfo';
 import {
   shouldOfferAndroidNativeApkInstall,
   type AndroidLatestManifest,
 } from '../../lib/androidApkUpdate';
 import {
-  openAndroidDownloadedApk,
+  isAndroidApkSystemDownloadActive,
   runAndroidSystemApkDownloadFlow,
 } from '../../lib/androidApkInstallFlow';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
@@ -29,15 +28,11 @@ export function AppInfoSection() {
   const info = getAppBuildInfo();
   const [busy, setBusy] = useState(false);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
+  const [systemDownloadActive, setSystemDownloadActive] = useState(false);
 
   const refreshManifest = ctx?.refreshManifest;
   const installKind = ctx?.installKind;
-
-  const download = useAndroidApkDownloadProgress({
-    enabled: installKind === 'android',
-    offeredVersionCode: ctx?.manifest?.versionCode,
-    installedVersionCode: ctx?.installed.nativeVersionCode,
-  });
+  const offeredCode = ctx?.manifest?.versionCode;
 
   useEffect(() => {
     if (installKind === 'android' && refreshManifest) {
@@ -45,14 +40,19 @@ export function AppInfoSection() {
     }
   }, [installKind, refreshManifest]);
 
-  // Beim Öffnen von App-Info Status sofort nachziehen
   useEffect(() => {
-    if (installKind === 'android') {
-      void download.refresh();
+    if (installKind !== 'android' || typeof offeredCode !== 'number') {
+      setSystemDownloadActive(false);
+      return;
     }
-    // nur bei Mount / Manifest-Wechsel
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installKind, ctx?.manifest?.versionCode]);
+    let cancelled = false;
+    void isAndroidApkSystemDownloadActive(offeredCode).then((active) => {
+      if (!cancelled) setSystemDownloadActive(active);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [installKind, offeredCode]);
 
   const installedLabel = `${info.version}${
     info.androidGradleVersionCode != null
@@ -65,7 +65,7 @@ export function AppInfoSection() {
     [ctx],
   );
 
-  const updateAvailable =
+  const canStartDownload =
     Boolean(ctx) &&
     ctx!.installKind === 'android' &&
     nativeInstallEligible &&
@@ -73,14 +73,9 @@ export function AppInfoSection() {
     ctx!.manifest != null &&
     !ctx!.loadFailed &&
     ctx!.hasCheckedOnce &&
-    !ctx!.checking;
-
-  const showPrimary =
-    updateAvailable &&
-    (download.phase === 'idle' ||
-      download.phase === 'failed' ||
-      download.phase === 'downloading' ||
-      download.phase === 'downloaded');
+    !ctx!.checking &&
+    !systemDownloadActive &&
+    !busy;
 
   const showCurrentVersionHint =
     Boolean(ctx) &&
@@ -95,23 +90,20 @@ export function AppInfoSection() {
     if (!ctx) return;
     setFlowMessage(null);
     await ctx.refreshManifest({ force: true, reason: 'manual' });
-    await download.refresh();
-  }, [ctx, download]);
+    if (typeof ctx.manifest?.versionCode === 'number') {
+      setSystemDownloadActive(await isAndroidApkSystemDownloadActive(ctx.manifest.versionCode));
+    }
+  }, [ctx]);
 
-  const handlePrimary = async () => {
-    if (!showPrimary || ctx?.manifest == null || download.phase === 'downloading' || busy) return;
+  const handleDownload = async () => {
+    if (!canStartDownload || ctx?.manifest == null) return;
     setFlowMessage(null);
     setBusy(true);
     try {
-      if (download.phase === 'downloaded' && download.downloadId != null) {
-        const res = await openAndroidDownloadedApk(download.downloadId);
-        setFlowMessage(res.ok ? 'Installationsdialog wurde geöffnet.' : res.message);
-        return;
-      }
       const res = await runAndroidSystemApkDownloadFlow(ctx.manifest);
       if (res.ok) {
         setFlowMessage(res.notice);
-        await download.refresh();
+        setSystemDownloadActive(true);
       } else {
         setFlowMessage(res.message);
       }
@@ -152,22 +144,6 @@ export function AppInfoSection() {
     );
   }
 
-  const statusToast =
-    download.phase === 'downloading'
-      ? 'Update wird heruntergeladen'
-      : download.phase === 'downloaded'
-        ? 'Update heruntergeladen'
-        : download.phase === 'failed'
-          ? 'Download fehlgeschlagen'
-          : null;
-
-  const primaryLabel =
-    busy && download.phase !== 'downloaded'
-      ? 'Wird heruntergeladen …'
-      : download.phase === 'downloading'
-        ? 'Wird heruntergeladen …'
-        : 'Jetzt installieren';
-
   return (
     <section className={styles.appInfo} aria-labelledby="app-info-heading">
       <img
@@ -182,8 +158,8 @@ export function AppInfoSection() {
         App-Info
       </h2>
       <p className={styles.appInfoMessage}>
-        „Jetzt installieren“ startet den Android-Systemdownload. Nach dem Download öffnet derselbe
-        Button die fertige APK — Payment installiert nicht selbst.
+        „Jetzt installieren“ startet den Android-Systemdownload. Danach tippst du auf die
+        Android-Downloadbenachrichtigung — Payment installiert nicht selbst.
       </p>
 
       {showCurrentVersionHint ? (
@@ -192,9 +168,9 @@ export function AppInfoSection() {
         </p>
       ) : null}
 
-      {statusToast ? (
+      {systemDownloadActive ? (
         <p className={styles.devToast} role="status">
-          {statusToast}
+          Update wird heruntergeladen — bitte die Android-Benachrichtigung nutzen.
         </p>
       ) : null}
 
@@ -245,16 +221,16 @@ export function AppInfoSection() {
               : 'Erneut prüfen'}
         </button>
 
-        {showPrimary ? (
+        {canStartDownload ? (
           <button
             type="button"
             className={styles.adminLink}
-            disabled={busy || download.phase === 'downloading'}
+            disabled={busy}
             onClick={() => {
-              void handlePrimary();
+              void handleDownload();
             }}
           >
-            {primaryLabel}
+            {busy ? 'Update wird heruntergeladen' : 'Jetzt installieren'}
           </button>
         ) : null}
       </div>
