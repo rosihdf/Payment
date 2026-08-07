@@ -69,9 +69,6 @@ const ALLOWED_PATHS = new Set([
   '/android/v1.0.16/manifest.json',
   '/android/latest-test.json',
   '/android/latest-test.apk',
-  '/android/play-protect-test/update-flow-1.0.17/AMRtech-Payment-1.0.17-test.apk',
-  '/android/play-protect-test/update-flow-1.0.17/AMRtech-Payment-1.0.17-test.apk.sha256',
-  '/android/play-protect-test/update-flow-1.0.17/AMRtech-Payment-1.0.16-test-client.apk',
   '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk',
   '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk.sha256',
 ]);
