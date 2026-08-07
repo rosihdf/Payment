@@ -114,6 +114,7 @@ describe('compareAndroidInstallToManifest', () => {
 
 describe('resolveAndroidUpdateManifestUrl', () => {
   it('liefert Payment-Produktions-URL ohne Override', () => {
+    localStorage.removeItem('app_update_channel');
     vi.stubEnv('VITE_ANDROID_UPDATE_MANIFEST_URL', '');
     expect(resolveAndroidUpdateManifestUrl()).toBe(ANDROID_UPDATE_MANIFEST_URL);
     vi.unstubAllEnvs();

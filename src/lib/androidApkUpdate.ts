@@ -1,13 +1,20 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { isNewerVersion, isSemverComparable } from './versionUtils';
+import {
+  ANDROID_UPDATE_MANIFEST_URL_PRODUCTION,
+  manifestUrlForChannel,
+  readAppUpdateChannel,
+} from './appUpdateChannel';
 
-/** Produktiv-Manifest Payment (einzige Update-URL). */
-export const ANDROID_UPDATE_MANIFEST_URL =
-  'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json';
+/** Produktiv-Manifest Payment. */
+export const ANDROID_UPDATE_MANIFEST_URL = ANDROID_UPDATE_MANIFEST_URL_PRODUCTION;
 
 export const ANDROID_FALLBACK_APK_URL =
   'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.apk';
+
+export const ANDROID_FALLBACK_APK_URL_TEST =
+  'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest-test.apk';
 
 /** Bekanntes JSON-Format (Wartung) + Payment-Feldnamen als Alias. */
 export type AndroidLatestManifest = {
@@ -58,13 +65,13 @@ export function parseAndroidLatestManifest(raw: unknown): AndroidLatestManifest 
 export function resolveAndroidUpdateManifestUrl(): string {
   const explicit = import.meta.env.VITE_ANDROID_UPDATE_MANIFEST_URL?.trim();
   if (explicit) return explicit;
-  return ANDROID_UPDATE_MANIFEST_URL;
+  return manifestUrlForChannel(readAppUpdateChannel());
 }
 
 export function resolveApkDownloadUrl(manifest: AndroidLatestManifest | null): string {
   const u = manifest?.apkUrl?.trim();
   if (u && u.startsWith('https://')) return u;
-  return ANDROID_FALLBACK_APK_URL;
+  return readAppUpdateChannel() === 'test' ? ANDROID_FALLBACK_APK_URL_TEST : ANDROID_FALLBACK_APK_URL;
 }
 
 export function appendManifestFetchCacheBuster(manifestUrl: string, nonceMs: number): string {

@@ -1,15 +1,24 @@
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../../lib/androidApkUpdateBanner';
-import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
+import {
+  isBlockingDownloadStatus,
+  readAndroidApkDownloadState,
+} from '../../lib/androidApkDownloadState';
+import { runAndroidSystemApkDownloadFlow } from '../../lib/androidApkInstallFlow';
+import { AppUpdateDownload } from '../../lib/appUpdateDownload';
 import styles from '../appUpdate/AppUpdateGate.module.css';
 
-/** Globaler Hinweis: natives Android-APK-Update — 1:1 Wartungslogik, Payment-Texte. */
+type BannerPhase = 'idle' | 'starting' | 'started';
+
+/** Globaler Hinweis: Update via Android DownloadManager — ohne REQUEST_INSTALL_PACKAGES. */
 export function AndroidApkUpdateAvailableBanner() {
   const ctx = useAndroidApkUpdateOptional();
-  const [installBusy, setInstallBusy] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<BannerPhase>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const [downloadActive, setDownloadActive] = useState(false);
 
   const bannerInput = useMemo(
     () =>
@@ -23,9 +32,9 @@ export function AndroidApkUpdateAvailableBanner() {
             manifest: ctx.manifest,
             installed: ctx.installed,
             snoozedVersionCode: ctx.snoozedVersionCode,
-            installBusy,
+            installBusy: busy,
           },
-    [ctx, installBusy],
+    [ctx, busy],
   );
 
   const visibilityEval = useMemo(
@@ -36,6 +45,31 @@ export function AndroidApkUpdateAvailableBanner() {
     [bannerInput],
   );
 
+  useEffect(() => {
+    const manifestCode = ctx?.manifest?.versionCode;
+    if (typeof manifestCode !== 'number') {
+      setDownloadActive(false);
+      return;
+    }
+    const state = readAndroidApkDownloadState();
+    if (state == null || state.versionCode !== Math.trunc(manifestCode)) {
+      setDownloadActive(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const st = await AppUpdateDownload.getDownloadStatus({ downloadId: state.downloadId });
+        if (!cancelled) setDownloadActive(isBlockingDownloadStatus(st.status));
+      } catch {
+        if (!cancelled) setDownloadActive(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ctx?.manifest?.versionCode, phase]);
+
   if (ctx == null || ctx.installKind !== 'android') {
     return null;
   }
@@ -45,24 +79,26 @@ export function AndroidApkUpdateAvailableBanner() {
     return null;
   }
 
-  const headlineVersionLabel =
-    (manifest.latestVersion ?? '').trim() || `Build ${manifest.versionCode ?? '—'}`;
-
   const handleLater = () => {
     ctx.snoozeCurrentManifest();
   };
 
   const handleInstallClick = async () => {
-    if (!visibilityEval.shouldShow || installBusy) return;
-    setInstallError(null);
-    setInstallBusy(true);
+    if (!visibilityEval.shouldShow || busy) return;
+    setError(null);
+    setBusy(true);
+    setPhase('starting');
     try {
-      const res = await runAndroidNativeApkInstallFlow(manifest);
+      const res = await runAndroidSystemApkDownloadFlow(manifest);
       if (!res.ok) {
-        setInstallError(res.message);
+        setError(res.message);
+        setPhase('idle');
+        return;
       }
+      setPhase('started');
+      setDownloadActive(true);
     } finally {
-      setInstallBusy(false);
+      setBusy(false);
     }
   };
 
@@ -73,16 +109,23 @@ export function AndroidApkUpdateAvailableBanner() {
     }
   };
 
+  const primaryLabel =
+    phase === 'starting' || busy
+      ? 'Update wird heruntergeladen'
+      : phase === 'started' || downloadActive
+        ? 'Download gestartet'
+        : 'Jetzt installieren';
+
   return (
     <div className={styles.optionalBanner} role="region" aria-label="Android App-Update verfügbar">
       <div className={styles.bannerText}>
-        <strong className={styles.bannerTitle}>
-          Neue AMRtech-Payment-Version verfügbar: {headlineVersionLabel}
-        </strong>
+        <strong className={styles.bannerTitle}>Neue Version verfügbar</strong>
         <span className={styles.bannerSubtitle}>
-          Update installieren, um die neuesten Verbesserungen zu nutzen.
+          {phase === 'started' || downloadActive
+            ? 'Android informiert dich, sobald das Update bereit zur Installation ist.'
+            : 'Tippe auf „Jetzt installieren“, um den Android-Systemdownload zu starten.'}
         </span>
-        {installError != null ? <span className={styles.bannerError}>{installError}</span> : null}
+        {error != null ? <span className={styles.bannerError}>{error}</span> : null}
         <Link to="/profile" className={styles.bannerSubtitle}>
           Details
         </Link>
@@ -93,17 +136,17 @@ export function AndroidApkUpdateAvailableBanner() {
           className={styles.primaryButton}
           onClick={() => void handleInstallClick()}
           onKeyDown={handleInstallKeyDown}
-          disabled={installBusy}
-          aria-busy={installBusy ? 'true' : 'false'}
-          aria-label="Update installieren: interner Download und Paketinstaller"
+          disabled={busy || phase === 'started' || downloadActive}
+          aria-busy={busy ? 'true' : 'false'}
+          aria-label="Update über Android DownloadManager starten"
         >
-          {installBusy ? 'Wird vorbereitet …' : 'Jetzt aktualisieren'}
+          {primaryLabel}
         </button>
         <button
           type="button"
           className={styles.secondaryButton}
           onClick={handleLater}
-          disabled={installBusy}
+          disabled={busy}
           aria-label="Update-Hinweis für diese Version ausblenden"
         >
           Später

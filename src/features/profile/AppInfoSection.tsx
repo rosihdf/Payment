@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { getAppBuildInfo } from '../../lib/appBuildInfo';
 import {
-  resolveApkDownloadUrl,
   shouldOfferAndroidNativeApkInstall,
   type AndroidLatestManifest,
 } from '../../lib/androidApkUpdate';
-import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
+import { runAndroidSystemApkDownloadFlow } from '../../lib/androidApkInstallFlow';
 import {
-  ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY,
-  ANDROID_APK_SNOOZE_RESET_EVENT,
-  notifyAndroidApkSnoozeReset,
-  readSnoozedAndroidApkVersionCode,
-} from '../../lib/androidApkUpdateBanner';
+  isBlockingDownloadStatus,
+  readAndroidApkDownloadState,
+} from '../../lib/androidApkDownloadState';
+import { AppUpdateDownload } from '../../lib/appUpdateDownload';
+import {
+  DEVELOPER_MODE_TAP_COUNT,
+  DEVELOPER_MODE_TAP_WINDOW_MS,
+  readAppUpdateChannel,
+  readDeveloperModeEnabled,
+  writeAppUpdateChannel,
+  writeDeveloperModeEnabled,
+  type AppUpdateChannel,
+} from '../../lib/appUpdateChannel';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './ProfilePage.module.css';
 
@@ -25,35 +32,51 @@ function formatServerVersionHint(m: AndroidLatestManifest | null): string {
 }
 
 /**
- * App-Info Updatebereich — Verhalten wie ArioVan Wartung `AndroidApkUpdateSettingsCard`.
- * Shared Manifest-State kommt aus dem Provider (Visibility/Resume); manuelle Prüfung erzwingt Force.
+ * App-Info Updatebereich — DownloadManager-Pfad, kein eigener Installer.
  */
 export function AppInfoSection() {
   const ctx = useAndroidApkUpdateOptional();
   const info = getAppBuildInfo();
-  const [nativeInstallBusy, setNativeInstallBusy] = useState(false);
-  const [postInstallerNotice, setPostInstallerNotice] = useState<string | null>(null);
-  const [installFlowMessage, setInstallFlowMessage] = useState<string | null>(null);
-  const [promptDismissed, setPromptDismissed] = useState(false);
-  const [bannerSnoozeCode, setBannerSnoozeCode] = useState<number | null>(() =>
-    typeof window !== 'undefined' ? readSnoozedAndroidApkVersionCode() : null,
-  );
+  const [busy, setBusy] = useState(false);
+  const [flowMessage, setFlowMessage] = useState<string | null>(null);
+  const [downloadActive, setDownloadActive] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(() => readDeveloperModeEnabled());
+  const [channel, setChannel] = useState<AppUpdateChannel>(() => readAppUpdateChannel());
+  const [devToast, setDevToast] = useState<string | null>(null);
+  const tapCountRef = useRef(0);
+  const tapWindowStartRef = useRef(0);
 
   const refreshManifest = ctx?.refreshManifest;
   const installKind = ctx?.installKind;
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const sync = (): void => setBannerSnoozeCode(readSnoozedAndroidApkVersionCode());
-    window.addEventListener(ANDROID_APK_SNOOZE_RESET_EVENT, sync);
-    return () => window.removeEventListener(ANDROID_APK_SNOOZE_RESET_EVENT, sync);
-  }, []);
 
   useEffect(() => {
     if (installKind === 'android' && refreshManifest) {
       void refreshManifest({ reason: 'info_mount' });
     }
   }, [installKind, refreshManifest]);
+
+  const refreshDownloadActive = useCallback(async () => {
+    const code = ctx?.manifest?.versionCode;
+    if (typeof code !== 'number') {
+      setDownloadActive(false);
+      return;
+    }
+    const state = readAndroidApkDownloadState();
+    if (state == null || state.versionCode !== Math.trunc(code)) {
+      setDownloadActive(false);
+      return;
+    }
+    try {
+      const st = await AppUpdateDownload.getDownloadStatus({ downloadId: state.downloadId });
+      setDownloadActive(isBlockingDownloadStatus(st.status));
+    } catch {
+      setDownloadActive(false);
+    }
+  }, [ctx?.manifest?.versionCode]);
+
+  useEffect(() => {
+    void refreshDownloadActive();
+  }, [refreshDownloadActive, ctx?.verdict?.kind]);
 
   const installedLabel = `${info.version}${
     info.androidGradleVersionCode != null
@@ -66,7 +89,7 @@ export function AppInfoSection() {
     [ctx],
   );
 
-  const canOfferNativeInstallPrimary =
+  const canOfferDownload =
     Boolean(ctx) &&
     ctx!.installKind === 'android' &&
     nativeInstallEligible &&
@@ -74,11 +97,8 @@ export function AppInfoSection() {
     ctx!.manifest != null &&
     !ctx!.loadFailed &&
     ctx!.hasCheckedOnce &&
-    !ctx!.checking;
-
-  const showNewerBanner = ctx?.verdict?.kind === 'newer' && !promptDismissed;
-  const uncertainReason =
-    ctx?.verdict?.kind === 'uncertain' && !promptDismissed ? ctx.verdict.reason : null;
+    !ctx!.checking &&
+    !downloadActive;
 
   const showCurrentVersionHint =
     Boolean(ctx) &&
@@ -89,47 +109,50 @@ export function AppInfoSection() {
     !ctx!.loadFailed &&
     ctx!.verdict?.kind === 'current';
 
-  const bannerSnoozeHidesHeadline =
-    nativeInstallEligible &&
-    ctx?.manifest != null &&
-    typeof ctx.manifest.versionCode === 'number' &&
-    bannerSnoozeCode != null &&
-    bannerSnoozeCode === Math.trunc(ctx.manifest.versionCode);
-
-  const browserApkFallbackLabel =
-    ctx?.loadFailed ||
-    ctx?.verdict?.kind === 'uncertain' ||
-    ctx?.verdict?.kind === 'newer' ||
-    nativeInstallEligible
-      ? 'APK im Browser herunterladen'
-      : 'Aktuelle APK im Browser herunterladen';
-
   const handleCheckUpdates = useCallback(async () => {
     if (!ctx) return;
-    setPromptDismissed(false);
+    setFlowMessage(null);
     await ctx.refreshManifest({ force: true, reason: 'manual' });
   }, [ctx]);
 
-  const handleNativeInstall = async () => {
-    if (!canOfferNativeInstallPrimary || ctx?.manifest == null) return;
-    setPostInstallerNotice(null);
-    setInstallFlowMessage(null);
-    setNativeInstallBusy(true);
+  const handleDownload = async () => {
+    if (!canOfferDownload || ctx?.manifest == null) return;
+    setFlowMessage(null);
+    setBusy(true);
     try {
-      const res = await runAndroidNativeApkInstallFlow(ctx.manifest);
+      const res = await runAndroidSystemApkDownloadFlow(ctx.manifest);
       if (res.ok) {
-        setPostInstallerNotice(res.notice);
+        setFlowMessage(res.notice);
+        setDownloadActive(true);
       } else {
-        setInstallFlowMessage(res.message);
+        setFlowMessage(res.message);
       }
     } finally {
-      setNativeInstallBusy(false);
+      setBusy(false);
     }
   };
 
-  const handleDownloadApkInBrowser = () => {
-    const url = resolveApkDownloadUrl(ctx?.manifest ?? null);
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleVersionTap = () => {
+    const now = Date.now();
+    if (now - tapWindowStartRef.current > DEVELOPER_MODE_TAP_WINDOW_MS) {
+      tapCountRef.current = 0;
+      tapWindowStartRef.current = now;
+    }
+    tapCountRef.current += 1;
+    if (tapCountRef.current < DEVELOPER_MODE_TAP_COUNT) return;
+    tapCountRef.current = 0;
+    writeDeveloperModeEnabled(true);
+    setDeveloperMode(true);
+    setDevToast('Entwickleroptionen freigeschaltet');
+  };
+
+  const handleChannelChange = async (next: AppUpdateChannel) => {
+    writeAppUpdateChannel(next);
+    setChannel(next);
+    setDevToast(next === 'test' ? 'Testkanal aktiv' : 'Produktionskanal aktiv');
+    if (ctx) {
+      await ctx.refreshManifest({ force: true, reason: 'manual' });
+    }
   };
 
   if (!ctx || ctx.installKind !== 'android') {
@@ -145,7 +168,11 @@ export function AppInfoSection() {
           </div>
           <div className={styles.row}>
             <dt>Version</dt>
-            <dd>{info.version}</dd>
+            <dd>
+              <button type="button" className={styles.versionTapTarget} onClick={handleVersionTap}>
+                {info.version}
+              </button>
+            </dd>
           </div>
           <div className={styles.row}>
             <dt>Hinweis</dt>
@@ -162,30 +189,24 @@ export function AppInfoSection() {
         App-Info
       </h2>
       <p className={styles.appInfoMessage}>
-        „Update installieren“ lädt die APK intern und öffnet den Paketinstaller — nur wenn die Build-Nummer
-        (versionCode) auf dem Server höher ist. Es gibt keine stillschweigende Installation. Als Fallback gibt es
-        einen Browser-Link zur APK.
+        „Jetzt installieren“ startet den Android-Systemdownload. Danach tippst du auf die
+        Download-Benachrichtigung — Payment installiert nicht selbst.
       </p>
-
-      {postInstallerNotice ? <p className={styles.devToast}>{postInstallerNotice}</p> : null}
-      {installFlowMessage ? (
-        <p className={styles.appInfoMessage} role="alert">
-          {installFlowMessage}
-        </p>
-      ) : null}
-
-      {bannerSnoozeHidesHeadline ? (
-        <p className={styles.appInfoMessage}>
-          Der Hinweis unter der Kopfzeile ist für diese Build-Nummer ausgeblendet (Später am Banner). Über „Update
-          installieren“ hier können Sie trotzdem installieren.
-        </p>
-      ) : null}
 
       {showCurrentVersionHint ? (
         <p className={styles.devToast} role="status">
-          Sie nutzen die aktuelle Version.
+          Die App ist aktuell
         </p>
       ) : null}
+
+      {downloadActive ? (
+        <p className={styles.devToast} role="status">
+          Update wird über Android heruntergeladen
+        </p>
+      ) : null}
+
+      {flowMessage ? <p className={styles.appInfoMessage}>{flowMessage}</p> : null}
+      {devToast ? <p className={styles.devToast}>{devToast}</p> : null}
 
       <dl className={styles.appInfoList}>
         <div className={styles.row}>
@@ -194,7 +215,12 @@ export function AppInfoSection() {
         </div>
         <div className={styles.row}>
           <dt>Installierte Version</dt>
-          <dd>{installedLabel}</dd>
+          <dd>
+            <button type="button" className={styles.versionTapTarget} onClick={handleVersionTap}>
+              {installedLabel}
+              {channel === 'test' ? <span className={styles.testBadge}>TEST</span> : null}
+            </button>
+          </dd>
         </div>
         {ctx.hasCheckedOnce && !ctx.checking ? (
           <div className={styles.row}>
@@ -203,7 +229,7 @@ export function AppInfoSection() {
               {!ctx.online
                 ? 'Offline — keine Versionsprüfung'
                 : ctx.loadFailed
-                  ? 'Manifest nicht geladen — Browser-Fallback möglich'
+                  ? 'Manifest nicht geladen'
                   : formatServerVersionHint(ctx.manifest)}
             </dd>
           </div>
@@ -216,122 +242,53 @@ export function AppInfoSection() {
         ) : null}
       </dl>
 
-      {showNewerBanner ? (
-        <div className={styles.updatePrompt} role="status">
-          <p className={styles.updatePromptTitle}>App-Update verfügbar</p>
-          <p className={styles.appInfoMessage}>
-            {nativeInstallEligible
-              ? 'Neue Version gefunden — mit „Update installieren“ lädt die App die APK intern und öffnet den Paketinstaller.'
-              : 'Die Versionsbezeichnung auf dem Server wirkt neuer, aber die Build-Nummer (versionCode) ist hier nicht höher. Primäres „Update installieren“ ist deshalb nicht aktiv.'}
-          </p>
-          <div className={styles.appInfoActions}>
-            {nativeInstallEligible ? (
-              <button
-                type="button"
-                className={styles.adminLink}
-                disabled={nativeInstallBusy || !ctx.online || !canOfferNativeInstallPrimary}
-                onClick={() => {
-                  void handleNativeInstall();
-                }}
-              >
-                {nativeInstallBusy ? 'Update wird heruntergeladen …' : 'Update installieren'}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={styles.adminLink}
-              disabled={nativeInstallBusy}
-              onClick={handleDownloadApkInBrowser}
-            >
-              {browserApkFallbackLabel}
-            </button>
-            <button
-              type="button"
-              className={styles.adminLink}
-              disabled={nativeInstallBusy}
-              onClick={() => setPromptDismissed(true)}
-            >
-              Später
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {uncertainReason != null ? (
-        <div className={styles.updatePrompt} role="status">
-          <p className={styles.updatePromptTitle}>Update prüfen</p>
-          <p className={styles.appInfoMessage}>{uncertainReason}</p>
-          <div className={styles.appInfoActions}>
-            <button
-              type="button"
-              className={styles.adminLink}
-              disabled={nativeInstallBusy}
-              onClick={handleDownloadApkInBrowser}
-            >
-              {browserApkFallbackLabel}
-            </button>
-            <button
-              type="button"
-              className={styles.adminLink}
-              disabled={nativeInstallBusy}
-              onClick={() => setPromptDismissed(true)}
-            >
-              Später
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       <div className={styles.appInfoActions}>
         <button
           type="button"
           className={styles.adminLink}
-          disabled={ctx.checking || nativeInstallBusy}
+          disabled={ctx.checking || busy}
           onClick={() => {
             void handleCheckUpdates();
           }}
         >
-          {ctx.checking ? 'Wird geprüft …' : 'Jetzt prüfen'}
+          {ctx.checking
+            ? 'Wird geprüft …'
+            : !ctx.hasCheckedOnce
+              ? 'Jetzt prüfen'
+              : 'Erneut prüfen'}
         </button>
 
-        {canOfferNativeInstallPrimary ? (
+        {canOfferDownload ? (
           <button
             type="button"
             className={styles.adminLink}
-            disabled={nativeInstallBusy || ctx.checking || !ctx.online}
+            disabled={busy}
             onClick={() => {
-              void handleNativeInstall();
+              void handleDownload();
             }}
           >
-            {nativeInstallBusy ? 'Update wird heruntergeladen …' : 'Update installieren'}
+            {busy ? 'Update wird heruntergeladen' : 'Jetzt installieren'}
           </button>
         ) : null}
-
-        <button
-          type="button"
-          className={styles.adminLink}
-          disabled={nativeInstallBusy}
-          onClick={handleDownloadApkInBrowser}
-        >
-          {browserApkFallbackLabel}
-        </button>
       </div>
 
-      {import.meta.env.DEV ? (
-        <button
-          type="button"
-          className={styles.devToast}
-          onClick={() => {
-            try {
-              localStorage.removeItem(ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY);
-            } catch {
-              /* ignore */
-            }
-            notifyAndroidApkSnoozeReset();
-          }}
-        >
-          DEV: Banner-Snooze zurücksetzen
-        </button>
+      {developerMode ? (
+        <div className={styles.developerOptions}>
+          <h3 className={styles.developerTitle}>Entwickleroptionen</h3>
+          <label className={styles.developerField}>
+            Updatekanal
+            <select
+              className={styles.developerSelect}
+              value={channel}
+              onChange={(e) => {
+                void handleChannelChange(e.target.value === 'test' ? 'test' : 'production');
+              }}
+            >
+              <option value="production">Produktion (latest.json)</option>
+              <option value="test">Test (latest-test.json)</option>
+            </select>
+          </label>
+        </div>
       ) : null}
     </section>
   );

@@ -26,6 +26,7 @@ import {
   readSnoozedAndroidApkVersionCode,
   writeSnoozedAndroidApkVersionCode,
 } from '../lib/androidApkUpdateBanner';
+import { clearAndroidApkDownloadStateIfCurrent } from '../lib/androidApkInstallFlow';
 import { isOnline, subscribeNetworkStatus } from '../lib/networkOnline';
 
 export type AndroidApkUpdateRefreshOptions = {
@@ -194,6 +195,12 @@ export function AndroidApkUpdateProvider({ children }: { children: ReactNode }) 
     () => (manifest ? compareAndroidInstallToManifest(installed, manifest) : null),
     [installed, manifest],
   );
+
+  useEffect(() => {
+    if (verdict?.kind === 'current') {
+      clearAndroidApkDownloadStateIfCurrent(installed.nativeVersionCode);
+    }
+  }, [verdict, installed.nativeVersionCode]);
 
   const value = useMemo<AndroidApkUpdateContextValue>(
     () => ({
