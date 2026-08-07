@@ -121,6 +121,14 @@ export function AppInfoSection() {
   if (!ctx || ctx.installKind !== 'android') {
     return (
       <section className={styles.appInfo} aria-labelledby="app-info-heading">
+        <img
+          className={styles.appInfoLogo}
+          src="/branding/amrtech-payment-logo.svg"
+          alt=""
+          width={120}
+          height={96}
+          decoding="async"
+        />
         <h2 id="app-info-heading" className={styles.sectionTitle}>
           App-Info
         </h2>
@@ -144,6 +152,14 @@ export function AppInfoSection() {
 
   return (
     <section className={styles.appInfo} aria-labelledby="app-info-heading">
+      <img
+        className={styles.appInfoLogo}
+        src="/branding/amrtech-payment-logo.svg"
+        alt=""
+        width={120}
+        height={96}
+        decoding="async"
+      />
       <h2 id="app-info-heading" className={styles.sectionTitle}>
         App-Info
       </h2>

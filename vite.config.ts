@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'branding/amrtech-payment-logo.svg'],
       manifest: {
         name: 'AMRtech Payment',
         short_name: 'AMRtech Payment',

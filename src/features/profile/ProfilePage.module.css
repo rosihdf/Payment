@@ -97,6 +97,14 @@
   box-shadow: var(--shadow-sm);
 }
 
+.appInfoLogo {
+  display: block;
+  width: min(7.5rem, 40%);
+  height: auto;
+  margin: 0 0 var(--space-4);
+  object-fit: contain;
+}
+
 .sectionTitle {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-lg);

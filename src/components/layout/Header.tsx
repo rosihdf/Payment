@@ -1,6 +1,7 @@
 import { OnlineIndicator } from '../feedback/OnlineIndicator';
 import { RoleSwitcher } from '../navigation/RoleSwitcher';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './Header.module.css';
 
 export function Header() {
@@ -9,11 +10,16 @@ export function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
-        <span className={styles.logo} aria-hidden="true">
-          A
-        </span>
+        <img
+          className={styles.logo}
+          src="/branding/amrtech-payment-logo.svg"
+          alt=""
+          width={40}
+          height={40}
+          decoding="async"
+        />
         <div>
-          <p className={styles.appName}>AMRtech Payment Leads</p>
+          <p className={styles.appName}>{APP_DISPLAY_NAME}</p>
           <p className={styles.tagline}>Außendienst & Payment-Vergleich</p>
         </div>
       </div>

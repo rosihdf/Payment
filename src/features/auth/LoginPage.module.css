@@ -20,15 +20,25 @@
   box-shadow: var(--shadow-sm);
 }
 
+.brandLogo {
+  display: block;
+  width: min(10rem, 55%);
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
 .title {
   margin: 0;
   font-size: var(--font-size-xl);
+  text-align: center;
 }
 
 .subtitle {
   margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+  text-align: center;
 }
 
 .form {

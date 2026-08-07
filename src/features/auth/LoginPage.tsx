@@ -41,6 +41,14 @@ export function LoginPage() {
   return (
     <main className={styles.page}>
       <section className={styles.panel} aria-labelledby="login-title">
+        <img
+          className={styles.brandLogo}
+          src="/branding/amrtech-payment-logo.svg"
+          alt=""
+          width={160}
+          height={128}
+          decoding="async"
+        />
         <h1 id="login-title" className={styles.title}>
           AMRtech Payment
         </h1>
