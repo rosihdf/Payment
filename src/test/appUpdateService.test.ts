@@ -202,6 +202,45 @@ describe('AppUpdateService native install', () => {
     expect(service.getSnapshot().status).toBe('readyToInstall');
   });
 
+  it('zeigt Wartungs-Hinweis bei install_source_blocked und behält readyToInstall', async () => {
+    const { INSTALL_SOURCE_BLOCKED } = await import('../native/apkUpdateNative');
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const sha256 = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const openFromCache = vi.fn(async () => {
+      const err = new Error(INSTALL_SOURCE_BLOCKED);
+      err.name = INSTALL_SOURCE_BLOCKED;
+      throw err;
+    });
+    const service = createService({
+      apkInstaller: { openFromCache },
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.includes('latest.json')) {
+          return new Response(
+            JSON.stringify(
+              validManifest({
+                sha256,
+                sizeBytes: bytes.byteLength,
+                downloadUrl: 'https://example.com/app.apk',
+              }),
+            ),
+            { status: 200 },
+          );
+        }
+        return new Response(bytes, { status: 200 });
+      },
+    });
+    await service.checkForUpdate();
+    const result = await service.startInstall();
+    expect(result.ok).toBe(false);
+    expect(service.getSnapshot().status).toBe('readyToInstall');
+    expect(service.getSnapshot().errorMessage).toMatch(/dieser Quelle/i);
+    expect(openFromCache).toHaveBeenCalledTimes(1);
+  });
+
   it('blockiert Installation bei SHA-Fehler und löscht Datei', async () => {
     const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
     const openFromCache = vi.fn();

@@ -180,7 +180,8 @@ export function AppInfoSection() {
             </dd>
           </div>
         ) : null}
-        {snapshot.errorMessage && snapshot.status === 'error' ? (
+        {snapshot.errorMessage &&
+        (snapshot.status === 'error' || snapshot.status === 'readyToInstall') ? (
           <div className={styles.row}>
             <dt>Hinweis</dt>
             <dd>{snapshot.errorMessage}</dd>

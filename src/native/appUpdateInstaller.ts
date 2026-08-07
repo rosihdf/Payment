@@ -11,3 +11,6 @@ export interface AppUpdateInstallerPlugin {
 }
 
 export const AppUpdateInstaller = registerPlugin<AppUpdateInstallerPlugin>('AppUpdateInstaller');
+
+/** Präfix aus dem nativen Plugin (wie ArioVan Wartung). */
+export const INSTALL_SOURCE_BLOCKED = 'install_source_blocked';

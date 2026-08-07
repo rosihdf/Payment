@@ -20,11 +20,21 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * Öffnet eine APK unter {@link android.content.Context#getCacheDir()} über FileProvider und
- * Intent {@link Intent#ACTION_VIEW}. Keine stille Installation.
+ * Öffnet eine APK unter {@link android.content.Context#getCacheDir()} über FileProvider und Intent {@link
+ * Intent#ACTION_VIEW} (Paketinstaller). Keine stille Installation – der Nutzer bestätigt im Systemdialog.
+ * Installer-Logik 1:1 wie ArioVan Wartung ({@code AppUpdateInstallerPlugin}).
  */
 @CapacitorPlugin(name = "AppUpdateInstaller")
 public class AppUpdateInstallerPlugin extends Plugin {
+
+    /**
+     * Präfix ist für Client/TypeScript gedacht ({@literal install_source_blocked}), damit die UI ohne fragile
+     * Parsing-Mechanismen weiterhelfen kann.
+     */
+    public static final String MSG_INSTALL_SOURCE_BLOCKED =
+            "install_source_blocked: Falls Android die Installation blockiert: unter Einstellungen die Installation aus "
+                    + "dieser Quelle für AMRtech Payment erlauben („Apps aus unbekannten Quellen“ / Paketinstaller). Danach "
+                    + "„Installation starten“ erneut tippen.";
 
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
@@ -44,8 +54,8 @@ public class AppUpdateInstallerPlugin extends Plugin {
     }
 
     /**
-     * Liest die tatsächlich installierte App-Version aus dem PackageManager
-     * (Wahrheit nach In-App-Upgrade, unabhängig vom JS-Bundle-Stand).
+     * Payment-Erweiterung: liest die installierte Version aus dem PackageManager
+     * (Wahrheit nach In-App-Upgrade für State-Reconcile).
      */
     @PluginMethod
     public void getInstalledVersion(final PluginCall call) {
@@ -74,7 +84,7 @@ public class AppUpdateInstallerPlugin extends Plugin {
     }
 
     /**
-     * @param relativePath Relativ zum Cache, z. B. {@code amrtech-updates/AMRtech-Payment-1.0.8.apk}.
+     * @param relativePath Relativ zum internen Cache z.&nbsp;B. {@code amrtech-updates/AMRtech-Payment-1.0.11.apk}.
      */
     @PluginMethod
     public void openApkFromCacheRelativePath(final PluginCall call) {
@@ -120,6 +130,14 @@ public class AppUpdateInstallerPlugin extends Plugin {
         if (!apkCanon.isFile()) {
             call.reject("APK-Datei nicht gefunden. Bitte den Download erneut starten.");
             return;
+        }
+
+        final PackageManager pm = getContext().getPackageManager();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!pm.canRequestPackageInstalls()) {
+                call.reject(MSG_INSTALL_SOURCE_BLOCKED);
+                return;
+            }
         }
 
         try {

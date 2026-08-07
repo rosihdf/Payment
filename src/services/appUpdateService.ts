@@ -31,6 +31,7 @@ import {
 import {
   type ApkCacheWriter,
   type ApkInstallerBridge,
+  INSTALL_SOURCE_BLOCKED,
   apkRelativePathForVersion,
   createFilesystemApkCacheWriter,
   createNativeApkInstallerBridge,
@@ -388,11 +389,22 @@ export class AppUpdateService {
       return { ok: true };
     } catch (error) {
       this.awaitingInstallerReturn = false;
+      const message = error instanceof Error ? error.message : String(error);
+      const blocked =
+        message.includes(INSTALL_SOURCE_BLOCKED) ||
+        (error instanceof Error && error.name === INSTALL_SOURCE_BLOCKED);
+      if (blocked) {
+        this.patch({
+          status: 'readyToInstall',
+          errorMessage:
+            'Falls Android blockiert, erlauben Sie die Installation aus dieser Quelle für AMRtech Payment in den Android-Einstellungen. Danach „Installation starten“ erneut tippen.',
+        });
+        return { ok: false, error: this.snapshot.errorMessage ?? message };
+      }
       this.patch({
         status: 'readyToInstall',
         errorMessage: 'Der Installer konnte nicht geöffnet werden.',
       });
-      const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: this.snapshot.errorMessage ?? message };
     }
   }

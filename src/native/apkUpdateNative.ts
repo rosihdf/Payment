@@ -1,5 +1,9 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
-import { AppUpdateInstaller, type InstalledAppVersion } from './appUpdateInstaller';
+import {
+  AppUpdateInstaller,
+  INSTALL_SOURCE_BLOCKED,
+  type InstalledAppVersion,
+} from './appUpdateInstaller';
 import { APP_VERSION, APP_VERSION_CODE } from '../utils/appInfo';
 
 export const APP_UPDATE_CACHE_DIR = 'amrtech-updates';
@@ -57,7 +61,17 @@ export function createFilesystemApkCacheWriter(): ApkCacheWriter {
 export function createNativeApkInstallerBridge(): ApkInstallerBridge {
   return {
     async openFromCache(relativePath) {
-      await AppUpdateInstaller.openApkFromCacheRelativePath({ relativePath });
+      try {
+        await AppUpdateInstaller.openApkFromCacheRelativePath({ relativePath });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes(INSTALL_SOURCE_BLOCKED)) {
+          const blocked = new Error(INSTALL_SOURCE_BLOCKED);
+          blocked.name = INSTALL_SOURCE_BLOCKED;
+          throw blocked;
+        }
+        throw error instanceof Error ? error : new Error(message);
+      }
     },
     async getInstalledVersion() {
       try {
@@ -77,4 +91,5 @@ export function createNativeApkInstallerBridge(): ApkInstallerBridge {
   };
 }
 
+export { INSTALL_SOURCE_BLOCKED };
 export type { InstalledAppVersion };
