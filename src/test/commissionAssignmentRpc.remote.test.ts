@@ -68,7 +68,7 @@ const STANDARD_OVERRIDES = [
     percentTenthsOfBasisPoint: null,
   },
   {
-    ruleId: 'commission_rule_classic_terminal_acq_lte36',
+    ruleId: 'commission_rule_classic_terminal_acq_gt36',
     sharePercent: 100,
     fixedAmountCents: null,
     percentTenthsOfBasisPoint: null,

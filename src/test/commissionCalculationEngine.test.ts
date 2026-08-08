@@ -67,18 +67,16 @@ function buildInput(
 }
 
 describe('commission calculation engine', () => {
-  it('calculates classic terminal plus acq at exactly 36 months as 250 EUR', () => {
+  it('blockiert exakt 36 Monate für Terminal+ACQ (PPT: weder >36 noch <36)', () => {
     seedDemoCommissionCatalog('classic');
     const result = evaluateCommission(
       buildInput(buildPricingResult({ termMonths: 36 }), 'terminal_plus_acq'),
       loadDemoCatalog(),
     );
 
-    expect(result.calculationBlocked).toBe(false);
-    expect(result.baseCommissionAmountCents).toBe(25000);
-    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(
-      false,
-    );
+    expect(result.calculationBlocked).toBe(true);
+    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(true);
+    expect(result.baseCommissionAmountCents).toBe(0);
   });
 
   it('calculates classic terminal plus acq >36 months as 300 EUR', () => {

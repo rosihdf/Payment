@@ -158,7 +158,7 @@ describe('Phase 2 – Commercial Truth', () => {
     ]);
   });
 
-  it('T5: Provision bei 36 Monaten Terminal+ACQ = 250 €', () => {
+  it('T5: Provision bei 36 Monaten Terminal+ACQ ist UNGEKLÄRT (blockiert)', () => {
     seedDemoCommissionCatalog('classic');
     seedTestPricingCatalog();
     const pricing = evaluatePricing(
@@ -190,8 +190,9 @@ describe('Phase 2 – Commercial Truth', () => {
         ) ?? [],
       ruleOverrides: [],
     });
-    expect(result.calculationBlocked).toBe(false);
-    expect(result.baseCommissionAmountCents).toBe(25000);
+    expect(result.calculationBlocked).toBe(true);
+    expect(result.baseCommissionAmountCents).toBe(0);
+    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(true);
   });
 
   it('T6: fehlende Kondition markiert Projection incomplete', () => {

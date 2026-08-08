@@ -1,16 +1,16 @@
-export type TermDurationClass = 'below_36' | 'lte_36_inclusive' | 'above_36' | 'unknown';
+export type TermDurationClass = 'below_36' | 'above_36' | 'exact_36' | 'unknown';
 
 export function classifyTermMonths(termMonths: number | null): TermDurationClass {
   if (termMonths === null || !Number.isInteger(termMonths) || termMonths < 1) {
     return 'unknown';
   }
 
-  if (termMonths < 36) {
-    return 'below_36';
+  if (termMonths === 36) {
+    return 'exact_36';
   }
 
-  if (termMonths === 36) {
-    return 'lte_36_inclusive';
+  if (termMonths < 36) {
+    return 'below_36';
   }
 
   return 'above_36';

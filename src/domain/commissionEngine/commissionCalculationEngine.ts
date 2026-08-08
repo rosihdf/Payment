@@ -26,6 +26,7 @@ import {
 import { resolveCommissionPlanAssignment } from './planResolution';
 import { selectCommissionRules } from './ruleMatching';
 import { applyRuleOverrides } from './applyRuleOverrides';
+import { classifyTermMonths } from './termClassification';
 import {
   pricingEvaluationBlocksCommission,
   pricingRequiresReductionReview,
@@ -102,6 +103,7 @@ export function evaluateCommission(
   const calculationId = generateId('commission_calc');
   const findings: CommissionFinding[] = [];
   const termMonths = input.pricingEvaluationResult.termMonths;
+  const termClass = classifyTermMonths(termMonths);
 
   if (input.pricingEvaluationResult.stale) {
     findings.push(
@@ -115,6 +117,24 @@ export function evaluateCommission(
         internalDescription: 'Die Preisbewertung ist veraltet.',
         salesDescription: 'Bitte berechnen Sie zuerst eine aktuelle Preisbewertung.',
         requiredAction: 'Preisbewertung aktualisieren',
+      }),
+    );
+  }
+
+  if (termClass === 'exact_36') {
+    findings.push(
+      createCommissionFinding({
+        code: COMMISSION_FINDING_CODES.COMMISSION_TERM_AMBIGUOUS_36_MONTHS,
+        severity: 'blocking',
+        category: 'term',
+        field: 'termMonths',
+        ruleId: null,
+        blocking: true,
+        internalDescription:
+          'Exakt 36 Monate sind in den Originalunterlagen (PPT) weder als „größer 36“ noch als „kleiner 36“ definiert – offene Fachentscheidung erforderlich.',
+        salesDescription: 'Die Laufzeit 36 Monate erfordert eine Adminprüfung der Provision.',
+        requiredAction: 'Fachentscheidung / Admin kontaktieren',
+        context: { months: 36 },
       }),
     );
   }
@@ -135,7 +155,7 @@ export function evaluateCommission(
   };
   let components: CommissionComponent[] = [];
 
-  if (planResolution.planVersion) {
+  if (planResolution.planVersion && termClass !== 'exact_36') {
     const planRules = applyRuleOverrides(
       context.commissionRules.filter(
         (rule) => rule.commissionPlanVersionId === planResolution.planVersion!.id,
