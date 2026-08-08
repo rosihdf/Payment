@@ -67,11 +67,19 @@ async function verify() {
   const hasOcrAssets =
     (await exists(path.join(distDir, 'ocr/worker/worker.min.js'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm.js'))) &&
-    (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm'))) &&
     (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm.js'))) &&
-    (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm'))) &&
     (await exists(path.join(distDir, 'ocr/lang/deu.traineddata'))) &&
     (await exists(path.join(distDir, 'ocr/lang/eng.traineddata')));
+
+  const staleStandaloneWasm = [
+    'ocr/core/tesseract-core-lstm.wasm',
+    'ocr/core/tesseract-core-simd-lstm.wasm',
+  ];
+  for (const relativePath of staleStandaloneWasm) {
+    if (await exists(path.join(distDir, relativePath))) {
+      throw new Error(`Standalone OCR wasm must not be shipped: dist/${relativePath}`);
+    }
+  }
 
   if (!hasOcrAssets) {
     throw new Error('Required OCR assets missing in dist/ocr (inkl. SIMD-Core)');

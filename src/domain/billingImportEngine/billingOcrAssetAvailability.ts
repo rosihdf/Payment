@@ -12,6 +12,7 @@ export interface BillingOcrAssetAvailability {
   status: BillingOcrAssetAvailabilityStatus;
   worker: boolean;
   core: boolean;
+  coreSimd: boolean;
   languages: Record<string, boolean>;
   checkedAt: string | null;
   message: string;
@@ -46,6 +47,7 @@ export async function checkBillingOcrAssetsAvailable(
   checkPromise = (async () => {
     const paths = resolveBillingOcrAssetPaths();
     validateBillingOcrAssetPaths(paths);
+    const coreBase = paths.corePath.replace(/\/$/, '');
 
     const languageCodes = BILLING_OCR_CONFIG.languages.split('+').filter(Boolean);
     const languageChecks = await Promise.all(
@@ -56,14 +58,15 @@ export async function checkBillingOcrAssetsAvailable(
     );
 
     const worker = await probeAsset(paths.workerPath);
-    const core = await probeAsset(`${paths.corePath.replace(/\/$/, '')}/tesseract-core-lstm.wasm.js`);
+    const core = await probeAsset(`${coreBase}/tesseract-core-lstm.wasm.js`);
+    const coreSimd = await probeAsset(`${coreBase}/tesseract-core-simd-lstm.wasm.js`);
     const languages = Object.fromEntries(languageChecks);
     const availableLanguages = Object.values(languages).filter(Boolean).length;
 
     let status: BillingOcrAssetAvailabilityStatus = 'unavailable';
-    if (worker && core && availableLanguages === languageCodes.length) {
+    if (worker && core && coreSimd && availableLanguages === languageCodes.length) {
       status = 'available';
-    } else if (worker || core || availableLanguages > 0) {
+    } else if (worker || core || coreSimd || availableLanguages > 0) {
       status = 'partially_available';
     }
 
@@ -71,6 +74,7 @@ export async function checkBillingOcrAssetsAvailable(
       status,
       worker,
       core,
+      coreSimd,
       languages,
       checkedAt: new Date().toISOString(),
       message:

@@ -1,4 +1,4 @@
-import type { TenthsOfCent } from '../domain/calculator/comparison';
+export type TenthsOfCent = number;
 
 const preciseCurrencyFormatter = new Intl.NumberFormat('de-DE', {
   style: 'currency',
