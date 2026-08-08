@@ -28,7 +28,7 @@ export function resolveClientInstallKind(
   return standalone ? 'pwa' : 'web';
 }
 
-/** Build-/Laufzeit-Infos für den Wartungs-Updatepfad. */
+/** Build-/Laufzeit-Infos für App-Info und Profil. */
 export function getAppBuildInfo(): AppBuildInfo {
   const installKind = resolveClientInstallKind(
     () => Capacitor.getPlatform(),
