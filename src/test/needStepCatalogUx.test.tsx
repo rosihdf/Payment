@@ -8,24 +8,25 @@ describe('NeedStep Katalog-UX', () => {
     cleanup();
   });
 
-  it('bietet Katalog-Laufzeiten 24 und 36 sowie „Noch offen“ an', () => {
+  it('bietet „Noch offen“ und individuelle Laufzeit statt globalem 24/36-Katalog', () => {
     const session = createBestPayComparisonSession('user_001');
     render(<NeedStep session={session} busy={false} onPatch={vi.fn()} />);
     const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
     fireEvent.click(term);
     const options = screen.getAllByRole('option').map((option) => option.getAttribute('data-value'));
-    expect(options).toEqual(['', '24', '36']);
+    expect(options).toContain('');
+    expect(options).toContain('36');
+    expect(options).not.toContain('24');
     expect(options).not.toContain('48');
-    expect(options).not.toContain('60');
   });
 
-  it('mapped veraltete 48 Monate auf 36 in der Anzeige', () => {
+  it('hält veraltete 48 Monate lesbar (nicht auf 36 mappen)', () => {
     const session = createBestPayComparisonSession('user_001');
     session.manualInput.preferredTermMonths = 48;
     render(<NeedStep session={session} busy={false} onPatch={vi.fn()} />);
     const term = screen.getByRole('combobox', { name: 'Gewünschte Vertragslaufzeit' });
-    expect(term).toHaveAttribute('data-value', '36');
-    expect(within(term).getByText('36 Monate')).toBeTruthy();
+    expect(term).toHaveAttribute('data-value', '48');
+    expect(within(term).getByText('48 Monate (individuell)')).toBeTruthy();
   });
 
   it('setzt „Noch offen“ auf preferredTermMonths null', () => {

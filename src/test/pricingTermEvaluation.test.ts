@@ -52,7 +52,7 @@ describe('contract term evaluation', () => {
     ).toBe(true);
   });
 
-  it('adds 36-month provision ambiguity hint', () => {
+  it('accepts 36-month special term without provision ambiguity', () => {
     const result = evaluateContractTerm(
       createTestPricingInput({
         contractTermId: null,
@@ -62,10 +62,8 @@ describe('contract term evaluation', () => {
       [createTestContractTerm()],
     );
 
-    expect(
-      result.findings.some(
-        (finding) => finding.code === PRICING_FINDING_CODES.PROVISION_TERM_AMBIGUOUS_36_MONTHS,
-      ),
-    ).toBe(true);
+    expect(result.termMonths).toBe(36);
+    expect(result.isSpecialTerm).toBe(true);
+    expect(result.findings.some((finding) => finding.blocking)).toBe(false);
   });
 });

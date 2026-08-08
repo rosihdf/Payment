@@ -1,4 +1,6 @@
 import type { CommissionCalculationInput } from '../commission/commissionCalculationInput';
+import type { CommissionContractConfiguration } from '../commission/commissionContractConfiguration';
+import { resolveCommissionContractConfiguration } from '../commission/commissionContractConfiguration';
 import type { PricingEvaluationResult } from '../pricing/pricingEvaluation';
 import { PRICING_FINDING_CODES } from '../pricing/pricingFinding';
 import type { Offer } from '../offer/offer';
@@ -13,6 +15,7 @@ export function buildCommissionCalculationInput(
   pricingEvaluationResult: PricingEvaluationResult,
   contractTypeCode: string | null,
   evaluationDate?: string,
+  contractConfiguration?: CommissionContractConfiguration | null,
 ): CommissionCalculationInput {
   const accessoryItems = offer.items
     .filter((item) => item.productSnapshot?.category === 'accessory')
@@ -22,6 +25,13 @@ export function buildCommissionCalculationInput(
       salePriceCents: item.unitPriceCents,
     }));
 
+  const resolvedConfiguration =
+    contractConfiguration ??
+    resolveCommissionContractConfiguration({
+      contractTypeCode,
+      termMonths: pricingEvaluationResult.termMonths,
+    });
+
   return {
     evaluationDate: evaluationDate ?? new Date().toISOString().slice(0, 10),
     offerId: offer.id,
@@ -29,6 +39,7 @@ export function buildCommissionCalculationInput(
     salesRepresentativeId: offer.createdByUserId,
     pricingEvaluationRecordId,
     pricingEvaluationResult,
+    contractConfiguration: resolvedConfiguration,
     contractTypeCode,
     accessoryItems,
   };
@@ -39,12 +50,6 @@ export function pricingEvaluationBlocksCommission(pricing: PricingEvaluationResu
     pricing.stale ||
     pricing.approval.approvalBlocked ||
     pricing.findings.some((finding) => finding.blocking)
-  );
-}
-
-export function pricingHasTermAmbiguity36(pricing: PricingEvaluationResult): boolean {
-  return pricing.findings.some(
-    (finding) => finding.code === PRICING_FINDING_CODES.PROVISION_TERM_AMBIGUOUS_36_MONTHS,
   );
 }
 

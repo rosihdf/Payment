@@ -26,7 +26,7 @@ import {
 import { resolveCommissionPlanAssignment } from './planResolution';
 import { selectCommissionRules } from './ruleMatching';
 import { applyRuleOverrides } from './applyRuleOverrides';
-import { classifyTermMonths } from './termClassification';
+import { resolveCommissionContractConfiguration } from '../commission/commissionContractConfiguration';
 import {
   pricingEvaluationBlocksCommission,
   pricingRequiresReductionReview,
@@ -103,7 +103,15 @@ export function evaluateCommission(
   const calculationId = generateId('commission_calc');
   const findings: CommissionFinding[] = [];
   const termMonths = input.pricingEvaluationResult.termMonths;
-  const termClass = classifyTermMonths(termMonths);
+  const contractConfiguration = resolveCommissionContractConfiguration({
+    contractConfiguration: input.contractConfiguration,
+    contractTypeCode: input.contractTypeCode,
+    termMonths,
+  });
+  const enrichedInput: CommissionCalculationInput = {
+    ...input,
+    contractConfiguration,
+  };
 
   if (input.pricingEvaluationResult.stale) {
     findings.push(
@@ -117,24 +125,6 @@ export function evaluateCommission(
         internalDescription: 'Die Preisbewertung ist veraltet.',
         salesDescription: 'Bitte berechnen Sie zuerst eine aktuelle Preisbewertung.',
         requiredAction: 'Preisbewertung aktualisieren',
-      }),
-    );
-  }
-
-  if (termClass === 'exact_36') {
-    findings.push(
-      createCommissionFinding({
-        code: COMMISSION_FINDING_CODES.COMMISSION_TERM_AMBIGUOUS_36_MONTHS,
-        severity: 'blocking',
-        category: 'term',
-        field: 'termMonths',
-        ruleId: null,
-        blocking: true,
-        internalDescription:
-          'Exakt 36 Monate sind in den Originalunterlagen (PPT) weder als „größer 36“ noch als „kleiner 36“ definiert – offene Fachentscheidung erforderlich.',
-        salesDescription: 'Die Laufzeit 36 Monate erfordert eine Adminprüfung der Provision.',
-        requiredAction: 'Fachentscheidung / Admin kontaktieren',
-        context: { months: 36 },
       }),
     );
   }
@@ -155,7 +145,7 @@ export function evaluateCommission(
   };
   let components: CommissionComponent[] = [];
 
-  if (planResolution.planVersion && termClass !== 'exact_36') {
+  if (planResolution.planVersion) {
     const planRules = applyRuleOverrides(
       context.commissionRules.filter(
         (rule) => rule.commissionPlanVersionId === planResolution.planVersion!.id,
@@ -166,7 +156,7 @@ export function evaluateCommission(
     selectedRules = selectCommissionRules(
       planRules,
       planResolution.planVersion.id,
-      input,
+      enrichedInput,
       termMonths,
     );
 
@@ -199,7 +189,7 @@ export function evaluateCommission(
         }),
       );
     } else {
-      components = calculateCommissionComponents(selectedRules.selectedRules, input);
+      components = calculateCommissionComponents(selectedRules.selectedRules, enrichedInput);
     }
   }
 
@@ -273,6 +263,7 @@ export function evaluateCommission(
     commissionPlanVersionNumber: planResolution.planVersion?.versionNumber ?? null,
     assignmentId: planResolution.assignment?.id ?? null,
     contractTypeCode: input.contractTypeCode,
+    contractConfiguration,
     termMonths,
     appliedRuleIds: selectedRules.selectedRules.map((rule) => rule.id),
     rejectedRuleIds: selectedRules.rejectedRules.map((rule) => rule.id),

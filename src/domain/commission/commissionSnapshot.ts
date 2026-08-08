@@ -3,6 +3,8 @@ import type { CommissionComponent } from './commissionCalculation';
 import type { CommissionReductionDecision } from './commissionReduction';
 import type { PricingEvaluationSnapshot } from '../pricing/pricingEvaluation';
 
+import type { CommissionContractConfiguration } from './commissionContractConfiguration';
+
 export interface CommissionSnapshot {
   schemaVersion: number;
   engineVersion: string;
@@ -18,6 +20,7 @@ export interface CommissionSnapshot {
   commissionPlanVersionNumber: number | null;
   assignmentId: string | null;
   contractTypeCode: string | null;
+  contractConfiguration: CommissionContractConfiguration | null;
   termMonths: number | null;
   appliedRuleIds: string[];
   rejectedRuleIds: string[];

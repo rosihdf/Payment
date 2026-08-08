@@ -96,8 +96,8 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
       await screen.findByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 }),
     ).toBeInTheDocument();
 
-    // "Nur Acquiring" (CLASSIC) ist Teil des Standardkatalogs (commissionCatalogSeed.ts).
-    const row = await waitForDesktopRow('Nur Acquiring');
+    // "ACQ-only" (CLASSIC) ist Teil des Standardkatalogs (commissionCatalogSeed.ts).
+    const row = await waitForDesktopRow('ACQ-only');
     await user.click(within(row).getByRole('button', { name: 'Bearbeiten' }));
 
     const amountInput = await screen.findByLabelText('Standardbetrag (EUR)');
@@ -118,12 +118,12 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
 
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    await screen.findByText('Standardregel „Nur Acquiring“ gespeichert');
+    await screen.findByText('Standardregel „ACQ-only“ gespeichert');
 
     // Reload: komplett neu mounten, gleiche Route, gleicher localStorage-Zustand.
     cleanup();
     renderStandardsPageAs('user_004');
-    const reloadedRow = await waitForDesktopRow('Nur Acquiring');
+    const reloadedRow = await waitForDesktopRow('ACQ-only');
     // "Standardbetrag" und "Berechnet" (100 % Standard) zeigen denselben Wert.
     expect(within(reloadedRow).getAllByText('175,00 €')).toHaveLength(2);
     expect(within(reloadedRow).getByText('Nein')).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     renderStandardsPageAs('user_004');
 
     await screen.findByRole('heading', { name: 'Provision – Standard & Vereinbarungen', level: 1 });
-    await waitForDesktopRow('Nur Acquiring');
+    await waitForDesktopRow('ACQ-only');
 
     // Außendienstmitarbeiterin "Laura Berger" (user_001) erhält per Default 100 % Standard.
     const repRow = await waitForDesktopRow('Laura Berger');
@@ -147,11 +147,11 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     const dialog = await screen.findByRole('dialog');
     await waitFor(
       () => {
-        expect(within(dialog).getByLabelText('Nur Acquiring %')).toHaveValue('100');
+        expect(within(dialog).getByLabelText('ACQ-only %')).toHaveValue('100');
       },
       { timeout: 8000 },
     );
-    const shareInput = within(dialog).getByLabelText('Nur Acquiring %');
+    const shareInput = within(dialog).getByLabelText('ACQ-only %');
 
     fireEvent.change(shareInput, { target: { value: '80' } });
     await waitFor(() => {
@@ -172,10 +172,10 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     await user.click(within(reloadedRepRow).getByRole('button', { name: 'Bearbeiten' }));
 
     const reloadedDialog = await screen.findByRole('dialog');
-    expect(within(reloadedDialog).getByLabelText('Nur Acquiring %')).toHaveValue('80');
-    await waitForEmployeeRuleRowInDialog('Nur Acquiring');
+    expect(within(reloadedDialog).getByLabelText('ACQ-only %')).toHaveValue('80');
+    await waitForEmployeeRuleRowInDialog('ACQ-only');
     await waitFor(() => {
-      const row = getDesktopRowByTextWithin(reloadedDialog, 'Nur Acquiring');
+      const row = getDesktopRowByTextWithin(reloadedDialog, 'ACQ-only');
       expect(within(row).getByText('120,00 €')).toBeInTheDocument();
     });
 
@@ -195,7 +195,7 @@ describe('Provision – Admin-UI-Persistenznachweis (/admin/commission/standards
     expect(within(finalRepRow).getByText('Standard (100 %)')).toBeInTheDocument();
     await user.click(within(finalRepRow).getByRole('button', { name: 'Bearbeiten' }));
     const finalDialog = await screen.findByRole('dialog');
-    expect(within(finalDialog).getByLabelText('Nur Acquiring %')).toHaveValue('100');
+    expect(within(finalDialog).getByLabelText('ACQ-only %')).toHaveValue('100');
     },
     20_000,
   );

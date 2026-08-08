@@ -1,5 +1,6 @@
 import type { CommissionRule } from '../commission/commissionRule';
 import type { CommissionCalculationInput } from '../commission/commissionCalculationInput';
+import { resolveCommissionContractConfiguration } from '../commission/commissionContractConfiguration';
 import { ruleMatchesTermMonths } from './termClassification';
 
 function isRuleValidOnDate(rule: CommissionRule, evaluationDate: string): boolean {
@@ -32,7 +33,18 @@ export function computeCommissionRuleSpecificity(
 ): number {
   let score = 0;
 
-  if (rule.contractTypeCode) {
+  const resolvedConfiguration = resolveCommissionContractConfiguration({
+    contractConfiguration: input.contractConfiguration,
+    contractTypeCode: input.contractTypeCode,
+    termMonths,
+  });
+
+  if (rule.contractConfiguration) {
+    if (rule.contractConfiguration !== resolvedConfiguration) {
+      return -1;
+    }
+    score += 120;
+  } else if (rule.contractTypeCode) {
     if (rule.contractTypeCode !== input.contractTypeCode) {
       return -1;
     }

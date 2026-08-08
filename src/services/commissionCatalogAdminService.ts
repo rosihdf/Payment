@@ -248,6 +248,7 @@ export class CommissionCatalogAdminService {
       status: input.status,
       commissionType: input.commissionType,
       calculationBasis: input.calculationBasis,
+      contractConfiguration: existing?.contractConfiguration ?? null,
       contractTypeCode: input.contractTypeCode,
       productId: existing?.productId ?? null,
       tariffId: existing?.tariffId ?? null,
@@ -313,6 +314,7 @@ export class CommissionCatalogAdminService {
       salesRepresentativeId: context.userId,
       pricingEvaluationRecordId: 'preview',
       pricingEvaluationResult: buildPreviewPricingResult(input.termMonths),
+      contractConfiguration: null,
       contractTypeCode: input.contractTypeCode,
       accessoryItems:
         input.accessorySaleCents > 0

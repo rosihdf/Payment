@@ -3,10 +3,10 @@ import { normalizeTariffs } from '../domain/tariff/normalizeTariff';
 import { BESTPAY_A920_TARIFFS_RAW } from '../domain/tariff/bestPayTariffs';
 import { normalizeProducts } from '../domain/product/normalizeProduct';
 import { BESTPAY_PRODUCTS_RAW } from '../domain/product/bestPayProducts';
+import type { CommissionContractConfiguration } from '../domain/commission/commissionContractConfiguration';
 import {
   buildCommercialTermSelectOptions,
   getCommercialTermOptions,
-  isCommissionTermAmbiguous,
   isTermOfferedForSelection,
   normalizeReadableTermMonths,
   PRODUCT_EC_MOBILE_PREMIUM_ID,
@@ -15,7 +15,7 @@ import {
   FLAT_MARKUP_RULES,
   hasFlatMarkupVolumeBasis,
 } from '../domain/commercial/commercialMarkupCatalog';
-import { getOpenCommissionSourceConflicts } from '../domain/commercial/commissionSourceConflict';
+import { getResolvedCommissionSourceDecisions } from '../domain/commercial/commissionSourceConflict';
 import {
   createDefaultCommissionCatalog,
   createVariableModel1CommissionRules,
@@ -55,7 +55,7 @@ function buildPricingResult(overrides: Partial<PricingEvaluationResult> = {}): P
 
 function buildCommissionInput(
   pricing: PricingEvaluationResult,
-  contractTypeCode: string,
+  contractConfiguration: CommissionContractConfiguration,
 ): CommissionCalculationInput {
   return {
     evaluationDate: '2026-06-15',
@@ -64,7 +64,8 @@ function buildCommissionInput(
     salesRepresentativeId: FIELD_SERVICE_USER_ID,
     pricingEvaluationRecordId: 'pricing_eval',
     pricingEvaluationResult: pricing,
-    contractTypeCode,
+    contractConfiguration,
+    contractTypeCode: null,
     accessoryItems: [],
   };
 }
@@ -84,7 +85,6 @@ function loadDemoCatalog() {
 
 const tariffs = normalizeTariffs([...BESTPAY_A920_TARIFFS_RAW]);
 const products = normalizeProducts([...BESTPAY_PRODUCTS_RAW]);
-const classicTariff = tariffs.find((entry) => entry.id === 'tariff_bestpay_a920_classic')!;
 
 describe('Phase 2C – Commercial Truth', () => {
   describe('Laufzeiten', () => {
@@ -131,30 +131,21 @@ describe('Phase 2C – Commercial Truth', () => {
     it('>36 klassisch Terminal+ACQ = 300 €', () => {
       seedDemoCommissionCatalog('classic');
       const result = evaluateCommission(
-        buildCommissionInput(buildPricingResult({ termMonths: 48 }), 'terminal_plus_acq'),
+        buildCommissionInput(buildPricingResult({ termMonths: 48 }), 'terminal_acq_long_term'),
         loadDemoCatalog(),
       );
       expect(result.calculationBlocked).toBe(false);
       expect(result.baseCommissionAmountCents).toBe(30000);
     });
 
-    it('exakt 36 → AMBIGUOUS, nicht erfundener Betrag', () => {
+    it('36 Monate Terminal+ACQ = 300 € (long_term)', () => {
       seedDemoCommissionCatalog('classic');
       const result = evaluateCommission(
-        buildCommissionInput(buildPricingResult({ termMonths: 36 }), 'terminal_plus_acq'),
+        buildCommissionInput(buildPricingResult({ termMonths: 36 }), 'terminal_acq_long_term'),
         loadDemoCatalog(),
       );
-      expect(result.calculationBlocked).toBe(true);
-      expect(result.baseCommissionAmountCents).toBe(0);
-      expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(
-        true,
-      );
-    });
-
-    it('Vertragslaufzeit 36 wählbar, Provision separat ungeklärt', () => {
-      const options = getCommercialTermOptions('product_speedypay_t2');
-      expect(options.documentedTermsMonths).toContain(36);
-      expect(isCommissionTermAmbiguous(36, options)).toBe(true);
+      expect(result.calculationBlocked).toBe(false);
+      expect(result.baseCommissionAmountCents).toBe(30000);
     });
 
     it('Modell 1 Terminal-Schwelle 12 € im Seed', () => {
@@ -179,12 +170,8 @@ describe('Phase 2C – Commercial Truth', () => {
       expect(txRule?.thresholdTenthsOfCent).toBe(40);
     });
 
-    it('PPT/Vertrag-Konflikt bleibt sichtbar', () => {
-      const conflicts = getOpenCommissionSourceConflicts();
-      expect(conflicts.some((entry) => entry.code === 'CONTRACT_CLOSURE_PPT_VS_VERTRAG')).toBe(
-        true,
-      );
-      expect(conflicts.some((entry) => entry.code === 'TERM_EXACT_36_MONTHS')).toBe(true);
+    it('PPT-Priorität dokumentiert (Conflicts aufgelöst)', () => {
+      expect(getResolvedCommissionSourceDecisions().length).toBeGreaterThan(0);
     });
 
     it('Default-Katalog trennt Modell 1 und Modell 2', () => {

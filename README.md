@@ -273,7 +273,7 @@ A09 wertet Angebots- und Kalkulationskontexte deterministisch gegen versionierte
 - **Keine erfundenen Preise** — fehlende Konfiguration führt zu blockierenden Befunden
 - **Sonderlaufzeiten** sind mindestens `critical` und benötigen eine Begründung
 - **Preis unter Mindestpreis** ist `critical`
-- **Exakt 36 Monate** werden provisionsseitig nicht erfunden zugeordnet (Hinweis `PROVISION_TERM_AMBIGUOUS_36_MONTHS`)
+- **36 abgeschlossene Monate** zählen zur langen Provisionsstufe (`>=36 → long_term`); keine gesonderte Ambiguity mehr
 - **A09 berechnet noch keine Provision** — das folgt in A10
 
 ### Prüfklassen
@@ -319,14 +319,14 @@ A10 berechnet auf Basis der A09-Preisbewertung individuelle BestPay-Provisionsvo
 
 - **A09-Preisbewertung ist verbindliche Grundlage** — keine parallele Preislogik
 - **Keine erfundenen Provisionssätze** — produktiver Katalog startet leer
-- **Exakt 36 Monate** werden nicht automatisch zugeordnet (`COMMISSION_TERM_AMBIGUOUS_36_MONTHS`)
+- **36 abgeschlossene Monate** gehören zur langen Laufzeitstufe (`>=36 → long_term`); Vertragskonstellationen werden nicht addiert
 - **Laufende Beteiligungen** bleiben vorläufig, wenn Abrechnungsdaten fehlen
 - **Kürzungen** benötigen Adminentscheidung und Begründung (max. 50 % der ursprünglichen Provision)
 - **Keine Auszahlung** in A10 — höchstens Status `expected` nach Einfrieren
 
 ### Belegte Demo-Modelle (nur Tests)
 
-- Klassisch: Terminal+ACQ >36M = 300 €, Terminal <36M = 200 €, ACQ = 150 €
+- Klassisch: Terminal+ACQ >=36M = 300 €, Terminal <36M = 200 €, ACQ-only = 150 €
 - Variabel: 150 € / 100 € / 100 € plus laufende Beteiligungen (explizit konfigurierte Formeln)
 - Zubehör: 20 % vom Verkaufspreis
 

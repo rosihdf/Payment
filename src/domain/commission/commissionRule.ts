@@ -1,3 +1,5 @@
+import type { CommissionContractConfiguration } from './commissionContractConfiguration';
+
 export type CommissionRuleStatus = 'active' | 'inactive';
 
 export type CommissionType =
@@ -33,6 +35,9 @@ export interface CommissionRule {
   status: CommissionRuleStatus;
   commissionType: CommissionType;
   calculationBasis: CommissionCalculationBasis;
+  /** Explizite PPT-Vertragskonstellation für Fixprovisionen. */
+  contractConfiguration: CommissionContractConfiguration | null;
+  /** @deprecated Legacy – nutze contractConfiguration. */
   contractTypeCode: string | null;
   productId: string | null;
   tariffId: string | null;

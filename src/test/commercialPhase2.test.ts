@@ -165,7 +165,7 @@ describe('Phase 2 – Commercial Truth', () => {
     expect(catalogTerms.map((term) => term.months)).toEqual([24, 36, 48]);
   });
 
-  it('T5: Provision bei 36 Monaten Terminal+ACQ ist UNGEKLÄRT (blockiert)', () => {
+  it('T5: Provision bei 36 Monaten Terminal+ACQ = 300 € (long_term)', () => {
     seedDemoCommissionCatalog('classic');
     seedTestPricingCatalog();
     const pricing = evaluatePricing(
@@ -183,7 +183,8 @@ describe('Phase 2 – Commercial Truth', () => {
       salesRepresentativeId: FIELD_SERVICE_USER_ID,
       pricingEvaluationRecordId: 'pricing_eval_record_test',
       pricingEvaluationResult: { ...pricing, termMonths: 36, stale: false },
-      contractTypeCode: 'terminal_plus_acq',
+      contractConfiguration: 'terminal_acq_long_term',
+      contractTypeCode: null,
       accessoryItems: [],
     };
     const result = evaluateCommission(input, {
@@ -197,9 +198,8 @@ describe('Phase 2 – Commercial Truth', () => {
         ) ?? [],
       ruleOverrides: [],
     });
-    expect(result.calculationBlocked).toBe(true);
-    expect(result.baseCommissionAmountCents).toBe(0);
-    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(true);
+    expect(result.calculationBlocked).toBe(false);
+    expect(result.baseCommissionAmountCents).toBe(30000);
   });
 
   it('T6: fehlende Kondition markiert Projection incomplete', () => {

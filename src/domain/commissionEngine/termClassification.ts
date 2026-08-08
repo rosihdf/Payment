@@ -1,20 +1,11 @@
-export type TermDurationClass = 'below_36' | 'above_36' | 'exact_36' | 'unknown';
+import {
+  classifyCommissionContractTerm,
+  type CommissionContractTermClass,
+} from '../commission/commissionContractConfiguration';
 
-export function classifyTermMonths(termMonths: number | null): TermDurationClass {
-  if (termMonths === null || !Number.isInteger(termMonths) || termMonths < 1) {
-    return 'unknown';
-  }
+export type { CommissionContractTermClass };
 
-  if (termMonths === 36) {
-    return 'exact_36';
-  }
-
-  if (termMonths < 36) {
-    return 'below_36';
-  }
-
-  return 'above_36';
-}
+export { classifyCommissionContractTerm };
 
 export function ruleMatchesTermMonths(
   termMonths: number | null,
@@ -39,4 +30,17 @@ export function ruleMatchesTermMonths(
   }
 
   return true;
+}
+
+/** Lang/kurz gemäß PPT-Klassifikation (>=36 = long_term). */
+export function ruleMatchesCommissionTermClass(
+  termMonths: number | null,
+  requiredClass: CommissionContractTermClass | null,
+): boolean {
+  if (requiredClass === null) {
+    return true;
+  }
+
+  const actual = classifyCommissionContractTerm(termMonths);
+  return actual === requiredClass;
 }

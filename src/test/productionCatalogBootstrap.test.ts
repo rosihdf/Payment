@@ -174,6 +174,7 @@ describe('production catalog parity engines', () => {
           findings: [],
           snapshot: {} as never,
         },
+        contractConfiguration: 'terminal_acq_long_term',
         contractTypeCode: 'terminal_plus_acq',
         accessoryItems: [],
       },

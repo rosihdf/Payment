@@ -1,4 +1,5 @@
 import type { PricingEvaluationResult } from '../pricing/pricingEvaluation';
+import type { CommissionContractConfiguration } from './commissionContractConfiguration';
 
 export interface CommissionCalculationInput {
   evaluationDate: string;
@@ -7,6 +8,9 @@ export interface CommissionCalculationInput {
   salesRepresentativeId: string;
   pricingEvaluationRecordId: string;
   pricingEvaluationResult: PricingEvaluationResult;
+  /** Explizite PPT-Vertragskonstellation – keine Addition Terminal + ACQ. */
+  contractConfiguration: CommissionContractConfiguration | null;
+  /** @deprecated Legacy – nutze contractConfiguration. */
   contractTypeCode: string | null;
   accessoryItems: Array<{
     productId: string;

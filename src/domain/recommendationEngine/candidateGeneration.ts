@@ -119,6 +119,15 @@ function selectContractTerms(
     return filtered;
   }
 
+  if (termOptions.customTermAllowed && activeTerms.length > 0) {
+    const catalogFallback = activeTerms.filter(
+      (term) => maxMonths === null || term.months <= maxMonths,
+    );
+    if (catalogFallback.length > 0) {
+      return catalogFallback;
+    }
+  }
+
   const preferred = need.contractPreferences.preferredTermMonths;
   if (preferred !== null && preferred > 0) {
     const preferredTerm = activeTerms.find((term) => term.months === preferred);

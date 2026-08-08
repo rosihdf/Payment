@@ -52,7 +52,8 @@ function buildPricingResult(overrides: Partial<PricingEvaluationResult> = {}): P
 
 function buildInput(
   pricing: PricingEvaluationResult,
-  contractTypeCode: string,
+  contractConfiguration: import('../domain/commission/commissionContractConfiguration').CommissionContractConfiguration,
+  contractTypeCode: string | null = null,
 ): CommissionCalculationInput {
   return {
     evaluationDate: '2026-06-15',
@@ -61,28 +62,28 @@ function buildInput(
     salesRepresentativeId: FIELD_SERVICE_USER_ID,
     pricingEvaluationRecordId: 'pricing_eval_record_test',
     pricingEvaluationResult: pricing,
+    contractConfiguration,
     contractTypeCode,
     accessoryItems: [],
   };
 }
 
 describe('commission calculation engine', () => {
-  it('blockiert exakt 36 Monate für Terminal+ACQ (PPT: weder >36 noch <36)', () => {
+  it('klassisch Terminal+ACQ bei 36 Monaten = 300 EUR (long_term)', () => {
     seedDemoCommissionCatalog('classic');
     const result = evaluateCommission(
-      buildInput(buildPricingResult({ termMonths: 36 }), 'terminal_plus_acq'),
+      buildInput(buildPricingResult({ termMonths: 36 }), 'terminal_acq_long_term'),
       loadDemoCatalog(),
     );
 
-    expect(result.calculationBlocked).toBe(true);
-    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(true);
-    expect(result.baseCommissionAmountCents).toBe(0);
+    expect(result.calculationBlocked).toBe(false);
+    expect(result.baseCommissionAmountCents).toBe(30000);
   });
 
-  it('calculates classic terminal plus acq >36 months as 300 EUR', () => {
+  it('calculates classic terminal plus acq >=36 months as 300 EUR', () => {
     seedDemoCommissionCatalog('classic');
     const result = evaluateCommission(
-      buildInput(buildPricingResult({ termMonths: 48 }), 'terminal_plus_acq'),
+      buildInput(buildPricingResult({ termMonths: 48 }), 'terminal_acq_long_term'),
       loadDemoCatalog(),
     );
 
@@ -90,19 +91,39 @@ describe('commission calculation engine', () => {
     expect(result.status).not.toBe('blocked');
   });
 
-  it('calculates classic terminal <36 months as 200 EUR', () => {
+  it('calculates classic terminal short term as 200 EUR', () => {
     seedDemoCommissionCatalog('classic');
     const result = evaluateCommission(
-      buildInput(buildPricingResult({ termMonths: 24 }), 'terminal_only'),
+      buildInput(buildPricingResult({ termMonths: 24 }), 'terminal_short_term'),
       loadDemoCatalog(),
     );
 
     expect(result.baseCommissionAmountCents).toBe(20000);
   });
 
+  it('calculates classic acq only as 150 EUR', () => {
+    seedDemoCommissionCatalog('classic');
+    const result = evaluateCommission(
+      buildInput(buildPricingResult({ termMonths: 24 }), 'acq_only'),
+      loadDemoCatalog(),
+    );
+
+    expect(result.baseCommissionAmountCents).toBe(15000);
+  });
+
+  it('does not add terminal and acq provisions (K5)', () => {
+    seedDemoCommissionCatalog('classic');
+    const result = evaluateCommission(
+      buildInput(buildPricingResult({ termMonths: 24 }), 'terminal_short_term'),
+      loadDemoCatalog(),
+    );
+    expect(result.baseCommissionAmountCents).not.toBe(35000);
+    expect(result.baseCommissionAmountCents).toBe(20000);
+  });
+
   it('calculates accessory commission at 20 percent of sale price', () => {
     seedDemoCommissionCatalog('classic');
-    const input = buildInput(buildPricingResult({ termMonths: 48 }), 'terminal_plus_acq');
+    const input = buildInput(buildPricingResult({ termMonths: 48 }), 'terminal_acq_long_term');
     input.accessoryItems = [{ productId: 'acc_sim', quantity: 2, salePriceCents: 1000 }];
 
     const result = evaluateCommission(input, loadDemoCatalog());

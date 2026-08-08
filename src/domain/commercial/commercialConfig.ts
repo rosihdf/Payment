@@ -67,11 +67,7 @@ export function getAllowedContractTermMonthsForTariff(
   return options.selectableDocumentedMonths;
 }
 
-export function resolveContractTermFromCatalog(
-  termMonths: number | null,
-  productId: string | null,
-  tariffId: string | null,
-): ContractTerm | null {
+export function resolveContractTermFromCatalog(termMonths: number | null): ContractTerm | null {
   if (termMonths === null) {
     return null;
   }
@@ -129,11 +125,7 @@ export function buildCommercialConfig(input: {
     tariffId: input.tariff.id,
   });
 
-  const contractTerm = resolveContractTermFromCatalog(
-    projectionMonths,
-    productId,
-    input.tariff.id,
-  );
+  const contractTerm = resolveContractTermFromCatalog(projectionMonths);
 
   return {
     tariffId: input.tariff.id,
