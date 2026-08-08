@@ -26,10 +26,8 @@ import {
 import { resolveCommissionPlanAssignment } from './planResolution';
 import { selectCommissionRules } from './ruleMatching';
 import { applyRuleOverrides } from './applyRuleOverrides';
-import { classifyTermMonths } from './termClassification';
 import {
   pricingEvaluationBlocksCommission,
-  pricingHasTermAmbiguity36,
   pricingRequiresReductionReview,
 } from '../commission/buildCommissionInputFromOffer';
 
@@ -104,7 +102,6 @@ export function evaluateCommission(
   const calculationId = generateId('commission_calc');
   const findings: CommissionFinding[] = [];
   const termMonths = input.pricingEvaluationResult.termMonths;
-  const termClass = classifyTermMonths(termMonths);
 
   if (input.pricingEvaluationResult.stale) {
     findings.push(
@@ -118,24 +115,6 @@ export function evaluateCommission(
         internalDescription: 'Die Preisbewertung ist veraltet.',
         salesDescription: 'Bitte berechnen Sie zuerst eine aktuelle Preisbewertung.',
         requiredAction: 'Preisbewertung aktualisieren',
-      }),
-    );
-  }
-
-  if (pricingHasTermAmbiguity36(input.pricingEvaluationResult) || termClass === 'exact_36') {
-    findings.push(
-      createCommissionFinding({
-        code: COMMISSION_FINDING_CODES.COMMISSION_TERM_AMBIGUOUS_36_MONTHS,
-        severity: 'blocking',
-        category: 'term',
-        field: 'termMonths',
-        ruleId: null,
-        blocking: true,
-        internalDescription:
-          'Exakt 36 Monate sind provisionsseitig nicht eindeutig geregelt und benötigen eine explizite Regel.',
-        salesDescription: 'Die Laufzeit erfordert eine Adminprüfung der Provision.',
-        requiredAction: 'Admin kontaktieren',
-        context: { months: 36 },
       }),
     );
   }
@@ -156,7 +135,7 @@ export function evaluateCommission(
   };
   let components: CommissionComponent[] = [];
 
-  if (planResolution.planVersion && termClass !== 'exact_36') {
+  if (planResolution.planVersion) {
     const planRules = applyRuleOverrides(
       context.commissionRules.filter(
         (rule) => rule.commissionPlanVersionId === planResolution.planVersion!.id,

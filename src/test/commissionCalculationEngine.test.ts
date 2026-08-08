@@ -67,6 +67,20 @@ function buildInput(
 }
 
 describe('commission calculation engine', () => {
+  it('calculates classic terminal plus acq at exactly 36 months as 250 EUR', () => {
+    seedDemoCommissionCatalog('classic');
+    const result = evaluateCommission(
+      buildInput(buildPricingResult({ termMonths: 36 }), 'terminal_plus_acq'),
+      loadDemoCatalog(),
+    );
+
+    expect(result.calculationBlocked).toBe(false);
+    expect(result.baseCommissionAmountCents).toBe(25000);
+    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(
+      false,
+    );
+  });
+
   it('calculates classic terminal plus acq >36 months as 300 EUR', () => {
     seedDemoCommissionCatalog('classic');
     const result = evaluateCommission(
@@ -86,18 +100,6 @@ describe('commission calculation engine', () => {
     );
 
     expect(result.baseCommissionAmountCents).toBe(20000);
-  });
-
-  it('blocks exactly 36 months', () => {
-    seedDemoCommissionCatalog('classic');
-    const result = evaluateCommission(
-      buildInput(buildPricingResult({ termMonths: 36 }), 'terminal_plus_acq'),
-      loadDemoCatalog(),
-    );
-
-    expect(result.calculationBlocked).toBe(true);
-    expect(result.findings.some((f) => f.code === 'COMMISSION_TERM_AMBIGUOUS_36_MONTHS')).toBe(true);
-    expect(result.baseCommissionAmountCents).toBe(0);
   });
 
   it('calculates accessory commission at 20 percent of sale price', () => {

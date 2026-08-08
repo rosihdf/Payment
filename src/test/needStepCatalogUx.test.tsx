@@ -40,7 +40,7 @@ describe('NeedStep Katalog-UX', () => {
     expect(onPatch).toHaveBeenCalledWith({ preferredTermMonths: null });
   });
 
-  it('erklärt Einsatzarten und aktiviert nur mobiles Terminal', () => {
+  it('erklärt Einsatzarten und aktiviert stationär sowie mobiles Terminal', () => {
     const session = createBestPayComparisonSession('user_001');
     const onPatch = vi.fn();
     render(<NeedStep session={session} busy={false} onPatch={onPatch} />);
@@ -61,7 +61,7 @@ describe('NeedStep Katalog-UX', () => {
       name: /Im Geschäft oder am festen Standort/i,
     });
     expect(mobile).not.toBeDisabled();
-    expect(stationary).toBeDisabled();
+    expect(stationary).not.toBeDisabled();
 
     fireEvent.click(mobile);
     expect(onPatch).toHaveBeenCalled();

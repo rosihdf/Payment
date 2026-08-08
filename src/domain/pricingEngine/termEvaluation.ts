@@ -96,25 +96,7 @@ export function evaluateContractTerm(
       }),
     );
 
-    if (input.requestedSpecialTermMonths === 36) {
-      findings.push(
-        createFinding({
-          code: PRICING_FINDING_CODES.PROVISION_TERM_AMBIGUOUS_36_MONTHS,
-          severity: 'info',
-          category: 'term',
-          field: 'requestedSpecialTermMonths',
-          ruleId: null,
-          blocking: false,
-          internalDescription:
-            'Exakt 36 Monate sind provisionsseitig nicht eindeutig geregelt und werden nicht automatisch zugeordnet.',
-          salesDescription: null,
-          requiredAction: null,
-          context: { months: 36 },
-        }),
-      );
-    }
-
-    return {
+      return {
       termMonths: input.requestedSpecialTermMonths,
       isStandardTerm: false,
       isSpecialTerm: true,
@@ -203,24 +185,6 @@ export function evaluateContractTerm(
         internalDescription: 'Laufzeit passt nicht zur gewählten Vertragsart.',
         salesDescription: 'Diese Laufzeit ist für die gewählte Vertragsart nicht zulässig.',
         requiredAction: 'Kombination prüfen',
-      }),
-    );
-  }
-
-  if (term.months === 36) {
-    findings.push(
-      createFinding({
-        code: PRICING_FINDING_CODES.PROVISION_TERM_AMBIGUOUS_36_MONTHS,
-        severity: 'info',
-        category: 'term',
-        field: 'contractTermId',
-        ruleId: null,
-        blocking: false,
-        internalDescription:
-          'Exakt 36 Monate sind provisionsseitig nicht eindeutig geregelt und werden nicht automatisch zugeordnet.',
-        salesDescription: null,
-        requiredAction: null,
-        context: { months: 36 },
       }),
     );
   }

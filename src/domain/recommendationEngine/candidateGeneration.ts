@@ -3,6 +3,7 @@ import type { Product } from '../product/product';
 import type { Tariff, TerminalType } from '../tariff/tariff';
 import type { CustomerNeed } from '../recommendation/customerNeed';
 import type { BestPaySolutionCandidate } from '../recommendation/bestPaySolutionCandidate';
+import { resolveDeploymentMode, resolveSimProduct } from '../commercial/commercialConfig';
 import { createEmptyCostProjection } from '../recommendation/customerCostProjection';
 import { generateId } from '../../utils/id';
 
@@ -180,18 +181,31 @@ export function buildCandidateBlueprints(
   return blueprints;
 }
 
-function createCandidateCode(blueprint: CandidateBlueprint): string {
+function createCandidateCode(blueprint: CandidateBlueprint, need: CustomerNeed): string {
   const hardwareCode = blueprint.hardwareProduct?.internalProductCode ?? 'no-hw';
   const termCode = blueprint.contractTerm?.months?.toString() ?? 'no-term';
-  return `${blueprint.tariff.productCode}:${hardwareCode}:${termCode}:${blueprint.terminalType}`;
+  const deployment = resolveDeploymentMode(need);
+  return `${blueprint.tariff.productCode}:${hardwareCode}:${termCode}:${blueprint.terminalType}:${deployment}`;
 }
 
-export function blueprintToCandidate(blueprint: CandidateBlueprint): BestPaySolutionCandidate {
+export function blueprintToCandidate(
+  blueprint: CandidateBlueprint,
+  need: CustomerNeed,
+  allProducts: Product[] = [],
+): BestPaySolutionCandidate {
   const projectionMonths = blueprint.contractTermMonths ?? 24;
+  const deploymentMode = resolveDeploymentMode(need);
+  const accessoryItems: Array<{ productId: string; quantity: number }> = [];
+  if (deploymentMode === 'mobile_sim') {
+    const sim = resolveSimProduct(allProducts);
+    if (sim) {
+      accessoryItems.push({ productId: sim.id, quantity: blueprint.quantity });
+    }
+  }
 
   return {
     candidateId: generateId('rec_candidate'),
-    candidateCode: createCandidateCode(blueprint),
+    candidateCode: createCandidateCode(blueprint, need),
     contractTypeId: blueprint.contractTerm?.contractTypeId ?? null,
     tariffId: blueprint.tariff.id,
     tariffName: blueprint.tariff.name,
@@ -199,7 +213,7 @@ export function blueprintToCandidate(blueprint: CandidateBlueprint): BestPaySolu
     terminalType: blueprint.terminalType,
     hardwareProductIds: blueprint.hardwareProduct ? [blueprint.hardwareProduct.id] : [],
     hardwareProductNames: blueprint.hardwareProduct ? [blueprint.hardwareProduct.name] : [],
-    accessoryItems: [],
+    accessoryItems,
     contractTermId: blueprint.contractTerm?.id || null,
     contractTermMonths: blueprint.contractTermMonths,
     isStandardTerm: blueprint.contractTerm?.isStandard ?? false,
@@ -227,12 +241,12 @@ export function generateCandidatesFromCatalog(
   const candidates: BestPaySolutionCandidate[] = [];
 
   for (const blueprint of blueprints) {
-    const code = createCandidateCode(blueprint);
+    const code = createCandidateCode(blueprint, need);
     if (seenCodes.has(code)) {
       continue;
     }
     seenCodes.add(code);
-    candidates.push(blueprintToCandidate(blueprint));
+    candidates.push(blueprintToCandidate(blueprint, need, catalog.products));
   }
 
   return candidates;

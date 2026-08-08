@@ -6,11 +6,7 @@ import { getCardMixSummary, isCardMixValid } from '../../../services/leadValidat
 import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
-/** Laufzeiten laut verfügbaren Katalogkombinationen (pricingCatalogSeed). */
-const TERM_OPTIONS = [
-  { months: 24, label: '24 Monate' },
-  { months: 36, label: '36 Monate' },
-] as const;
+import { getStandardCommercialContractTerms } from '../../../domain/commercial/commercialConfig';
 
 const INDUSTRY_OPTIONS = [
   'Gastronomie',
@@ -34,8 +30,8 @@ const ACCEPTANCE_OPTIONS: Array<{
   {
     key: 'stationary',
     title: 'Im Geschäft oder am festen Standort',
-    description: 'Stationäres Kartenterminal – Tarif folgt mit dem Katalog.',
-    available: false,
+    description: 'Stationäres Terminal über Kunden-WLAN – Standardbetrieb ohne SIM-Aufpreis.',
+    available: true,
   },
   {
     key: 'mobile',
@@ -101,6 +97,7 @@ function parseCardMixPercent(raw: string): number | null {
 export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
   const input = session.manualInput;
   const preferredTermMonths = resolvePreferredTermMonths(input.preferredTermMonths);
+  const termOptions = getStandardCommercialContractTerms();
   const cardMix = cardMixFromManualInput(input);
   const cardMixSummary = getCardMixSummary(cardMix);
   const cardMixValid = isCardMixValid(cardMix);
@@ -180,9 +177,9 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
           }}
         >
           <option value="">Noch offen – beste passende Option empfehlen</option>
-          {TERM_OPTIONS.map((option) => (
-            <option key={option.months} value={option.months}>
-              {option.label}
+          {termOptions.map((option) => (
+            <option key={option.id} value={option.months}>
+              {option.name}
             </option>
           ))}
         </FormField>

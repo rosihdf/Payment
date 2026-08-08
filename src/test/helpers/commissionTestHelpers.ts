@@ -50,7 +50,16 @@ function baseRule(overrides: Partial<CommissionRule>): CommissionRule {
 export function createDemoClassicRules(): CommissionRule[] {
   return [
     baseRule({
-      id: 'commission_rule_demo_classic_terminal_acq_gt36',
+      id: 'commission_rule_demo_classic_terminal_acq_lte36',
+      commissionPlanVersionId: DEMO_COMMISSION_PLAN_VERSION_CLASSIC_ID,
+      name: 'Klassisch Terminal+ACQ ≤36 Monate',
+      contractTypeCode: 'terminal_plus_acq',
+      maxTermMonthsExclusive: 37,
+      fixedAmountCents: 25000,
+      combinable: false,
+      priority: 15,
+    }),
+    baseRule({
       commissionPlanVersionId: DEMO_COMMISSION_PLAN_VERSION_CLASSIC_ID,
       name: 'Klassisch Terminal+ACQ >36 Monate',
       contractTypeCode: 'terminal_plus_acq',
