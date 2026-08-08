@@ -4,11 +4,18 @@ import type { Tariff } from '../tariff/tariff';
 import type { CustomerNeed } from '../recommendation/customerNeed';
 import type { BestPaySolutionCandidate } from '../recommendation/bestPaySolutionCandidate';
 import { createProductionPricingCatalog } from '../catalog/pricingCatalogSeed';
+import {
+  getCommercialTermOptions,
+  type CommercialTermOptions,
+} from './commercialTermCapability';
 
 /** Standard: fest beim Kunden über Kunden-WLAN. Optional: mobiler Betrieb mit SIM. */
 export type CommercialDeploymentMode = 'stationary_wifi' | 'mobile_sim';
 
 export const COMMERCIAL_SIM_PRODUCT_CODE = 'BP-A920-SIM';
+
+/** Default-Tarifkontext für Beratungs-Wizard vor expliziter Produktwahl. */
+export const DEFAULT_COMMERCIAL_TARIFF_ID = 'tariff_bestpay_a920_classic';
 
 export interface CommercialConfig {
   tariffId: string;
@@ -40,14 +47,36 @@ export function resolveDeploymentMode(need: CustomerNeed): CommercialDeploymentM
   return 'stationary_wifi';
 }
 
-export function getStandardCommercialContractTerms(): ContractTerm[] {
-  return createProductionPricingCatalog().contractTerms.filter((term) => term.isStandard);
+export function getCommercialTermOptionsForProduct(
+  productId: string | null,
+  options: { tariffId?: string | null } = {},
+): CommercialTermOptions {
+  return getCommercialTermOptions(productId, options);
 }
 
-export function getAllowedContractTermMonthsForTariff(_tariffId: string): number[] {
-  return getStandardCommercialContractTerms()
-    .map((term) => term.months)
-    .sort((left, right) => left - right);
+/** @deprecated Nutze getCommercialTermOptionsForProduct. */
+export function getStandardCommercialContractTerms(): ContractTerm[] {
+  return createProductionPricingCatalog().contractTerms.filter((term) => term.status === 'active');
+}
+
+export function getAllowedContractTermMonthsForTariff(
+  tariffId: string,
+  productId: string | null = null,
+): number[] {
+  const options = getCommercialTermOptions(productId, { tariffId });
+  return options.selectableDocumentedMonths;
+}
+
+export function resolveContractTermFromCatalog(
+  termMonths: number | null,
+  productId: string | null,
+  tariffId: string | null,
+): ContractTerm | null {
+  if (termMonths === null) {
+    return null;
+  }
+  const catalog = createProductionPricingCatalog().contractTerms;
+  return catalog.find((term) => term.months === termMonths && term.status === 'active') ?? null;
 }
 
 export function resolveSimProduct(products: Product[]): Product | null {
@@ -61,6 +90,27 @@ export function resolveSimProduct(products: Product[]): Product | null {
   );
 }
 
+function resolveProjectionMonths(input: {
+  need: CustomerNeed;
+  candidate: BestPaySolutionCandidate;
+  productId: string | null;
+  tariffId: string;
+}): number {
+  const explicit =
+    input.candidate.contractTermMonths ?? input.need.contractPreferences.preferredTermMonths;
+
+  if (explicit !== null && explicit > 0) {
+    return explicit;
+  }
+
+  const options = getCommercialTermOptions(input.productId, { tariffId: input.tariffId });
+  if (options.documentedTermsMonths.length > 0) {
+    return options.documentedTermsMonths[0]!;
+  }
+
+  return 36;
+}
+
 export function buildCommercialConfig(input: {
   need: CustomerNeed;
   candidate: BestPaySolutionCandidate;
@@ -71,19 +121,28 @@ export function buildCommercialConfig(input: {
   const simProduct =
     deploymentMode === 'mobile_sim' ? resolveSimProduct([...input.products.values()]) : null;
 
-  const projectionMonths =
-    input.candidate.contractTermMonths ??
-    input.need.contractPreferences.preferredTermMonths ??
-    24;
+  const productId = input.candidate.hardwareProductIds[0] ?? null;
+  const projectionMonths = resolveProjectionMonths({
+    need: input.need,
+    candidate: input.candidate,
+    productId,
+    tariffId: input.tariff.id,
+  });
+
+  const contractTerm = resolveContractTermFromCatalog(
+    projectionMonths,
+    productId,
+    input.tariff.id,
+  );
 
   return {
     tariffId: input.tariff.id,
     tariffProductCode: input.tariff.productCode,
-    productId: input.candidate.hardwareProductIds[0] ?? null,
+    productId,
     terminalModel: input.candidate.hardwareProductNames[0] ?? input.tariff.productCode,
     deploymentMode,
     contractTermMonths: projectionMonths,
-    contractTermId: input.candidate.contractTermId,
+    contractTermId: input.candidate.contractTermId ?? contractTerm?.id ?? null,
     terminalCount: input.candidate.quantity,
 
     monthlyAccountBaseFeeCents: input.tariff.monthlyAccountBaseFeeCents,

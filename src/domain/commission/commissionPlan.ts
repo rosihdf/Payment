@@ -1,4 +1,11 @@
-export type CommissionPlanKind = 'classic' | 'variable' | 'hybrid' | 'individual' | 'campaign';
+export type CommissionPlanKind =
+  | 'classic'
+  | 'variable'
+  | 'variable_model_1'
+  | 'variable_model_2'
+  | 'hybrid'
+  | 'individual'
+  | 'campaign';
 
 export type CommissionPlanStatus = 'active' | 'inactive';
 

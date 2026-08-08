@@ -6,7 +6,12 @@ import { getCardMixSummary, isCardMixValid } from '../../../services/leadValidat
 import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
-import { getStandardCommercialContractTerms } from '../../../domain/commercial/commercialConfig';
+import {
+  buildCommercialTermSelectOptions,
+  getCommercialTermOptions,
+  normalizeReadableTermMonths,
+} from '../../../domain/commercial/commercialTermCapability';
+import { DEFAULT_COMMERCIAL_TARIFF_ID } from '../../../domain/commercial/commercialConfig';
 
 const INDUSTRY_OPTIONS = [
   'Gastronomie',
@@ -59,16 +64,12 @@ interface NeedStepProps {
   onPatch: (patch: Partial<BestPayComparisonSession['manualInput']>) => void;
 }
 
-/** null/0 = Laufzeit noch offen; 24/36 = Katalogwerte; sonst nächsthöherer Katalogwert. */
-function resolvePreferredTermMonths(value: number | null | undefined): number | null {
-  if (value === null || value === undefined || value === 0) {
-    return null;
-  }
-  if (value === 24 || value === 36) {
-    return value;
-  }
-  // Alte Werte (48/60) auf den nächsthöheren Katalogwert 36 begrenzen.
-  return 36;
+/** Laufzeit lesbar halten; Legacy-Werte (z. B. 24) nicht auf Katalogwerte mappen. */
+function resolvePreferredTermMonths(
+  value: number | null | undefined,
+  termOptions: ReturnType<typeof getCommercialTermOptions>,
+): number | null {
+  return normalizeReadableTermMonths(value, termOptions);
 }
 
 function cardMixFromManualInput(
@@ -96,8 +97,14 @@ function parseCardMixPercent(raw: string): number | null {
 
 export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
   const input = session.manualInput;
-  const preferredTermMonths = resolvePreferredTermMonths(input.preferredTermMonths);
-  const termOptions = getStandardCommercialContractTerms();
+  const termCapability = getCommercialTermOptions(null, {
+    tariffId: DEFAULT_COMMERCIAL_TARIFF_ID,
+  });
+  const preferredTermMonths = resolvePreferredTermMonths(
+    input.preferredTermMonths,
+    termCapability,
+  );
+  const termSelectOptions = buildCommercialTermSelectOptions(termCapability, preferredTermMonths);
   const cardMix = cardMixFromManualInput(input);
   const cardMixSummary = getCardMixSummary(cardMix);
   const cardMixValid = isCardMixValid(cardMix);
@@ -177,12 +184,17 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
           }}
         >
           <option value="">Noch offen – beste passende Option empfehlen</option>
-          {termOptions.map((option) => (
-            <option key={option.id} value={option.months}>
-              {option.name}
+          {termSelectOptions.map((option) => (
+            <option key={option.months} value={option.months}>
+              {option.label}
             </option>
           ))}
         </FormField>
+        {termCapability.customTermAllowed ? (
+          <p className={styles.hint}>
+            Andere Laufzeiten auf Anfrage möglich ({termCapability.termSourceReference}).
+          </p>
+        ) : null}
       </div>
 
       <div className={styles.acceptanceBlock}>

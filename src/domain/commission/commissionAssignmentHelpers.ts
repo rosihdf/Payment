@@ -7,7 +7,7 @@ import { isIndividualOverride } from './commissionRuleOverride';
 import { COMMISSION_SHARE_DEFAULT } from './commissionShare';
 import {
   DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID,
-  DEFAULT_COMMISSION_PLAN_VERSION_VARIABLE_ID,
+  DEFAULT_COMMISSION_PLAN_VERSION_VARIABLE_MODEL_1_ID,
 } from '../../services/commissionCatalogSeed';
 
 function parseDate(value: string): Date | null {
@@ -41,7 +41,7 @@ export function assignmentsOverlap(
 export function resolvePlanVersionIdForModel(model: 'classic' | 'variable'): string {
   return model === 'classic'
     ? DEFAULT_COMMISSION_PLAN_VERSION_CLASSIC_ID
-    : DEFAULT_COMMISSION_PLAN_VERSION_VARIABLE_ID;
+    : DEFAULT_COMMISSION_PLAN_VERSION_VARIABLE_MODEL_1_ID;
 }
 
 export function resolveModelFromPlanVersion(
@@ -60,7 +60,11 @@ export function resolveModelFromPlanVersion(
   if (plan.planKind === 'classic') {
     return 'classic';
   }
-  if (plan.planKind === 'variable') {
+  if (
+    plan.planKind === 'variable' ||
+    plan.planKind === 'variable_model_1' ||
+    plan.planKind === 'variable_model_2'
+  ) {
     return 'variable';
   }
   return null;

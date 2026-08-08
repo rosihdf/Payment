@@ -148,14 +148,21 @@ describe('Phase 2 – Commercial Truth', () => {
     expect(projection.breakdown.monthlyTransactionFixedCents).toBeGreaterThan(0);
   });
 
-  it('T4: zulässige Laufzeiten aus CommercialConfig', () => {
+  it('T4: produktbezogene Laufzeiten statt globalem 24/36', () => {
     for (const tariff of tariffs) {
       const months = getAllowedContractTermMonthsForTariff(tariff.id);
-      expect(months).toEqual([24, 36]);
+      expect(months).not.toContain(24);
+      expect(months).toEqual([]);
     }
-    expect(createProductionPricingCatalog().contractTerms.map((term) => term.months)).toEqual([
-      24, 36,
-    ]);
+    const t2Months = getAllowedContractTermMonthsForTariff(
+      'tariff_bestpay_a920_classic',
+      'product_speedypay_t2',
+    );
+    expect(t2Months).toEqual([36]);
+
+    const catalogTerms = createProductionPricingCatalog().contractTerms;
+    expect(catalogTerms.every((term) => !term.isStandard)).toBe(true);
+    expect(catalogTerms.map((term) => term.months)).toEqual([24, 36, 48]);
   });
 
   it('T5: Provision bei 36 Monaten Terminal+ACQ ist UNGEKLÄRT (blockiert)', () => {

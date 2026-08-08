@@ -4,6 +4,10 @@ import type { Tariff, TerminalType } from '../tariff/tariff';
 import type { CustomerNeed } from '../recommendation/customerNeed';
 import type { BestPaySolutionCandidate } from '../recommendation/bestPaySolutionCandidate';
 import { resolveDeploymentMode, resolveSimProduct } from '../commercial/commercialConfig';
+import {
+  getCommercialTermOptions,
+  LEGACY_CONTRACT_TERM_MONTHS,
+} from '../commercial/commercialTermCapability';
 import { createEmptyCostProjection } from '../recommendation/customerCostProjection';
 import { generateId } from '../../utils/id';
 
@@ -87,6 +91,7 @@ function selectContractTerms(
   need: CustomerNeed,
   terms: ContractTerm[],
   evaluationDate: string,
+  context: { tariffId: string; productId: string | null },
 ): ContractTerm[] {
   const activeTerms = terms.filter(
     (term) =>
@@ -94,19 +99,56 @@ function selectContractTerms(
       isCatalogEntryValidOnDate(term.validFrom, term.validUntil, evaluationDate),
   );
 
+  const termOptions = getCommercialTermOptions(context.productId, {
+    tariffId: context.tariffId,
+  });
+
+  const documentedMonths = new Set(termOptions.documentedTermsMonths);
+  const documentedTerms = activeTerms.filter((term) => documentedMonths.has(term.months));
+
   const maxMonths =
     need.contractPreferences.maxAcceptedTermMonths ??
     need.contractPreferences.preferredTermMonths ??
     null;
 
-  const filtered = activeTerms.filter((term) => maxMonths === null || term.months <= maxMonths);
+  const filtered = documentedTerms.filter(
+    (term) => maxMonths === null || term.months <= maxMonths,
+  );
 
-  const standardTerms = filtered.filter((term) => term.isStandard);
-  if (standardTerms.length > 0) {
-    return standardTerms.slice(0, 3);
+  if (filtered.length > 0) {
+    return filtered;
   }
 
-  return filtered.slice(0, 2);
+  const preferred = need.contractPreferences.preferredTermMonths;
+  if (preferred !== null && preferred > 0) {
+    const preferredTerm = activeTerms.find((term) => term.months === preferred);
+    if (preferredTerm) {
+      return [preferredTerm];
+    }
+    if (
+      termOptions.customTermAllowed ||
+      LEGACY_CONTRACT_TERM_MONTHS.includes(
+        preferred as (typeof LEGACY_CONTRACT_TERM_MONTHS)[number],
+      )
+    ) {
+      return [
+        {
+          id: '',
+          contractTypeId: null,
+          name: `${preferred} Monate`,
+          months: preferred,
+          isStandard: false,
+          status: 'active',
+          validFrom: null,
+          validUntil: null,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ];
+    }
+  }
+
+  return [];
 }
 
 export function buildCandidateBlueprints(
@@ -115,7 +157,6 @@ export function buildCandidateBlueprints(
 ): CandidateBlueprint[] {
   const evaluationDate = need.evaluationDate;
   const neededTerminalTypes = resolveNeededTerminalTypes(need);
-  const applicableTerms = selectContractTerms(need, catalog.contractTerms, evaluationDate);
 
   const activeTariffs = catalog.tariffs.filter(
     (tariff) =>
@@ -144,7 +185,17 @@ export function buildCandidateBlueprints(
       const hardwareOptions = matchingHardware.length > 0 ? matchingHardware.slice(0, 1) : [null];
 
       for (const hardwareProduct of hardwareOptions) {
-        const termOptions =
+        const applicableTerms = selectContractTerms(
+          need,
+          catalog.contractTerms,
+          evaluationDate,
+          {
+            tariffId: tariff.id,
+            productId: hardwareProduct?.id ?? null,
+          },
+        );
+
+        const termOptionsList =
           applicableTerms.length > 0
             ? applicableTerms
             : tariff.minimumContractMonths !== null
@@ -164,7 +215,7 @@ export function buildCandidateBlueprints(
                 ]
               : [null];
 
-        for (const contractTerm of termOptions) {
+        for (const contractTerm of termOptionsList) {
           blueprints.push({
             tariff,
             hardwareProduct,
@@ -193,7 +244,10 @@ export function blueprintToCandidate(
   need: CustomerNeed,
   allProducts: Product[] = [],
 ): BestPaySolutionCandidate {
-  const projectionMonths = blueprint.contractTermMonths ?? 24;
+  const projectionMonths =
+    blueprint.contractTermMonths ??
+    need.contractPreferences.preferredTermMonths ??
+    36;
   const deploymentMode = resolveDeploymentMode(need);
   const accessoryItems: Array<{ productId: string; quantity: number }> = [];
   if (deploymentMode === 'mobile_sim') {

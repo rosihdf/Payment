@@ -11,6 +11,7 @@ export const PRODUCTION_PRICE_BOOK_ID = 'price_book_bestpay_v1';
 export const PRODUCTION_PRICE_BOOK_VERSION_ID = 'price_book_version_bestpay_v1';
 export const PRODUCTION_CONTRACT_TERM_24_ID = 'contract_term_24';
 export const PRODUCTION_CONTRACT_TERM_36_ID = 'contract_term_36';
+export const PRODUCTION_CONTRACT_TERM_48_ID = 'contract_term_48';
 export const PRODUCTION_PRICE_RULE_GENERAL_ID = 'price_rule_bestpay_general';
 export const PRODUCTION_PRICE_RULE_TARIFF_CLASSIC_ID = 'price_rule_tariff_bestpay_a920_classic';
 export const PRODUCTION_PRICE_RULE_TARIFF_FLAT_ID = 'price_rule_tariff_bestpay_a920_flat';
@@ -88,9 +89,9 @@ export function createProductionPricingCatalog(): {
       {
         id: PRODUCTION_CONTRACT_TERM_24_ID,
         contractTypeId: null,
-        name: '24 Monate',
+        name: '24 Monate (historisch)',
         months: 24,
-        isStandard: true,
+        isStandard: false,
         status: 'active',
         validFrom: '2026-01-01',
         validUntil: null,
@@ -102,7 +103,19 @@ export function createProductionPricingCatalog(): {
         contractTypeId: null,
         name: '36 Monate',
         months: 36,
-        isStandard: true,
+        isStandard: false,
+        status: 'active',
+        validFrom: '2026-01-01',
+        validUntil: null,
+        createdAt: TIMESTAMP,
+        updatedAt: TIMESTAMP,
+      },
+      {
+        id: PRODUCTION_CONTRACT_TERM_48_ID,
+        contractTypeId: null,
+        name: '48 Monate',
+        months: 48,
+        isStandard: false,
         status: 'active',
         validFrom: '2026-01-01',
         validUntil: null,

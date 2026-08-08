@@ -5,6 +5,10 @@ import { percentageOfCentsFromTenthsOfBasisPoint } from '../../utils/percentageA
 import { transactionCostsFromTenthsOfCent } from '../../utils/tenthsOfCent';
 import type { CommercialConfig } from './commercialConfig';
 import { commercialMissingEntry, type CommercialMissingEntry } from './commercialMissingData';
+import {
+  FLAT_MARKUP_RULES,
+  hasFlatMarkupVolumeBasis,
+} from './commercialMarkupCatalog';
 
 export interface CommercialProjectionBreakdown {
   monthlyTerminalRentalCents: number;
@@ -170,9 +174,16 @@ export function calculateCommercialProjection(
   }
 
   if (config.tariffProductCode.includes('FLAT')) {
-    assumptions.push(
-      'Flat Non-EWR- (+1,49 %) und Commercial-Card-Markups (+1,59 %) sind noch nicht in der Projektion enthalten.',
-    );
+    if (!hasFlatMarkupVolumeBasis(need)) {
+      missing.push(commercialMissingEntry('commercial.flatNonEwrMarkup', 'warning'));
+      missing.push(commercialMissingEntry('commercial.flatCommercialMarkup', 'warning'));
+    } else {
+      for (const rule of FLAT_MARKUP_RULES) {
+        assumptions.push(
+          `${rule.label} (${rule.markupTenthsOfBasisPoint / 10} Basispunkte) – nur auf dokumentierte Teilumsätze.`,
+        );
+      }
+    }
   }
 
   breakdown.monthlyTransactionFixedCents = monthlyTransactionFixedCents ?? 0;

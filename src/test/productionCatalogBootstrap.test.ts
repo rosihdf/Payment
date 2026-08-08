@@ -23,7 +23,8 @@ import {
 } from '../domain/catalog/pricingCatalogSeed';
 import {
   DEFAULT_COMMISSION_PLAN_CLASSIC_ID,
-  DEFAULT_COMMISSION_PLAN_VARIABLE_ID,
+  DEFAULT_COMMISSION_PLAN_VARIABLE_MODEL_1_ID,
+  DEFAULT_COMMISSION_PLAN_VARIABLE_MODEL_2_ID,
 } from '../services/commissionCatalogSeed';
 import { generateCandidatesFromCatalog } from '../domain/recommendationEngine/candidateGeneration';
 import { createTestCustomerNeed } from './helpers/recommendationTestHelpers';
@@ -63,14 +64,20 @@ describe('productionBaselineCatalog', () => {
     expect(catalog.recommendationWeightSets[0]?.id).toBe(PRODUCTION_RECOMMENDATION_WEIGHT_SET_ID);
   });
 
-  it('enthält Classic/Variable-Provisionspläne aus commissionCatalogSeed', () => {
+  it('enthält Classic und Variable Modell 1/2 aus commissionCatalogSeed', () => {
     const catalog = createProductionBaselineCatalog('admin_test');
 
     expect(catalog.commissionPlans.map((plan) => plan.id)).toEqual([
       DEFAULT_COMMISSION_PLAN_CLASSIC_ID,
-      DEFAULT_COMMISSION_PLAN_VARIABLE_ID,
+      DEFAULT_COMMISSION_PLAN_VARIABLE_MODEL_1_ID,
+      DEFAULT_COMMISSION_PLAN_VARIABLE_MODEL_2_ID,
     ]);
-    expect(catalog.commissionRules.length).toBeGreaterThan(0);
+    expect(catalog.commissionRules.some((rule) => rule.id === 'commission_rule_model1_terminal')).toBe(
+      true,
+    );
+    expect(catalog.commissionRules.some((rule) => rule.id === 'commission_rule_model2_girocard')).toBe(
+      true,
+    );
   });
 
   it('leitet Preisregeln aus Tarifgebühren ab', () => {
