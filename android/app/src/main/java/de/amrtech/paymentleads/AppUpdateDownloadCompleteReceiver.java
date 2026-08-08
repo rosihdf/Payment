@@ -4,11 +4,12 @@ import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.util.Log;
 
 /**
- * Reagiert nur auf den von Payment gestarteten Update-Download.
- * Bei {@link DownloadManager#STATUS_SUCCESSFUL} öffnet den Systeminstaller genau einmal.
+ * Validiert DOWNLOAD_COMPLETE und reicht SUCCESSFUL an {@link AppUpdateInstallCoordinator}
+ * weiter. Startet den Installer nicht selbst über den Receiver-Context.
  */
 public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
 
@@ -16,14 +17,11 @@ public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(final Context context, final Intent intent) {
-        Log.i(TAG, "onReceive enter");
+        Log.i(TAG, "Receiver download complete enter");
         if (context == null || intent == null) {
-            Log.i(TAG, "onReceive abort null");
             return;
         }
-        final String action = intent.getAction();
-        Log.i(TAG, "action=" + action);
-        if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(action)) {
+        if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
             return;
         }
 
@@ -31,14 +29,17 @@ public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
         final long pendingId = AppUpdateDownloadStore.getPendingDownloadId(context);
         final boolean alreadyOpened =
                 AppUpdateDownloadStore.isInstallerAlreadyOpened(context, downloadId);
+        final boolean activeActivity = AppUpdateInstallCoordinator.isMainActivityResumed();
         Log.i(
                 TAG,
-                "ids reported="
+                "downloadId="
                         + downloadId
-                        + " pending="
+                        + " pendingId="
                         + pendingId
                         + " alreadyOpened="
-                        + alreadyOpened);
+                        + alreadyOpened
+                        + " activeActivity="
+                        + activeActivity);
 
         final DownloadManager dm =
                 (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
@@ -47,16 +48,24 @@ public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
             return;
         }
 
-        final int status = AppUpdateDownloadInstaller.queryStatus(dm, downloadId);
-        final boolean gate =
-                AppUpdateDownloadCompleteGate.shouldOpenInstaller(
-                        downloadId, pendingId, alreadyOpened, status);
-        Log.i(TAG, "status=" + status + " gate=" + gate);
-        if (!gate) {
+        final int status = AppUpdateInstallCoordinator.queryStatus(dm, downloadId);
+        Log.i(TAG, "STATUS=" + status);
+
+        final AppUpdateInstallDispatch.Mode mode =
+                AppUpdateInstallDispatch.decide(
+                        downloadId, pendingId, alreadyOpened, status, activeActivity);
+        Log.i(TAG, "dispatch=" + mode);
+        if (mode == AppUpdateInstallDispatch.Mode.NONE) {
             return;
         }
 
-        final boolean opened = AppUpdateDownloadInstaller.openCompletedDownload(context, downloadId);
-        Log.i(TAG, "openCompletedDownload result=" + opened);
+        final Uri uri = AppUpdateInstallCoordinator.queryUri(dm, downloadId);
+        Log.i(TAG, "uriPresent=" + (uri != null));
+        if (uri == null) {
+            return;
+        }
+
+        // Speichert ready + öffnet sofort über MainActivity ODER deferred bis onResume.
+        AppUpdateInstallCoordinator.onPaymentDownloadSuccessful(context, downloadId, uri);
     }
 }

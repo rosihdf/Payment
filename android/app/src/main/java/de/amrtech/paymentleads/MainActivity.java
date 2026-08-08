@@ -12,15 +12,12 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        AppUpdateForegroundTracker.onResume(this);
-        // Falls DOWNLOAD_COMPLETE den Installer wegen BAL still blockiert hat:
-        // sobald die App wieder sichtbar ist, Systeminstaller nachziehen.
-        AppUpdateDownloadInstaller.openPendingIfSuccessful(this);
+        AppUpdateInstallCoordinator.onMainActivityResume(this);
     }
 
     @Override
     public void onPause() {
-        AppUpdateForegroundTracker.onPause(this);
+        AppUpdateInstallCoordinator.onMainActivityPause(this);
         super.onPause();
     }
 }
