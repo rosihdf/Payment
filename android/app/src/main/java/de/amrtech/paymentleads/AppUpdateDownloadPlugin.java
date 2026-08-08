@@ -14,8 +14,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 /**
  * Startet APK-Downloads über den Android-{@link DownloadManager}.
- * Payment installiert selbst nicht — der Nutzer öffnet die fertige Datei aus der
- * Android-Downloadbenachrichtigung.
+ * Nach {@link DownloadManager#ACTION_DOWNLOAD_COMPLETE} öffnet
+ * {@link AppUpdateDownloadCompleteReceiver} den Systeminstaller für die Payment-downloadId.
  */
 @CapacitorPlugin(name = "AppUpdateDownload")
 public class AppUpdateDownloadPlugin extends Plugin {
@@ -75,6 +75,7 @@ public class AppUpdateDownloadPlugin extends Plugin {
                     Environment.DIRECTORY_DOWNLOADS, filename.trim());
 
             final long downloadId = dm.enqueue(request);
+            AppUpdateDownloadStore.setPendingDownloadId(ctx, downloadId);
             final JSObject result = new JSObject();
             result.put("downloadId", downloadId);
             call.resolve(result);
