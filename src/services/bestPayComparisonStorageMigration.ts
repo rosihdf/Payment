@@ -112,6 +112,12 @@ export function normalizeBestPayComparisonSession(raw: unknown): BestPayComparis
         ? (wizardRaw.scenarios as BestPayComparisonSession['wizard']['scenarios'])
         : [],
       selectedScenarioId: asStringOrNull(wizardRaw?.selectedScenarioId),
+      maxReachedStep:
+        typeof wizardRaw?.maxReachedStep === 'string'
+          ? (wizardRaw.maxReachedStep as BestPayComparisonSession['wizard']['maxReachedStep'])
+          : typeof wizardRaw?.currentStep === 'string'
+            ? (wizardRaw.currentStep as BestPayComparisonSession['wizard']['currentStep'])
+            : DEFAULT_SALES_WIZARD_STATE.maxReachedStep,
       approvalAcknowledgedAt: asStringOrNull(wizardRaw?.approvalAcknowledgedAt),
       approvalNotes: typeof wizardRaw?.approvalNotes === 'string' ? wizardRaw.approvalNotes : '',
       followUpNotes: typeof wizardRaw?.followUpNotes === 'string' ? wizardRaw.followUpNotes : '',

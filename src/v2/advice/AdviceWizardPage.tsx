@@ -345,6 +345,7 @@ function AdviceWizardInner({
         <WizardNav
           currentStepId={visibleStepId}
           stepIndex={stepIndex}
+          maxReachedStep={advice.session.wizard.maxReachedStep ?? advice.session.wizard.currentStep}
           onJump={handleJump}
         />
         <div className={styles.main}>
@@ -360,6 +361,7 @@ function AdviceWizardInner({
               onProspectModeChange={setProspectModeOverride}
               onSelectLead={(leadId) => {
                 setSelectedLeadId(leadId);
+                void advice.assignLead(leadId);
               }}
               onPatchProspect={(patch) => void advice.patchProspect(patch)}
               onPatchContactName={(name) => void advice.patchContactName(name)}

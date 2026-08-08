@@ -8,16 +8,26 @@ import {
 import { validateCostCaptureStep, type CostCaptureMode } from '../domain/bestPayComparison/costCaptureMode';
 import { mergeManualInput } from '../domain/bestPayComparison/createBestPayComparisonSession';
 import {
+  deriveScenarioConfigFromNeed,
+  syncScenarioConfigsFromNeed,
+} from '../domain/bestPayComparison/deriveScenarioConfig';
+import { getBlockingNeedValidationMessage } from '../domain/bestPayComparison/getMissingAdviceInputs';
+import {
   DEFAULT_SALES_WIZARD_PROSPECT,
+  bumpMaxReachedStep,
   getNextSalesWizardStep,
   getPreviousSalesWizardStep,
+  normalizeWizardMaxReachedStep,
   type SalesWizardProspectDraft,
   type SalesWizardScenario,
   type SalesWizardScenarioConfig,
   type SalesWizardStepId,
 } from '../domain/bestPayComparison/salesWizard';
 import { DEFAULT_CREATE_LEAD_INPUT } from '../domain/lead/defaults';
-import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
+import {
+  getLeadDisplayName,
+  isPlaceholderLeadDisplayName,
+} from '../domain/lead/getLeadDisplayName';
 import type { CreateLeadInput } from '../domain/lead/lead';
 import { generateId, nowIso } from '../utils/id';
 import type {
@@ -56,12 +66,7 @@ export type SalesWizardError =
   | 'lead_create_failed';
 
 function defaultScenarioConfig(session: BestPayComparisonSession, label: string): SalesWizardScenarioConfig {
-  return {
-    label,
-    preferredTermMonths: session.manualInput.preferredTermMonths,
-    terminalCount: session.manualInput.terminalCount,
-    paymentUsage: { ...session.manualInput.paymentUsage },
-  };
+  return deriveScenarioConfigFromNeed(session, label);
 }
 
 export class SalesWizardService {
@@ -113,6 +118,7 @@ export class SalesWizardService {
 
   private normalizeSession(session: BestPayComparisonSession): BestPayComparisonSession {
     session.wizard.prospectDraft = normalizeProspectDraftProvider(session.wizard.prospectDraft);
+    session.wizard.maxReachedStep = normalizeWizardMaxReachedStep(session.wizard);
     return session;
   }
 
@@ -228,6 +234,7 @@ export class SalesWizardService {
     session.wizard = {
       enabled: true,
       currentStep: 'prospect',
+      maxReachedStep: 'prospect',
       costCaptureMode: null,
       prospectDraft: { ...DEFAULT_SALES_WIZARD_PROSPECT },
       scenarios: [],
@@ -413,6 +420,10 @@ export class SalesWizardService {
     }
 
     session.wizard.currentStep = next;
+    session.wizard.maxReachedStep = bumpMaxReachedStep(
+      next,
+      session.wizard.maxReachedStep ?? session.wizard.currentStep,
+    );
     return { ok: true, session: await this.persist(session) };
   }
 
@@ -450,19 +461,17 @@ export class SalesWizardService {
         }
         return { ok: true };
       }
-      case 'need':
-        if (
-          session.manualInput.monthlyCardVolumeCents === null &&
-          session.manualInput.annualCardVolumeCents === null &&
-          !session.costBaselineId
-        ) {
+      case 'need': {
+        const message = getBlockingNeedValidationMessage(session, null);
+        if (message) {
           return {
             ok: false,
             error: 'incomplete_input',
-            message: 'Bitte Umsatz oder bestätigte Kostenbasis erfassen.',
+            message,
           };
         }
         return { ok: true };
+      }
       case 'variants': {
         const selected = session.wizard.scenarios.find(
           (scenario) => scenario.id === session.wizard.selectedScenarioId,
@@ -528,16 +537,20 @@ export class SalesWizardService {
       return null;
     }
     session.wizard.prospectDraft = { ...session.wizard.prospectDraft, ...patch };
-    const displayName = getLeadDisplayName({
-      companyName: session.wizard.prospectDraft.companyName,
-      contactFirstName: session.wizard.prospectDraft.contactFirstName,
-      contactLastName: session.wizard.prospectDraft.contactLastName,
-      city: '',
-    });
-    session.customerLabel = displayName;
-    session.leadDisplayName = displayName;
-    if (!session.title || patch.companyName !== undefined) {
-      session.title = displayName;
+    if (!session.leadId) {
+      const displayName = getLeadDisplayName({
+        companyName: session.wizard.prospectDraft.companyName,
+        contactFirstName: session.wizard.prospectDraft.contactFirstName,
+        contactLastName: session.wizard.prospectDraft.contactLastName,
+        city: '',
+      });
+      if (!isPlaceholderLeadDisplayName(displayName)) {
+        session.customerLabel = displayName;
+        session.leadDisplayName = displayName;
+        if (!session.title || patch.companyName !== undefined) {
+          session.title = displayName;
+        }
+      }
     }
     if (patch.industry !== undefined) {
       session.manualInput = {
@@ -588,6 +601,18 @@ export class SalesWizardService {
       const session = assigned.session;
       session.wizard.enabled = true;
       session.entryMode = 'wizard';
+      const lead = await this.leadService.getLeadById(leadId, context);
+      if (lead) {
+        session.wizard.prospectDraft = {
+          ...session.wizard.prospectDraft,
+          companyName: lead.companyName,
+          contactFirstName: lead.contactFirstName,
+          contactLastName: lead.contactLastName,
+          phone: lead.phone,
+          email: lead.email,
+          industry: lead.industry || session.wizard.prospectDraft.industry,
+        };
+      }
       const saved = await this.persist(session);
       await this.recordAdviceStarted(saved, context);
       return { ok: true, session: saved };
@@ -722,6 +747,7 @@ export class SalesWizardService {
     if (!updated) {
       return null;
     }
+    syncScenarioConfigsFromNeed(updated);
     updated.wizard.enabled = true;
     updated.entryMode = 'wizard';
     return this.persist(updated);
@@ -862,13 +888,10 @@ export class SalesWizardService {
       return { ok: false, error: 'not_found' };
     }
 
+    target.config = deriveScenarioConfigFromNeed(fresh, target.config.label);
+
     const baseline = await this.bestPayComparisonService.getConfirmedBaseline(sessionId, context);
-    const manualInput = {
-      ...fresh.manualInput,
-      preferredTermMonths: target.config.preferredTermMonths,
-      terminalCount: target.config.terminalCount,
-      paymentUsage: { ...target.config.paymentUsage },
-    };
+    const manualInput = fresh.manualInput;
 
     const hasVolume =
       manualInput.monthlyCardVolumeCents !== null ||

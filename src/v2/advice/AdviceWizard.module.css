@@ -207,6 +207,16 @@
   border-color: var(--status-success-border, var(--color-success));
 }
 
+.navReached {
+  border-color: var(--color-border);
+  background: var(--color-surface-muted, var(--color-surface));
+}
+
+.navDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .navNumber {
   display: inline-flex;
   align-items: center;
@@ -297,4 +307,16 @@
 
 .reasonList li + li {
   margin-top: var(--space-2);
+}
+
+.cardMixSummaryValid {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--status-success-text, var(--color-success));
+}
+
+.cardMixSummaryInvalid {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--status-warning-text, var(--color-text-muted));
 }

@@ -104,6 +104,8 @@ export interface SalesWizardScenario {
 export interface SalesWizardState {
   enabled: boolean;
   currentStep: SalesWizardStepId;
+  /** Höchster jemals per „Weiter“ erreichte Schritt – Rücksprung setzt ihn nicht zurück. */
+  maxReachedStep: SalesWizardStepId;
   costCaptureMode: CostCaptureMode | null;
   prospectDraft: SalesWizardProspectDraft;
   scenarios: SalesWizardScenario[];
@@ -151,6 +153,7 @@ export function normalizeProspectDraftProvider(
 export const DEFAULT_SALES_WIZARD_STATE: SalesWizardState = {
   enabled: false,
   currentStep: 'prospect',
+  maxReachedStep: 'prospect',
   costCaptureMode: null,
   prospectDraft: { ...DEFAULT_SALES_WIZARD_PROSPECT },
   scenarios: [],
@@ -173,6 +176,31 @@ export function getNextSalesWizardStep(step: SalesWizardStepId): SalesWizardStep
 export function getPreviousSalesWizardStep(step: SalesWizardStepId): SalesWizardStepId | null {
   const index = getSalesWizardStepIndex(step);
   return index > 0 ? (SALES_WIZARD_STEPS[index - 1]?.id ?? null) : null;
+}
+
+export function bumpMaxReachedStep(
+  step: SalesWizardStepId,
+  maxReached: SalesWizardStepId,
+): SalesWizardStepId {
+  const stepIndex = getSalesWizardStepIndex(step);
+  const maxIndex = getSalesWizardStepIndex(maxReached);
+  return stepIndex > maxIndex ? step : maxReached;
+}
+
+/** Hydration älterer Entwürfe ohne maxReachedStep. */
+export function normalizeWizardMaxReachedStep(
+  wizard: Pick<SalesWizardState, 'currentStep' | 'maxReachedStep'>,
+): SalesWizardStepId {
+  const current = wizard.currentStep ?? 'prospect';
+  const max = wizard.maxReachedStep ?? current;
+  return bumpMaxReachedStep(current, max);
+}
+
+export function canJumpToWizardStep(
+  target: SalesWizardStepId,
+  maxReached: SalesWizardStepId,
+): boolean {
+  return getSalesWizardStepIndex(target) <= getSalesWizardStepIndex(maxReached);
 }
 
 export function resolveSelectedScenarioVariant(

@@ -40,6 +40,30 @@ function cleanDisplayPart(value: string | null | undefined): string | null {
   return trimmed;
 }
 
+export function isPlaceholderLeadDisplayName(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === UNNAMED_LEAD_DISPLAY_NAME || trimmed === ANONYMOUS_ADVICE_DISPLAY_NAME;
+}
+
+/** Bevorzugt echte Kundenbezeichnungen gegenüber Platzhalter-Strings beim Session-Merge. */
+export function preferNonPlaceholderCustomerLabel(
+  ...labels: Array<string | null | undefined>
+): string | null {
+  let placeholder: string | null = null;
+  for (const label of labels) {
+    const cleaned = cleanDisplayPart(label);
+    if (!cleaned) {
+      continue;
+    }
+    if (isPlaceholderLeadDisplayName(cleaned)) {
+      placeholder = placeholder ?? cleaned;
+      continue;
+    }
+    return cleaned;
+  }
+  return placeholder;
+}
+
 /**
  * Kanonischer fachlicher Anzeigename für Kunden/Leads.
  * Priorität: Firma → Ansprechpartner → Ort → Kundennummer → „Unbenannter Kunde“.

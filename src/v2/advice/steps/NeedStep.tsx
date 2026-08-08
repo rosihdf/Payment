@@ -1,6 +1,8 @@
 import type { BestPayComparisonSession } from '../../../domain/bestPayComparison/bestPayComparisonSession';
+import type { CardMix } from '../../../domain/lead/lead';
 import { CurrencyInput } from '../../../components/common/CurrencyInput';
 import { FormField } from '../../ui/FormField';
+import { getCardMixSummary, isCardMixValid } from '../../../services/leadValidation';
 import { parseOptionalInt } from '../formatters';
 import styles from '../AdviceWizard.module.css';
 
@@ -73,9 +75,40 @@ function resolvePreferredTermMonths(value: number | null | undefined): number | 
   return 36;
 }
 
+function cardMixFromManualInput(
+  input: BestPayComparisonSession['manualInput'],
+): CardMix {
+  return {
+    girocardPercent: input.girocardPercent ?? 0,
+    debitPercent: input.debitPercent ?? 0,
+    creditPercent: input.creditPercent ?? 0,
+    otherPercent: input.otherPercent ?? 0,
+  };
+}
+
+function parseCardMixPercent(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return null;
+  }
+  return parsed;
+}
+
 export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
   const input = session.manualInput;
   const preferredTermMonths = resolvePreferredTermMonths(input.preferredTermMonths);
+  const cardMix = cardMixFromManualInput(input);
+  const cardMixSummary = getCardMixSummary(cardMix);
+  const cardMixValid = isCardMixValid(cardMix);
+  const hasAnyCardMix =
+    input.girocardPercent !== null ||
+    input.debitPercent !== null ||
+    input.creditPercent !== null ||
+    input.otherPercent !== null;
 
   return (
     <article className={styles.card}>
@@ -153,6 +186,61 @@ export function NeedStep({ session, busy, onPatch }: NeedStepProps) {
             </option>
           ))}
         </FormField>
+      </div>
+
+      <div className={styles.acceptanceBlock}>
+        <h3 className={styles.subheading}>Kartenmix</h3>
+        <p className={styles.hint}>
+          Anteile der Kartenzahlungen in Prozent – für die Kostenprojektion erforderlich.
+        </p>
+        <div className={styles.formGrid}>
+          <FormField
+            type="text"
+            id="needGirocard"
+            label="Girocard (%)"
+            inputMode="numeric"
+            value={input.girocardPercent !== null ? String(input.girocardPercent) : ''}
+            disabled={busy}
+            onChange={(event) => onPatch({ girocardPercent: parseCardMixPercent(event.target.value) })}
+          />
+          <FormField
+            type="text"
+            id="needDebit"
+            label="Debitkarten (%)"
+            inputMode="numeric"
+            value={input.debitPercent !== null ? String(input.debitPercent) : ''}
+            disabled={busy}
+            onChange={(event) => onPatch({ debitPercent: parseCardMixPercent(event.target.value) })}
+          />
+          <FormField
+            type="text"
+            id="needCredit"
+            label="Kreditkarten (%)"
+            inputMode="numeric"
+            value={input.creditPercent !== null ? String(input.creditPercent) : ''}
+            disabled={busy}
+            onChange={(event) => onPatch({ creditPercent: parseCardMixPercent(event.target.value) })}
+          />
+          <FormField
+            type="text"
+            id="needOther"
+            label="Sonstige (%)"
+            inputMode="numeric"
+            value={input.otherPercent !== null ? String(input.otherPercent) : ''}
+            disabled={busy}
+            onChange={(event) => onPatch({ otherPercent: parseCardMixPercent(event.target.value) })}
+          />
+        </div>
+        <p
+          className={
+            hasAnyCardMix && cardMixValid
+              ? styles.cardMixSummaryValid
+              : styles.cardMixSummaryInvalid
+          }
+          role="status"
+        >
+          {hasAnyCardMix ? cardMixSummary : 'Kartenmix noch nicht erfasst'}
+        </p>
       </div>
 
       <div className={styles.acceptanceBlock}>

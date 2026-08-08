@@ -3,12 +3,15 @@ import type { BestPayComparisonSession } from '../../domain/bestPayComparison/be
 import { mergeManualInput } from '../../domain/bestPayComparison/createBestPayComparisonSession';
 import { resolveCostCaptureMode, type CostCaptureMode } from '../../domain/bestPayComparison/costCaptureMode';
 import {
-  getVisibleWizardStepIndex,
+  canJumpToWizardStep,
   type SalesWizardProspectDraft,
   type SalesWizardStepId,
 } from '../../domain/bestPayComparison/salesWizard';
 import type { Lead } from '../../domain/lead/lead';
-import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
+import {
+  getLeadDisplayName,
+  preferNonPlaceholderCustomerLabel,
+} from '../../domain/lead/getLeadDisplayName';
 import { formatContactName } from '../../utils/format';
 import type { BestPayComparisonUserContext } from '../../services/bestPayComparisonService';
 import type { SalesWizardError } from '../../services/salesWizardService';
@@ -80,8 +83,14 @@ export function useAdviceSession({
         ...saved,
         // Später gesetzte Kunden-/Angebotsbindung darf der erste Persist nicht zurücksetzen.
         leadId: latest.leadId ?? saved.leadId,
-        customerLabel: latest.customerLabel ?? saved.customerLabel,
-        leadDisplayName: latest.leadDisplayName ?? saved.leadDisplayName,
+        customerLabel: preferNonPlaceholderCustomerLabel(
+          latest.customerLabel,
+          saved.customerLabel,
+        ),
+        leadDisplayName: preferNonPlaceholderCustomerLabel(
+          latest.leadDisplayName,
+          saved.leadDisplayName,
+        ),
         offerId: latest.offerId ?? saved.offerId,
         offerNumber: latest.offerNumber ?? saved.offerNumber,
         offerTitle: latest.offerTitle ?? saved.offerTitle,
@@ -98,6 +107,7 @@ export function useAdviceSession({
           prospectDraft: latest.wizard.prospectDraft,
           // currentStep kommt aus dem Persist-/Service-Stand (goNext/goBack).
           currentStep: saved.wizard.currentStep,
+          maxReachedStep: saved.wizard.maxReachedStep ?? latest.wizard.maxReachedStep,
           approvalNotes: latest.wizard.approvalNotes,
           followUpNotes: latest.wizard.followUpNotes,
           costCaptureMode: latest.wizard.costCaptureMode ?? saved.wizard.costCaptureMode,
@@ -182,8 +192,14 @@ export function useAdviceSession({
                 ? {
                     ...updated,
                     leadId: updated.leadId ?? latest.leadId,
-                    customerLabel: updated.customerLabel ?? latest.customerLabel,
-                    leadDisplayName: updated.leadDisplayName ?? latest.leadDisplayName,
+                    customerLabel: preferNonPlaceholderCustomerLabel(
+                      updated.customerLabel,
+                      latest.customerLabel,
+                    ),
+                    leadDisplayName: preferNonPlaceholderCustomerLabel(
+                      updated.leadDisplayName,
+                      latest.leadDisplayName,
+                    ),
                     offerId: updated.offerId ?? latest.offerId,
                     offerNumber: updated.offerNumber ?? latest.offerNumber,
                     offerTitle: updated.offerTitle ?? latest.offerTitle,
@@ -200,6 +216,8 @@ export function useAdviceSession({
                       prospectDraft: latest.wizard.prospectDraft,
                       // Service-Stand gewinnt – sonst bleibt die UI nach goNext auf dem alten Schritt.
                       currentStep: updated.wizard.currentStep,
+                      maxReachedStep:
+                        updated.wizard.maxReachedStep ?? latest.wizard.maxReachedStep,
                       approvalNotes: latest.wizard.approvalNotes,
                       followUpNotes: latest.wizard.followUpNotes,
                       costCaptureMode: updated.wizard.costCaptureMode ?? latest.wizard.costCaptureMode,
@@ -280,7 +298,14 @@ export function useAdviceSession({
               ? {
                   ...updated,
                   leadId: current.leadId ?? updated.leadId,
-                  customerLabel: current.customerLabel ?? updated.customerLabel,
+                  customerLabel: preferNonPlaceholderCustomerLabel(
+                    updated.customerLabel,
+                    current.customerLabel,
+                  ),
+                  leadDisplayName: preferNonPlaceholderCustomerLabel(
+                    updated.leadDisplayName,
+                    current.leadDisplayName,
+                  ),
                   result: updated.result ?? current.result,
                   selectedCandidateId: updated.selectedCandidateId ?? current.selectedCandidateId,
                   wizard: {
@@ -530,13 +555,12 @@ export function useAdviceSession({
       if (!session) {
         return null;
       }
-      const currentIndex = getVisibleWizardStepIndex(session.wizard.currentStep);
-      const targetIndex = getVisibleWizardStepIndex(step);
-      // Vorwärts nur über „Weiter“ (inkl. Kunden-Finalisierung) – Rücksprung bleibt frei.
-      if (targetIndex > currentIndex) {
+      const maxReached = session.wizard.maxReachedStep ?? session.wizard.currentStep;
+      if (!canJumpToWizardStep(step, maxReached)) {
         setError('Bitte mit „Weiter“ fortfahren – Schritte nicht überspringen.');
         return null;
       }
+      setError(null);
       const optimistic = {
         ...session,
         wizard: { ...session.wizard, currentStep: step },
