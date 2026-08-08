@@ -4,6 +4,7 @@ import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 /**
  * Reagiert nur auf den von Payment gestarteten Update-Download.
@@ -11,12 +12,18 @@ import android.content.Intent;
  */
 public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
 
+    private static final String TAG = "AmrPayUpdate";
+
     @Override
     public void onReceive(final Context context, final Intent intent) {
+        Log.i(TAG, "onReceive enter");
         if (context == null || intent == null) {
+            Log.i(TAG, "onReceive abort null");
             return;
         }
-        if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction())) {
+        final String action = intent.getAction();
+        Log.i(TAG, "action=" + action);
+        if (!DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(action)) {
             return;
         }
 
@@ -24,19 +31,32 @@ public final class AppUpdateDownloadCompleteReceiver extends BroadcastReceiver {
         final long pendingId = AppUpdateDownloadStore.getPendingDownloadId(context);
         final boolean alreadyOpened =
                 AppUpdateDownloadStore.isInstallerAlreadyOpened(context, downloadId);
+        Log.i(
+                TAG,
+                "ids reported="
+                        + downloadId
+                        + " pending="
+                        + pendingId
+                        + " alreadyOpened="
+                        + alreadyOpened);
 
         final DownloadManager dm =
                 (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
         if (dm == null) {
+            Log.i(TAG, "abort no DownloadManager");
             return;
         }
 
         final int status = AppUpdateDownloadInstaller.queryStatus(dm, downloadId);
-        if (!AppUpdateDownloadCompleteGate.shouldOpenInstaller(
-                downloadId, pendingId, alreadyOpened, status)) {
+        final boolean gate =
+                AppUpdateDownloadCompleteGate.shouldOpenInstaller(
+                        downloadId, pendingId, alreadyOpened, status);
+        Log.i(TAG, "status=" + status + " gate=" + gate);
+        if (!gate) {
             return;
         }
 
-        AppUpdateDownloadInstaller.openCompletedDownload(context, downloadId);
+        final boolean opened = AppUpdateDownloadInstaller.openCompletedDownload(context, downloadId);
+        Log.i(TAG, "openCompletedDownload result=" + opened);
     }
 }

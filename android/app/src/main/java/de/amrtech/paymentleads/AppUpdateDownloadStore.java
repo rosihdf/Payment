@@ -2,6 +2,7 @@ package de.amrtech.paymentleads;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 /**
  * Persistiert die von Payment gestartete Update-downloadId für den
@@ -9,6 +10,7 @@ import android.content.SharedPreferences;
  */
 final class AppUpdateDownloadStore {
 
+    private static final String TAG = "AmrPayUpdate";
     private static final String PREFS = "amrtech_payment_app_update_download";
     private static final String KEY_PENDING_ID = "pending_download_id";
     private static final String KEY_OPENED_ID = "opened_download_id";
@@ -16,10 +18,10 @@ final class AppUpdateDownloadStore {
     private AppUpdateDownloadStore() {}
 
     static void setPendingDownloadId(final Context context, final long downloadId) {
-        prefs(context)
-                .edit()
-                .putLong(KEY_PENDING_ID, downloadId)
-                .apply();
+        // commit(): sicher verfügbar, bevor ein schneller DOWNLOAD_COMPLETE eintrifft
+        final boolean ok =
+                prefs(context).edit().putLong(KEY_PENDING_ID, downloadId).commit();
+        Log.i(TAG, "setPendingDownloadId id=" + downloadId + " commit=" + ok);
     }
 
     static long getPendingDownloadId(final Context context) {
@@ -31,7 +33,9 @@ final class AppUpdateDownloadStore {
     }
 
     static void markInstallerOpened(final Context context, final long downloadId) {
-        prefs(context).edit().putLong(KEY_OPENED_ID, downloadId).apply();
+        final boolean ok =
+                prefs(context).edit().putLong(KEY_OPENED_ID, downloadId).commit();
+        Log.i(TAG, "markInstallerOpened id=" + downloadId + " commit=" + ok);
     }
 
     private static SharedPreferences prefs(final Context context) {
