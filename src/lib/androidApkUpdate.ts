@@ -196,7 +196,7 @@ export async function fetchAndroidLatestManifest(opts?: {
 }
 
 /** Relativ zu Directory.Cache — Wartungsmuster, Payment-Dateiname. */
-export const ANDROID_APK_INTERNAL_SUBDIR = 'amrtech-updates';
+export const ANDROID_APK_INTERNAL_SUBDIR = 'amrtech-payment-updates';
 
 export type AndroidApkUpdateFlowErrorCode =
   | 'wrong_platform'

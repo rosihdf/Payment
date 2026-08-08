@@ -5,10 +5,7 @@ import {
   shouldOfferAndroidNativeApkInstall,
   type AndroidLatestManifest,
 } from '../../lib/androidApkUpdate';
-import {
-  isAndroidApkSystemDownloadActive,
-  runAndroidSystemApkDownloadFlow,
-} from '../../lib/androidApkInstallFlow';
+import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './ProfilePage.module.css';
 
@@ -20,39 +17,21 @@ function formatServerVersionHint(m: AndroidLatestManifest | null): string {
   return parts.length > 0 ? parts.join(', ') : '—';
 }
 
-/**
- * App-Info Updatebereich — DownloadManager-Pfad, kein eigener Installer.
- */
+/** App-Info Updatebereich — App-Cache + FileProvider-Installer (Wartungspfad). */
 export function AppInfoSection() {
   const ctx = useAndroidApkUpdateOptional();
   const info = getAppBuildInfo();
   const [busy, setBusy] = useState(false);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
-  const [systemDownloadActive, setSystemDownloadActive] = useState(false);
 
   const refreshManifest = ctx?.refreshManifest;
   const installKind = ctx?.installKind;
-  const offeredCode = ctx?.manifest?.versionCode;
 
   useEffect(() => {
     if (installKind === 'android' && refreshManifest) {
       void refreshManifest({ reason: 'info_mount' });
     }
   }, [installKind, refreshManifest]);
-
-  useEffect(() => {
-    if (installKind !== 'android' || typeof offeredCode !== 'number') {
-      setSystemDownloadActive(false);
-      return;
-    }
-    let cancelled = false;
-    void isAndroidApkSystemDownloadActive(offeredCode).then((active) => {
-      if (!cancelled) setSystemDownloadActive(active);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [installKind, offeredCode]);
 
   const installedLabel = `${info.version}${
     info.androidGradleVersionCode != null
@@ -74,7 +53,6 @@ export function AppInfoSection() {
     !ctx!.loadFailed &&
     ctx!.hasCheckedOnce &&
     !ctx!.checking &&
-    !systemDownloadActive &&
     !busy;
 
   const showCurrentVersionHint =
@@ -90,9 +68,6 @@ export function AppInfoSection() {
     if (!ctx) return;
     setFlowMessage(null);
     await ctx.refreshManifest({ force: true, reason: 'manual' });
-    if (typeof ctx.manifest?.versionCode === 'number') {
-      setSystemDownloadActive(await isAndroidApkSystemDownloadActive(ctx.manifest.versionCode));
-    }
   }, [ctx]);
 
   const handleDownload = async () => {
@@ -100,10 +75,9 @@ export function AppInfoSection() {
     setFlowMessage(null);
     setBusy(true);
     try {
-      const res = await runAndroidSystemApkDownloadFlow(ctx.manifest);
+      const res = await runAndroidNativeApkInstallFlow(ctx.manifest);
       if (res.ok) {
         setFlowMessage(res.notice);
-        setSystemDownloadActive(true);
       } else {
         setFlowMessage(res.message);
       }
@@ -158,19 +132,13 @@ export function AppInfoSection() {
         App-Info
       </h2>
       <p className={styles.appInfoMessage}>
-        „Jetzt installieren“ startet den Android-Systemdownload. Danach tippst du auf die
-        Android-Downloadbenachrichtigung — Payment installiert nicht selbst.
+        „Jetzt installieren“ lädt das Update in den App-Speicher und öffnet danach den
+        Android-Systeminstaller.
       </p>
 
       {showCurrentVersionHint ? (
         <p className={styles.devToast} role="status">
           Die App ist aktuell
-        </p>
-      ) : null}
-
-      {systemDownloadActive ? (
-        <p className={styles.devToast} role="status">
-          Update wird heruntergeladen — bitte die Android-Benachrichtigung nutzen.
         </p>
       ) : null}
 
