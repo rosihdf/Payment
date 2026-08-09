@@ -225,6 +225,8 @@ export function createServices(repositories: AppRepositories): AppServices {
     offerService,
     repositories.leadRepository,
     repositories.offerRepository,
+    repositories.tariffRepository,
+    repositories.productRepository,
     repositories.bestPayComparisonRepository,
   );
   const leadService = new LeadService(repositories.leadRepository);

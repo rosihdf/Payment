@@ -197,6 +197,7 @@ export function createTestOffer(overrides: Partial<Offer> = {}): Offer {
     leadId: lead.id,
     customerSnapshot: createCustomerSnapshotFromLead(lead),
     tariffSnapshot: createTariffSnapshotFromTariff(tariff),
+    commercialSnapshot: null,
     items: [createTestOfferItem()],
     title: 'Test Angebot',
     introductionText: '',

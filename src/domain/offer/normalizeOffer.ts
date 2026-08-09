@@ -15,6 +15,7 @@ import type {
   OfferTariffSnapshot,
 } from './offer';
 import { copyCustomerSnapshot, copyProductSnapshot, copyTariffSnapshot } from './offerSnapshots';
+import { normalizeOfferCommercialSnapshot } from './normalizeOfferCommercialSnapshot';
 import {
   EMPTY_OFFER_RECOMMENDATION_LINK,
   type OfferRecommendationLink,
@@ -368,6 +369,7 @@ export function normalizeOffer(value: unknown): Offer {
     leadId: asString(raw.leadId),
     customerSnapshot: copyCustomerSnapshot(normalizeCustomerSnapshot(raw.customerSnapshot)),
     tariffSnapshot: raw.tariffSnapshot ? copyTariffSnapshot(normalizeTariffSnapshot(raw.tariffSnapshot)!) : null,
+    commercialSnapshot: normalizeOfferCommercialSnapshot(raw.commercialSnapshot),
     items,
     title: asString(raw.title),
     introductionText: asString(raw.introductionText),

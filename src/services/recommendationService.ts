@@ -40,7 +40,7 @@ import { compareBaselineWithCandidate } from '../domain/billingImportEngine/cost
 import type { BillingImportService } from './billingImportService';
 import { readStorageItem, STORAGE_KEYS } from '../utils/storage';
 
-function resolveCatalogVersions() {
+export function resolveRecommendationCatalogVersions() {
   if (isSupabaseDataMode()) {
     return {
       tariffCatalogVersion: CURRENT_TARIFF_CATALOG_VERSION,
@@ -152,6 +152,11 @@ export class RecommendationService {
     this.billingImportService = billingImportService;
   }
 
+  async getRecordById(recordId: string): Promise<RecommendationRecord | null> {
+    const records = await this.recommendationRepository.getRecords();
+    return records.find((record) => record.id === recordId) ?? null;
+  }
+
   private async getAccessibleOffer(
     offerId: string,
     context: RecommendationUserContext,
@@ -223,7 +228,7 @@ export class RecommendationService {
         assignments: commissionCatalog.assignments,
       },
       weightSet,
-      catalogVersions: resolveCatalogVersions(),
+      catalogVersions: resolveRecommendationCatalogVersions(),
       costBaselineId: need.costBaselineId,
       costBaselineVersion: need.costBaselineVersion,
     };
@@ -359,7 +364,7 @@ export class RecommendationService {
 
     const fingerprint = createRecommendationInputFingerprint({
       need,
-      ...resolveCatalogVersions(),
+      ...resolveRecommendationCatalogVersions(),
       weightSet,
       costBaselineId: need.costBaselineId,
       costBaselineVersion: need.costBaselineVersion,

@@ -1,6 +1,7 @@
 import type { ProductCategory } from '../product/product';
 import type { TerminalType } from '../tariff/tariff';
 import type { OfferRecommendationLink } from '../recommendation/recommendationRecord';
+import type { OfferCommercialSnapshot } from './offerCommercialSnapshot';
 import type { OfferWorkflowStatus, OfferWorkflowStatusFilter } from './offerWorkflow';
 
 export type OfferStatus = 'draft' | 'completed' | 'cancelled';
@@ -135,6 +136,7 @@ export interface Offer {
   customerSnapshot: OfferCustomerSnapshot;
 
   tariffSnapshot: OfferTariffSnapshot | null;
+  commercialSnapshot: OfferCommercialSnapshot | null;
 
   items: OfferItem[];
 

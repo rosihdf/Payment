@@ -132,6 +132,8 @@ describe('A11.4 BestPayComparisonService', () => {
     const offer = await offerRepository.getById(first.offerId);
     expect(offer?.internalNotes).toContain('bestpay_calculator');
     expect(offer?.recommendationLink.recommendationRecordId).toBeTruthy();
+    expect(offer?.items.length).toBeGreaterThan(0);
+    expect(offer?.commercialSnapshot?.status).toBe('frozen');
   });
 
   it('blockiert Angebot bei stale Ergebnis', async () => {

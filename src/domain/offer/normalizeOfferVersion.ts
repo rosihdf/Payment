@@ -77,7 +77,11 @@ function normalizeOfferTotals(
     }
   }
 
-  return calculateOfferTotals({ items, tariffSnapshot });
+  return calculateOfferTotals({
+    items,
+    tariffSnapshot,
+    commercialSnapshot: null,
+  });
 }
 
 export function normalizeOfferVersion(value: unknown): OfferVersion | null {

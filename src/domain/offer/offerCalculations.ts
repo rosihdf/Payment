@@ -1,4 +1,5 @@
 import type { Offer, OfferItem, OfferTariffSnapshot, OfferTotals } from './offer';
+import { isFrozenCommercialSnapshot, type OfferCommercialSnapshot } from './offerCommercialSnapshot';
 
 function isBillablePriceType(priceType: OfferItem['priceType']): boolean {
   return priceType === 'monthly' || priceType === 'one_time';
@@ -38,7 +39,28 @@ export function calculateTariffSetupTotalCents(tariffSnapshot: OfferTariffSnapsh
   return tariffSnapshot?.setupFeeCents ?? 0;
 }
 
-export function calculateOfferTotals(offer: Pick<Offer, 'items' | 'tariffSnapshot'>): OfferTotals {
+export function calculateOfferTotals(
+  offer: Pick<Offer, 'items' | 'tariffSnapshot'> & {
+    commercialSnapshot?: OfferCommercialSnapshot | null;
+  },
+): OfferTotals {
+  if (isFrozenCommercialSnapshot(offer.commercialSnapshot)) {
+    const breakdown = offer.commercialSnapshot.projection.breakdown;
+    const monthlyTotalCents = breakdown.monthlyTotalCents;
+    const oneTimeTotalCents = breakdown.oneTimeTotalCents;
+
+    return {
+      monthlyItemsTotalCents: monthlyTotalCents,
+      oneTimeItemsTotalCents: oneTimeTotalCents,
+      tariffMonthlyFixedTotalCents: 0,
+      tariffSetupTotalCents: 0,
+      monthlyTotalCents,
+      oneTimeTotalCents,
+      hasOnRequestItems: offer.items.some((item) => item.priceType === 'on_request'),
+      onRequestItemCount: offer.items.filter((item) => item.priceType === 'on_request').length,
+    };
+  }
+
   let monthlyItemsTotalCents = 0;
   let oneTimeItemsTotalCents = 0;
   let hasOnRequestItems = false;

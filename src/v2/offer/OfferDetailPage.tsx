@@ -5,6 +5,8 @@ import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
 import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
+import { isFrozenCommercialSnapshot } from '../../domain/offer/offerCommercialSnapshot';
+import { resolveOfferCommercialLegacyStatus } from '../../domain/offer/normalizeOfferCommercialSnapshot';
 import { isEditableWorkflowStatus } from '../../domain/offer/offerWorkflow';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
 import { hasPermission } from '../../domain/permission/permission';
@@ -48,6 +50,11 @@ const OfferBillingImportSection = lazy(async () => {
 
 type DialogMode = 'complete' | 'cancel' | 'duplicate' | null;
 type TabId = 'overview' | 'positions' | 'workflow' | 'versions' | 'commission';
+
+const DEPLOYMENT_MODE_LABELS = {
+  stationary_wifi: 'Stationär (WLAN)',
+  mobile_sim: 'Mobil (SIM)',
+} as const;
 
 function offerWorkflowStatusVariant(group: OfferWorkflowDisplayGroup): StatusBadgeVariant {
   switch (group) {
@@ -283,6 +290,10 @@ export function OfferDetailPage() {
   }
 
   const totals = calculateOfferTotals(offer);
+  const frozenCommercial = isFrozenCommercialSnapshot(offer.commercialSnapshot)
+    ? offer.commercialSnapshot
+    : null;
+  const commercialLegacyStatus = resolveOfferCommercialLegacyStatus(offer.commercialSnapshot);
   const contactName = formatContactName(
     offer.customerSnapshot.contactFirstName,
     offer.customerSnapshot.contactLastName,
@@ -496,40 +507,81 @@ export function OfferDetailPage() {
           aria-labelledby="offer-tab-positions"
         >
           <h2 className={styles.sectionTitle}>Positionen & Konditionen</h2>
+          {commercialLegacyStatus === 'legacy_unfrozen' && offer.sourceComparisonSessionId ? (
+            <p className={styles.sectionHint}>
+              Legacy-Angebot ohne eingefrorenen kaufmännischen Snapshot – Konditionen stammen aus dem Tarif-Snapshot.
+            </p>
+          ) : null}
           {offer.tariffSnapshot ? (
             <dl className={styles.grid}>
-              <DetailRow label="Tarif" value={displayText(offer.tariffSnapshot.name)} />
+              <DetailRow
+                label="Tarif"
+                value={displayText(frozenCommercial?.identity.tariffName ?? offer.tariffSnapshot.name)}
+              />
               <DetailRow label="Anbieter" value={displayText(offer.tariffSnapshot.providerName)} />
               <DetailRow
                 label="Einsatzart"
-                value={TERMINAL_TYPE_LABELS[offer.tariffSnapshot.terminalType]}
+                value={
+                  frozenCommercial
+                    ? DEPLOYMENT_MODE_LABELS[frozenCommercial.identity.deploymentMode]
+                    : TERMINAL_TYPE_LABELS[offer.tariffSnapshot.terminalType]
+                }
               />
               <DetailRow
                 label="Monatliche Fixkosten"
-                value={formatOptionalCents(totals.tariffMonthlyFixedTotalCents) + ' / Monat'}
+                value={
+                  frozenCommercial
+                    ? `${formatOptionalCents(frozenCommercial.projection.breakdown.monthlyFixedTotalCents)} / Monat`
+                    : `${formatOptionalCents(totals.tariffMonthlyFixedTotalCents)} / Monat`
+                }
+              />
+              <DetailRow
+                label="Variable Konditionen (Prognose)"
+                value={
+                  frozenCommercial
+                    ? `${formatOptionalCents(frozenCommercial.projection.breakdown.monthlyVariableTotalCents)} / Monat`
+                    : '—'
+                }
               />
               <DetailRow
                 label="Einrichtungsgebühr"
-                value={formatOptionalCents(offer.tariffSnapshot.setupFeeCents) + ' einmalig'}
+                value={
+                  frozenCommercial
+                    ? `${formatOptionalCents(frozenCommercial.projection.breakdown.oneTimeSetupCents)} einmalig`
+                    : `${formatOptionalCents(offer.tariffSnapshot.setupFeeCents)} einmalig`
+                }
               />
               <DetailRow
                 label="Girocard"
                 value={formatCardRate({
-                  percentageTenthsOfBasisPoint: offer.tariffSnapshot.girocardRateTenthsOfBasisPoint,
+                  percentageTenthsOfBasisPoint:
+                    frozenCommercial?.commercialConfig.cardRates.girocard.percentageTenthsOfBasisPoint ??
+                    offer.tariffSnapshot.girocardRateTenthsOfBasisPoint,
                   fixedFeeTenthsOfCent: 0,
                 })}
               />
               <DetailRow
                 label="Girocard-Clearing"
                 value={formatGirocardClearing(
-                  offer.tariffSnapshot.girocardClearingIncluded,
-                  offer.tariffSnapshot.girocardClearingFeeTenthsOfCent,
+                  frozenCommercial?.commercialConfig.girocardClearingIncluded ??
+                    offer.tariffSnapshot.girocardClearingIncluded,
+                  frozenCommercial?.commercialConfig.girocardClearingFeeTenthsOfCent ??
+                    offer.tariffSnapshot.girocardClearingFeeTenthsOfCent,
                 )}
               />
               <DetailRow
                 label="Vertragslaufzeit"
-                value={formatOptionalMonths(offer.tariffSnapshot.contractDurationMonths)}
+                value={formatOptionalMonths(
+                  frozenCommercial?.identity.contractTermMonths ??
+                    offer.tariffSnapshot.contractDurationMonths,
+                )}
               />
+              {frozenCommercial ? (
+                <DetailRow
+                  label="Prognose Gesamt / Monat"
+                  value={`${formatOptionalCents(frozenCommercial.projection.monthlyTotalCents)} (Need-basiert)`}
+                />
+              ) : null}
             </dl>
           ) : (
             <p className={styles.emptyHint}>Kein Payment-Tarif verknüpft.</p>

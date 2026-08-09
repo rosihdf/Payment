@@ -13,6 +13,8 @@ import type {
   OfferItemPriceType,
 } from '../domain/offer/offer';
 import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../domain/recommendation/recommendationRecord';
+import type { OfferRecommendationLink } from '../domain/recommendation/recommendationRecord';
+import type { OfferCommercialSnapshot } from '../domain/offer/offerCommercialSnapshot';
 import { generateNextOfferNumber } from '../domain/offer/offerNumber';
 import {
   isPriceOverridden,
@@ -59,6 +61,15 @@ export interface OfferUserContext {
   userId: string;
   role: User['role'];
   displayName: string;
+}
+
+export interface CreateOfferOptions {
+  allowMissingLead?: boolean;
+  commercialSnapshot?: OfferCommercialSnapshot | null;
+  tariffContractDurationMonths?: number | null;
+  sourceComparisonSessionId?: string | null;
+  sourceScenarioId?: string | null;
+  recommendationLink?: Partial<OfferRecommendationLink>;
 }
 
 function sortOffers(offers: Offer[]): Offer[] {
@@ -406,7 +417,7 @@ export class OfferService {
   async createOffer(
     input: CreateOfferInput,
     context: OfferUserContext,
-    options?: { allowMissingLead?: boolean },
+    options?: CreateOfferOptions,
   ): Promise<OfferResult> {
     const sanitized = sanitizeOfferInput(input);
     const allowMissingLead = options?.allowMissingLead === true && !sanitized.leadId.trim();
@@ -443,7 +454,18 @@ export class OfferService {
       }
 
       tariffSnapshot = createTariffSnapshotFromTariff(tariff);
+      if (options?.tariffContractDurationMonths != null) {
+        tariffSnapshot = {
+          ...tariffSnapshot,
+          contractDurationMonths: options.tariffContractDurationMonths,
+        };
+      }
     }
+
+    const recommendationLink: OfferRecommendationLink = {
+      ...EMPTY_OFFER_RECOMMENDATION_LINK,
+      ...(options?.recommendationLink ?? {}),
+    };
 
     const timestamp = nowIso();
     const existingOffers = await this.offerRepository.getAll();
@@ -455,11 +477,16 @@ export class OfferService {
       workflowStatus: 'draft',
       currentVersionNumber: 0,
       currentVersionId: null,
-      sourceComparisonSessionId: null,
-      sourceScenarioId: null,
+      sourceComparisonSessionId: options?.sourceComparisonSessionId ?? null,
+      sourceScenarioId: options?.sourceScenarioId ?? null,
       leadId: lead?.id ?? '',
-      customerSnapshot: lead ? createCustomerSnapshotFromLead(lead) : createEmptyCustomerSnapshot(),
+      customerSnapshot: options?.commercialSnapshot?.customerSnapshot
+        ? copyCustomerSnapshot(options.commercialSnapshot.customerSnapshot)
+        : lead
+          ? createCustomerSnapshotFromLead(lead)
+          : createEmptyCustomerSnapshot(),
       tariffSnapshot,
+      commercialSnapshot: options?.commercialSnapshot ?? null,
       items,
       title: sanitized.title.trim(),
       introductionText: sanitized.introductionText.trim(),
@@ -473,7 +500,7 @@ export class OfferService {
       cancelledAt: null,
       cancelledByUserId: null,
       cancellationReason: '',
-      recommendationLink: { ...EMPTY_OFFER_RECOMMENDATION_LINK },
+      recommendationLink,
       createdAt: timestamp,
       updatedAt: timestamp,
     };

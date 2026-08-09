@@ -57,6 +57,7 @@ export async function createOfferDocumentSnapshot(
   const totals = calculateOfferTotals({
     items,
     tariffSnapshot: input.offer.tariffSnapshot,
+    commercialSnapshot: input.offer.commercialSnapshot,
   });
 
   const cancellationState =
@@ -112,6 +113,7 @@ export async function createPreviewDocumentSnapshot(
   const totals = calculateOfferTotals({
     items,
     tariffSnapshot: offer.tariffSnapshot,
+    commercialSnapshot: offer.commercialSnapshot,
   });
 
   return {

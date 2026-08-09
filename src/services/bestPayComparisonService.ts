@@ -23,12 +23,24 @@ import type { User } from '../domain/user/user';
 import { nowIso } from '../utils/id';
 import type { LeadRepository } from '../repositories/interfaces/LeadRepository';
 import type { OfferRepository } from '../repositories/interfaces/OfferRepository';
+import type { ProductRepository } from '../repositories/interfaces/ProductRepository';
+import type { TariffRepository } from '../repositories/interfaces/TariffRepository';
 import type { BestPayComparisonRepository } from '../repositories/interfaces/BestPayComparisonRepository';
 import type { BillingImportService } from './billingImportService';
 import type { RecommendationService } from './recommendationService';
+import { resolveRecommendationCatalogVersions } from './recommendationService';
 import type { OfferService, OfferUserContext } from './offerService';
 import type { CreateOfferInput } from '../domain/offer/offer';
 import { createCustomerSnapshotFromLead } from '../domain/offer/offerSnapshots';
+import {
+  buildCommercialHandoffFromComparisonSession,
+  resolveCandidateFromRecommendationRecord,
+} from '../domain/offer/buildCommercialHandoffFromComparison';
+import {
+  buildOfferCommercialSnapshot,
+  validateOfferCommercialMaterialization,
+} from '../domain/offer/buildOfferCommercialSnapshot';
+import { materializeCreateOfferItemsFromCommercialSnapshot } from '../domain/offer/materializeOfferFromCommercialSnapshot';
 import { mapProviderNameToSelection } from '../domain/bestPayComparison/currentProviderCatalog';
 import { generateId } from '../utils/id';
 
@@ -59,6 +71,8 @@ export class BestPayComparisonService {
   private readonly offerService: OfferService;
   private readonly leadRepository: LeadRepository;
   private readonly offerRepository: OfferRepository;
+  private readonly tariffRepository: TariffRepository;
+  private readonly productRepository: ProductRepository;
   private readonly bestPayComparisonRepository: BestPayComparisonRepository;
   private readonly inFlightActions = new Set<string>();
 
@@ -68,6 +82,8 @@ export class BestPayComparisonService {
     offerService: OfferService,
     leadRepository: LeadRepository,
     offerRepository: OfferRepository,
+    tariffRepository: TariffRepository,
+    productRepository: ProductRepository,
     bestPayComparisonRepository: BestPayComparisonRepository,
   ) {
     this.billingImportService = billingImportService;
@@ -75,6 +91,8 @@ export class BestPayComparisonService {
     this.offerService = offerService;
     this.leadRepository = leadRepository;
     this.offerRepository = offerRepository;
+    this.tariffRepository = tariffRepository;
+    this.productRepository = productRepository;
     this.bestPayComparisonRepository = bestPayComparisonRepository;
   }
 
@@ -820,15 +838,109 @@ export class BestPayComparisonService {
       return { ok: false, error: 'validation' };
     }
 
+    if (!session.result.recommendationRecordId) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Empfehlungsdatensatz fehlt – bitte neu berechnen.',
+      };
+    }
+
+    const recommendationRecord = await this.recommendationService.getRecordById(
+      session.result.recommendationRecordId,
+    );
+    if (!recommendationRecord) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Empfehlungsdatensatz nicht gefunden.',
+      };
+    }
+
+    const candidate = resolveCandidateFromRecommendationRecord(
+      recommendationRecord,
+      session.selectedCandidateId,
+    );
+    if (!candidate) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Ausgewählte Empfehlung nicht im Datensatz gefunden.',
+      };
+    }
+
+    const tariff = await this.tariffRepository.getById(candidate.tariffId);
+    if (!tariff || tariff.status !== 'active') {
+      return {
+        ok: false,
+        error: 'validation',
+        message: 'Tarif für die Empfehlung ist nicht verfügbar.',
+      };
+    }
+
+    const lead = await this.leadRepository.getById(session.leadId);
+    if (!lead) {
+      return { ok: false, error: 'validation', message: 'Kunde nicht gefunden.' };
+    }
+
+    const products = await this.productRepository.getAll();
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    const baseline = await this.resolveBaseline(session, context);
+
+    const handoff = buildCommercialHandoffFromComparisonSession({
+      session,
+      candidate,
+      tariff,
+      products: productsById,
+      baseline,
+      salesRepresentativeId: context.userId,
+    });
+
+    const catalogVersions = resolveRecommendationCatalogVersions();
+    const commercialSnapshot = buildOfferCommercialSnapshot({
+      handoff,
+      customerSnapshot: createCustomerSnapshotFromLead(lead),
+      tariffName: tariff.name,
+      productName: candidate.hardwareProductNames[0] ?? null,
+      contractConfiguration: handoff.contractConfiguration,
+      commissionPlanKind: handoff.commissionPlanKind,
+      sources: {
+        sourceComparisonSessionId: session.id,
+        sourceScenarioId: session.wizard.selectedScenarioId,
+        recommendationRecordId: recommendationRecord.id,
+        recommendationVersion: recommendationRecord.version,
+        selectedCandidateId: session.selectedCandidateId,
+        pricingEvaluationId: candidate.pricingEvaluation?.evaluationId ?? null,
+        commissionCalculationId: candidate.commissionPreview?.calculationId ?? null,
+        catalogVersions: {
+          tariffCatalogVersion: catalogVersions.tariffCatalogVersion,
+          productCatalogVersion: catalogVersions.productCatalogVersion,
+          pricingCatalogVersion: catalogVersions.pricingCatalogVersion,
+          commissionCatalogVersion: catalogVersions.commissionCatalogVersion,
+        },
+      },
+    });
+
+    const materialization = validateOfferCommercialMaterialization(commercialSnapshot);
+    if (!materialization.ok) {
+      return {
+        ok: false,
+        error: 'validation',
+        message: materialization.message,
+      };
+    }
+
+    const items = materializeCreateOfferItemsFromCommercialSnapshot(commercialSnapshot, productsById);
+
     const input: CreateOfferInput = {
       leadId: session.leadId,
       tariffId: variant.tariffId,
-      title: `BestPay-Angebot – ${session.customerLabel ?? 'Kunde'}`,
+      title: `BestPay-Angebot – ${session.customerLabel ?? lead.companyName ?? 'Kunde'}`,
       introductionText: 'Erstellt aus dem BestPay-Vergleichsrechner.',
       internalNotes: `Herkunft: bestpay_calculator; Session: ${session.id}`,
       customerNotes: '',
       validUntil: null,
-      items: [],
+      items,
     };
 
     const offerContext: OfferUserContext = {
@@ -837,7 +949,21 @@ export class BestPayComparisonService {
       displayName: context.displayName ?? context.userId,
     };
 
-    const created = await this.offerService.createOffer(input, offerContext);
+    const created = await this.offerService.createOffer(input, offerContext, {
+      commercialSnapshot,
+      tariffContractDurationMonths: commercialSnapshot.identity.contractTermMonths,
+      sourceComparisonSessionId: session.id,
+      sourceScenarioId: session.wizard.selectedScenarioId,
+      recommendationLink: {
+        recommendationRecordId: session.result.recommendationRecordId,
+        recommendationVersion: session.result.recommendationVersion,
+        selectedCandidateId: session.selectedCandidateId,
+        selectionType: 'primary',
+        deviationReason: '',
+        costBaselineId: session.costBaselineId,
+        costBaselineVersion: session.costBaselineVersion,
+      },
+    });
     if (!created.ok) {
       const detail =
         'errors' in created && created.errors
@@ -857,23 +983,6 @@ export class BestPayComparisonService {
     if (!offer) {
       return { ok: false, error: 'not_found' };
     }
-
-    await this.offerRepository.update({
-      ...offer,
-      sourceComparisonSessionId: session.id,
-      sourceScenarioId: session.wizard.selectedScenarioId,
-      recommendationLink: {
-        ...offer.recommendationLink,
-        recommendationRecordId: session.result.recommendationRecordId,
-        recommendationVersion: session.result.recommendationVersion,
-        selectedCandidateId: session.selectedCandidateId,
-        selectionType: 'primary',
-        deviationReason: '',
-        costBaselineId: session.costBaselineId,
-        costBaselineVersion: session.costBaselineVersion,
-      },
-      updatedAt: nowIso(),
-    });
 
     const linked = await this.getSession(sessionId, context);
     if (!linked) {
