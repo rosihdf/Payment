@@ -123,6 +123,9 @@ function normalizeSnapshot(value: unknown): OfferDocumentSnapshot {
     cancellationState: raw.cancellationState
       ? (raw.cancellationState as OfferDocumentSnapshot['cancellationState'])
       : null,
+    commercial: raw.commercial
+      ? (raw.commercial as OfferDocumentSnapshot['commercial'])
+      : null,
     contentHash: asString(raw.contentHash),
   });
 

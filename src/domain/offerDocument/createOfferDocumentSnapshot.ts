@@ -4,6 +4,7 @@ import { calculateOfferTotals } from '../offer/offerCalculations';
 import { copyCustomerSnapshot, copyTariffSnapshot } from '../offer/offerSnapshots';
 import { computeOfferDocumentContentHash } from './offerDocumentHash';
 import { formatOfferDocumentNumber } from './offerDocumentNumber';
+import { resolveOfferDocumentCommercialSnapshot } from './offerDocumentCommercialSnapshot';
 import type {
   OfferDocumentSenderSnapshot,
   OfferDocumentSnapshot,
@@ -69,6 +70,7 @@ export async function createOfferDocumentSnapshot(
       : null;
 
   const documentNumber = formatOfferDocumentNumber(input.offer.offerNumber, input.documentVersion);
+  const commercial = resolveOfferDocumentCommercialSnapshot(input.offer.commercialSnapshot);
 
   const withoutHash: Omit<OfferDocumentSnapshot, 'contentHash'> = {
     schemaVersion: CURRENT_OFFER_DOCUMENT_SCHEMA_VERSION,
@@ -92,6 +94,7 @@ export async function createOfferDocumentSnapshot(
     tariff: input.offer.tariffSnapshot ? copyTariffSnapshot(input.offer.tariffSnapshot) : null,
     items,
     totals,
+    commercial,
     cancellationState,
   };
 
@@ -115,6 +118,7 @@ export async function createPreviewDocumentSnapshot(
     tariffSnapshot: offer.tariffSnapshot,
     commercialSnapshot: offer.commercialSnapshot,
   });
+  const commercial = resolveOfferDocumentCommercialSnapshot(offer.commercialSnapshot);
 
   return {
     schemaVersion: CURRENT_OFFER_DOCUMENT_SCHEMA_VERSION,
@@ -138,6 +142,7 @@ export async function createPreviewDocumentSnapshot(
     tariff: offer.tariffSnapshot ? copyTariffSnapshot(offer.tariffSnapshot) : null,
     items,
     totals,
+    commercial,
     cancellationState:
       offer.status === 'cancelled'
         ? {

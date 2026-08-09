@@ -5,6 +5,7 @@ import type {
   OfferTariffSnapshot,
   OfferTotals,
 } from '../offer/offer';
+import type { OfferDocumentCommercialSnapshot } from './offerDocumentCommercialSnapshot';
 
 export type OfferDocumentType = 'preview' | 'final';
 
@@ -69,6 +70,9 @@ export interface OfferDocumentSnapshot {
 
   totals: OfferTotals;
 
+  /** Eingefrorener kaufmännischer Snapshot für PDF (Schema v2). */
+  commercial: OfferDocumentCommercialSnapshot | null;
+
   cancellationState: OfferDocumentCancellationSnapshot | null;
 
   contentHash: string;
@@ -101,4 +105,4 @@ export interface OfferDocumentIntegrityResult {
   checkedAt: string;
 }
 
-export const CURRENT_OFFER_DOCUMENT_SCHEMA_VERSION = 1;
+export const CURRENT_OFFER_DOCUMENT_SCHEMA_VERSION = 2;

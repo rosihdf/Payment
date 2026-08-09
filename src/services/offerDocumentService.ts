@@ -1,4 +1,6 @@
+import type { OfferPublicationReadiness } from '../domain/offer/offerPublicationReadiness';
 import type { Offer } from '../domain/offer/offer';
+import { evaluateFinalDocumentGate } from '../domain/offerDocument/finalDocumentGate';
 import { createOfferDocumentSnapshot, createPreviewDocumentSnapshot } from '../domain/offerDocument/createOfferDocumentSnapshot';
 import type {
   OfferDocument,
@@ -16,7 +18,6 @@ import { OfferNotFoundError } from '../repositories/errors/OfferNotFoundError';
 import type { OfferUserContext } from './offerService';
 import {
   hasValidationErrors,
-  validateOfferForFinalDocument,
   validateOfferForPreview,
   validateSenderProfile,
   validateStoredDocumentSnapshot,
@@ -41,6 +42,9 @@ export class OfferDocumentService {
     offer: Offer,
     context: OfferUserContext,
   ) => boolean | Promise<boolean>;
+  private getPublicationReadiness:
+    | ((offerId: string) => Promise<OfferPublicationReadiness | null>)
+    | null = null;
 
   constructor(
     offerDocumentRepository: OfferDocumentRepository,
@@ -50,6 +54,36 @@ export class OfferDocumentService {
     this.offerDocumentRepository = offerDocumentRepository;
     this.offerRepository = offerRepository;
     this.canAccessOffer = canAccessOffer;
+  }
+
+  setPublicationReadinessProvider(
+    provider: (offerId: string) => Promise<OfferPublicationReadiness | null>,
+  ): void {
+    this.getPublicationReadiness = provider;
+  }
+
+  private async resolvePublicationReadiness(
+    offerId: string,
+  ): Promise<OfferPublicationReadiness | null> {
+    if (!this.getPublicationReadiness) {
+      return null;
+    }
+
+    return this.getPublicationReadiness(offerId);
+  }
+
+  private async validateForFinalDocument(
+    offer: Offer,
+    mode: 'create' | 'regenerate',
+  ): Promise<OfferDocumentValidationErrors> {
+    const readiness = await this.resolvePublicationReadiness(offer.id);
+    const previewErrors = validateOfferForPreview(offer);
+    const gateErrors = evaluateFinalDocumentGate(offer, readiness, mode);
+
+    return {
+      ...previewErrors,
+      ...gateErrors,
+    };
   }
 
   private async getAccessibleOffer(
@@ -168,7 +202,7 @@ export class OfferDocumentService {
     }
 
     const errors = {
-      ...validateOfferForFinalDocument(offer),
+      ...(await this.validateForFinalDocument(offer, 'create')),
       ...validateSenderProfile(),
     };
 
@@ -199,7 +233,7 @@ export class OfferDocumentService {
     }
 
     const errors = {
-      ...validateOfferForFinalDocument(offer),
+      ...(await this.validateForFinalDocument(offer, 'regenerate')),
       ...validateSenderProfile(),
     };
 

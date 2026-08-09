@@ -1,5 +1,7 @@
 import type { Offer } from '../domain/offer/offer';
 import type { OfferDocumentSnapshot } from '../domain/offerDocument/offerDocument';
+import { evaluateFinalDocumentGate } from '../domain/offerDocument/finalDocumentGate';
+import type { OfferPublicationReadiness } from '../domain/offer/offerPublicationReadiness';
 import { isValidOfferDocumentNumber } from '../domain/offerDocument/offerDocumentNumber';
 import { isValidSha256HexHash } from '../domain/offerDocument/offerDocumentHash';
 import { getCompanyProfile } from '../domain/company/companyProfile';
@@ -37,18 +39,20 @@ export function validateOfferForPreview(offer: Offer | null): OfferDocumentValid
   return errors;
 }
 
-export function validateOfferForFinalDocument(offer: Offer | null): OfferDocumentValidationErrors {
+export function validateOfferForFinalDocument(
+  offer: Offer | null,
+  readiness: OfferPublicationReadiness | null = null,
+): OfferDocumentValidationErrors {
   const errors = validateOfferForPreview(offer);
 
   if (!offer) {
     return errors;
   }
 
-  if (offer.status !== 'completed') {
-    errors.status = 'Finales PDF nur für abgeschlossene Angebote möglich.';
-  }
-
-  return errors;
+  return {
+    ...errors,
+    ...evaluateFinalDocumentGate(offer, readiness, 'create'),
+  };
 }
 
 export function validateStoredDocumentSnapshot(

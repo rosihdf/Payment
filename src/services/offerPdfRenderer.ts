@@ -5,10 +5,11 @@ import {
   OFFER_DOCUMENT_ON_REQUEST_NOTE,
   OFFER_DOCUMENT_PREVIEW_LABEL,
   OFFER_DOCUMENT_PRICE_BASIS_NOTE,
+  OFFER_DOCUMENT_PROJECTION_BASIS_NOTE,
   OFFER_DOCUMENT_VARIABLE_FEES_NOTE,
 } from '../domain/offerDocument/offerDocumentDefaults';
 import type { OfferDocumentSnapshot } from '../domain/offerDocument/offerDocument';
-import { formatContactName, formatDate } from '../utils/format';
+import type { OfferDocumentCommercialSnapshot } from '../domain/offerDocument/offerDocumentCommercialSnapshot';
 import { formatCentsToCurrency } from '../utils/currency';
 import {
   formatCardRate,
@@ -17,6 +18,7 @@ import {
   formatOptionalMonths,
 } from '../utils/formatTariff';
 import { TERMINAL_TYPE_LABELS } from '../domain/tariff/tariff';
+import { formatContactName, formatDate } from '../utils/format';
 
 export interface RenderOfferPdfOptions {
   isPreview: boolean;
@@ -94,6 +96,205 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number): num
   doc.setLineWidth(0.4);
   doc.line(margin, y, doc.internal.pageSize.getWidth() - margin, y);
   return y + 6;
+}
+
+function renderCommercialSolutionSection(
+  doc: jsPDF,
+  commercial: OfferDocumentCommercialSnapshot,
+  y: number,
+  margin: number,
+  contentWidth: number,
+): number {
+  y = sectionTitle(doc, 'Empfohlene Lösung', y, margin);
+  const rows: Array<[string, string]> = [
+    ['Tarif', commercial.tariffName],
+    ['Terminal', commercial.terminalModel],
+    ['Einsatzart', commercial.deploymentLabel],
+    ['Vertragslaufzeit', formatOptionalMonths(commercial.contractTermMonths)],
+    ['Terminalanzahl', String(commercial.terminalCount)],
+  ];
+  if (commercial.productName) {
+    rows.splice(1, 0, ['Produkt', commercial.productName]);
+  }
+
+  autoTable(doc, {
+    startY: y,
+    body: rows,
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 1.8, textColor: BRAND.ink },
+    columnStyles: {
+      0: { cellWidth: 55, textColor: BRAND.muted },
+      1: { cellWidth: contentWidth - 55 },
+    },
+    margin: { left: margin, right: margin },
+  });
+  return (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20;
+}
+
+function renderCommercialFixedConditions(
+  doc: jsPDF,
+  commercial: OfferDocumentCommercialSnapshot,
+  y: number,
+  margin: number,
+  contentWidth: number,
+): number {
+  y = sectionTitle(doc, 'Vertrags- und Tarifkonditionen', y, margin);
+  const breakdown = commercial.breakdown;
+  const rows: Array<[string, string]> = [
+    ['Kontoführung / Fixkonto', `${formatCentsToCurrency(breakdown.monthlyAccountBaseCents)} / Monat`],
+    ['Terminalmiete', `${formatCentsToCurrency(breakdown.monthlyTerminalRentalCents)} / Monat`],
+    ['Servicepauschale', `${formatCentsToCurrency(breakdown.monthlyServiceCents)} / Monat`],
+  ];
+  if (commercial.deploymentMode === 'mobile_sim' && breakdown.monthlySimCents > 0) {
+    rows.push(['SIM / Mobilfunk', `${formatCentsToCurrency(breakdown.monthlySimCents)} / Monat`]);
+  }
+  rows.push(
+    ['Monatliche Fixkosten gesamt', `${formatCentsToCurrency(breakdown.monthlyFixedTotalCents)} / Monat`],
+    ['Einrichtungsgebühr', `${formatCentsToCurrency(breakdown.oneTimeSetupCents)} einmalig`],
+  );
+  if (breakdown.oneTimeHardwareCents > 0) {
+    rows.push(['Hardware einmalig', `${formatCentsToCurrency(breakdown.oneTimeHardwareCents)} einmalig`]);
+  }
+
+  autoTable(doc, {
+    startY: y,
+    body: rows,
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 1.8, textColor: BRAND.ink },
+    columnStyles: {
+      0: { cellWidth: 70, textColor: BRAND.muted },
+      1: { cellWidth: contentWidth - 70 },
+    },
+    margin: { left: margin, right: margin },
+  });
+  y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 20;
+  y += 6;
+
+  y = sectionTitle(doc, 'Variable Tarifkonditionen', y, margin);
+  const variableLines = [
+    `Transaktionsentgelt: ${formatCentsToCurrency(Math.round(commercial.transactionFeeTenthsOfCent / 10))}`,
+    `Girocard-Clearing: ${formatGirocardClearing(
+      commercial.girocardClearingIncluded,
+      commercial.girocardClearingFeeTenthsOfCent,
+    )}`,
+    `Girocard: ${formatCardRate(commercial.cardRates.girocard)}`,
+    `Debitkarte: ${formatCardRate(commercial.cardRates.debit)}`,
+    `Kreditkarte: ${formatCardRate(commercial.cardRates.credit)}`,
+  ];
+  variableLines.forEach((line) => {
+    y = ensureSpace(doc, y, 6, margin);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...BRAND.ink);
+    doc.text(line, margin, y);
+    y += 5;
+  });
+  return y + 4;
+}
+
+function renderCommercialProjectionSection(
+  doc: jsPDF,
+  commercial: OfferDocumentCommercialSnapshot,
+  y: number,
+  margin: number,
+  contentWidth: number,
+): number {
+  y = sectionTitle(doc, 'Kostenprognose', y, margin);
+  const basisRows: Array<[string, string]> = [];
+  if (commercial.needBasis.monthlyCardVolumeCents !== null) {
+    basisRows.push([
+      'Monatsumsatz (Annahme)',
+      formatCentsToCurrency(commercial.needBasis.monthlyCardVolumeCents),
+    ]);
+  }
+  if (commercial.needBasis.monthlyTransactions !== null) {
+    basisRows.push(['Transaktionen / Monat (Annahme)', String(commercial.needBasis.monthlyTransactions)]);
+  }
+  if (commercial.needBasis.cardMixSummary) {
+    basisRows.push(['Kartenmix (Annahme)', commercial.needBasis.cardMixSummary]);
+  }
+
+  if (basisRows.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      body: basisRows,
+      theme: 'plain',
+      styles: { fontSize: 10, cellPadding: 1.8, textColor: BRAND.ink },
+      columnStyles: {
+        0: { cellWidth: 70, textColor: BRAND.muted },
+        1: { cellWidth: contentWidth - 70 },
+      },
+      margin: { left: margin, right: margin },
+    });
+    y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 16;
+    y += 4;
+  }
+
+  const breakdown = commercial.breakdown;
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ['Geschätzte variable Kosten / Monat', `${formatCentsToCurrency(breakdown.monthlyVariableTotalCents)} / Monat`],
+      [
+        'Geschätzte Gesamtkosten / Monat (Fix + variabel)',
+        `${formatCentsToCurrency(breakdown.monthlyTotalCents)} / Monat`,
+      ],
+    ],
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 2, textColor: BRAND.ink },
+    columnStyles: {
+      0: { cellWidth: 95, textColor: BRAND.muted },
+      1: { cellWidth: contentWidth - 95 },
+    },
+    margin: { left: margin, right: margin },
+  });
+  y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 12;
+  y += 4;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  for (const note of [
+    OFFER_DOCUMENT_PROJECTION_BASIS_NOTE,
+    ...commercial.projectionAssumptions,
+  ]) {
+    const lines = doc.splitTextToSize(note, contentWidth);
+    y = ensureSpace(doc, y, lines.length * 4 + 2, margin);
+    doc.text(lines, margin, y);
+    y += lines.length * 4 + 2;
+  }
+
+  return y + 4;
+}
+
+function renderCommercialDisclosures(
+  doc: jsPDF,
+  commercial: OfferDocumentCommercialSnapshot,
+  y: number,
+  margin: number,
+  contentWidth: number,
+): number {
+  const notes = [
+    ...commercial.customerDisclosures,
+    ...commercial.flatMarkupDisclosures,
+    commercial.fairnessGuaranteeNote,
+  ].filter(Boolean) as string[];
+
+  if (notes.length === 0) {
+    return y;
+  }
+
+  y = sectionTitle(doc, 'Weitere Hinweise', y, margin);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...BRAND.ink);
+  for (const note of notes) {
+    const lines = doc.splitTextToSize(note, contentWidth);
+    y = ensureSpace(doc, y, lines.length * 4 + 2, margin);
+    doc.text(lines, margin, y);
+    y += lines.length * 4 + 2;
+  }
+  return y + 4;
 }
 
 export function renderOfferPdf(
@@ -199,7 +400,11 @@ export function renderOfferPdf(
     y += intro.length * 5 + 6;
   }
 
-  if (snapshot.tariff) {
+  if (snapshot.commercial) {
+    y = renderCommercialSolutionSection(doc, snapshot.commercial, y, margin, contentWidth);
+    y += 6;
+    y = renderCommercialFixedConditions(doc, snapshot.commercial, y, margin, contentWidth);
+  } else if (snapshot.tariff) {
     y = sectionTitle(doc, 'Empfohlene Lösung', y, margin);
     const tariff = snapshot.tariff;
     const monthlyFixed =
@@ -295,6 +500,10 @@ export function renderOfferPdf(
     y += 8;
   }
 
+  if (snapshot.commercial) {
+    y = renderCommercialProjectionSection(doc, snapshot.commercial, y, margin, contentWidth);
+  }
+
   y = sectionTitle(doc, 'Kostenübersicht', y, margin);
   const totals = snapshot.totals;
   autoTable(doc, {
@@ -325,6 +534,10 @@ export function renderOfferPdf(
     y = ensureSpace(doc, y, lines.length * 4 + 2, margin);
     doc.text(lines, margin, y);
     y += lines.length * 4 + 2;
+  }
+
+  if (snapshot.commercial) {
+    y = renderCommercialDisclosures(doc, snapshot.commercial, y, margin, contentWidth);
   }
 
   if (snapshot.customerNotes.trim()) {

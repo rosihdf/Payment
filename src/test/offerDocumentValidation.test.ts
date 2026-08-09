@@ -48,11 +48,11 @@ describe('Offer document validation', () => {
     expect(validateOfferForPreview(offer).offer).toContain('stornierte');
   });
 
-  it('requires completed status for final document', async () => {
+  it('blocks draft offer for final document without workflow approval', async () => {
     const draft = await seedPremiumLineDraftOffer();
     const errors = validateOfferForFinalDocument(draft);
 
-    expect(errors.status).toContain('abgeschlossene');
+    expect(errors.status ?? errors.publication).toBeTruthy();
   });
 
   it('accepts completed Premium Line offer for final document', async () => {

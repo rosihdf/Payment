@@ -96,7 +96,7 @@ describe('Offer document overview UI', () => {
     expect(await screen.findByText(document.documentNumber)).toBeInTheDocument();
     // „Aktuell“ erscheint für Angebotsversion und Dokumentstatus
     expect(screen.getAllByText('Aktuell').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('link', { name: 'Details anzeigen' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Anzeigen' })).toHaveAttribute(
       'href',
       `/offers/${offer.id}/documents/${document.id}`,
     );

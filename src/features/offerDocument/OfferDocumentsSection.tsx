@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Offer } from '../../domain/offer/offer';
+import {
+  canCreateInitialFinalDocument,
+  canRegenerateFinalDocument,
+  isLegacyCompletedDocumentOffer,
+} from '../../domain/offerDocument/finalDocumentGate';
+import type { OfferPublicationReadiness } from '../../domain/offer/offerPublicationReadiness';
 import type { OfferDocument } from '../../domain/offerDocument/offerDocument';
+import { useServices } from '../../hooks/useServices';
 import type { OfferUserContext } from '../../services/offerService';
 import type { OfferDocumentService } from '../../services/offerDocumentService';
 import { OfferDocumentCard } from './OfferDocumentCard';
@@ -27,7 +34,9 @@ export function OfferDocumentsSection({
   onDocumentsChanged,
   showToast,
 }: OfferDocumentsSectionProps) {
+  const { offerWorkflowService } = useServices();
   const [documents, setDocuments] = useState<OfferDocument[]>([]);
+  const [readiness, setReadiness] = useState<OfferPublicationReadiness | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionRunning, setIsActionRunning] = useState(false);
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
@@ -35,19 +44,29 @@ export function OfferDocumentsSection({
 
   const loadDocuments = useCallback(async () => {
     setIsLoading(true);
-    const loadedDocuments = await offerDocumentService.getDocumentsForOffer(offer.id, userContext);
+    const [loadedDocuments, publicationReadiness] = await Promise.all([
+      offerDocumentService.getDocumentsForOffer(offer.id, userContext),
+      offerWorkflowService.evaluatePublicationReadiness(offer.id),
+    ]);
     setDocuments(loadedDocuments.sort((left, right) => right.version - left.version));
+    setReadiness(publicationReadiness);
     setIsLoading(false);
-  }, [offer.id, offerDocumentService, userContext]);
+  }, [offer.id, offerDocumentService, offerWorkflowService, userContext]);
 
   useEffect(() => {
     void loadDocuments();
   }, [loadDocuments]);
 
   const currentDocument = offerDocumentService.getCurrentGeneratedDocument(documents);
-  const canPreview = offer.status !== 'cancelled';
-  const canCreateFinal = offer.status === 'completed' && !currentDocument;
-  const canCreateNewVersion = offer.status === 'completed' && Boolean(currentDocument);
+  const legacyCompleted = isLegacyCompletedDocumentOffer(offer);
+  const canPreview = offer.status !== 'cancelled' && offer.workflowStatus !== 'cancelled';
+  const canCreateFinal =
+    !currentDocument &&
+    (legacyCompleted ||
+      (canCreateInitialFinalDocument(offer.workflowStatus) && Boolean(readiness?.publicationAllowed)));
+  const canCreateNewVersion =
+    Boolean(currentDocument) &&
+    (legacyCompleted || canRegenerateFinalDocument(offer.workflowStatus));
 
   const handleDownload = (documentId: string) => {
     void (async () => {
@@ -118,6 +137,14 @@ export function OfferDocumentsSection({
               PDF-Vorschau
             </Link>
           ) : null}
+          {currentDocument ? (
+            <Link
+              className={styles.secondaryAction}
+              to={`/offers/${offer.id}/documents/${currentDocument.id}`}
+            >
+              PDF anzeigen
+            </Link>
+          ) : null}
           {canCreateFinal ? (
             <button
               type="button"
@@ -140,6 +167,13 @@ export function OfferDocumentsSection({
           ) : null}
         </div>
       </div>
+
+      {!legacyCompleted && !readiness?.publicationAllowed && canCreateInitialFinalDocument(offer.workflowStatus) ? (
+        <OfferDocumentSectionHint>
+          Finales PDF noch nicht möglich:{' '}
+          {readiness?.blockers[0] ?? 'Angebot ist noch nicht versandbereit.'}
+        </OfferDocumentSectionHint>
+      ) : null}
 
       {isLoading ? (
         <OfferDocumentSectionHint>Dokumente werden geladen…</OfferDocumentSectionHint>

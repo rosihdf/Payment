@@ -34,6 +34,14 @@ export function OfferDocumentCard({
 
       <dl className={styles.details}>
         <div className={styles.row}>
+          <dt>Typ</dt>
+          <dd>Final</dd>
+        </div>
+        <div className={styles.row}>
+          <dt>Angebotsversion</dt>
+          <dd>{document.offerVersionId ? 'gebunden' : 'Legacy'}</dd>
+        </div>
+        <div className={styles.row}>
           <dt>Erzeugt am</dt>
           <dd>{displayDateTime(document.createdAt)}</dd>
         </div>
@@ -48,7 +56,7 @@ export function OfferDocumentCard({
           className={styles.secondaryAction}
           to={`/offers/${offerId}/documents/${document.id}`}
         >
-          Details anzeigen
+          Anzeigen
         </Link>
         <button
           type="button"

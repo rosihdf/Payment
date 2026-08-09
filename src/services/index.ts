@@ -355,6 +355,14 @@ export function createServices(repositories: AppRepositories): AppServices {
     repositories.offerVersionRepository,
     repositories.offerCustomerAcceptanceRepository,
   );
+  const offerDocumentService = createOfferDocumentService(
+    repositories.offerDocumentRepository,
+    repositories.offerRepository,
+    offerService,
+  );
+  offerDocumentService.setPublicationReadinessProvider((offerId) =>
+    offerWorkflowService.evaluatePublicationReadiness(offerId),
+  );
 
   return {
     userService: new UserService(repositories.userRepository),
@@ -383,11 +391,7 @@ export function createServices(repositories: AppRepositories): AppServices {
     offerChangeRequestService,
     offerAcceptanceService,
     bestPayHandoffService,
-    offerDocumentService: createOfferDocumentService(
-      repositories.offerDocumentRepository,
-      repositories.offerRepository,
-      offerService,
-    ),
+    offerDocumentService,
     pricingEvaluationService: new PricingEvaluationService(
       repositories.pricingCatalogRepository,
       repositories.pricingEvaluationRepository,

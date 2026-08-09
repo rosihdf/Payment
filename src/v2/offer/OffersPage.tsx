@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { canCancelOfferWorkflow } from '../../domain/offer/offerDraftDeletion';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
@@ -29,24 +29,6 @@ const OWNER_FILTER_OPTIONS: Array<{ value: OfferFilters['owner']; label: string 
   { value: 'mine', label: 'Meine Angebote' },
 ];
 
-const DOCUMENT_PHASES = new Set([
-  'approval_required',
-  'in_approval',
-  'changes_requested',
-  'approved',
-  'ready_to_send',
-  'sent',
-  'accepted',
-  'declined',
-  'expired',
-  'activation_pending',
-  'activated',
-  'released',
-  'accounted',
-  'paid',
-  'cancelled',
-]);
-
 type DialogMode = 'cancel' | 'delete' | null;
 
 interface OfferCardActionsProps {
@@ -55,6 +37,7 @@ interface OfferCardActionsProps {
   isActionRunning: boolean;
   onCancel: (offer: Offer) => void;
   onDelete: (offer: Offer) => void;
+  onOpenPdf: (offer: Offer) => void;
 }
 
 function OfferCardActions({
@@ -63,6 +46,7 @@ function OfferCardActions({
   isActionRunning,
   onCancel,
   onDelete,
+  onOpenPdf,
 }: OfferCardActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,7 +70,7 @@ function OfferCardActions({
     offer.customerSnapshot.contactFirstName,
     offer.customerSnapshot.contactLastName,
   );
-  const showDocuments = DOCUMENT_PHASES.has(offer.workflowStatus) || offer.status === 'completed';
+  const showPdf = offer.status !== 'cancelled' && offer.workflowStatus !== 'cancelled';
   const showCancel = canCancelOfferWorkflow(offer.workflowStatus) && offer.status !== 'cancelled';
   const showDelete = isAdmin && offer.workflowStatus === 'draft';
 
@@ -112,23 +96,27 @@ function OfferCardActions({
           >
             Öffnen
           </Link>
-          {showDocuments ? (
+          {showPdf ? (
             <>
+              <button
+                type="button"
+                className={styles.menuItemButton}
+                role="menuitem"
+                disabled={isActionRunning}
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenPdf(offer);
+                }}
+              >
+                PDF / Dokumente
+              </button>
               <Link
                 className={styles.menuItem}
                 role="menuitem"
                 to={`/offers/${offer.id}?tab=versions`}
                 onClick={() => setMenuOpen(false)}
               >
-                Dokumente
-              </Link>
-              <Link
-                className={styles.menuItem}
-                role="menuitem"
-                to={`/offers/${offer.id}/preview`}
-                onClick={() => setMenuOpen(false)}
-              >
-                PDF-Vorschau
+                Versionen & Dokumente
               </Link>
             </>
           ) : null}
@@ -172,8 +160,9 @@ function OfferCardActions({
 }
 
 export function OffersPage() {
+  const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
-  const { offerService } = useServices();
+  const { offerService, offerDocumentService } = useServices();
   const { showToast } = useToast();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -295,6 +284,22 @@ export function OffersPage() {
       }
 
       setIsActionRunning(false);
+    })();
+  };
+
+  const handleOpenPdf = (offer: Offer) => {
+    if (!userContext) {
+      return;
+    }
+
+    void (async () => {
+      const documents = await offerDocumentService.getDocumentsForOffer(offer.id, userContext);
+      const current = offerDocumentService.getCurrentGeneratedDocument(documents);
+      if (current) {
+        navigate(`/offers/${offer.id}/documents/${current.id}`);
+      } else {
+        navigate(`/offers/${offer.id}/preview`);
+      }
     })();
   };
 
@@ -424,6 +429,7 @@ export function OffersPage() {
                       isActionRunning={isActionRunning}
                       onCancel={handleCancelRequest}
                       onDelete={handleDeleteRequest}
+                      onOpenPdf={handleOpenPdf}
                     />
                   ) : null
                 }
