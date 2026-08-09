@@ -198,8 +198,16 @@ describe('OfferService', () => {
     );
 
     const offers = await offerService.getOffers(FIELD_SERVICE_CONTEXT);
-    const bySearch = offerService.filterOffers(offers, { search: 'Alpha', status: 'all', owner: 'all' }, FIELD_SERVICE_CONTEXT);
-    const byStatus = offerService.filterOffers(offers, { search: '', status: 'draft', owner: 'all' }, FIELD_SERVICE_CONTEXT);
+    const bySearch = offerService.filterOffers(
+      offers,
+      { search: 'Alpha', phase: 'all', owner: 'all', status: 'all' },
+      FIELD_SERVICE_CONTEXT,
+    );
+    const byStatus = offerService.filterOffers(
+      offers,
+      { search: '', phase: 'all', owner: 'all', status: 'draft' },
+      FIELD_SERVICE_CONTEXT,
+    );
 
     expect(bySearch.some((offer) => offer.id === draft.id)).toBe(true);
     expect(bySearch.some((offer) => offer.title === 'Suche Beta')).toBe(false);
@@ -217,7 +225,7 @@ describe('OfferService', () => {
     const offers = await offerService.getOffers(ADMIN_CONTEXT);
     const mine = offerService.filterOffers(
       offers,
-      { search: '', status: 'all', owner: 'mine' },
+      { search: '', phase: 'all', owner: 'mine' },
       ADMIN_CONTEXT,
     );
 

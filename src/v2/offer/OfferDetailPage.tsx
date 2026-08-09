@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../../components/feedback/EmptyState';
 import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
-import { OFFER_STATUS_LABELS } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
 import { isFrozenCommercialSnapshot } from '../../domain/offer/offerCommercialSnapshot';
 import { resolveOfferCommercialLegacyStatus } from '../../domain/offer/normalizeOfferCommercialSnapshot';
@@ -30,16 +29,16 @@ import { OfferFulfillmentCard } from '../../features/offer/OfferFulfillmentCard'
 import { OfferCustomerFeedbackSection } from '../../features/offer/OfferCustomerFeedbackSection';
 import { OfferCustomerShareSection } from '../../features/offer/OfferCustomerShareSection';
 import { OfferWorkflowSection } from '../../features/offer/OfferWorkflowSection';
+import { canCancelOfferWorkflow } from '../../domain/offer/offerDraftDeletion';
 import {
-  getOfferWorkflowDisplayGroup,
-  getOfferWorkflowDisplayLabel,
+  getOfferPrimaryStatusBadgeVariant,
+  getOfferPrimaryStatusLabel,
   getOfferWorkflowTechnicalLabel,
-  type OfferWorkflowDisplayGroup,
 } from '../../features/offer/offerWorkflowDisplay';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { PageHeader } from '../ui/PageHeader';
-import { StatusBadge, type StatusBadgeVariant } from '../ui/StatusBadge';
+import { StatusBadge } from '../ui/StatusBadge';
 import { textareaClassName } from '../ui/FormField';
 import styles from './OfferDetailPage.module.css';
 
@@ -48,29 +47,13 @@ const OfferBillingImportSection = lazy(async () => {
   return { default: module.OfferBillingImportSection };
 });
 
-type DialogMode = 'complete' | 'cancel' | 'duplicate' | null;
+type DialogMode = 'complete' | 'cancel' | 'duplicate' | 'delete' | null;
 type TabId = 'overview' | 'positions' | 'workflow' | 'versions' | 'commission';
 
 const DEPLOYMENT_MODE_LABELS = {
   stationary_wifi: 'Stationär (WLAN)',
   mobile_sim: 'Mobil (SIM)',
 } as const;
-
-function offerWorkflowStatusVariant(group: OfferWorkflowDisplayGroup): StatusBadgeVariant {
-  switch (group) {
-    case 'draft':
-      return 'neutral';
-    case 'handed_to_customer':
-    case 'customer_considering':
-      return 'info';
-    case 'accepted':
-      return 'success';
-    case 'declined':
-      return 'danger';
-    default:
-      return 'neutral';
-  }
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -263,6 +246,29 @@ export function OfferDetailPage() {
     })();
   };
 
+  const handleDeleteDraft = () => {
+    if (!offer || !userContext) {
+      return;
+    }
+
+    void (async () => {
+      setIsActionRunning(true);
+      const result = await offerService.deleteDraftOffer(offer.id, userContext);
+
+      if (result.ok) {
+        showToast('Entwurf wurde gelöscht', 'success');
+        navigate('/offers');
+      } else if ('message' in result && result.message) {
+        showToast(result.message, 'error');
+      } else {
+        showToast('Entwurf konnte nicht gelöscht werden', 'error');
+      }
+
+      setIsActionRunning(false);
+      setDialogMode(null);
+    })();
+  };
+
   if (isLoading) {
     return (
       <section>
@@ -299,8 +305,9 @@ export function OfferDetailPage() {
     offer.customerSnapshot.contactLastName,
   );
   const showTechnical = currentUser?.role === 'admin';
-  const workflowGroup = getOfferWorkflowDisplayGroup(offer.workflowStatus);
-  const standLabel = getOfferWorkflowDisplayLabel(offer.workflowStatus);
+  const primaryStatusLabel = getOfferPrimaryStatusLabel(offer.workflowStatus);
+  const canCancel = canCancelOfferWorkflow(offer.workflowStatus) && offer.status !== 'cancelled';
+  const canDeleteDraft = showTechnical && offer.workflowStatus === 'draft';
 
   const tabs: Array<{ id: TabId; label: string }> = [
     { id: 'overview', label: 'Übersicht' },
@@ -366,14 +373,9 @@ export function OfferDetailPage() {
 
       <div className={styles.statusRow}>
         <StatusBadge
-          variant={offerWorkflowStatusVariant(workflowGroup)}
-          label={standLabel}
-          technicalLabel={showTechnical ? getOfferWorkflowTechnicalLabel(offer.workflowStatus) : undefined}
+          variant={getOfferPrimaryStatusBadgeVariant(offer.workflowStatus)}
+          label={primaryStatusLabel}
         />
-        {offer.status === 'completed' || offer.status === 'cancelled' ? (
-          <span className={styles.meta}>{OFFER_STATUS_LABELS[offer.status]}</span>
-        ) : null}
-        <span className={styles.meta}>Stand: {standLabel}</span>
       </div>
 
       <div className={styles.tabs} role="tablist" aria-label="Angebotsbereiche">
@@ -410,7 +412,12 @@ export function OfferDetailPage() {
               label="Laufzeit"
               value={formatOptionalMonths(offer.tariffSnapshot?.contractDurationMonths ?? null)}
             />
-            <DetailRow label="Verständlicher Stand" value={standLabel} />
+            {showTechnical ? (
+              <DetailRow
+                label="Technischer Workflow-Status"
+                value={getOfferWorkflowTechnicalLabel(offer.workflowStatus)}
+              />
+            ) : null}
             <DetailRow
               label="Nächste Aktion"
               value={
@@ -455,7 +462,7 @@ export function OfferDetailPage() {
             </p>
           ) : null}
 
-          {offer.status !== 'cancelled' ? (
+          {canCancel ? (
             <div className={styles.moreActions}>
               <h3 className={styles.sectionTitle}>Stornierung</h3>
               <div>
@@ -493,6 +500,22 @@ export function OfferDetailPage() {
                 }}
               >
                 Stornieren
+              </Button>
+            </div>
+          ) : null}
+
+          {canDeleteDraft ? (
+            <div className={styles.moreActions}>
+              <h3 className={styles.sectionTitle}>Entwurf entfernen</h3>
+              <p className={styles.sectionHint}>
+                Nur echte Entwürfe ohne Vertrag, Dokumente oder Folgeprozesse können endgültig gelöscht werden.
+              </p>
+              <Button
+                variant="secondary"
+                disabled={isActionRunning}
+                onClick={() => setDialogMode('delete')}
+              >
+                Entwurf löschen
               </Button>
             </div>
           ) : null}
@@ -747,6 +770,23 @@ export function OfferDetailPage() {
         primaryAction={{ label: 'Angebot stornieren', onClick: handleCancel, loading: isActionRunning }}
       >
         <p>Das Angebot wird storniert und kann danach nicht mehr bearbeitet werden.</p>
+      </Dialog>
+
+      <Dialog
+        isOpen={dialogMode === 'delete'}
+        title="Entwurf löschen"
+        onClose={() => setDialogMode(null)}
+        secondaryAction={{ label: 'Abbrechen', onClick: () => setDialogMode(null) }}
+        primaryAction={{
+          label: 'Endgültig löschen',
+          variant: 'destructive',
+          onClick: handleDeleteDraft,
+          loading: isActionRunning,
+        }}
+      >
+        <p>
+          Entwurf {offer.offerNumber} unwiderruflich löschen? Nur echte Entwürfe ohne Folgedaten sind erlaubt.
+        </p>
       </Dialog>
     </section>
   );

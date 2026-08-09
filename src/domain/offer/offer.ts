@@ -2,7 +2,8 @@ import type { ProductCategory } from '../product/product';
 import type { TerminalType } from '../tariff/tariff';
 import type { OfferRecommendationLink } from '../recommendation/recommendationRecord';
 import type { OfferCommercialSnapshot } from './offerCommercialSnapshot';
-import type { OfferWorkflowStatus, OfferWorkflowStatusFilter } from './offerWorkflow';
+import type { OfferWorkflowStatus } from './offerWorkflow';
+import type { OfferPhaseFilter } from '../../features/offer/offerWorkflowDisplay';
 
 export type OfferStatus = 'draft' | 'completed' | 'cancelled';
 
@@ -200,9 +201,12 @@ export type OfferFormMode = 'create' | 'edit';
 
 export interface OfferFilters {
   search: string;
-  status: OfferStatusFilter;
-  workflowStatus?: OfferWorkflowStatusFilter;
+  phase: OfferPhaseFilter;
   owner: OfferOwnerFilter;
+  /** @deprecated Nur noch für Abwärtskompatibilität in Tests – UI nutzt phase. */
+  status?: OfferStatusFilter;
+  /** @deprecated Nur noch für Abwärtskompatibilität in Tests – UI nutzt phase. */
+  workflowStatus?: import('./offerWorkflow').OfferWorkflowStatusFilter;
 }
 
 export interface OfferTotals {

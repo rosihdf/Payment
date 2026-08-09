@@ -82,26 +82,27 @@ describe('Offer overview UI', () => {
     });
   });
 
-  it('filters by status', async () => {
+  it('filters by phase', async () => {
     const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
-    await seedOfferInStorage(repository, { title: 'Entwurf Angebot', status: 'draft' });
     await seedOfferInStorage(repository, {
-      title: 'Abgeschlossen Angebot',
-      status: 'completed',
-      completedAt: '2026-08-01T10:00:00.000Z',
-      completedByUserId: FIELD_SERVICE_USER_ID,
+      title: 'Entwurf Angebot',
+      workflowStatus: 'draft',
+    });
+    await seedOfferInStorage(repository, {
+      title: 'Beim Kunden Angebot',
+      workflowStatus: 'sent',
     });
 
     renderAtRoute('/offers', false);
 
-    const statusGroup = await screen.findByRole('group', { name: 'Status' });
-    await user.click(within(statusGroup).getByRole('button', { name: 'Entwurf' }));
+    const phaseGroup = await screen.findByRole('group', { name: 'Phase' });
+    await user.click(within(phaseGroup).getByRole('button', { name: 'Entwurf / Bearbeitung' }));
 
     await waitFor(() => {
       expect(screen.getByText('Entwurf Angebot')).toBeInTheDocument();
-      expect(screen.queryByText('Abgeschlossen Angebot')).not.toBeInTheDocument();
+      expect(screen.queryByText('Beim Kunden Angebot')).not.toBeInTheDocument();
     });
   });
 

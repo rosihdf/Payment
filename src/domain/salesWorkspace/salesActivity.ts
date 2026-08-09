@@ -19,6 +19,7 @@ export type SalesActivityType =
   | 'wizard_resumed'
   | 'offer_created'
   | 'offer_updated'
+  | 'offer_deleted'
   | 'offer_sent'
   | 'approval_requested'
   | 'approval_completed'
@@ -91,6 +92,7 @@ export const SALES_ACTIVITY_TYPE_LABELS: Record<SalesActivityType, string> = {
   wizard_resumed: 'Beratung fortgesetzt',
   offer_created: 'Angebot erstellt',
   offer_updated: 'Angebot geändert',
+  offer_deleted: 'Angebotsentwurf gelöscht',
   offer_sent: 'Angebot versendet',
   approval_requested: 'Freigabe angefordert',
   approval_completed: 'Freigabe erfolgt',

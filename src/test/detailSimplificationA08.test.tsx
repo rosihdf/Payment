@@ -27,13 +27,14 @@ import {
 describe('Aufräumblock 8 – Statusanzeige-Mappings', () => {
   it('maps offer workflow statuses to display groups without mutation', () => {
     expect(getOfferWorkflowDisplayGroup('draft')).toBe('draft');
-    expect(getOfferWorkflowDisplayGroup('in_approval')).toBe('draft');
-    expect(getOfferWorkflowDisplayGroup('ready_to_send')).toBe('handed_to_customer');
-    expect(getOfferWorkflowDisplayGroup('sent')).toBe('customer_considering');
+    expect(getOfferWorkflowDisplayGroup('in_approval')).toBe('approval');
+    expect(getOfferWorkflowDisplayGroup('ready_to_send')).toBe('ready_to_send');
+    expect(getOfferWorkflowDisplayGroup('sent')).toBe('sent');
     expect(getOfferWorkflowDisplayGroup('accepted')).toBe('accepted');
     expect(getOfferWorkflowDisplayGroup('declined')).toBe('declined');
-    expect(getOfferWorkflowDisplayLabel('in_approval')).toBe('Entwurf');
-    expect(getOfferWorkflowDisplayLabel('sent')).toBe('Kunde überlegt');
+    expect(getOfferWorkflowDisplayLabel('in_approval')).toBe('In Freigabe');
+    expect(getOfferWorkflowDisplayLabel('sent')).toBe('Beim Kunden');
+    expect(getOfferWorkflowDisplayLabel('cancelled')).toBe('Storniert');
   });
 
   it('maps contract statuses to display groups', () => {

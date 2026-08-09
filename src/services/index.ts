@@ -258,6 +258,13 @@ export function createServices(repositories: AppRepositories): AppServices {
   offerWorkflowService.setSalesActivityService(salesActivityService);
   offerService.setWorkflowService(offerWorkflowService);
   offerService.setActivityService(salesActivityService);
+  offerService.setDraftDeletionRepositories({
+    contractRepository: repositories.contractRepository,
+    offerDocumentRepository: repositories.offerDocumentRepository,
+    offerShareRepository: repositories.offerShareRepository,
+    commissionCalculationRepository: repositories.commissionCalculationRepository,
+    activationCaseRepository: repositories.activationCaseRepository,
+  });
   const salesWizardService = new SalesWizardService(
     bestPayComparisonService,
     recommendationService,

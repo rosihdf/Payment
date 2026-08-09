@@ -19,31 +19,34 @@
   border-color: var(--color-border-light);
 }
 
-.internal_review {
+.approval {
   background: #fff4e5;
   color: #8a4b00;
   border-color: #f0c987;
 }
 
-.ready_for_customer {
+.ready_to_send {
   background: #e8f4ff;
   color: #0b4f8a;
   border-color: #9ecdf5;
 }
 
-.customer_review {
+.sent {
   background: #f3ecff;
   color: #4a2d7a;
   border-color: #c9b3ef;
 }
 
-.accepted {
+.accepted,
+.completed {
   background: #e7f7ed;
   color: #1f6b3a;
   border-color: #9fd4b0;
 }
 
-.closed {
+.declined,
+.expired,
+.cancelled {
   background: #fdecec;
   color: #8a1f1f;
   border-color: #f5b4b4;

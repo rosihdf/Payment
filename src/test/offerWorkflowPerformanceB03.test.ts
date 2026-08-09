@@ -221,7 +221,7 @@ describe('B03 Angebotsworkflow Performance', () => {
 
       const filtered = offerService.filterOffers(
         allOffers,
-        { search: 'BP-ANG', status: 'all', workflowStatus: 'all', owner: 'all' },
+        { search: 'BP-ANG', phase: 'all', owner: 'all', status: 'all', workflowStatus: 'all' },
         FIELD_SERVICE_CONTEXT,
       );
       expect(filtered.length).toBeGreaterThan(0);

@@ -40,6 +40,19 @@ import type { OfferWorkflowService } from './offerWorkflowService';
 import type { SalesActivityService } from './salesActivityService';
 import { canTransitionWorkflowStatus, isEditableWorkflowStatus, syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
 import {
+  evaluateOfferDraftDeletion,
+  offerDraftDeletionBlockerMessage,
+  type OfferDraftDeletionBlocker,
+} from '../domain/offer/offerDraftDeletion';
+import { matchesOfferPhaseFilter } from '../features/offer/offerWorkflowDisplay';
+import { purgeLocalOfferDraftArtifacts } from './offerDraftCleanup';
+import { isSupabaseDataMode } from '../config/dataMode';
+import type { ContractRepository } from '../repositories/interfaces/ContractRepository';
+import type { OfferDocumentRepository } from '../repositories/interfaces/OfferDocumentRepository';
+import type { OfferShareRepository } from '../repositories/interfaces/OfferShareRepository';
+import type { CommissionCalculationRepository } from '../repositories/interfaces/CommissionCalculationRepository';
+import type { ActivationCaseRepository } from '../repositories/interfaces/ActivationCaseRepository';
+import {
   hasOfferValidationErrors,
   sanitizeOfferInput,
   validateCancellationReason,
@@ -55,7 +68,16 @@ export type OfferResult =
 export type OfferActionResult =
   | { ok: true; offer: Offer }
   | { ok: false; error: 'not_found' | 'forbidden' | 'storage' | 'invalid_status' }
-  | { ok: false; errors: { reason?: string } };
+  | { ok: false; errors: { reason?: string } }
+  | { ok: false; error: 'blocked'; blocker: OfferDraftDeletionBlocker; message: string };
+
+export interface OfferDraftDeletionRepositories {
+  contractRepository: ContractRepository;
+  offerDocumentRepository: OfferDocumentRepository;
+  offerShareRepository: OfferShareRepository;
+  commissionCalculationRepository: CommissionCalculationRepository;
+  activationCaseRepository: ActivationCaseRepository;
+}
 
 export interface OfferUserContext {
   userId: string;
@@ -196,6 +218,7 @@ export class OfferService {
   private readonly productRepository: ProductRepository;
   private workflowService: OfferWorkflowService | null = null;
   private activityService: SalesActivityService | null = null;
+  private draftDeletionRepositories: OfferDraftDeletionRepositories | null = null;
 
   constructor(
     offerRepository: OfferRepository,
@@ -215,6 +238,10 @@ export class OfferService {
 
   setActivityService(activityService: SalesActivityService): void {
     this.activityService = activityService;
+  }
+
+  setDraftDeletionRepositories(repositories: OfferDraftDeletionRepositories): void {
+    this.draftDeletionRepositories = repositories;
   }
 
   canUserAccessOffer(offer: Offer, context: OfferUserContext, leadById?: Map<string, Lead>): boolean {
@@ -268,12 +295,20 @@ export class OfferService {
 
   filterOffers(offers: Offer[], filters: OfferFilters, context: OfferUserContext): Offer[] {
     const normalizedSearch = filters.search.trim().toLowerCase();
+    const phase = filters.phase ?? 'all';
 
     return offers.filter((offer) => {
-      if (filters.status !== 'all' && offer.status !== filters.status) {
+      if (phase !== 'all' && !matchesOfferPhaseFilter(offer.workflowStatus, phase)) {
         return false;
       }
-      if (filters.workflowStatus && filters.workflowStatus !== 'all' && offer.workflowStatus !== filters.workflowStatus) {
+      if (filters.status && filters.status !== 'all' && offer.status !== filters.status) {
+        return false;
+      }
+      if (
+        filters.workflowStatus &&
+        filters.workflowStatus !== 'all' &&
+        offer.workflowStatus !== filters.workflowStatus
+      ) {
         return false;
       }
 
@@ -790,6 +825,84 @@ export class OfferService {
     try {
       const saved = await this.offerRepository.create(duplicate);
       return { ok: true, offer: this.workflowService ? await this.workflowService.ensureInitialVersion(saved) : saved };
+    } catch {
+      return { ok: false, error: 'storage' };
+    }
+  }
+
+  async canDeleteDraftOffer(
+    id: string,
+    context: OfferUserContext,
+  ): Promise<{ allowed: true } | { allowed: false; blocker: OfferDraftDeletionBlocker; message: string }> {
+    const offer = await this.offerRepository.getById(id);
+    const canAccess = offer ? await this.canAccessOfferRecord(offer, context) : false;
+    const deps = this.draftDeletionRepositories;
+    const dependencies = deps
+      ? {
+          hasContract: Boolean(await deps.contractRepository.getByOfferId(id)),
+          hasShareLink: Boolean(await deps.offerShareRepository.getActiveByOfferId(id)),
+          hasGeneratedDocument: (await deps.offerDocumentRepository.getByOfferId(id)).some(
+            (document) => document.status === 'generated',
+          ),
+          hasCommissionCase: (await deps.commissionCalculationRepository.getCasesByOfferId(id)).length > 0,
+          hasActivationCase: (await deps.activationCaseRepository.getAll()).some(
+            (entry) => entry.sourceOfferId === id,
+          ),
+        }
+      : {
+          hasContract: false,
+          hasShareLink: false,
+          hasGeneratedDocument: false,
+          hasCommissionCase: false,
+          hasActivationCase: false,
+        };
+
+    const evaluation = evaluateOfferDraftDeletion({
+      offer,
+      isAdmin: context.role === 'admin',
+      canAccess,
+      dependencies,
+    });
+
+    if (!evaluation.allowed) {
+      return {
+        allowed: false,
+        blocker: evaluation.blocker,
+        message: offerDraftDeletionBlockerMessage(evaluation.blocker),
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  async deleteDraftOffer(id: string, context: OfferUserContext): Promise<OfferActionResult> {
+    const permission = await this.canDeleteDraftOffer(id, context);
+    if (!permission.allowed) {
+      return { ok: false, error: 'blocked', blocker: permission.blocker, message: permission.message };
+    }
+
+    const offer = await this.offerRepository.getById(id);
+    if (!offer) {
+      return { ok: false, error: 'not_found' };
+    }
+
+    try {
+      if (!isSupabaseDataMode()) {
+        purgeLocalOfferDraftArtifacts(id);
+      }
+      await this.offerRepository.delete(id);
+      await this.activityService?.recordSystemActivity(
+        {
+          type: 'offer_deleted',
+          title: `Angebotsentwurf gelöscht: ${offer.offerNumber}`,
+          description: offer.title,
+          leadId: offer.leadId,
+          offerId: id,
+          sourceKey: `offer_deleted:${id}`,
+        },
+        context,
+      );
+      return { ok: true, offer };
     } catch {
       return { ok: false, error: 'storage' };
     }

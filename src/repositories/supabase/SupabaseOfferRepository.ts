@@ -5,6 +5,7 @@ import { OfferNotFoundError } from '../errors/OfferNotFoundError';
 import type { OfferRepository } from '../interfaces/OfferRepository';
 import {
   rowData,
+  sbDelete,
   sbInsert,
   sbSelectAll,
   sbSelectById,
@@ -91,5 +92,13 @@ export class SupabaseOfferRepository implements OfferRepository {
 
     const row = await sbUpdate(TABLE, normalizedOffer.id, offerToRow(normalizedOffer));
     return rowToOffer(row);
+  }
+
+  async delete(id: string): Promise<void> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new OfferNotFoundError(id);
+    }
+    await sbDelete(TABLE, id);
   }
 }

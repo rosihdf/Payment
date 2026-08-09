@@ -59,7 +59,7 @@ describe('Offer status actions UI', () => {
       expect(getStoredOffers()[0]?.status).toBe('completed');
     });
 
-    expect(await screen.findByText('Abgeschlossen')).toBeInTheDocument();
+    expect(await screen.findByText('Angenommen')).toBeInTheDocument();
   });
 
   it('cancels offer with reason', async () => {

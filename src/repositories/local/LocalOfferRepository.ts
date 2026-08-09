@@ -66,4 +66,13 @@ export class LocalOfferRepository implements OfferRepository {
     writeStorageItem(STORAGE_KEYS.offers, updatedOffers);
     return { ...normalizedOffer };
   }
+
+  async delete(id: string): Promise<void> {
+    const offers = await this.getAll();
+    const next = offers.filter((item) => item.id !== id);
+    if (next.length === offers.length) {
+      throw new OfferNotFoundError(id);
+    }
+    writeStorageItem(STORAGE_KEYS.offers, next);
+  }
 }
