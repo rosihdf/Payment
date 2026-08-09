@@ -36,17 +36,19 @@ describe('Beratungswizard Kundenschritt', () => {
     expect(screen.queryByRole('button', { name: 'Entwurf speichern' })).not.toBeInTheDocument();
   });
 
-  it('übernimmt bestehenden Kunden erst mit Weiter', async () => {
+  it('persistiert Kundenzuordnung bei Auswahl und erzeugt keine Duplikate', async () => {
     const user = userEvent.setup();
     const before = readBestPayComparisonSessions().length;
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     await user.click(screen.getByRole('button', { name: 'Kunde suchen' }));
     await user.click(await screen.findByRole('button', { name: /Café Sonnenschein/i }));
-    expect(readBestPayComparisonSessions().length).toBe(before);
+    await waitFor(() => {
+      expect(readBestPayComparisonSessions().length).toBe(before + 1);
+    });
     await user.click(screen.getByRole('button', { name: 'Weiter' }));
     await waitFor(() => {
-      expect(readBestPayComparisonSessions().length).toBeGreaterThan(before);
+      expect(readBestPayComparisonSessions().length).toBe(before + 1);
     });
   });
 

@@ -65,11 +65,11 @@ describe('Beratungsentwurf Persistenz', () => {
     const before = wizardSessionCount();
     renderAt(ADVICE_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
-    await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
+    const steps = within(screen.getByRole('navigation', { name: 'Beratungsschritte' }));
+    const ausgangslageBtn = steps.getByRole('button', { name: /Ausgangslage/i });
+    expect(ausgangslageBtn).toBeDisabled();
+    await user.click(ausgangslageBtn);
     expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
-    expect(
-      await screen.findByText(/Bitte mit „Weiter“ fortfahren/i),
-    ).toBeInTheDocument();
     expect(wizardSessionCount()).toBe(before);
   });
 
@@ -81,13 +81,14 @@ describe('Beratungsentwurf Persistenz', () => {
     await user.click(screen.getByRole('button', { name: 'Kunde suchen' }));
     const leadButton = await screen.findByRole('button', { name: /Café Sonnenschein/i });
     await user.click(leadButton);
-    await user.click(screen.getByRole('button', { name: 'Weiter' }));
     await waitFor(() => {
       expect(wizardSessionCount()).toBe(before + 1);
     });
     expect(screen.getByText('Automatisch gespeichert')).toBeInTheDocument();
     expect(router.state.location.search).toMatch(/session=/);
-    // zweites Speichern / Reload-Pfad erzeugt keine zweite Session
+    await user.click(screen.getByRole('button', { name: 'Weiter' }));
+    await screen.findByRole('heading', { name: 'Ausgangslage' });
+    expect(wizardSessionCount()).toBe(before + 1);
     await user.click(screen.getByRole('button', { name: /Ausgangslage/i }));
     expect(wizardSessionCount()).toBe(before + 1);
   });

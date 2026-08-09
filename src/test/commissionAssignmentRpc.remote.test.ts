@@ -1,6 +1,7 @@
 /**
  * Direkte RPC-Nachweise gegen das Remote-Projekt.
- * Übersprungen ohne Service-Role / wenn Data-Mode nicht supabase ist.
+ * Nicht Teil von `npm test` – ausführen mit `npm run test:remote`.
+ * Übersprungen ohne Service-Role / Credentials / Phase-2D-Regeln auf Remote.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { existsSync, readFileSync } from 'node:fs';
@@ -48,6 +49,12 @@ const FIELD_PASSWORD = (env.SUPABASE_TEST_FIELD_PASSWORD || '').trim();
 
 const enabled = Boolean(URL && ANON && SERVICE && ADMIN_EMAIL && ADMIN_PASSWORD && FIELD_EMAIL);
 
+const PHASE2D_CLASSIC_RULE_IDS = [
+  'commission_rule_classic_acq',
+  'commission_rule_classic_terminal_acq_long',
+  'commission_rule_classic_terminal_short',
+] as const;
+
 const STANDARD_OVERRIDES = [
   {
     ruleId: 'commission_rule_classic_acq',
@@ -74,6 +81,7 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
   let field: SupabaseClient;
   let service: SupabaseClient;
   let fieldUserId = '';
+  let remoteCatalogReady = false;
 
   beforeAll(async () => {
     admin = createClient(URL, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -95,7 +103,21 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     expect(fieldLogin.error).toBeNull();
     fieldUserId = fieldLogin.data.user?.id ?? '';
     expect(fieldUserId).toBeTruthy();
+
+    const { data: rules, error: rulesError } = await service
+      .from('commission_rules')
+      .select('id')
+      .in('id', [...PHASE2D_CLASSIC_RULE_IDS]);
+    expect(rulesError).toBeNull();
+    const found = new Set((rules ?? []).map((row) => row.id));
+    remoteCatalogReady = PHASE2D_CLASSIC_RULE_IDS.every((id) => found.has(id));
   }, 60_000);
+
+  function requireRemoteCatalogReady(context: { skip: () => void }) {
+    if (!remoteCatalogReady) {
+      context.skip();
+    }
+  }
 
   async function currentVersionCount(): Promise<number> {
     const { count, error } = await service
@@ -120,7 +142,8 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     return data as Record<string, unknown>;
   }
 
-  it('speichert 42 %, erkennt unveränderte Eingabe und setzt auf Standard zurück', async () => {
+  it('speichert 42 %, erkennt unveränderte Eingabe und setzt auf Standard zurück', async (context) => {
+    requireRemoteCatalogReady(context);
     const before = await currentVersionCount();
     const fortyTwo = STANDARD_OVERRIDES.map((entry) =>
       entry.ruleId === 'commission_rule_classic_acq'
@@ -129,7 +152,7 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     );
 
     const created = await save(fortyTwo, 'rpc-test-42');
-    expect(created.ok).toBe(true);
+    expect(created.ok, JSON.stringify(created)).toBe(true);
     expect(created.changed).toBe(true);
     expect(created.unchanged).toBe(false);
 
@@ -146,7 +169,8 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     expect(reset.isDefault).toBe(true);
   }, 60_000);
 
-  it('lehnt Außendienst-Schreibversuch kontrolliert ab', async () => {
+  it('lehnt Außendienst-Schreibversuch kontrolliert ab', async (context) => {
+    requireRemoteCatalogReady(context);
     const before = await currentVersionCount();
     const { data, error } = await field.rpc('save_commission_assignment_version', {
       p_sales_representative_id: fieldUserId,
@@ -167,7 +191,8 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     expect(await currentVersionCount()).toBe(before);
   }, 60_000);
 
-  it('parallele identische Aufrufe erzeugen höchstens eine neue Version', async () => {
+  it('parallele identische Aufrufe erzeugen höchstens eine neue Version', async (context) => {
+    requireRemoteCatalogReady(context);
     const payload = STANDARD_OVERRIDES.map((entry) =>
       entry.ruleId === 'commission_rule_classic_acq'
         ? { ...entry, sharePercent: 33 }
@@ -188,7 +213,8 @@ describe.runIf(enabled)('Commission assignment RPC (remote)', () => {
     await save(STANDARD_OVERRIDES, 'rpc-parallel-cleanup');
   }, 60_000);
 
-  it('Versionskonflikt bei erwarteter veralteter Version', async () => {
+  it('Versionskonflikt bei erwarteter veralteter Version', async (context) => {
+    requireRemoteCatalogReady(context);
     const first = await save(
       STANDARD_OVERRIDES.map((entry) =>
         entry.ruleId === 'commission_rule_classic_acq'

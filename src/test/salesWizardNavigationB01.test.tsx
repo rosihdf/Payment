@@ -153,9 +153,10 @@ describe('B01 Beratung Navigation', () => {
     renderAtRoute(SALES_WIZARD_NEW_PATH);
     await screen.findByRole('heading', { name: 'Kunde' });
     const steps = within(screen.getByRole('navigation', { name: 'Beratungsschritte' }));
-    await user.click(steps.getByRole('button', { name: /Ausgangslage/i }));
+    const ausgangslageBtn = steps.getByRole('button', { name: /Ausgangslage/i });
+    expect(ausgangslageBtn).toBeDisabled();
+    await user.click(ausgangslageBtn);
     expect(screen.getByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
-    expect(await screen.findByText(/Bitte mit „Weiter“ fortfahren/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Ohne Kundenzuordnung beraten' }));
     await user.click(screen.getByRole('button', { name: 'Weiter' }));
@@ -163,5 +164,8 @@ describe('B01 Beratung Navigation', () => {
 
     await user.click(steps.getByRole('button', { name: /Kunde/i }));
     expect(await screen.findByRole('heading', { name: 'Kunde' })).toBeInTheDocument();
+
+    await user.click(steps.getByRole('button', { name: /Ausgangslage/i }));
+    expect(await screen.findByRole('heading', { name: 'Ausgangslage' })).toBeInTheDocument();
   });
 });
