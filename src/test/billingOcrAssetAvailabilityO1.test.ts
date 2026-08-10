@@ -22,8 +22,7 @@ describe('billingOcrAssetAvailability O1', () => {
         url.includes('/ocr/worker/worker.min.js') ||
         url.endsWith('/tesseract-core-lstm.wasm.js') ||
         url.endsWith('/tesseract-core-simd-lstm.wasm.js') ||
-        url.endsWith('/deu.traineddata') ||
-        url.endsWith('/eng.traineddata');
+        url.endsWith('/deu.traineddata');
       return new Response(null, { status: ok ? 200 : 404 });
     });
 
@@ -32,7 +31,7 @@ describe('billingOcrAssetAvailability O1', () => {
     expect(availability.worker).toBe(true);
     expect(availability.core).toBe(true);
     expect(availability.coreSimd).toBe(true);
-    expect(availability.languages).toEqual({ deu: true, eng: true });
+    expect(availability.languages).toEqual({ deu: true });
   });
 
   it('meldet partial, wenn SIMD-Core-JS fehlt', async () => {
@@ -41,8 +40,7 @@ describe('billingOcrAssetAvailability O1', () => {
       const ok =
         url.includes('/ocr/worker/worker.min.js') ||
         url.endsWith('/tesseract-core-lstm.wasm.js') ||
-        url.endsWith('/deu.traineddata') ||
-        url.endsWith('/eng.traineddata');
+        url.endsWith('/deu.traineddata');
       return new Response(null, { status: ok ? 200 : 404 });
     });
 

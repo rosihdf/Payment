@@ -1,7 +1,7 @@
 export const BILLING_OCR_CONFIG = {
   providerId: 'browser_tesseract_ocr',
   providerVersion: '1.0.0',
-  languages: 'deu+eng',
+  languages: 'deu',
   pdfRenderScale: 2,
   maxPdfRenderScale: 2.5,
   minPdfRenderScale: 1.5,

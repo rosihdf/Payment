@@ -1,11 +1,26 @@
 #!/usr/bin/env node
-import { readFile, readdir, access } from 'node:fs/promises';
+import { readFile, readdir, access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const distDir = path.join(root, 'dist');
+
+const REQUIRED_OCR_FILES = [
+  'ocr/worker/worker.min.js',
+  'ocr/core/tesseract-core-lstm.wasm.js',
+  'ocr/core/tesseract-core-simd-lstm.wasm.js',
+  'ocr/lang/deu.traineddata',
+];
+
+const FORBIDDEN_OCR_FILES = [
+  'ocr/core/tesseract-core-lstm.wasm',
+  'ocr/core/tesseract-core-simd-lstm.wasm',
+  'ocr/lang/deu.traineddata.gz',
+  'ocr/lang/eng.traineddata',
+  'ocr/lang/eng.traineddata.gz',
+];
 
 const blockedOcrHosts = [
   'cdn.jsdelivr.net/npm/tesseract',
@@ -41,6 +56,30 @@ async function verify() {
     throw new Error('dist/ not found – run npm run build first');
   }
 
+  for (const relativePath of REQUIRED_OCR_FILES) {
+    if (!(await exists(path.join(distDir, relativePath)))) {
+      throw new Error(`Required OCR asset missing: dist/${relativePath}`);
+    }
+  }
+
+  for (const relativePath of FORBIDDEN_OCR_FILES) {
+    if (await exists(path.join(distDir, relativePath))) {
+      throw new Error(`Forbidden OCR asset must not be shipped: dist/${relativePath}`);
+    }
+  }
+
+  const ocrDir = path.join(distDir, 'ocr');
+  const ocrFiles = (await walk(ocrDir)).map((file) => path.relative(ocrDir, file));
+  const allowedLang = new Set(['deu.traineddata']);
+  for (const rel of ocrFiles) {
+    if (rel.startsWith(`lang${path.sep}`)) {
+      const name = rel.slice(5);
+      if (!allowedLang.has(name)) {
+        throw new Error(`Unexpected OCR language asset: dist/ocr/lang/${name}`);
+      }
+    }
+  }
+
   const files = await walk(distDir);
   const assetFiles = files.filter((file) => file.includes(`${path.sep}assets${path.sep}`));
   const jsFiles = assetFiles.filter((file) => file.endsWith('.js') || file.endsWith('.mjs'));
@@ -64,34 +103,6 @@ async function verify() {
     throw new Error('No OCR lazy chunks found in dist/assets');
   }
 
-  const hasOcrAssets =
-    (await exists(path.join(distDir, 'ocr/worker/worker.min.js'))) &&
-    (await exists(path.join(distDir, 'ocr/core/tesseract-core-lstm.wasm.js'))) &&
-    (await exists(path.join(distDir, 'ocr/core/tesseract-core-simd-lstm.wasm.js'))) &&
-    (await exists(path.join(distDir, 'ocr/lang/deu.traineddata'))) &&
-    (await exists(path.join(distDir, 'ocr/lang/eng.traineddata')));
-
-  const staleStandaloneWasm = [
-    'ocr/core/tesseract-core-lstm.wasm',
-    'ocr/core/tesseract-core-simd-lstm.wasm',
-  ];
-  for (const relativePath of staleStandaloneWasm) {
-    if (await exists(path.join(distDir, relativePath))) {
-      throw new Error(`Standalone OCR wasm must not be shipped: dist/${relativePath}`);
-    }
-  }
-
-  if (!hasOcrAssets) {
-    throw new Error('Required OCR assets missing in dist/ocr (inkl. SIMD-Core)');
-  }
-
-  if (await exists(path.join(distDir, 'ocr/lang/deu.traineddata.gz'))) {
-    throw new Error('Stale deu.traineddata.gz must not be shipped (aapt would unpack .gz)');
-  }
-  if (await exists(path.join(distDir, 'ocr/lang/eng.traineddata.gz'))) {
-    throw new Error('Stale eng.traineddata.gz must not be shipped (aapt would unpack .gz)');
-  }
-
   let sameOriginPathFound = false;
   for (const file of ocrChunks) {
     const base = path.basename(file);
@@ -111,16 +122,20 @@ async function verify() {
     if (/workerPath:\s*[`'"]https:\/\/cdn\.jsdelivr/.test(source)) {
       throw new Error(`Active CDN workerPath found in ${path.relative(root, file)}`);
     }
+    if (/eng\.traineddata|'deu\+eng'|"deu\+eng"|languages:\s*['"]deu\+eng/.test(source)) {
+      throw new Error(`English OCR language reference found in ${path.relative(root, file)}`);
+    }
   }
 
   if (!sameOriginPathFound) {
     throw new Error('OCR chunks do not reference local /ocr/ asset paths');
   }
 
+  const deuSize = (await stat(path.join(distDir, 'ocr/lang/deu.traineddata'))).size;
   console.log('OCR build verification passed');
   console.log(`Main entry: ${path.relative(root, mainEntryFile)}`);
   console.log(`OCR lazy chunks: ${ocrChunks.map((file) => path.basename(file)).join(', ')}`);
-  console.log('dist/ocr assets present: worker, core, deu, eng');
+  console.log(`dist/ocr assets: worker, both core JS variants, deu (${deuSize} bytes)`);
 }
 
 verify().catch((error) => {

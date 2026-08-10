@@ -64,13 +64,13 @@ describe('A11.2 OCR – Cache', () => {
       rotationDegrees: 0,
       preprocessingProfile: 'default',
       providerVersion: '1.0.0',
-      language: 'deu+eng',
+      language: 'deu',
     });
     setOcrCacheEntry(key, {
       pages: [],
       providerId: BILLING_OCR_CONFIG.providerId,
       providerVersion: BILLING_OCR_CONFIG.providerVersion,
-      language: 'deu+eng',
+      language: 'deu',
       preprocessingProfile: 'default',
     });
     expect(getOcrCacheEntry(key)?.providerId).toBe(BILLING_OCR_CONFIG.providerId);
@@ -82,7 +82,7 @@ describe('A11.2 OCR – Cache', () => {
       pageNumber: 1,
       preprocessingProfile: 'default',
       providerVersion: '1.0.0',
-      language: 'deu+eng',
+      language: 'deu',
     };
     const key0 = buildOcrCacheKey({ ...base, rotationDegrees: 0 });
     const key90 = buildOcrCacheKey({ ...base, rotationDegrees: 90 });
@@ -103,7 +103,7 @@ describe('A11.2 OCR – Cache', () => {
       rotationDegrees: 0,
       preprocessingProfile: 'default',
       providerVersion: '1.0.0',
-      language: 'deu+eng',
+      language: 'deu',
     });
     setOcrCacheEntry(key, {
       pages: [],
@@ -219,7 +219,7 @@ describe('A11.2 – Snapshot-Erweiterung', () => {
       costLineItems: [],
     });
     expect(baseline.snapshot.schemaVersion).toBe(2);
-    expect(baseline.snapshot.ocrLanguageModel).toBe('deu+eng');
+    expect(baseline.snapshot.ocrLanguageModel).toBe('deu');
     expect(baseline.snapshot.documentRotations?.doc_1).toBe(90);
   });
 });
