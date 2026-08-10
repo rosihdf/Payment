@@ -17,9 +17,30 @@ import {
 import type { OfferFollowUpPreferences } from '../domain/offer/offerFollowUpPreferences';
 import type { Offer } from '../domain/offer/offer';
 import {
+  buildOfferCustomerCommunicationHandoff,
+  type OfferCustomerCommunicationHandoff,
+} from '../domain/offer/offerCustomerCommunicationHandoff';
+import { computeOfferDocumentContentHash } from '../domain/offerDocument/offerDocumentHash';
+import {
+  buildInternalAcceptanceActivitySourceKey,
+  buildInternalAcceptanceEventSourceKey,
+  buildInternalDeclineEventSourceKey,
+  buildOfferDeliverySourceKey,
+  buildOfferSentActivitySourceKey,
+  canDeliverOffer,
+  findAcceptanceEventBySourceKey,
+  findDeclineEventBySourceKey,
+  findDeliveryEventBySourceKey,
+  isOfferAlreadySent,
+  mapDeliveryChannelToDispatch,
+  type OfferDeliveryChannel,
+} from '../domain/offer/offerWorkflowTransitionCore';
+import {
   evaluateOfferPublicationReadiness,
   type OfferPublicationReadiness,
 } from '../domain/offer/offerPublicationReadiness';
+import type { OfferShareRepository } from '../repositories/interfaces/OfferShareRepository';
+import type { OfferDocumentRepository } from '../repositories/interfaces/OfferDocumentRepository';
 import type { OfferVersion, OfferVersionDiffEntry } from '../domain/offer/offerVersion';
 import {
   applyWorkflowTransition,
@@ -58,7 +79,17 @@ import type { OfferUserContext } from './offerService';
 import type { SalesActivityService } from './salesActivityService';
 import { endOfDayIso, type SalesTaskService } from './salesTaskService';
 
-type Result = { ok: true; offer: Offer } | { ok: false; error: 'not_found' | 'forbidden' | 'invalid_status' | 'validation' };
+type Result = { ok: true; offer: Offer; duplicate?: boolean } | { ok: false; error: 'not_found' | 'forbidden' | 'invalid_status' | 'validation' };
+
+export interface MarkOfferDeliveredInput {
+  offerVersionId: string;
+  documentId?: string | null;
+  channel: OfferDeliveryChannel;
+  recipient?: string;
+  shareLinkId?: string | null;
+  deliveredAt?: string;
+  followUpPreferences?: OfferFollowUpPreferences;
+}
 
 export class OfferWorkflowService {
   private activityService: SalesActivityService | null = null;
@@ -70,6 +101,8 @@ export class OfferWorkflowService {
   private readonly documentRepository: SalesDocumentRepository;
   private readonly pricingEvaluationRepository: PricingEvaluationRepository;
   private readonly commissionCalculationRepository: CommissionCalculationRepository;
+  private offerDocumentRepository: OfferDocumentRepository | null = null;
+  private offerShareRepository: OfferShareRepository | null = null;
 
   constructor(
     offerRepository: OfferRepository,
@@ -90,6 +123,12 @@ export class OfferWorkflowService {
   setSalesTaskService(service: SalesTaskService): void { this.taskService = service; }
   setSalesActivityService(service: SalesActivityService): void { this.activityService = service; }
   setContractService(service: import('./contractService').ContractService): void { this.contractService = service; }
+  setOfferDocumentRepository(repository: OfferDocumentRepository): void {
+    this.offerDocumentRepository = repository;
+  }
+  setOfferShareRepository(repository: OfferShareRepository): void {
+    this.offerShareRepository = repository;
+  }
 
   async getVersions(offerId: string): Promise<OfferVersion[]> { return this.versionRepository.getByOfferId(offerId); }
   async getVersionById(id: string): Promise<OfferVersion | null> { return this.versionRepository.getById(id); }
@@ -270,6 +309,10 @@ export class OfferWorkflowService {
         !offer.recommendationLink.recommendationVersion,
     );
     const deviations = await this.collectApprovalDeviations(offerId);
+    const documentContext = await this.resolveDocumentPublicationContext(
+      offerId,
+      version?.id ?? null,
+    );
     return evaluateOfferPublicationReadiness({
       offer,
       version,
@@ -279,7 +322,74 @@ export class OfferWorkflowService {
       pricingStale,
       recommendationStale,
       deviations,
+      currentGeneratedDocument: documentContext.currentGeneratedDocument,
+      staleDocumentForOtherVersion: documentContext.staleDocumentForOtherVersion,
     });
+  }
+
+  async evaluateCustomerCommunicationHandoff(
+    offerId: string,
+    shareUrl: string | null = null,
+  ): Promise<OfferCustomerCommunicationHandoff | null> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer) return null;
+    const readiness = await this.evaluatePublicationReadiness(offerId);
+    if (!readiness) return null;
+    const [version, activeShare, events] = await Promise.all([
+      this.getCurrentVersion(offerId),
+      this.offerShareRepository
+        ? this.offerShareRepository.getActiveByOfferId(offerId)
+        : Promise.resolve(null),
+      this.eventRepository.getByOfferId(offerId),
+    ]);
+    const document = readiness.documentId && this.offerDocumentRepository
+      ? await this.offerDocumentRepository.getById(readiness.documentId)
+      : null;
+    return buildOfferCustomerCommunicationHandoff({
+      offer,
+      readiness,
+      version,
+      document,
+      activeShare,
+      shareUrl,
+      workflowEvents: events,
+    });
+  }
+
+  private async resolveDocumentPublicationContext(
+    offerId: string,
+    offerVersionId: string | null,
+  ): Promise<{
+    currentGeneratedDocument: {
+      id: string;
+      offerVersionId: string;
+      integrityValid?: boolean;
+    } | null;
+    staleDocumentForOtherVersion: boolean;
+  }> {
+    if (!this.offerDocumentRepository || !offerVersionId) {
+      return { currentGeneratedDocument: null, staleDocumentForOtherVersion: false };
+    }
+    const documents = await this.offerDocumentRepository.getByOfferId(offerId);
+    const generated = documents.filter((document) => document.status === 'generated');
+    const current = generated.find((document) => document.offerVersionId === offerVersionId);
+    const staleDocumentForOtherVersion =
+      !current && generated.some((document) => document.offerVersionId !== offerVersionId);
+
+    if (!current) {
+      return { currentGeneratedDocument: null, staleDocumentForOtherVersion };
+    }
+
+    const { contentHash, ...withoutHash } = current.snapshot;
+    const actualHash = await computeOfferDocumentContentHash(withoutHash);
+    return {
+      currentGeneratedDocument: {
+        id: current.id,
+        offerVersionId,
+        integrityValid: actualHash === contentHash,
+      },
+      staleDocumentForOtherVersion,
+    };
   }
 
   async getWizardWorkflowView(offerId: string): Promise<{ offer: Offer | null; version: OfferVersion | null; approvalRequired: boolean; approved: boolean; workflowStatus: Offer['workflowStatus'] | null }> {
@@ -448,15 +558,7 @@ export class OfferWorkflowService {
     if (!readiness) {
       return { ok: false, error: 'not_found' };
     }
-    // Counseling ist erst für Versand/Veröffentlichung nötig; ready_to_send braucht Version + Freigabe.
-    if (
-      offer.workflowStatus !== 'approved' ||
-      !readiness.hasCurrentVersion ||
-      !readiness.versionComplete ||
-      !readiness.pricingCurrent ||
-      !readiness.recommendationCurrent ||
-      (readiness.approvalRequired && !readiness.approvalPresentForVersion)
-    ) {
+    if (offer.workflowStatus !== 'approved' || !readiness.readyForCustomerTemplate) {
       return { ok: false, error: 'validation' };
     }
     return this.transition(offerId, 'mark_ready_to_send', context);
@@ -538,6 +640,114 @@ export class OfferWorkflowService {
     return { ok: true, offer };
   }
 
+  async markOfferDeliveredToCustomer(
+    offerId: string,
+    context: OfferUserContext,
+    input: MarkOfferDeliveredInput,
+  ): Promise<Result> {
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer?.currentVersionId) {
+      return { ok: false, error: 'not_found' };
+    }
+    if (offer.currentVersionId !== input.offerVersionId) {
+      return { ok: false, error: 'validation' };
+    }
+
+    const deliverySourceKey = buildOfferDeliverySourceKey({
+      offerId,
+      offerVersionId: input.offerVersionId,
+      channel: input.channel,
+      shareLinkId: input.shareLinkId,
+    });
+    const events = await this.eventRepository.getByOfferId(offerId);
+    if (findDeliveryEventBySourceKey(events, deliverySourceKey)) {
+      const refreshed = await this.offerRepository.getById(offerId);
+      return { ok: true, offer: refreshed ?? offer, duplicate: true };
+    }
+
+    const alreadySent = isOfferAlreadySent(offer.workflowStatus);
+    const readiness = await this.evaluatePublicationReadiness(offerId);
+    if (!alreadySent) {
+      if (!readiness?.sendAllowed) {
+        return { ok: false, error: 'validation' };
+      }
+      if (!canDeliverOffer(offer.workflowStatus)) {
+        return { ok: false, error: 'invalid_status' };
+      }
+    } else if (offer.workflowStatus !== 'sent') {
+      return { ok: false, error: 'invalid_status' };
+    }
+
+    if (input.followUpPreferences) {
+      const followUpResult = await this.recordFollowUpPreferences(
+        offerId,
+        input.offerVersionId,
+        context,
+        input.followUpPreferences,
+      );
+      if (!followUpResult.ok) {
+        return followUpResult;
+      }
+    }
+
+    let savedOffer = offer;
+    const sentAt = input.deliveredAt ?? nowIso();
+    if (!alreadySent) {
+      const result = await this.transition(offerId, 'document_sent', context);
+      if (!result.ok) return result;
+      savedOffer = result.offer;
+      const version = await this.getCurrentVersion(offerId);
+      if (version) {
+        await this.versionRepository.update({
+          ...version,
+          workflowStatus: 'sent',
+          sentAt,
+        });
+      }
+    }
+
+    await this.event({
+      id: deliverySourceKey.replace(/:/g, '_'),
+      schemaVersion: 1,
+      type: 'dispatch',
+      offerId,
+      offerVersionId: input.offerVersionId,
+      createdAt: sentAt,
+      createdByUserId: context.userId,
+      createdByDisplayName: context.displayName,
+      note: deliverySourceKey,
+      channel: mapDeliveryChannelToDispatch(input.channel),
+      recipient: input.recipient?.trim() || input.shareLinkId || '',
+      sentAt,
+    });
+
+    await this.record(
+      'offer_sent',
+      'Angebot an Kunden übergeben',
+      input.recipient?.trim() || '',
+      savedOffer,
+      context,
+      buildOfferSentActivitySourceKey(offerId, input.offerVersionId),
+    );
+
+    if (
+      this.taskService &&
+      input.followUpPreferences &&
+      shouldScheduleFollowUpTask(input.followUpPreferences) &&
+      !alreadySent
+    ) {
+      await this.reconcileFollowUpOfferTask(
+        offerId,
+        savedOffer.leadId,
+        input.followUpPreferences,
+        context,
+      );
+    }
+
+    const refreshed = await this.offerRepository.getById(offerId);
+    return { ok: true, offer: refreshed ?? savedOffer };
+  }
+
   async documentSent(
     offerId: string,
     context: OfferUserContext,
@@ -550,42 +760,15 @@ export class OfferWorkflowService {
       return { ok: false, error: 'not_found' };
     }
     const readiness = await this.evaluatePublicationReadiness(offerId);
-    if (!readiness?.publicationAllowed) {
-      return { ok: false, error: 'validation' };
-    }
-    if (followUpPreferences) {
-      const followUpResult = await this.recordFollowUpPreferences(
-        offerId,
-        offer.currentVersionId,
-        context,
-        followUpPreferences,
-      );
-      if (!followUpResult.ok) {
-        return followUpResult;
-      }
-    }
-    const result = await this.transition(offerId, 'document_sent', context);
-    if (!result.ok) return result;
-    const sentAt = nowIso();
-    await this.event({ id: generateId('offer_dispatch'), schemaVersion: 1, type: 'dispatch', offerId, offerVersionId: result.offer.currentVersionId, createdAt: sentAt, createdByUserId: context.userId, createdByDisplayName: context.displayName, note: '', channel, recipient, sentAt });
-    const version = await this.getCurrentVersion(offerId);
-    if (version) {
-      await this.versionRepository.update({ ...version, workflowStatus: 'sent', sentAt });
-    }
-    await this.record('offer_sent', 'Angebot versendet', recipient, result.offer, context, `offer_sent:${offerId}:${result.offer.currentVersionId}`);
-    if (
-      this.taskService &&
-      followUpPreferences &&
-      shouldScheduleFollowUpTask(followUpPreferences)
-    ) {
-      await this.reconcileFollowUpOfferTask(
-        offerId,
-        result.offer.leadId,
-        followUpPreferences,
-        context,
-      );
-    }
-    return result;
+    const mappedChannel: OfferDeliveryChannel =
+      channel === 'portal' ? 'share_link' : 'manual';
+    return this.markOfferDeliveredToCustomer(offerId, context, {
+      offerVersionId: offer.currentVersionId,
+      documentId: readiness?.documentId ?? null,
+      channel: mappedChannel,
+      recipient,
+      followUpPreferences,
+    });
   }
 
   private async reconcileFollowUpOfferTask(
@@ -629,10 +812,17 @@ export class OfferWorkflowService {
       : input;
     const validationError = validateStructuredAcceptance(acceptance);
     if (validationError) return { ok: false, error: 'validation' };
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer?.currentVersionId) return { ok: false, error: 'not_found' };
+    const eventSourceKey = buildInternalAcceptanceEventSourceKey(offerId, offer.currentVersionId);
+    const events = await this.eventRepository.getByOfferId(offerId);
+    if (findAcceptanceEventBySourceKey(events, eventSourceKey) || offer.workflowStatus === 'accepted') {
+      return { ok: true, offer, duplicate: true };
+    }
     const result = await this.transition(offerId, 'accept', context);
     if (result.ok) {
-      await this.event({ id: generateId('offer_acceptance'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: acceptance.note, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
-      await this.record('offer_accepted', 'Kunde angenommen', acceptance.acceptedByName, result.offer, context, `offer_accepted:${offerId}:${result.offer.currentVersionId}`);
+      await this.event({ id: eventSourceKey.replace(/:/g, '_'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: eventSourceKey, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
+      await this.record('offer_accepted', 'Kunde angenommen', acceptance.acceptedByName, result.offer, context, buildInternalAcceptanceActivitySourceKey(offerId, result.offer.currentVersionId!));
       if (this.contractService) {
         await this.contractService.createFromAcceptedOffer(offerId, {
           userId: context.userId,
@@ -650,8 +840,17 @@ export class OfferWorkflowService {
       : input;
     const validationError = validateStructuredDecline(decline);
     if (validationError) return { ok: false, error: 'validation' };
+    const offer = await this.offerRepository.getById(offerId);
+    if (!offer?.currentVersionId) return { ok: false, error: 'not_found' };
+    const eventSourceKey = buildInternalDeclineEventSourceKey(offerId, offer.currentVersionId);
+    const events = await this.eventRepository.getByOfferId(offerId);
+    if (findDeclineEventBySourceKey(events, eventSourceKey) || offer.workflowStatus === 'declined') {
+      return { ok: true, offer, duplicate: true };
+    }
     const result = await this.transition(offerId, 'decline', context);
-    if (result.ok) await this.event({ id: generateId('offer_decline'), schemaVersion: 1, type: 'decline', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: decline.note, declinedAt: nowIso(), reason: decline.reason, otherText: decline.otherText });
+    if (result.ok) {
+      await this.event({ id: eventSourceKey.replace(/:/g, '_'), schemaVersion: 1, type: 'decline', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: eventSourceKey, declinedAt: nowIso(), reason: decline.reason, otherText: decline.otherText });
+    }
     return result;
   }
   async markExpired(offerId: string, context: OfferUserContext): Promise<Result> { return this.transition(offerId, 'mark_expired', context); }

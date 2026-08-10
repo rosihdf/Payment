@@ -1,4 +1,17 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { buildContractSourceKey } from '../../../src/domain/contract/contractNumber';
+import {
+  buildOfferAfterWorkflowTransition,
+  buildPublicAcceptanceActivitySourceKey,
+  buildPublicAcceptanceEvent,
+  buildPublicAcceptanceEventSourceKey,
+  buildPublicDeclineActivitySourceKey,
+  buildPublicDeclineEvent,
+  buildPublicDeclineEventSourceKey,
+  canPublicDecideOffer,
+  findAcceptanceEventBySourceKey,
+  findDeclineEventBySourceKey,
+} from '../../../src/domain/offer/offerWorkflowTransitionCore';
 import { errorResponse, type AdminEnv } from './adminUsersApi';
 
 const MAX_TEXT_LENGTH = 4000;
@@ -442,7 +455,7 @@ async function handlePostChangeRequest(request: Request, env: AdminEnv, token: s
     },
     created_at: timestamp,
   });
-  await updateOfferWorkflowStatus(service, share.offer_id, 'changes_requested', {
+  await applyCustomerFeedbackStatus(service, share.offer_id, 'changes_requested', {
     customerFeedbackStatus: 'change_requested',
   });
 
@@ -484,7 +497,111 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-async function updateOfferWorkflowStatus(
+async function updateOfferFromSnapshot(
+  service: SupabaseClient,
+  offerId: string,
+  snapshot: ReturnType<typeof buildOfferAfterWorkflowTransition>,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  if (!snapshot) return;
+  const { data: offer } = await service.from('offers').select('data').eq('id', offerId).maybeSingle();
+  if (!offer?.data || typeof offer.data !== 'object') return;
+  const data = offer.data as Record<string, unknown>;
+  const now = new Date().toISOString();
+  await service
+    .from('offers')
+    .update({
+      data: {
+        ...data,
+        ...extra,
+        workflowStatus: snapshot.workflowStatus,
+        status: snapshot.status,
+        updatedAt: now,
+        completedAt: snapshot.completedAt,
+        completedByUserId: snapshot.completedByUserId,
+        cancelledAt: snapshot.cancelledAt,
+        cancelledByUserId: snapshot.cancelledByUserId,
+      },
+      updated_at: now,
+    })
+    .eq('id', offerId);
+}
+
+async function insertWorkflowEvent(
+  service: SupabaseClient,
+  event: Record<string, unknown>,
+): Promise<void> {
+  await service.from('offer_workflow_events').insert({
+    id: event.id,
+    offer_id: event.offerId,
+    event_type: event.type,
+    created_by_user_id: event.createdByUserId,
+    data: event,
+    created_at: event.createdAt,
+  });
+}
+
+async function recordActivityIfMissing(
+  service: SupabaseClient,
+  input: {
+    sourceKey: string;
+    offerId: string;
+    leadId: string | null;
+    createdByUserId: string;
+    title: string;
+    description: string;
+  },
+): Promise<void> {
+  const { data: existing } = await service
+    .from('sales_activities')
+    .select('id')
+    .eq('data->>sourceKey', input.sourceKey)
+    .maybeSingle();
+  if (existing) return;
+
+  const timestamp = new Date().toISOString();
+  const activityId = `sales_activity_${crypto.randomUUID()}`;
+  await service.from('sales_activities').insert({
+    id: activityId,
+    created_by_user_id: input.createdByUserId,
+    lead_id: input.leadId,
+    offer_id: input.offerId,
+    data: {
+      id: activityId,
+      schemaVersion: 1,
+      type: 'status_change',
+      title: input.title,
+      description: input.description,
+      occurredAt: timestamp,
+      createdByUserId: input.createdByUserId,
+      leadId: input.leadId,
+      offerId: input.offerId,
+      isSystem: true,
+      editable: false,
+      sourceKey: input.sourceKey,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    created_at: timestamp,
+  });
+}
+
+async function ensureContractNotDuplicated(
+  service: SupabaseClient,
+  offerId: string,
+  offerVersionId: string,
+): Promise<void> {
+  const sourceKey = buildContractSourceKey(offerId, offerVersionId);
+  const [{ data: byOffer }, { data: byKey }] = await Promise.all([
+    service.from('contracts').select('id').eq('source_offer_id', offerId).maybeSingle(),
+    service.from('contracts').select('id').eq('data->>sourceKey', sourceKey).maybeSingle(),
+  ]);
+  if (byOffer || byKey) {
+    return;
+  }
+}
+
+async function applyCustomerFeedbackStatus(
   service: SupabaseClient,
   offerId: string,
   workflowStatus: string,
@@ -506,6 +623,19 @@ async function updateOfferWorkflowStatus(
       updated_at: now,
     })
     .eq('id', offerId);
+}
+
+async function loadWorkflowEvents(
+  service: SupabaseClient,
+  offerId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const { data } = await service
+    .from('offer_workflow_events')
+    .select('data')
+    .eq('offer_id', offerId);
+  return (data ?? [])
+    .map((row) => row.data as Record<string, unknown>)
+    .filter(Boolean);
 }
 
 async function handlePostDecision(
@@ -546,72 +676,142 @@ async function handlePostDecision(
     .maybeSingle();
   const offerData = (offerRow?.data ?? {}) as Record<string, unknown>;
   const workflowStatus = String(offerData.workflowStatus ?? '');
-  if (!ALLOWED_WORKFLOW.has(workflowStatus) && workflowStatus !== 'changes_requested') {
+  if (!canPublicDecideOffer(workflowStatus as never)) {
     return errorResponse(403, 'unavailable', 'Das Angebot ist derzeit nicht entscheidbar.');
   }
 
   const customerName = sanitizeText(body.customerName) || 'Kunde';
   const note = sanitizeText(body.note);
+  const events = await loadWorkflowEvents(service, share.offer_id);
+  const offerSnapshot = {
+    id: share.offer_id,
+    workflowStatus: workflowStatus as never,
+    status: String(offerData.status ?? 'draft') as 'draft' | 'completed' | 'cancelled',
+    currentVersionId: String(offerData.currentVersionId ?? share.offer_version_id),
+    leadId: offerRow?.lead_id ?? null,
+    createdByUserId: share.created_by_user_id,
+    completedAt: typeof offerData.completedAt === 'string' ? offerData.completedAt : null,
+    completedByUserId: typeof offerData.completedByUserId === 'string' ? offerData.completedByUserId : null,
+    cancelledAt: typeof offerData.cancelledAt === 'string' ? offerData.cancelledAt : null,
+    cancelledByUserId: typeof offerData.cancelledByUserId === 'string' ? offerData.cancelledByUserId : null,
+    updatedAt: now,
+  };
 
   if (decision === 'accept') {
-    const acceptanceId = `offer_acceptance_${crypto.randomUUID()}`;
-    await service.from('offer_customer_acceptances').insert({
-      id: acceptanceId,
-      offer_id: share.offer_id,
-      offer_version_id: share.offer_version_id,
-      data: {
-        id: acceptanceId,
-        offerId: share.offer_id,
-        offerVersionId: share.offer_version_id,
-        acceptorName: customerName,
-        acceptedAt: now,
-        ipAddress: ip === 'unknown' ? null : ip,
-        userAgent: request.headers.get('User-Agent'),
-        checkboxes: {
-          offerReviewed: true,
-          termsUnderstood: true,
-          acceptanceIntended: true,
-        },
-        comment: note,
-        shareId: share.id,
-        createdAt: now,
-      },
-      created_at: now,
-      updated_at: now,
+    const acceptanceSourceKey = buildPublicAcceptanceEventSourceKey(share.offer_id, share.id);
+    if (
+      findAcceptanceEventBySourceKey(events as never, acceptanceSourceKey) ||
+      workflowStatus === 'accepted'
+    ) {
+      return jsonResponse({ ok: true, decision, duplicate: true }, 200);
+    }
+
+    const nextSnapshot = buildOfferAfterWorkflowTransition(offerSnapshot, 'accept', {
+      userId: share.created_by_user_id,
+      timestamp: now,
     });
-    await updateOfferWorkflowStatus(service, share.offer_id, 'accepted', {
+    if (!nextSnapshot) {
+      return errorResponse(403, 'invalid_transition', 'Annahme ist derzeit nicht möglich.');
+    }
+
+    const acceptanceEvent = buildPublicAcceptanceEvent({
+      offerId: share.offer_id,
+      offerVersionId: share.offer_version_id,
+      shareId: share.id,
+      acceptedByName: customerName,
+      note,
+      timestamp: now,
+      createdByUserId: share.created_by_user_id,
+      createdByDisplayName: 'Kunde',
+    });
+
+    const { data: existingAcceptance } = await service
+      .from('offer_customer_acceptances')
+      .select('id')
+      .eq('offer_id', share.offer_id)
+      .eq('offer_version_id', share.offer_version_id)
+      .maybeSingle();
+
+    if (!existingAcceptance) {
+      await service.from('offer_customer_acceptances').insert({
+        id: acceptanceEvent.id,
+        offer_id: share.offer_id,
+        offer_version_id: share.offer_version_id,
+        data: {
+          id: acceptanceEvent.id,
+          offerId: share.offer_id,
+          offerVersionId: share.offer_version_id,
+          acceptorName: customerName,
+          acceptedAt: now,
+          ipAddress: ip === 'unknown' ? null : ip,
+          userAgent: request.headers.get('User-Agent'),
+          checkboxes: {
+            offerReviewed: true,
+            termsUnderstood: true,
+            acceptanceIntended: true,
+          },
+          comment: note,
+          shareId: share.id,
+          createdAt: now,
+        },
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    await updateOfferFromSnapshot(service, share.offer_id, nextSnapshot, {
       acceptedAt: now,
     });
+    await insertWorkflowEvent(service, acceptanceEvent as unknown as Record<string, unknown>);
+    await ensureContractNotDuplicated(service, share.offer_id, share.offer_version_id);
+    await recordActivityIfMissing(service, {
+      sourceKey: buildPublicAcceptanceActivitySourceKey(share.offer_id, share.id),
+      offerId: share.offer_id,
+      leadId: offerRow?.lead_id ?? null,
+      createdByUserId: share.created_by_user_id,
+      title: 'Kunde hat Angebot angenommen',
+      description: note.slice(0, 160),
+    });
   } else {
-    await updateOfferWorkflowStatus(service, share.offer_id, 'declined', {
+    const declineSourceKey = buildPublicDeclineEventSourceKey(share.offer_id, share.id);
+    if (
+      findDeclineEventBySourceKey(events as never, declineSourceKey) ||
+      workflowStatus === 'declined'
+    ) {
+      return jsonResponse({ ok: true, decision, duplicate: true }, 200);
+    }
+
+    const nextSnapshot = buildOfferAfterWorkflowTransition(offerSnapshot, 'decline', {
+      userId: share.created_by_user_id,
+      timestamp: now,
+    });
+    if (!nextSnapshot) {
+      return errorResponse(403, 'invalid_transition', 'Ablehnung ist derzeit nicht möglich.');
+    }
+
+    const declineEvent = buildPublicDeclineEvent({
+      offerId: share.offer_id,
+      offerVersionId: share.offer_version_id,
+      shareId: share.id,
+      note,
+      timestamp: now,
+      createdByUserId: share.created_by_user_id,
+      createdByDisplayName: 'Kunde',
+    });
+
+    await updateOfferFromSnapshot(service, share.offer_id, nextSnapshot, {
       declinedAt: now,
     });
-  }
-
-  const activityId = `sales_activity_${crypto.randomUUID()}`;
-  await service.from('sales_activities').insert({
-    id: activityId,
-    created_by_user_id: share.created_by_user_id,
-    lead_id: offerRow?.lead_id ?? null,
-    offer_id: share.offer_id,
-    data: {
-      id: activityId,
-      schemaVersion: 1,
-      type: 'status_change',
-      title: decision === 'accept' ? 'Kunde hat Angebot angenommen' : 'Kunde hat Angebot abgelehnt',
-      description: note.slice(0, 160),
-      occurredAt: now,
-      createdByUserId: share.created_by_user_id,
-      leadId: offerRow?.lead_id ?? null,
+    await insertWorkflowEvent(service, declineEvent as unknown as Record<string, unknown>);
+    await recordActivityIfMissing(service, {
+      sourceKey: buildPublicDeclineActivitySourceKey(share.offer_id, share.id),
       offerId: share.offer_id,
-      isSystem: true,
-      editable: false,
-      sourceKey: `offer_customer_${decision}:${share.offer_id}:${share.id}`,
-      createdAt: now,
-      updatedAt: now,
-    },
-    created_at: now,
-  });
+      leadId: offerRow?.lead_id ?? null,
+      createdByUserId: share.created_by_user_id,
+      title: 'Kunde hat Angebot abgelehnt',
+      description: note.slice(0, 160),
+    });
+  }
 
   return jsonResponse({ ok: true, decision }, 201);
 }

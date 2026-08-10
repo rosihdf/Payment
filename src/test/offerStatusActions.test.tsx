@@ -48,6 +48,8 @@ describe('Offer status actions UI', () => {
     const offer = await seedOfferInStorage(repository, {
       title: 'Abschluss Test',
       workflowStatus: 'sent',
+      currentVersionId: 'ver_complete_test',
+      currentVersionNumber: 1,
     });
 
     renderAtRoute(`/offers/${offer.id}`, false);

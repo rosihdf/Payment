@@ -199,7 +199,7 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
 
       const readiness = await service.evaluatePublicationReadiness(offer.id);
       expect(readiness?.readyForCustomerTemplate).toBe(false);
-      expect(readiness?.blockers.some((entry) => /Freigabe/.test(entry))).toBe(true);
+      expect(readiness?.blockers).toContain('approval_missing');
       expect(readiness?.deviations).toContain('Sonderkondition');
     });
 
@@ -223,7 +223,7 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
 
   describe('Publication Readiness', () => {
     it('erlaubt Veröffentlichung bei vollständiger Version + Freigabe + Counseling', async () => {
-      const { offers, service } = createWorkflow();
+      const { offers, service, offerDocumentService } = createWorkflow();
       const offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));
       await service.ensureInitialVersion(offer);
       await service.approve(offer.id, reviewer);
@@ -235,11 +235,17 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
         owner,
         allCounselingPrinciplesConfirmed(),
       );
+      await offerDocumentService.createFinalDocument(offer.id, owner);
 
       const readiness = await service.evaluatePublicationReadiness(offer.id);
       expect(readiness?.readyForCustomerTemplate).toBe(true);
       expect(readiness?.publicationAllowed).toBe(true);
+      expect(readiness?.allowed).toBe(true);
+      expect(readiness?.shareAllowed).toBe(true);
+      expect(readiness?.sendAllowed).toBe(true);
+      expect(readiness?.approvalSatisfied).toBe(true);
       expect(readiness?.blockers).toEqual([]);
+      expect(readiness?.blockerMessages).toEqual([]);
       expect(readiness?.presentationGroup).toBe('ready_for_customer');
     });
 
@@ -278,8 +284,16 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
         deviations: ['Sonderpreis'],
       });
       expect(blocked.publicationAllowed).toBe(false);
+      expect(blocked.allowed).toBe(false);
       expect(blocked.readyForCustomerTemplate).toBe(false);
       expect(blocked.blockers).toEqual(
+        expect.arrayContaining([
+          'pricing_stale',
+          'recommendation_stale',
+          'approval_missing',
+        ]),
+      );
+      expect(blocked.blockerMessages).toEqual(
         expect.arrayContaining([
           expect.stringMatching(/Pricing/),
           expect.stringMatching(/Empfehlung/),
@@ -299,7 +313,8 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
       });
       expect(withoutCounseling.readyForCustomerTemplate).toBe(true);
       expect(withoutCounseling.publicationAllowed).toBe(false);
-      expect(withoutCounseling.blockers).toEqual([
+      expect(withoutCounseling.blockers).toEqual(['counseling_not_confirmed']);
+      expect(withoutCounseling.blockerMessages).toEqual([
         'Beratungsgrundsätze sind für diese Angebotsversion nicht bestätigt.',
       ]);
     });
@@ -317,6 +332,55 @@ describe('Phase 1B Block 1 – Angebotsversionen und Freigabewahrheit', () => {
       expect(isBlockedFromCustomerTemplate('in_approval')).toBe(true);
       expect(isBlockedFromCustomerTemplate('changes_requested')).toBe(true);
       expect(isBlockedFromCustomerTemplate('ready_to_send')).toBe(false);
+    });
+
+    it('kennt Dokument- und PDF-Gates aus derselben Bewertung', async () => {
+      const { offers, service, offerDocumentService } = createWorkflow();
+      let offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));
+      offer = await service.ensureInitialVersion(offer);
+      await service.approve(offer.id, reviewer);
+      await service.markReadyToSend(offer.id, owner);
+      const version = (await service.getCurrentVersion(offer.id))!;
+      await service.confirmCounselingPrinciples(
+        offer.id,
+        version.id,
+        owner,
+        allCounselingPrinciplesConfirmed(),
+      );
+
+      const beforeDocument = await service.evaluatePublicationReadiness(offer.id);
+      expect(beforeDocument?.documentReady).toBe(false);
+      expect(beforeDocument?.pdfCreateAllowed).toBe(true);
+      expect(beforeDocument?.blockers).toContain('document_missing');
+
+      const created = await offerDocumentService.createFinalDocument(offer.id, owner);
+      expect(created.ok).toBe(true);
+
+      const afterDocument = await service.evaluatePublicationReadiness(offer.id);
+      expect(afterDocument?.documentReady).toBe(true);
+      expect(afterDocument?.documentId).toBe(created.ok ? created.document.id : null);
+      expect(afterDocument?.allowed).toBe(true);
+    });
+
+    it('liefert Communication-Handoff aus zentraler Readiness', async () => {
+      const { offers, service, offerDocumentService } = createWorkflow();
+      let offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));
+      offer = await service.ensureInitialVersion(offer);
+      await service.approve(offer.id, reviewer);
+      await service.markReadyToSend(offer.id, owner);
+      const version = (await service.getCurrentVersion(offer.id))!;
+      await service.confirmCounselingPrinciples(
+        offer.id,
+        version.id,
+        owner,
+        allCounselingPrinciplesConfirmed(),
+      );
+      await offerDocumentService.createFinalDocument(offer.id, owner);
+
+      const handoff = await service.evaluateCustomerCommunicationHandoff(offer.id);
+      expect(handoff?.stage).toBe('ready_for_handoff');
+      expect(handoff?.canCreateShareLink).toBe(true);
+      expect(handoff?.canRecordDocumentSent).toBe(true);
     });
   });
 

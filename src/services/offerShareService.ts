@@ -74,11 +74,13 @@ export class OfferShareService {
     context: OfferUserContext,
     readiness: OfferPublicationReadiness | null,
   ): Promise<PrepareOfferShareResult> {
-    if (!readiness?.publicationAllowed) {
+    if (!readiness?.shareAllowed) {
       return {
         ok: false,
         error: 'not_ready',
-        blockers: readiness?.blockers ?? ['Kundenvorlage ist nicht freigegeben.'],
+        blockers: readiness?.blockerMessages.length
+          ? readiness.blockerMessages
+          : ['Kundenvorlage ist nicht freigegeben.'],
       };
     }
 
@@ -120,6 +122,7 @@ export class OfferShareService {
       id: generateId('offer_share'),
       offerId,
       offerVersionId: version.id,
+      documentId: readiness.documentId,
       tokenHash,
       status: 'active',
       validFrom: timestamp,
@@ -135,7 +138,7 @@ export class OfferShareService {
 
     await this.shareRepository.create(share);
     await this.recordActivity(context, {
-      type: 'offer_sent',
+      type: 'status_change',
       title: 'Kundenlink erstellt',
       description: `Angebot ${offer.offerNumber} (Version ${version.versionNumber}) wurde für die Kundenprüfung bereitgestellt.`,
       offerId,
@@ -198,7 +201,7 @@ export class OfferShareService {
   private async recordActivity(
     context: OfferUserContext,
     input: {
-      type: 'offer_sent' | 'status_change';
+      type: 'status_change';
       title: string;
       description: string;
       offerId: string;

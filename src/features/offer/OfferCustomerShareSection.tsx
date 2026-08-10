@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  buildOfferCustomerHandoffChecklist,
+  getOfferCustomerTemplateStatusLabel,
+} from '../../domain/offer/offerCustomerHandoffLabels';
+import type { OfferCustomerCommunicationHandoff } from '../../domain/offer/offerCustomerCommunicationHandoff';
 import type { Offer } from '../../domain/offer/offer';
-import type { OfferPublicationReadiness } from '../../domain/offer/offerPublicationReadiness';
-import type { OfferShare } from '../../domain/offer/offerShare';
 import { useServices } from '../../hooks/useServices';
 import type { OfferUserContext } from '../../services/offerService';
 import { buildOfferReviewUrl } from '../../services/offerShareService';
@@ -14,88 +18,56 @@ interface OfferCustomerShareSectionProps {
   onUpdated?: () => void;
 }
 
-function customerFacingStatus(input: {
-  readiness: OfferPublicationReadiness | null;
-  share: OfferShare | null;
-  offer: Offer;
-  hasOpenQuestion: boolean;
-}): string {
-  const { readiness, share, offer, hasOpenQuestion } = input;
-  if (offer.workflowStatus === 'accepted') return 'Angenommen';
-  if (offer.workflowStatus === 'declined') return 'Abgelehnt';
-  if (offer.workflowStatus === 'changes_requested') return 'Änderung angefragt';
-  if (hasOpenQuestion) return 'Rückfrage erhalten';
-  if (share) {
-    const now = Date.now();
-    if (share.revokedAt || share.status === 'revoked') return 'Freigabe aufgehoben';
-    if (share.status === 'expired' || new Date(share.validUntil).getTime() < now) {
-      return 'Link abgelaufen';
-    }
-    if (share.status === 'active') return 'Freigegeben';
-  }
-  if (!readiness?.publicationAllowed) return 'Noch nicht freigegeben';
-  return 'Noch nicht freigegeben';
-}
-
 export function OfferCustomerShareSection({
   offer,
   userContext,
   onUpdated,
 }: OfferCustomerShareSectionProps) {
-  const { offerWorkflowService, offerShareService, offerCustomerQuestionService } = useServices();
-  const [readiness, setReadiness] = useState<OfferPublicationReadiness | null>(null);
-  const [activeShare, setActiveShare] = useState<OfferShare | null>(null);
-  const [hasOpenQuestion, setHasOpenQuestion] = useState(false);
+  const { offerWorkflowService, offerShareService } = useServices();
+  const [handoff, setHandoff] = useState<OfferCustomerCommunicationHandoff | null>(null);
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [deliveryRecipient, setDeliveryRecipient] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [nextReadiness, share, openQuestions] = await Promise.all([
-      offerWorkflowService.evaluatePublicationReadiness(offer.id),
-      offerShareService.getActiveShareByOfferId(offer.id),
-      offerCustomerQuestionService.getOpenQuestionsByOfferId(offer.id),
-    ]);
-    setReadiness(nextReadiness);
-    setActiveShare(share);
-    setHasOpenQuestion(openQuestions.length > 0);
+    const nextHandoff = await offerWorkflowService.evaluateCustomerCommunicationHandoff(
+      offer.id,
+      revealedToken ? buildOfferReviewUrl(revealedToken) : null,
+    );
+    setHandoff(nextHandoff);
     setLoading(false);
-  }, [offer.id, offerCustomerQuestionService, offerShareService, offerWorkflowService]);
+  }, [offer.id, offerWorkflowService, revealedToken]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const statusLabel = customerFacingStatus({
-    readiness,
-    share: activeShare,
-    offer,
-    hasOpenQuestion,
-  });
+  const checklist = handoff ? buildOfferCustomerHandoffChecklist(handoff.readiness) : [];
+  const statusLabel = getOfferCustomerTemplateStatusLabel(offer.workflowStatus);
+  const pdfPath = handoff?.documentId
+    ? `/offers/${offer.id}/documents/${handoff.documentId}`
+    : `/offers/${offer.id}/preview`;
 
   const handleCreateLink = async () => {
+    if (!handoff?.readiness) return;
     setBusy(true);
     setMessage(null);
     try {
-      if (!readiness?.publicationAllowed) {
-        setMessage(readiness?.blockers[0] ?? 'Bitte Angebot zuerst intern freigeben.');
-        return;
-      }
       const result = await offerShareService.createCustomerShareLink(
         offer.id,
         userContext,
-        readiness,
+        handoff.readiness,
       );
       if (!result.ok) {
         setMessage(result.blockers?.[0] ?? 'Kundenlink konnte nicht erstellt werden.');
         return;
       }
       setRevealedToken(result.token);
-      setActiveShare(result.share);
       setMessage(
-        'Für den Kunden freigegeben. Link kopieren – er wird nur einmal angezeigt. Es wurde keine E-Mail versendet.',
+        'Kundenlink erstellt. Es wurde noch keine Übergabe dokumentiert und nichts versendet.',
       );
       onUpdated?.();
     } finally {
@@ -104,28 +76,43 @@ export function OfferCustomerShareSection({
     }
   };
 
-  const handleRevoke = async () => {
-    if (!activeShare) return;
+  const handleMarkDelivered = async (channel: 'manual' | 'share_link') => {
+    if (!handoff?.offerVersionId) return;
     setBusy(true);
-    const result = await offerShareService.revokeShare(activeShare.id, userContext);
-    setBusy(false);
-    if (result.ok) {
-      setActiveShare(null);
-      setRevealedToken(null);
-      setMessage('Freigabe aufgehoben. Der Link ist nicht mehr gültig.');
+    setMessage(null);
+    try {
+      const result = await offerWorkflowService.markOfferDeliveredToCustomer(offer.id, userContext, {
+        offerVersionId: handoff.offerVersionId,
+        documentId: handoff.documentId,
+        channel,
+        recipient: deliveryRecipient.trim(),
+        shareLinkId: channel === 'share_link' ? handoff.shareLinkId : null,
+      });
+      if (!result.ok) {
+        setMessage('Übergabe konnte nicht dokumentiert werden.');
+        return;
+      }
+      setMessage(
+        result.duplicate
+          ? 'Übergabe war bereits dokumentiert.'
+          : 'Übergabe an den Kunden dokumentiert.',
+      );
       onUpdated?.();
+    } finally {
+      setBusy(false);
+      setDeliveryRecipient('');
+      await load();
     }
   };
 
   const handleCopy = async () => {
     if (!revealedToken) return;
-    const url = buildOfferReviewUrl(revealedToken);
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(buildOfferReviewUrl(revealedToken));
     setMessage('Kundenlink in die Zwischenablage kopiert.');
   };
 
   if (loading) {
-    return <p className={styles.hint}>Freigabe wird geladen…</p>;
+    return <p className={styles.hint}>Kundenvorlage wird geladen…</p>;
   }
 
   return (
@@ -133,11 +120,11 @@ export function OfferCustomerShareSection({
       <div className={styles.header}>
         <div>
           <h2 id="offer-customer-share-title" className={styles.title}>
-            Angebot für den Kunden freigeben
+            Kundenvorlage
           </h2>
           <p className={styles.subtitle}>
-            Sicherer Link ohne Login – 30 Tage gültig. Es wird nur ein Link erzeugt, kein
-            automatischer Mailversand.
+            Link-Erstellung und dokumentierte Übergabe sind getrennte Schritte. Es gibt noch keinen
+            E-Mail- oder WhatsApp-Versand.
           </p>
         </div>
       </div>
@@ -146,74 +133,100 @@ export function OfferCustomerShareSection({
         Status: {statusLabel}
       </p>
 
-      {!readiness?.publicationAllowed && !activeShare ? (
-        <p className={styles.blocker} role="status">
-          Noch nicht freigabefähig: {readiness?.blockers[0] ?? 'Interne Prüfung ausstehend.'}
-        </p>
+      {!handoff?.readiness.allowed ? (
+        <div className={styles.blocker} role="status">
+          <p>Noch nicht bereit zur Kundenvorlage.</p>
+          <ul>
+            {checklist.map((item) => (
+              <li key={item.id}>
+                {item.satisfied ? '✓' : '○'} {item.label}
+              </li>
+            ))}
+          </ul>
+          {handoff?.primaryBlockerMessage ? (
+            <p>{handoff.primaryBlockerMessage}</p>
+          ) : null}
+        </div>
+      ) : (
+        <p className={styles.message}>Bereit zur Kundenvorlage</p>
+      )}
+
+      {handoff?.stage === 'document_sent' || offer.workflowStatus === 'sent' ? (
+        <dl className={styles.meta}>
+          <div>
+            <dt>Übergabe dokumentiert</dt>
+            <dd>{handoff?.lastDeliveryAt ? formatDateTime(handoff.lastDeliveryAt) : '–'}</dd>
+          </div>
+          <div>
+            <dt>Kanal</dt>
+            <dd>{handoff?.lastDeliveryChannel ?? '–'}</dd>
+          </div>
+          <div>
+            <dt>Empfänger</dt>
+            <dd>{handoff?.lastDeliveryRecipient || '–'}</dd>
+          </div>
+          <div>
+            <dt>Dokument</dt>
+            <dd>{handoff?.documentDisplayName ?? '–'}</dd>
+          </div>
+        </dl>
+      ) : null}
+
+      {offer.workflowStatus === 'accepted' ? (
+        <p className={styles.message}>Entscheidung: angenommen</p>
+      ) : null}
+      {offer.workflowStatus === 'declined' ? (
+        <p className={styles.message}>Entscheidung: abgelehnt</p>
       ) : null}
 
       {message ? <p className={styles.message} role="status">{message}</p> : null}
 
-      {activeShare ? (
+      {handoff?.shareLinkId ? (
         <dl className={styles.meta}>
           <div>
-            <dt>Gültig bis</dt>
-            <dd>{formatDateTime(activeShare.validUntil)}</dd>
-          </div>
-          <div>
-            <dt>Aufrufe</dt>
-            <dd>{activeShare.accessCount}</dd>
-          </div>
-          <div>
-            <dt>Letzter Zugriff</dt>
-            <dd>
-              {activeShare.lastAccessAt ? formatDateTime(activeShare.lastAccessAt) : '–'}
-            </dd>
+            <dt>Link gültig bis</dt>
+            <dd>{handoff.validUntil ? formatDateTime(handoff.validUntil) : '–'}</dd>
           </div>
         </dl>
       ) : null}
 
       <div className={styles.actions}>
-        {!activeShare ? (
-          <button
-            type="button"
-            className={styles.primaryAction}
-            disabled={busy || !readiness?.publicationAllowed}
-            onClick={() => void handleCreateLink()}
-          >
-            Für Kunden freigeben
+        <Link to={pdfPath} className={styles.secondaryAction}>
+          PDF anzeigen
+        </Link>
+        <button
+          type="button"
+          className={styles.primaryAction}
+          disabled={busy || !handoff?.canCreateShareLink}
+          onClick={() => void handleCreateLink()}
+        >
+          Kundenlink erstellen
+        </button>
+        {revealedToken ? (
+          <button type="button" className={styles.secondaryAction} onClick={() => void handleCopy()}>
+            Kundenlink kopieren
           </button>
-        ) : (
-          <>
-            {revealedToken ? (
-              <button type="button" className={styles.primaryAction} onClick={() => void handleCopy()}>
-                Kundenlink kopieren
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={styles.primaryAction}
-                disabled={busy}
-                onClick={() => void handleCreateLink()}
-              >
-                Link erneut erzeugen
-              </button>
-            )}
-            <button
-              type="button"
-              className={styles.secondaryAction}
-              disabled={busy}
-              onClick={() => void handleRevoke()}
-            >
-              Freigabe aufheben
-            </button>
-          </>
-        )}
+        ) : null}
+        <button
+          type="button"
+          className={styles.secondaryAction}
+          disabled={busy || !handoff?.canRecordDocumentSent || offer.workflowStatus === 'sent'}
+          onClick={() => void handleMarkDelivered(handoff?.shareLinkId ? 'share_link' : 'manual')}
+        >
+          Übergabe dokumentieren
+        </button>
       </div>
-      {!readiness?.publicationAllowed ? (
-        <p className={styles.hint}>
-          Die Freigabe-Schaltfläche wird aktiv, sobald das Angebot intern freigegeben ist.
-        </p>
+
+      {handoff?.canRecordDocumentSent && offer.workflowStatus !== 'sent' ? (
+        <label className={styles.hint}>
+          Empfänger optional
+          <input
+            type="text"
+            value={deliveryRecipient}
+            onChange={(event) => setDeliveryRecipient(event.target.value)}
+            placeholder="z. B. Name oder Kanalhinweis"
+          />
+        </label>
       ) : null}
     </section>
   );

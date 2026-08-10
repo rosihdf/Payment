@@ -57,7 +57,7 @@ async function createAcceptedOffer(services: ReturnType<typeof createTestService
   offer = await workflow.ensureInitialVersion(offer);
   await workflow.approve(offer.id, reviewer);
   await workflow.markReadyToSend(offer.id, owner);
-  await confirmCounselingAndDocumentSent(workflow, offer.id, owner);
+  await confirmCounselingAndDocumentSent(workflow, offer.id, owner, services.offerDocumentService);
   const accepted = await workflow.acceptOffer(offer.id, owner, {
     acceptedByName: 'Kunde',
     acceptanceType: 'email_confirmation',

@@ -256,6 +256,8 @@ export function createServices(repositories: AppRepositories): AppServices {
   );
   offerWorkflowService.setSalesTaskService(salesTaskService);
   offerWorkflowService.setSalesActivityService(salesActivityService);
+  offerWorkflowService.setOfferDocumentRepository(repositories.offerDocumentRepository);
+  offerWorkflowService.setOfferShareRepository(repositories.offerShareRepository);
   offerService.setWorkflowService(offerWorkflowService);
   offerService.setActivityService(salesActivityService);
   offerService.setDraftDeletionRepositories({

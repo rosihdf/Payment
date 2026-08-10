@@ -39,6 +39,7 @@ async function preparePublicationReadyOffer(services: ReturnType<typeof createSe
     owner,
     allCounselingPrinciplesConfirmed(),
   );
+  await services.offerDocumentService.createFinalDocument(offer.id, owner);
   const readiness = await services.offerWorkflowService.evaluatePublicationReadiness(offer.id);
   return {
     offer: (await repos.offerRepository.getById(offer.id))!,

@@ -1,6 +1,9 @@
 import { isFrozenCommercialSnapshot } from '../offer/offerCommercialSnapshot';
 import type { Offer } from '../offer/offer';
-import type { OfferPublicationReadiness } from '../offer/offerPublicationReadiness';
+import {
+  primaryPublicationBlockerMessage,
+  type OfferPublicationReadiness,
+} from '../offer/offerPublicationReadiness';
 import type { OfferWorkflowStatus } from '../offer/offerWorkflow';
 
 const FINAL_CREATE_WORKFLOW: OfferWorkflowStatus[] = ['approved', 'ready_to_send'];
@@ -45,24 +48,23 @@ export function evaluateFinalDocumentGate(
     return errors;
   }
 
-  const workflowAllowed =
-    mode === 'create'
-      ? canCreateInitialFinalDocument(offer.workflowStatus)
-      : canRegenerateFinalDocument(offer.workflowStatus);
-
-  if (!workflowAllowed) {
-    errors.status =
-      'Finales PDF ist erst nach Freigabe (approved / ready_to_send) oder im Versandworkflow möglich.';
+  if (mode === 'create') {
+    if (!canCreateInitialFinalDocument(offer.workflowStatus)) {
+      errors.status =
+        'Finales PDF ist erst nach Freigabe (approved / ready_to_send) oder im Versandworkflow möglich.';
+      return errors;
+    }
+    if (!readiness?.pdfCreateAllowed) {
+      errors.publication =
+        primaryPublicationBlockerMessage(readiness ?? { blockerMessages: [] }) ??
+        'Angebot ist noch nicht versandbereit (Freigabe, Pricing, Empfehlung oder Beratungsgrundsätze).';
+    }
     return errors;
   }
 
-  if (
-    canCreateInitialFinalDocument(offer.workflowStatus) &&
-    !readiness?.publicationAllowed
-  ) {
-    errors.publication =
-      readiness?.blockers[0] ??
-      'Angebot ist noch nicht versandbereit (Freigabe, Pricing, Empfehlung oder Beratungsgrundsätze).';
+  if (!readiness?.pdfRegenerateAllowed) {
+    errors.status =
+      'Finales PDF ist erst nach Freigabe (approved / ready_to_send) oder im Versandworkflow möglich.';
   }
 
   return errors;

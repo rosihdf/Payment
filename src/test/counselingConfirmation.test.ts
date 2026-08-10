@@ -45,7 +45,7 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
 
   it('erlaubt Versand nach confirmCounselingPrinciples', async () => {
     const repos = createTestRepositories();
-    const { offerWorkflowService } = createServices(repos);
+    const { offerWorkflowService, offerDocumentService } = createServices(repos);
     const offer = await repos.offerRepository.create(createTestOffer());
     const versioned = await offerWorkflowService.ensureInitialVersion(offer);
     await offerWorkflowService.approve(versioned.id, reviewer);
@@ -61,6 +61,9 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
       allPrinciplesConfirmed(),
     );
     expect(confirmResult.ok).toBe(true);
+
+    const documentResult = await offerDocumentService.createFinalDocument(versioned.id, owner);
+    expect(documentResult.ok).toBe(true);
 
     const sentResult = await offerWorkflowService.documentSent(versioned.id, owner, 'kunde@example.test', 'email', {
       providedAt: new Date().toISOString(),
@@ -83,7 +86,7 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
 
   it('legt keine Wiedervorlage an, wenn der Kunde sich selbst meldet', async () => {
     const repos = createTestRepositories();
-    const { offerWorkflowService } = createServices(repos);
+    const { offerWorkflowService, offerDocumentService } = createServices(repos);
     const offer = await repos.offerRepository.create(createTestOffer());
     const versioned = await offerWorkflowService.ensureInitialVersion(offer);
     await offerWorkflowService.approve(versioned.id, reviewer);
@@ -95,6 +98,7 @@ describe('Beratungsgrundsätze & Bedenkzeit', () => {
       owner,
       allPrinciplesConfirmed(),
     );
+    await offerDocumentService.createFinalDocument(versioned.id, owner);
 
     const sentResult = await offerWorkflowService.documentSent(
       versioned.id,

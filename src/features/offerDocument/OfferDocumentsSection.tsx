@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import type { Offer } from '../../domain/offer/offer';
 import {
   canCreateInitialFinalDocument,
-  canRegenerateFinalDocument,
   isLegacyCompletedDocumentOffer,
 } from '../../domain/offerDocument/finalDocumentGate';
 import type { OfferPublicationReadiness } from '../../domain/offer/offerPublicationReadiness';
@@ -62,11 +61,10 @@ export function OfferDocumentsSection({
   const canPreview = offer.status !== 'cancelled' && offer.workflowStatus !== 'cancelled';
   const canCreateFinal =
     !currentDocument &&
-    (legacyCompleted ||
-      (canCreateInitialFinalDocument(offer.workflowStatus) && Boolean(readiness?.publicationAllowed)));
+    (legacyCompleted || readiness?.pdfCreateAllowed);
   const canCreateNewVersion =
     Boolean(currentDocument) &&
-    (legacyCompleted || canRegenerateFinalDocument(offer.workflowStatus));
+    (legacyCompleted || readiness?.pdfRegenerateAllowed);
 
   const handleDownload = (documentId: string) => {
     void (async () => {
@@ -168,10 +166,10 @@ export function OfferDocumentsSection({
         </div>
       </div>
 
-      {!legacyCompleted && !readiness?.publicationAllowed && canCreateInitialFinalDocument(offer.workflowStatus) ? (
+      {!legacyCompleted && !readiness?.pdfCreateAllowed && canCreateInitialFinalDocument(offer.workflowStatus) ? (
         <OfferDocumentSectionHint>
           Finales PDF noch nicht möglich:{' '}
-          {readiness?.blockers[0] ?? 'Angebot ist noch nicht versandbereit.'}
+          {readiness?.blockerMessages[0] ?? 'Angebot ist noch nicht versandbereit.'}
         </OfferDocumentSectionHint>
       ) : null}
 

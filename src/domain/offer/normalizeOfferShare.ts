@@ -26,6 +26,7 @@ export function normalizeOfferShare(value: unknown): OfferShare | null {
     id: typeof raw.id === 'string' && raw.id ? raw.id : generateId('offer_share'),
     offerId: text(raw.offerId),
     offerVersionId: text(raw.offerVersionId),
+    documentId: nullable(raw.documentId),
     tokenHash: text(raw.tokenHash),
     status,
     validFrom: text(raw.validFrom) || timestamp,

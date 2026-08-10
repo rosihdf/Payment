@@ -18,6 +18,8 @@ export interface OfferShare {
   id: string;
   offerId: string;
   offerVersionId: string;
+  /** Gebundene Dokumentversion zum Zeitpunkt der Link-Erzeugung. */
+  documentId: string | null;
   /** SHA-256-Hash des Share-Tokens – niemals Klartext speichern. */
   tokenHash: string;
   status: ShareStatus;

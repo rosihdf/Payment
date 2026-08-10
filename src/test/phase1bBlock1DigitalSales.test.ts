@@ -159,7 +159,7 @@ describe('Phase 1B Block 1 – Digitaler Vertriebsprozess (Vorbereitung)', () =>
           version: baseVersion({ workflowStatus: 'sent' }),
           isCurrent: true,
           approvals: [],
-          shares: [{ id: 's1', offerId: 'offer_1', offerVersionId: 'ver_1', tokenHash: 'abc', status: 'active', validFrom: '2026-08-01T00:00:00.000Z', validUntil: '2026-09-01T00:00:00.000Z', accessCount: 0, lastAccessAt: null, createdAt: '2026-08-02T10:00:00.000Z', createdByUserId: owner.userId, revokedAt: null, revokedByUserId: null, supersededAt: null }],
+          shares: [{ id: 's1', offerId: 'offer_1', offerVersionId: 'ver_1', documentId: null, tokenHash: 'abc', status: 'active', validFrom: '2026-08-01T00:00:00.000Z', validUntil: '2026-09-01T00:00:00.000Z', accessCount: 0, lastAccessAt: null, createdAt: '2026-08-02T10:00:00.000Z', createdByUserId: owner.userId, revokedAt: null, revokedByUserId: null, supersededAt: null }],
           acceptances: [],
           handoffs: [],
         }),
@@ -247,6 +247,7 @@ describe('Phase 1B Block 1 – Digitaler Vertriebsprozess (Vorbereitung)', () =>
         owner,
         allCounselingPrinciplesConfirmed(),
       );
+      await services.offerDocumentService.createFinalDocument(offer.id, owner);
       const readiness = await services.offerWorkflowService.evaluatePublicationReadiness(offer.id);
 
       const result = await services.offerShareService.createCustomerShareLink(offer.id, owner, readiness);

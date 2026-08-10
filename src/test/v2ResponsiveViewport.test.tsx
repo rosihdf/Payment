@@ -59,7 +59,7 @@ async function seedOfferContractActivationPipeline() {
   offer = await workflow.ensureInitialVersion(offer);
   await workflow.approve(offer.id, REVIEWER_CONTEXT);
   await workflow.markReadyToSend(offer.id, FIELD_SERVICE_CONTEXT);
-  await confirmCounselingAndDocumentSent(workflow, offer.id, FIELD_SERVICE_CONTEXT);
+  await confirmCounselingAndDocumentSent(workflow, offer.id, FIELD_SERVICE_CONTEXT, services.offerDocumentService);
   const accepted = await workflow.acceptOffer(offer.id, FIELD_SERVICE_CONTEXT, {
     acceptedByName: 'Kunde',
     acceptanceType: 'email_confirmation',

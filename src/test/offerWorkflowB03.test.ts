@@ -39,9 +39,11 @@ const reviewer = { userId: 'user_002', role: 'field_service' as const, displayNa
 
 function createWorkflow() {
   const repos = createTestRepositories();
+  const services = createServices(repos);
   return {
     offers: repos.offerRepository,
-    service: createServices(repos).offerWorkflowService,
+    service: services.offerWorkflowService,
+    offerDocumentService: services.offerDocumentService,
   };
 }
 
@@ -56,10 +58,14 @@ function createWizardService() {
   };
 }
 
-async function advanceToSent(service: OfferWorkflowService, offerId: string) {
+async function advanceToSent(
+  service: OfferWorkflowService,
+  offerId: string,
+  offerDocumentService: import('../services/offerDocumentService').OfferDocumentService,
+) {
   await service.approve(offerId, reviewer);
   await service.markReadyToSend(offerId, owner);
-  await confirmCounselingAndDocumentSent(service, offerId, owner);
+  await confirmCounselingAndDocumentSent(service, offerId, owner, offerDocumentService);
 }
 
 describe('B03 Angebotsworkflow', () => {
@@ -174,10 +180,10 @@ describe('B03 Angebotsworkflow', () => {
     });
 
     it('markiert versendete Angebote als unveränderbar', async () => {
-      const { offers, service } = createWorkflow();
+      const { offers, service, offerDocumentService } = createWorkflow();
       const offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));
       await service.ensureInitialVersion(offer);
-      await advanceToSent(service, offer.id);
+      await advanceToSent(service, offer.id, offerDocumentService);
 
       const summary = await service.getWorkflowSummary(offer.id);
       expect(isImmutableWorkflowStatus(summary.offer!.workflowStatus)).toBe(true);
@@ -185,10 +191,10 @@ describe('B03 Angebotsworkflow', () => {
     });
 
     it('durchläuft Versand bis Annahme', async () => {
-      const { offers, service } = createWorkflow();
+      const { offers, service, offerDocumentService } = createWorkflow();
       const offer = await offers.create(createTestOffer({ workflowStatus: 'approval_required' }));
       await service.ensureInitialVersion(offer);
-      await advanceToSent(service, offer.id);
+      await advanceToSent(service, offer.id, offerDocumentService);
 
       const accepted = await service.acceptOffer(offer.id, owner, {
         acceptedByName: 'Kunde',

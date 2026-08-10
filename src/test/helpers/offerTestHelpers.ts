@@ -269,6 +269,7 @@ export async function confirmCounselingAndDocumentSent(
   service: OfferWorkflowService,
   offerId: string,
   context: OfferUserContext,
+  offerDocumentService: import('../../services/offerDocumentService').OfferDocumentService,
   recipient = 'kunde@example.test',
 ) {
   const version = await service.getCurrentVersion(offerId);
@@ -281,6 +282,10 @@ export async function confirmCounselingAndDocumentSent(
     context,
     allCounselingPrinciplesConfirmed(),
   );
+  const documentResult = await offerDocumentService.createFinalDocument(offerId, context);
+  if (!documentResult.ok) {
+    throw new Error('Finales Dokument konnte nicht erzeugt werden.');
+  }
   return service.documentSent(offerId, context, recipient, 'email', {
     providedAt: new Date().toISOString(),
     followUpDate: new Date(Date.now() + 7 * 86400000).toISOString(),
