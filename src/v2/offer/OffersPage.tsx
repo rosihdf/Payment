@@ -113,10 +113,10 @@ function OfferCardActions({
               <Link
                 className={styles.menuItem}
                 role="menuitem"
-                to={`/offers/${offer.id}?tab=versions`}
+                to={`/offers/${offer.id}?tab=documents`}
                 onClick={() => setMenuOpen(false)}
               >
-                Versionen & Dokumente
+                Dokumente
               </Link>
             </>
           ) : null}

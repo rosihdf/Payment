@@ -61,7 +61,9 @@ describe('Offer status actions UI', () => {
       expect(getStoredOffers()[0]?.status).toBe('completed');
     });
 
-    expect(await screen.findByText('Angenommen')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText('Angenommen').length).toBeGreaterThan(0);
+    });
   });
 
   it('cancels offer with reason', async () => {

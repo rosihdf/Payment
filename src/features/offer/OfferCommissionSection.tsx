@@ -2,12 +2,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { FormControl } from '../../components/common/FormControl';
 import { FormField, textareaClassName } from '../../components/common/FormField';
 import type { Offer } from '../../domain/offer/offer';
+import {
+  buildOfferFrozenCommissionDisplay,
+  type OfferFrozenCommissionDisplay,
+} from '../../domain/offer/offerFrozenCommissionDisplay';
+import { isFrozenCommercialSnapshot } from '../../domain/offer/offerCommercialSnapshot';
+import {
+  OFFER_EMPTY_COMMISSION_SNAPSHOT_HINT,
+  OFFER_LEGACY_COMMISSION_HINT,
+} from '../../domain/offer/offerDetailCopy';
 import type { OfferUserContext } from '../../services/offerService';
 import type { CommissionCalculationService } from '../../services/commissionCalculationService';
 import type {
   AdminCommissionCalculationView,
   SalesCommissionCalculationView,
 } from '../../services/commissionCalculationViews';
+import { displayDateTime } from '../../utils/format';
 import { formatOptionalCents } from '../../utils/formatTariff';
 import styles from './OfferCommissionSection.module.css';
 
@@ -28,6 +38,58 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function FrozenCommissionView({ display }: { display: OfferFrozenCommissionDisplay }) {
+  return (
+    <>
+      <span className={`${styles.statusBadge} ${styles.statusStandard}`}>{display.statusLabel}</span>
+      <p className={styles.hint}>{display.sourceLabel}</p>
+      <dl className={styles.grid}>
+        {display.commissionPlanKindLabel ? (
+          <DetailRow label="Provisionsmodell" value={display.commissionPlanKindLabel} />
+        ) : null}
+        {display.contractConfigurationLabel ? (
+          <DetailRow label="Vertragskonstellation" value={display.contractConfigurationLabel} />
+        ) : null}
+        {display.contractTermMonths ? (
+          <DetailRow label="Laufzeit" value={`${display.contractTermMonths} Monate`} />
+        ) : null}
+        <DetailRow
+          label="Einmalige Provision"
+          value={formatOptionalCents(display.oneTimeCommissionAmountCents)}
+        />
+        <DetailRow
+          label="Zubehörprovision"
+          value={formatOptionalCents(display.accessoryCommissionAmountCents)}
+        />
+        {display.recurringComponents.length > 0 ? (
+          <DetailRow
+            label="Laufende Bestandteile"
+            value={display.recurringComponents
+              .map(
+                (entry) =>
+                  `${entry.label}: ${formatOptionalCents(entry.amountCents)}${
+                    entry.isProvisional ? ' (vorläufig)' : ''
+                  }`,
+              )
+              .join(' · ')}
+          />
+        ) : null}
+        <DetailRow
+          label="Erwartete Gesamtprovision"
+          value={formatOptionalCents(display.finalExpectedCommissionAmountCents)}
+        />
+        <DetailRow label="Berechnet am" value={displayDateTime(display.calculatedAt)} />
+      </dl>
+      {display.provisionalRecurringHint ? (
+        <p className={styles.hint}>{display.provisionalRecurringHint}</p>
+      ) : null}
+      <p className={styles.hint}>
+        Die endgültige Provision steht erst nach Adminfreigabe fest. Dies ist keine Auszahlungszusage.
+      </p>
+    </>
+  );
+}
+
 export function OfferCommissionSection({
   offer,
   userContext,
@@ -35,15 +97,24 @@ export function OfferCommissionSection({
   contractTypeCode = 'terminal_plus_acq',
   showToast,
 }: OfferCommissionSectionProps) {
+  const frozenDisplay =
+    isFrozenCommercialSnapshot(offer.commercialSnapshot) && offer.commercialSnapshot.commission
+      ? buildOfferFrozenCommissionDisplay(offer.commercialSnapshot)
+      : null;
+  const isLegacyCommissionPath = !frozenDisplay;
+
   const [salesView, setSalesView] = useState<SalesCommissionCalculationView | null>(null);
   const [adminView, setAdminView] = useState<AdminCommissionCalculationView | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isLegacyCommissionPath);
   const [isCalculating, setIsCalculating] = useState(false);
   const [reductionAmount, setReductionAmount] = useState('');
   const [reductionReason, setReductionReason] = useState('');
   const [reductionError, setReductionError] = useState<string | undefined>();
 
-  const loadCommission = useCallback(async () => {
+  const loadLegacyCommission = useCallback(async () => {
+    if (!isLegacyCommissionPath) {
+      return;
+    }
     setIsLoading(true);
     const sales = await commissionCalculationService.getSalesViewForOffer(offer.id, userContext);
     setSalesView(sales);
@@ -59,13 +130,13 @@ export function OfferCommissionSection({
     }
 
     setIsLoading(false);
-  }, [commissionCalculationService, offer.id, userContext]);
+  }, [commissionCalculationService, isLegacyCommissionPath, offer.id, userContext]);
 
   useEffect(() => {
-    void loadCommission();
-  }, [loadCommission]);
+    void loadLegacyCommission();
+  }, [loadLegacyCommission]);
 
-  const handleCalculate = () => {
+  const handleRecalculatePreview = () => {
     void (async () => {
       setIsCalculating(true);
       const result = await commissionCalculationService.calculatePreviewForOffer(
@@ -76,9 +147,11 @@ export function OfferCommissionSection({
 
       if (result.ok) {
         showToast('Provisionsvorschau wurde aktualisiert', 'success');
-        await loadCommission();
+        await loadLegacyCommission();
       } else if (result.error === 'pricing_missing' || result.error === 'pricing_stale') {
         showToast('Bitte zuerst eine aktuelle Preisbewertung durchführen.', 'error');
+      } else if (result.error === 'frozen') {
+        showToast('Für abgeschlossene Angebote ist nur eine Prüfung ohne Snapshot-Änderung möglich.', 'error');
       } else {
         showToast('Provisionsvorschau konnte nicht berechnet werden', 'error');
       }
@@ -88,7 +161,7 @@ export function OfferCommissionSection({
   };
 
   const handleSaveReduction = () => {
-    if (userContext.role !== 'admin') {
+    if (userContext.role !== 'admin' || frozenDisplay) {
       return;
     }
 
@@ -109,7 +182,7 @@ export function OfferCommissionSection({
       if (result.ok) {
         showToast('Kürzungsentscheidung gespeichert', 'success');
         setReductionError(undefined);
-        await loadCommission();
+        await loadLegacyCommission();
       } else if (result.error === 'exceeds_limit') {
         setReductionError('Die Kürzung überschreitet die maximal zulässige Grenze von 50 Prozent.');
         showToast('Kürzung überschreitet die zulässige Grenze', 'error');
@@ -121,27 +194,40 @@ export function OfferCommissionSection({
     })();
   };
 
-  const canCalculate = offer.status === 'draft';
+  const canExplicitRecalculate = offer.status === 'draft' || userContext.role === 'admin';
+
+  if (frozenDisplay) {
+    return (
+      <section className={styles.detailSection}>
+        <h2 className={styles.sectionTitle}>Provision</h2>
+        <FrozenCommissionView display={frozenDisplay} />
+      </section>
+    );
+  }
 
   return (
     <section className={styles.detailSection}>
       <h2 className={styles.sectionTitle}>Provision</h2>
+      {isLegacyCommissionPath ? (
+        <p className={styles.hint}>{OFFER_LEGACY_COMMISSION_HINT}</p>
+      ) : null}
 
       {isLoading ? (
         <p className={styles.emptyHint}>Provisionsvorschau wird geladen…</p>
       ) : !salesView ? (
         <>
           <p className={styles.emptyHint}>
-            Für dieses Angebot liegt noch keine Provisionsvorschau vor. Eine endgültige Provision
-            entsteht erst nach Adminfreigabe.
+            {isFrozenCommercialSnapshot(offer.commercialSnapshot)
+              ? OFFER_EMPTY_COMMISSION_SNAPSHOT_HINT
+              : 'Für dieses Angebot liegt noch keine Provisionsvorschau vor.'}
           </p>
-          {canCalculate ? (
+          {canExplicitRecalculate && offer.status === 'draft' ? (
             <div className={styles.actions}>
               <button
                 type="button"
                 className={styles.primaryAction}
                 disabled={isCalculating}
-                onClick={handleCalculate}
+                onClick={handleRecalculatePreview}
               >
                 Provisionsvorschau berechnen
               </button>
@@ -190,8 +276,7 @@ export function OfferCommissionSection({
           ) : null}
 
           <p className={styles.hint}>
-            Die endgültige Provision steht erst nach Adminfreigabe fest. Dies ist keine
-            Auszahlungszusage.
+            Die endgültige Provision steht erst nach Adminfreigabe fest. Dies ist keine Auszahlungszusage.
           </p>
 
           {salesView.actionableFindings.length > 0 ? (
@@ -204,7 +289,7 @@ export function OfferCommissionSection({
             </ul>
           ) : null}
 
-          {userContext.role === 'admin' && adminView ? (
+          {userContext.role === 'admin' && adminView && offer.status === 'draft' ? (
             <div className={styles.adminGrid}>
               <DetailRow
                 label="Planversion"
@@ -262,15 +347,15 @@ export function OfferCommissionSection({
             </div>
           ) : null}
 
-          {canCalculate ? (
+          {canExplicitRecalculate && offer.status === 'draft' ? (
             <div className={styles.actions}>
               <button
                 type="button"
                 className={styles.primaryAction}
                 disabled={isCalculating}
-                onClick={handleCalculate}
+                onClick={handleRecalculatePreview}
               >
-                {salesView.stale ? 'Neu berechnen' : 'Vorschau aktualisieren'}
+                {salesView.stale ? 'Provision neu prüfen' : 'Vorschau aktualisieren'}
               </button>
             </div>
           ) : null}

@@ -68,7 +68,7 @@ export const OFFER_PUBLICATION_BLOCKER_MESSAGES: Record<OfferPublicationBlocker,
 
 export const OFFER_PUBLICATION_WARNING_MESSAGES: Record<OfferPublicationWarning, string> = {
   approval_deviation: 'Freigabe weicht von der Standardempfehlung ab.',
-  legacy_document_path: 'Legacy-Angebot ohne eingefrorenen Commercial Snapshot.',
+  legacy_document_path: 'Älteres Angebot ohne eingefrorene Angebotslogik.',
 };
 
 export interface OfferPublicationReadiness {

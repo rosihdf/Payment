@@ -5,6 +5,11 @@ import type { Contract } from '../../domain/contract/contract';
 import type { Offer } from '../../domain/offer/offer';
 import { calculateOfferTotals } from '../../domain/offer/offerCalculations';
 import { isFrozenCommercialSnapshot } from '../../domain/offer/offerCommercialSnapshot';
+import {
+  OFFER_LEGACY_UNFROZEN_HINT,
+  OFFER_EMPTY_POSITIONS_LEGACY_HINT,
+  OFFER_PROJECTION_SOURCE_LABEL,
+} from '../../domain/offer/offerDetailCopy';
 import { resolveOfferCommercialLegacyStatus } from '../../domain/offer/normalizeOfferCommercialSnapshot';
 import { isEditableWorkflowStatus } from '../../domain/offer/offerWorkflow';
 import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
@@ -24,7 +29,6 @@ import { OfferDocumentsSection } from '../../features/offerDocument/OfferDocumen
 import { OfferCommissionSection } from '../../features/offer/OfferCommissionSection';
 import { OfferPricingEvaluationSection } from '../../features/offer/OfferPricingEvaluationSection';
 import { OfferRecommendationSection } from '../../features/offer/OfferRecommendationSection';
-import { OfferTotalsDisplay } from '../../features/offer/OfferTotalsDisplay';
 import { OfferFulfillmentCard } from '../../features/offer/OfferFulfillmentCard';
 import { OfferCustomerFeedbackSection } from '../../features/offer/OfferCustomerFeedbackSection';
 import { OfferCustomerShareSection } from '../../features/offer/OfferCustomerShareSection';
@@ -48,7 +52,25 @@ const OfferBillingImportSection = lazy(async () => {
 });
 
 type DialogMode = 'complete' | 'cancel' | 'duplicate' | 'delete' | null;
-type TabId = 'overview' | 'positions' | 'workflow' | 'versions' | 'commission';
+type TabId = 'overview' | 'conditions' | 'handoff' | 'documents' | 'commission';
+
+function resolveOfferDetailTab(value: string | null): TabId {
+  switch (value) {
+    case 'positions':
+    case 'conditions':
+      return 'conditions';
+    case 'workflow':
+    case 'handoff':
+      return 'handoff';
+    case 'versions':
+    case 'documents':
+      return 'documents';
+    case 'commission':
+      return 'commission';
+    default:
+      return 'overview';
+  }
+}
 
 const DEPLOYMENT_MODE_LABELS = {
   stationary_wifi: 'Stationär (WLAN)',
@@ -87,15 +109,8 @@ export function OfferDetailPage() {
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancellationError, setCancellationError] = useState<string | undefined>();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab');
-  const [tab, setTab] = useState<TabId>(
-    initialTab === 'workflow' ||
-      initialTab === 'positions' ||
-      initialTab === 'versions' ||
-      initialTab === 'commission'
-      ? initialTab
-      : 'overview',
-  );
+  const initialTab = resolveOfferDetailTab(searchParams.get('tab'));
+  const [tab, setTab] = useState<TabId>(initialTab);
 
   const loadOffer = useCallback(async () => {
     if (!id || !currentUser) {
@@ -309,14 +324,18 @@ export function OfferDetailPage() {
   const canCancel = canCancelOfferWorkflow(offer.workflowStatus) && offer.status !== 'cancelled';
   const canDeleteDraft = showTechnical && offer.workflowStatus === 'draft';
 
+  const monthlyDisplayCents = frozenCommercial?.projection.monthlyTotalCents ?? totals.monthlyTotalCents;
+  const oneTimeDisplayCents =
+    frozenCommercial?.projection.oneTimeTotalCents ?? totals.oneTimeTotalCents;
+
   const tabs: Array<{ id: TabId; label: string }> = [
     { id: 'overview', label: 'Übersicht' },
-    { id: 'positions', label: 'Positionen & Konditionen' },
-    { id: 'workflow', label: 'Freigabe & Versand' },
-    { id: 'versions', label: 'Versionen & Dokumente' },
+    { id: 'conditions', label: 'Konditionen' },
+    { id: 'handoff', label: 'Kundenvorlage' },
+    { id: 'documents', label: 'Dokumente' },
   ];
   if (canViewCommission) {
-    tabs.push({ id: 'commission', label: 'Interne Provision' });
+    tabs.push({ id: 'commission', label: 'Provision' });
   }
 
   const canCreateContractNow = Boolean(!linkedContract && canCreateContract);
@@ -402,51 +421,53 @@ export function OfferDetailPage() {
           id="offer-panel-overview"
           aria-labelledby="offer-tab-overview"
         >
-          <h2 className={styles.sectionTitle}>Übersicht</h2>
+          <h2 className={styles.sectionTitle}>Angebotszusammenfassung</h2>
           <dl className={styles.grid}>
-            <DetailRow label="Version" value={String(offer.currentVersionNumber)} />
-            <DetailRow label="Ansprechpartner" value={displayText(contactName)} />
-            <DetailRow label="Gesamtbetrag (monatlich)" value={`${formatOptionalCents(totals.monthlyTotalCents)} / Monat`} />
-            <DetailRow label="Gesamtbetrag (einmalig)" value={formatOptionalCents(totals.oneTimeTotalCents)} />
+            <DetailRow label="Angebotsnummer" value={offer.offerNumber} />
+            <DetailRow label="Kunde" value={displayText(offer.customerSnapshot.companyName)} />
+            <DetailRow label="Status" value={primaryStatusLabel} />
+            <DetailRow
+              label="Tarif"
+              value={displayText(frozenCommercial?.identity.tariffName ?? offer.tariffSnapshot?.name ?? null)}
+            />
             <DetailRow
               label="Laufzeit"
-              value={formatOptionalMonths(offer.tariffSnapshot?.contractDurationMonths ?? null)}
+              value={formatOptionalMonths(
+                frozenCommercial?.identity.contractTermMonths ??
+                  offer.tariffSnapshot?.contractDurationMonths ??
+                  null,
+              )}
             />
+            <DetailRow
+              label="Einsatzart"
+              value={
+                frozenCommercial
+                  ? DEPLOYMENT_MODE_LABELS[frozenCommercial.identity.deploymentMode]
+                  : offer.tariffSnapshot
+                    ? TERMINAL_TYPE_LABELS[offer.tariffSnapshot.terminalType]
+                    : '—'
+              }
+            />
+            <DetailRow
+              label="Monatliche Prognose"
+              value={`${formatOptionalCents(monthlyDisplayCents)} / Monat`}
+            />
+            <DetailRow
+              label="Einmalige Kosten"
+              value={formatOptionalCents(oneTimeDisplayCents)}
+            />
+            <DetailRow label="Ansprechpartner" value={displayText(contactName)} />
+            <DetailRow label="Gültig bis" value={displayDateTime(offer.validUntil)} />
             {showTechnical ? (
               <DetailRow
-                label="Technischer Workflow-Status"
+                label="Workflow-Status (intern)"
                 value={getOfferWorkflowTechnicalLabel(offer.workflowStatus)}
               />
             ) : null}
-            <DetailRow
-              label="Nächste Aktion"
-              value={
-                offer.status === 'draft'
-                  ? 'Angebot abschließen oder Freigabe starten'
-                  : linkedContract
-                    ? 'In Vertrag / Kundenakte fortsetzen'
-                    : canCreateContract
-                      ? 'Vertrag anlegen'
-                      : 'Status prüfen'
-              }
-            />
-            <DetailRow label="Gültig bis" value={displayDateTime(offer.validUntil)} />
             {offer.completedAt ? (
               <DetailRow label="Abgeschlossen am" value={displayDateTime(offer.completedAt)} />
             ) : null}
           </dl>
-
-          {offer.items.length > 0 ? (
-            <p className={styles.sectionHint}>
-              Positionen: {offer.items.map((item) => item.name).join(', ')}
-            </p>
-          ) : null}
-
-          {offer.tariffSnapshot ? (
-            <p className={styles.sectionHint}>Tarif: {offer.tariffSnapshot.name}</p>
-          ) : null}
-
-          <OfferTotalsDisplay totals={totals} />
 
           {['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
             offer.workflowStatus,
@@ -522,18 +543,16 @@ export function OfferDetailPage() {
         </div>
       ) : null}
 
-      {tab === 'positions' ? (
+      {tab === 'conditions' ? (
         <div
           className={styles.detailSection}
           role="tabpanel"
-          id="offer-panel-positions"
-          aria-labelledby="offer-tab-positions"
+          id="offer-panel-conditions"
+          aria-labelledby="offer-tab-conditions"
         >
-          <h2 className={styles.sectionTitle}>Positionen & Konditionen</h2>
-          {commercialLegacyStatus === 'legacy_unfrozen' && offer.sourceComparisonSessionId ? (
-            <p className={styles.sectionHint}>
-              Legacy-Angebot ohne eingefrorenen kaufmännischen Snapshot – Konditionen stammen aus dem Tarif-Snapshot.
-            </p>
+          <h2 className={styles.sectionTitle}>Konditionen</h2>
+          {commercialLegacyStatus === 'legacy_unfrozen' ? (
+            <p className={styles.sectionHint}>{OFFER_LEGACY_UNFROZEN_HINT}</p>
           ) : null}
           {offer.tariffSnapshot ? (
             <dl className={styles.grid}>
@@ -602,7 +621,7 @@ export function OfferDetailPage() {
               {frozenCommercial ? (
                 <DetailRow
                   label="Prognose Gesamt / Monat"
-                  value={`${formatOptionalCents(frozenCommercial.projection.monthlyTotalCents)} (Need-basiert)`}
+                  value={`${formatOptionalCents(frozenCommercial.projection.monthlyTotalCents)} (${OFFER_PROJECTION_SOURCE_LABEL})`}
                 />
               ) : null}
             </dl>
@@ -612,7 +631,11 @@ export function OfferDetailPage() {
 
           <h3 className={styles.sectionTitle}>Positionen</h3>
           {offer.items.length === 0 ? (
-            <p className={styles.emptyHint}>Keine Positionen vorhanden.</p>
+            <p className={styles.emptyHint}>
+              {commercialLegacyStatus === 'legacy_unfrozen'
+                ? OFFER_EMPTY_POSITIONS_LEGACY_HINT
+                : 'Keine Positionen vorhanden.'}
+            </p>
           ) : (
             <ul className={styles.itemList}>
               {offer.items.map((item) => (
@@ -679,14 +702,15 @@ export function OfferDetailPage() {
           <dl className={styles.grid}>
             <DetailRow label="Einleitungstext" value={displayText(offer.introductionText)} />
             <DetailRow label="Hinweise für den Kunden" value={displayText(offer.customerNotes)} />
-            <DetailRow label="Interne Hinweise" value={displayText(offer.internalNotes)} />
+            {showTechnical ? (
+              <DetailRow label="Interne Hinweise" value={displayText(offer.internalNotes)} />
+            ) : null}
           </dl>
-          <OfferTotalsDisplay totals={totals} />
         </div>
       ) : null}
 
-      {tab === 'workflow' ? (
-        <div role="tabpanel" id="offer-panel-workflow" aria-labelledby="offer-tab-workflow">
+      {tab === 'handoff' ? (
+        <div role="tabpanel" id="offer-panel-handoff" aria-labelledby="offer-tab-handoff">
           <OfferWorkflowSection
             offer={offer}
             onUpdated={loadOffer}
@@ -711,15 +735,8 @@ export function OfferDetailPage() {
         </div>
       ) : null}
 
-      {tab === 'versions' ? (
-        <div role="tabpanel" id="offer-panel-versions" aria-labelledby="offer-tab-versions">
-          <OfferWorkflowSection
-            offer={offer}
-            onUpdated={loadOffer}
-            mode="versions"
-            hideHeaderBadge
-            hideNextActionBanner
-          />
+      {tab === 'documents' ? (
+        <div role="tabpanel" id="offer-panel-documents" aria-labelledby="offer-tab-documents">
           {userContext ? (
             <OfferDocumentsSection
               offer={offer}
@@ -728,6 +745,13 @@ export function OfferDetailPage() {
               showToast={showToast}
             />
           ) : null}
+          <OfferWorkflowSection
+            offer={offer}
+            onUpdated={loadOffer}
+            mode="versions"
+            hideHeaderBadge
+            hideNextActionBanner
+          />
         </div>
       ) : null}
 

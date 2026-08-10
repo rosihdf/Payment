@@ -81,10 +81,10 @@ describe('Aufräumblock 8 – Angebotsdetail UI', () => {
     expect(await screen.findByRole('heading', { name: 'A08 Angebot' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Zum Kunden' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('tab', { name: 'Übersicht' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Positionen & Konditionen' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Freigabe & Versand' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Versionen & Dokumente' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Interne Provision' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Konditionen' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Kundenvorlage' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Dokumente' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Provision' })).toBeInTheDocument();
     expect(screen.getAllByText('Entwurf').length).toBeGreaterThan(0);
     expect(screen.queryByRole('heading', { name: 'Angebotsworkflow' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Abschließen' })).toBeInTheDocument();
@@ -110,7 +110,7 @@ describe('Aufräumblock 8 – Angebotsdetail UI', () => {
       </AppProviders>,
     );
 
-    expect(await screen.findByRole('tab', { name: 'Interne Provision' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Provision' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Go-live/i })).not.toBeInTheDocument();
   });
 });

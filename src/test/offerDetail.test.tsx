@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppProviders } from '../app/providers/AppProviders';
@@ -41,6 +42,7 @@ describe('Offer detail UI', () => {
   });
 
   it('shows offer details with totals', async () => {
+    const user = userEvent.setup();
     setupOfferTestStorage();
     const repository = new LocalOfferRepository();
     const product = getDemoProduct();
@@ -63,12 +65,15 @@ describe('Offer detail UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Detail Test Angebot' })).toBeInTheDocument();
     expect(screen.getAllByText(new RegExp(offer.offerNumber)).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Café Sonnenschein GmbH/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Café Sonnenschein GmbH/).length).toBeGreaterThan(0);
     expect(screen.getByText(/BestPay Mobile A920 Classic/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(product.name))).toBeInTheDocument();
-    expect(screen.getByText('Monatlich gesamt')).toBeInTheDocument();
+    expect(screen.getByText('Monatliche Prognose')).toBeInTheDocument();
     expect(screen.getAllByText('137,85 € / Monat').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('79,95 € einmalig').length).toBeGreaterThan(0);
+    expect(screen.getByText('Einmalige Kosten')).toBeInTheDocument();
+    expect(screen.getByText('79,95 €')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Konditionen' }));
+    expect(await screen.findByText(new RegExp(product.name))).toBeInTheDocument();
   });
 
   it('shows not found for unknown offer id', async () => {

@@ -37,7 +37,7 @@ function renderAtRoute(initialRoute: string, resetData = true, currentUserId = F
 
 async function openDocumentsTab() {
   const user = userEvent.setup();
-  await user.click(await screen.findByRole('tab', { name: 'Versionen & Dokumente' }));
+  await user.click(await screen.findByRole('tab', { name: 'Dokumente' }));
 }
 
 describe('Offer document overview UI', () => {

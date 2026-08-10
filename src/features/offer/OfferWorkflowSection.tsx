@@ -54,15 +54,15 @@ function eventLabel(event: OfferWorkflowEvent): string {
           ? 'Änderungen angefordert'
           : 'Freigabe beantragt';
     case 'dispatch':
-      return 'Versendet';
+      return 'An Kunden übergeben';
     case 'acceptance':
       return 'Angenommen';
     case 'decline':
       return 'Abgelehnt';
     case 'activation':
       return event.status === 'prepared'
-        ? 'Historische Aktivierungsvorbereitung'
-        : 'Historische Angebotsaktivierung';
+        ? 'Aktivierung vorbereitet'
+        : 'Aktiviert';
     case 'counseling_confirmation':
       return 'Beratungsgrundsätze bestätigt';
     case 'follow_up_preferences':
@@ -208,7 +208,7 @@ export function OfferWorkflowSection({
   const showActions = mode === 'actions' || mode === 'full';
   const showVersions = mode === 'versions' || mode === 'full';
   const title =
-    mode === 'actions' ? 'Freigabe & Versand' : mode === 'versions' ? 'Versionen & Verlauf' : 'Angebotsworkflow';
+    mode === 'actions' ? 'Freigabe' : mode === 'versions' ? 'Angebotsversionen' : 'Angebotsworkflow';
 
   const guideContext = useMemo(
     () =>

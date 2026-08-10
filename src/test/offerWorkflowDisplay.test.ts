@@ -20,6 +20,8 @@ describe('offerWorkflowDisplay', () => {
 
   it('uses primary labels that are fachlich verständlich', () => {
     expect(getOfferPrimaryStatusLabel('in_approval')).toBe('In Freigabe');
+    expect(getOfferPrimaryStatusLabel('approved')).toBe('Bereit zur Kundenvorlage');
+    expect(getOfferPrimaryStatusLabel('ready_to_send')).toBe('Bereit zur Kundenvorlage');
     expect(getOfferPrimaryStatusLabel('sent')).toBe('Beim Kunden');
     expect(getOfferPrimaryStatusLabel('cancelled')).toBe('Storniert');
     expect(getOfferPrimaryStatusLabel('declined')).toBe('Abgelehnt');

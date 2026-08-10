@@ -32,7 +32,7 @@ export const OFFER_PHASE_FILTER_LABELS: Record<OfferPhaseFilter, string> = {
   all: 'Alle',
   draft_editing: 'Entwurf / Bearbeitung',
   approval: 'Freigabe',
-  ready_to_send: 'Versandbereit',
+  ready_to_send: 'Bereit zur Kundenvorlage',
   sent: 'Beim Kunden',
   accepted: 'Angenommen',
   completed: 'Abgeschlossen',
@@ -62,8 +62,8 @@ export const OFFER_PRIMARY_STATUS_LABELS: Record<OfferWorkflowStatus, string> = 
   approval_required: 'Freigabe erforderlich',
   in_approval: 'In Freigabe',
   changes_requested: 'Änderung nötig',
-  approved: 'Freigegeben',
-  ready_to_send: 'Versandbereit',
+  approved: 'Bereit zur Kundenvorlage',
+  ready_to_send: 'Bereit zur Kundenvorlage',
   sent: 'Beim Kunden',
   accepted: 'Angenommen',
   declined: 'Abgelehnt',
@@ -113,7 +113,7 @@ const ARCHIVED_STATUSES: OfferWorkflowStatus[] = ['declined', 'expired', 'cancel
 export const OFFER_WORKFLOW_DISPLAY_GROUP_LABELS: Record<OfferWorkflowDisplayGroup, string> = {
   draft: 'Entwurf',
   approval: 'Freigabe',
-  ready_to_send: 'Versandbereit',
+  ready_to_send: 'Bereit zur Kundenvorlage',
   sent: 'Beim Kunden',
   accepted: 'Angenommen',
   completed: 'Abgeschlossen',
@@ -182,7 +182,7 @@ export function getOfferWorkflowPrimaryActionLabel(status: OfferWorkflowStatus):
     case 'approved':
       return 'Status pflegen';
     case 'ready_to_send':
-      return 'An Kunden übergeben';
+      return 'Kundenvorlage öffnen';
     case 'sent':
       return 'Kundenrückmeldung dokumentieren';
     case 'accepted':
