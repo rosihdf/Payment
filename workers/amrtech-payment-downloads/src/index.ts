@@ -104,6 +104,23 @@ const ALLOWED_PATHS = new Set([
   '/android/latest-test.apk',
   '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk',
   '/android/play-protect-test/ppA/AMRtech-Payment-ppA.apk.sha256',
+  '/android/play-protect-test/minimal-payment-installer/AMRtech-Payment-pp-min.apk',
+  '/android/play-protect-test/minimal-payment-installer/AMRtech-Payment-pp-min.apk.sha256',
+  '/android/play-protect-test/payment-package-with-maintenance-cert/AMRtech-Payment-pp-cert.apk',
+  '/android/play-protect-test/payment-package-with-maintenance-cert/AMRtech-Payment-pp-cert.apk.sha256',
+  '/android/play-protect-test/new-package-id/AMRtech-Payment-pp-package.apk',
+  '/android/play-protect-test/new-package-id/AMRtech-Payment-pp-package.apk.sha256',
+  '/android/play-protect-test/installer-permission-source/AMRtech-Payment-installer-test.apk',
+  '/android/play-protect-test/installer-permission-source/AMRtech-Payment-installer-test.apk.sha256',
+  '/android/play-protect-test/installer-permission-target/AMRtech-Payment-target.apk',
+  '/android/play-protect-test/installer-permission-target/AMRtech-Payment-target.apk.sha256',
+  '/android/play-protect-test/installer-permission-flow/latest.json',
+  '/android/play-protect-test/minsdk24/AMRtech-Payment-pp-min24.apk',
+  '/android/play-protect-test/minsdk24/AMRtech-Payment-pp-min24.apk.sha256',
+  '/android/baseline-test/phase5b/AMRtech-Payment-phase5b-no-updater.apk',
+  '/android/baseline-test/phase5b/AMRtech-Payment-phase5b-no-updater.apk.sha256',
+  '/android/updater-test/phase6a/AMRtech-Payment-updater-test.apk',
+  '/android/updater-test/phase6a/AMRtech-Payment-updater-test.apk.sha256',
 ]);
 
 /** Öffentliche Release-Dateien; Capacitor Android nutzt https://localhost als Origin. */

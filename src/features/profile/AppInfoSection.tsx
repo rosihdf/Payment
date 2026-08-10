@@ -1,5 +1,6 @@
 import { getAppBuildInfo } from '../../lib/appBuildInfo';
 import { APP_DISPLAY_NAME } from '../../utils/appInfo';
+import { AndroidApkUpdateSettingsCard } from './AndroidApkUpdateSettingsCard';
 import styles from './ProfilePage.module.css';
 
 export function AppInfoSection() {
@@ -33,6 +34,7 @@ export function AppInfoSection() {
           <dd>{installedLabel}</dd>
         </div>
       </dl>
+      {info.installKind === 'android' ? <AndroidApkUpdateSettingsCard /> : null}
     </section>
   );
 }
