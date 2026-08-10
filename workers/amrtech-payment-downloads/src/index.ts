@@ -121,6 +121,8 @@ const ALLOWED_PATHS = new Set([
   '/android/baseline-test/phase5b/AMRtech-Payment-phase5b-no-updater.apk.sha256',
   '/android/updater-test/phase6a/AMRtech-Payment-updater-test.apk',
   '/android/updater-test/phase6a/AMRtech-Payment-updater-test.apk.sha256',
+  '/android/updater-test/phase6b/AMRtech-Payment-browser-update-test.apk',
+  '/android/updater-test/phase6b/AMRtech-Payment-browser-update-test.apk.sha256',
 ]);
 
 /** Öffentliche Release-Dateien; Capacitor Android nutzt https://localhost als Origin. */

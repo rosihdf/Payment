@@ -1,5 +1,5 @@
 import {
-  shouldOfferAndroidNativeApkInstall,
+  shouldOfferAndroidApkUpdate,
   type AndroidInstalledSnapshot,
   type AndroidLatestManifest,
 } from './androidApkUpdate';
@@ -77,7 +77,7 @@ export const evaluateAndroidApkUpdateBannerVisibility = (
   if (i.manifest == null) {
     return { shouldShow: false, reasonIfHidden: 'manifest_missing' };
   }
-  if (!shouldOfferAndroidNativeApkInstall(i.installed, i.manifest)) {
+  if (!shouldOfferAndroidApkUpdate(i.installed, i.manifest)) {
     return { shouldShow: false, reasonIfHidden: 'no_native_update_offer' };
   }
 

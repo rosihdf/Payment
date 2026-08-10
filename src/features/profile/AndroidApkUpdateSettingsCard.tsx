@@ -7,9 +7,9 @@ import {
   fetchAndroidLatestManifest,
   resolveAndroidUpdateManifestUrl,
   resolveApkDownloadUrl,
-  shouldOfferAndroidNativeApkInstall,
+  shouldOfferAndroidApkUpdate,
 } from '../../lib/androidApkUpdate';
-import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
+import { openAndroidUpdateDownloadExternally } from '../../lib/androidApkUpdateHandoff';
 import {
   ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY,
   ANDROID_APK_SNOOZE_RESET_EVENT,
@@ -47,9 +47,9 @@ export function AndroidApkUpdateSettingsCard() {
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
   const [networkTick, setNetworkTick] = useState(0);
-  const [nativeInstallBusy, setNativeInstallBusy] = useState(false);
-  const [postInstallerNotice, setPostInstallerNotice] = useState<string | null>(null);
-  const [installFlowMessage, setInstallFlowMessage] = useState<string | null>(null);
+  const [handoffBusy, setHandoffBusy] = useState(false);
+  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
+  const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
   const [bannerSnoozeCode, setBannerSnoozeCode] = useState<number | null>(() =>
     typeof window !== 'undefined' ? readSnoozedAndroidApkVersionCode() : null,
   );
@@ -73,20 +73,20 @@ export function AndroidApkUpdateSettingsCard() {
 
   const verdict = manifest ? compareAndroidInstallToManifest(installed, manifest) : null;
 
-  const nativeInstallEligible = useMemo(
-    () => shouldOfferAndroidNativeApkInstall(installed, manifest),
+  const updateEligible = useMemo(
+    () => shouldOfferAndroidApkUpdate(installed, manifest),
     [installed, manifest],
   );
 
   const bannerSnoozeHidesHeadline =
-    nativeInstallEligible &&
+    updateEligible &&
     manifest != null &&
     typeof manifest.versionCode === 'number' &&
     bannerSnoozeCode != null &&
     bannerSnoozeCode === Math.trunc(manifest.versionCode);
 
-  const canOfferNativeInstallPrimary =
-    nativeInstallEligible && online && manifest != null && !loadFailed && hasCheckedOnce && !checking;
+  const canOfferUpdatePrimary =
+    updateEligible && online && manifest != null && !loadFailed && hasCheckedOnce && !checking;
 
   const handleCheckUpdates = useCallback(async () => {
     if (!online) {
@@ -115,43 +115,38 @@ export function AndroidApkUpdateSettingsCard() {
     void handleCheckUpdates();
   }, [handleCheckUpdates]);
 
-  const handleDownloadApkInBrowser = () => {
-    const url = resolveApkDownloadUrl(manifest);
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleNativeInstallUpdateFlow = async () => {
-    if (!canOfferNativeInstallPrimary || manifest == null) {
+  const handleOpenUpdateInBrowser = async () => {
+    if (!canOfferUpdatePrimary || manifest == null) {
       return;
     }
 
-    setPostInstallerNotice(null);
-    setInstallFlowMessage(null);
-    setNativeInstallBusy(true);
+    setHandoffNotice(null);
+    setHandoffMessage(null);
+    setHandoffBusy(true);
 
     try {
-      const res = await runAndroidNativeApkInstallFlow(manifest);
+      const res = await openAndroidUpdateDownloadExternally(manifest);
       if (res.ok) {
-        setPostInstallerNotice(res.notice);
+        setHandoffNotice(res.notice);
       } else {
-        setInstallFlowMessage(res.message);
+        setHandoffMessage(res.message);
       }
     } finally {
-      setNativeInstallBusy(false);
+      setHandoffBusy(false);
     }
   };
 
+  const handleFallbackBrowserOpen = () => {
+    void openAndroidUpdateDownloadExternally(
+      manifest ?? { versionCode: 0, apkUrl: resolveApkDownloadUrl(manifest) },
+    );
+  };
+
   const showNewerBanner = verdict?.kind === 'newer' && !promptDismissed;
-  const newerBannerAllowsNative = nativeInstallEligible;
   const uncertainReason =
     verdict?.kind === 'uncertain' && !promptDismissed ? verdict.reason : null;
   const showCurrentVersionHint =
     hasCheckedOnce && !checking && online && manifest != null && !loadFailed && verdict?.kind === 'current';
-
-  const browserApkFallbackLabel =
-    loadFailed || verdict?.kind === 'uncertain' || verdict?.kind === 'newer' || nativeInstallEligible
-      ? 'APK im Browser herunterladen'
-      : 'Aktuelle APK im Browser herunterladen';
 
   const installedLabel = `${info.version}${
     info.androidGradleVersionCode != null || info.androidGradleVersionName
@@ -159,7 +154,7 @@ export function AndroidApkUpdateSettingsCard() {
       : ''
   }`;
 
-  const nativePrimaryLabel = nativeInstallBusy ? 'Update wird heruntergeladen …' : 'Update installieren';
+  const updatePrimaryLabel = handoffBusy ? 'Wird geöffnet …' : 'Update installieren';
 
   return (
     <div className={styles.updatePrompt} aria-labelledby="android-apk-update-heading">
@@ -167,26 +162,25 @@ export function AndroidApkUpdateSettingsCard() {
         App-Update (Android)
       </h3>
       <p className={styles.updateStatus}>
-        „Update installieren“ lädt die APK intern und öffnet den Paketinstaller — nur wenn die Build-Nummer
-        (versionCode) auf dem Server höher ist als auf diesem Gerät.
+        „Update installieren“ öffnet die versionierte APK im Browser — nur wenn die Build-Nummer (versionCode) auf dem
+        Server höher ist als auf diesem Gerät. Payment selbst installiert nicht.
       </p>
 
-      {postInstallerNotice != null ? (
+      {handoffNotice != null ? (
         <p className={styles.appInfoMessage} role="status">
-          {postInstallerNotice}
+          {handoffNotice}
         </p>
       ) : null}
 
-      {installFlowMessage != null ? (
+      {handoffMessage != null ? (
         <p className={styles.appInfoMessage} role="alert">
-          {installFlowMessage}
+          {handoffMessage}
         </p>
       ) : null}
 
       {bannerSnoozeHidesHeadline ? (
         <p className={styles.appInfoMessage} role="status">
-          Der Hinweis unter der Kopfzeile ist für diese Build-Nummer ausgeblendet. Hier kannst du trotzdem
-          installieren.
+          Der Hinweis unter der Kopfzeile ist für diese Build-Nummer ausgeblendet. Hier kannst du trotzdem updaten.
         </p>
       ) : null}
 
@@ -212,7 +206,7 @@ export function AndroidApkUpdateSettingsCard() {
               {!online
                 ? 'Offline — keine Versionsprüfung'
                 : loadFailed
-                  ? 'Manifest nicht geladen — Browser-Fallback möglich'
+                  ? 'Manifest nicht geladen'
                   : formatServerVersionHint(manifest)}
             </dd>
           </div>
@@ -223,38 +217,38 @@ export function AndroidApkUpdateSettingsCard() {
         <div className={styles.updatePrompt} role="status">
           <p className={styles.updatePromptTitle}>App-Update verfügbar</p>
           <p className={styles.updateStatus}>
-            {newerBannerAllowsNative
-              ? 'Neue Version gefunden — mit „Update installieren“ lädt die App die APK intern und öffnet den Paketinstaller.'
-              : 'Die Versionsbezeichnung wirkt neuer, aber die Build-Nummer ist hier nicht höher — primärer Installer ist deshalb nicht aktiv.'}
+            {updateEligible
+              ? 'Neue Version gefunden — mit „Update installieren“ öffnest du den Download im Browser.'
+              : 'Die Versionsbezeichnung wirkt neuer, aber die Build-Nummer ist hier nicht höher.'}
           </p>
           {manifest?.releaseNotes ? (
             <p className={styles.updateStatus}>{manifest.releaseNotes}</p>
           ) : null}
           <div className={styles.appInfoActions}>
-            {newerBannerAllowsNative ? (
+            {updateEligible ? (
               <button
                 type="button"
                 className={styles.adminLink}
-                onClick={() => void handleNativeInstallUpdateFlow()}
-                disabled={nativeInstallBusy || !online || !canOfferNativeInstallPrimary}
-                aria-busy={nativeInstallBusy ? 'true' : 'false'}
+                onClick={() => void handleOpenUpdateInBrowser()}
+                disabled={handoffBusy || !online || !canOfferUpdatePrimary}
+                aria-busy={handoffBusy ? 'true' : 'false'}
               >
-                {nativePrimaryLabel}
+                {updatePrimaryLabel}
               </button>
             ) : null}
             <button
               type="button"
               className={styles.adminLink}
-              onClick={handleDownloadApkInBrowser}
-              disabled={nativeInstallBusy}
+              onClick={() => void handleFallbackBrowserOpen()}
+              disabled={handoffBusy}
             >
-              {browserApkFallbackLabel}
+              APK im Browser öffnen
             </button>
             <button
               type="button"
               className={styles.adminLink}
               onClick={() => setPromptDismissed(true)}
-              disabled={nativeInstallBusy}
+              disabled={handoffBusy}
             >
               Später
             </button>
@@ -267,8 +261,8 @@ export function AndroidApkUpdateSettingsCard() {
           <p className={styles.updatePromptTitle}>Update prüfen</p>
           <p className={styles.updateStatus}>{uncertainReason}</p>
           <div className={styles.appInfoActions}>
-            <button type="button" className={styles.adminLink} onClick={handleDownloadApkInBrowser}>
-              {browserApkFallbackLabel}
+            <button type="button" className={styles.adminLink} onClick={() => void handleFallbackBrowserOpen()}>
+              APK im Browser öffnen
             </button>
             <button type="button" className={styles.adminLink} onClick={() => setPromptDismissed(true)}>
               Später
@@ -280,25 +274,22 @@ export function AndroidApkUpdateSettingsCard() {
       <div className={styles.appInfoActions}>
         <button
           type="button"
-          disabled={checking || !online || nativeInstallBusy}
+          disabled={checking || !online || handoffBusy}
           className={styles.adminLink}
           onClick={() => void handleCheckUpdates()}
         >
           {checking ? 'Suche…' : 'Nach Update suchen'}
         </button>
-        {canOfferNativeInstallPrimary ? (
+        {canOfferUpdatePrimary ? (
           <button
             type="button"
-            disabled={!online || checking || nativeInstallBusy}
+            disabled={!online || checking || handoffBusy}
             className={styles.adminLink}
-            onClick={() => void handleNativeInstallUpdateFlow()}
+            onClick={() => void handleOpenUpdateInBrowser()}
           >
-            {nativePrimaryLabel}
+            {updatePrimaryLabel}
           </button>
         ) : null}
-        <button type="button" disabled={nativeInstallBusy} className={styles.adminLink} onClick={handleDownloadApkInBrowser}>
-          {browserApkFallbackLabel}
-        </button>
       </div>
 
       {import.meta.env.DEV ? (
@@ -324,12 +315,12 @@ export function AndroidApkUpdateSettingsCard() {
         Fallback: <span className={styles.mono}>{ANDROID_FALLBACK_APK_URL}</span>
       </p>
       <p className={styles.updateStatus}>
-        Falls Android „Installation aus unbekannten Quellen“ blockiert, erlaube die Installation für diese App in den
-        Android-Einstellungen und tippe danach erneut auf „Update installieren“.
+        Falls Android die Installation blockiert, muss die Installation aus dem verwendeten Browser einmalig erlaubt
+        werden.
       </p>
       {!online ? (
         <p className={styles.appInfoMessage} role="status">
-          Offline: keine interne Aktualisierung.
+          Offline: keine Versionsprüfung möglich.
         </p>
       ) : null}
     </div>
