@@ -219,12 +219,32 @@ export class SalesWorkspaceService {
     return session.createdByUserId === context.userId;
   }
 
-  private async approvalRequiredForOffer(offer: Offer): Promise<boolean> {
-    const evaluations = await this.pricingEvaluationRepository.getByOfferId(offer.id);
-    return evaluations.some(
-      (entry) =>
-        entry.result.approval.adminReviewRequired || entry.result.approval.approvalBlocked,
-    );
+  private async buildDraftApprovalFlags(offers: Offer[]): Promise<Map<string, boolean>> {
+    const draftOffers = offers.filter((offer) => offer.workflowStatus === 'draft');
+    if (draftOffers.length === 0) {
+      return new Map();
+    }
+
+    const evaluations = await this.pricingEvaluationRepository.getAll();
+    const evaluationsByOfferId = new Map<string, typeof evaluations>();
+    for (const entry of evaluations) {
+      const list = evaluationsByOfferId.get(entry.offerId) ?? [];
+      list.push(entry);
+      evaluationsByOfferId.set(entry.offerId, list);
+    }
+
+    const flags = new Map<string, boolean>();
+    for (const offer of draftOffers) {
+      const offerEvaluations = evaluationsByOfferId.get(offer.id) ?? [];
+      flags.set(
+        offer.id,
+        offerEvaluations.some(
+          (entry) =>
+            entry.result.approval.adminReviewRequired || entry.result.approval.approvalBlocked,
+        ),
+      );
+    }
+    return flags;
   }
 
   private approvalRequiredForSession(session: BestPayComparisonSession): boolean {
@@ -351,14 +371,7 @@ export class SalesWorkspaceService {
     const visibleLeadIds = new Set(leads.map((lead) => lead.id));
     const offers = allOffers.filter((offer) => this.isOfferVisible(offer, context, visibleLeadIds));
 
-    const draftApprovalFlags = new Map<string, boolean>();
-    await Promise.all(
-      offers
-        .filter((offer) => offer.workflowStatus === 'draft')
-        .map(async (offer) => {
-          draftApprovalFlags.set(offer.id, await this.approvalRequiredForOffer(offer));
-        }),
-    );
+    const draftApprovalFlags = await this.buildDraftApprovalFlags(offers);
 
     const sessions = allSessions.filter((session) =>
       this.isSessionVisible(session, context, visibleLeadIds),

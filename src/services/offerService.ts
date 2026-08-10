@@ -12,6 +12,12 @@ import type {
   OfferItem,
   OfferItemPriceType,
 } from '../domain/offer/offer';
+import {
+  offerListItemSearchHaystack,
+  sortOfferListItems,
+  type OfferListItem,
+  type OfferListQuery,
+} from '../domain/offer/offerListItem';
 import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../domain/recommendation/recommendationRecord';
 import type { OfferRecommendationLink } from '../domain/recommendation/recommendationRecord';
 import type { OfferCommercialSnapshot } from '../domain/offer/offerCommercialSnapshot';
@@ -130,6 +136,27 @@ function canUserAccessOffer(
   return offer.createdByUserId === context.userId;
 }
 
+function canUserAccessOfferListItem(
+  item: OfferListItem,
+  context: OfferUserContext,
+  leadById?: Map<string, Lead>,
+): boolean {
+  if (context.role === 'admin') {
+    return true;
+  }
+
+  const leadId = item.leadId?.trim() ?? '';
+  if (leadId) {
+    const lead = leadById?.get(leadId);
+    if (lead) {
+      return canAccessAssignedLead(lead, context);
+    }
+    return false;
+  }
+
+  return item.createdByUserId === context.userId;
+}
+
 function resolveCatalogPrice(
   product: Product,
   priceType: OfferItemPriceType,
@@ -219,6 +246,7 @@ export class OfferService {
   private workflowService: OfferWorkflowService | null = null;
   private activityService: SalesActivityService | null = null;
   private draftDeletionRepositories: OfferDraftDeletionRepositories | null = null;
+  private offerListCache: { key: string; items: OfferListItem[] } | null = null;
 
   constructor(
     offerRepository: OfferRepository,
@@ -252,20 +280,52 @@ export class OfferService {
     return isEditableWorkflowStatus(offer.workflowStatus) && canUserAccessOffer(offer, context, leadById);
   }
 
+  private invalidateOfferListCache(): void {
+    this.offerListCache = null;
+  }
+
   private async loadLeadAccessMap(): Promise<Map<string, Lead>> {
     const leads = await this.leadRepository.getAll();
     return new Map(leads.map((lead) => [lead.id, lead]));
   }
 
   private async canAccessOfferRecord(offer: Offer, context: OfferUserContext): Promise<boolean> {
-    const leadById = await this.loadLeadAccessMap();
-    return canUserAccessOffer(offer, context, leadById);
+    if (context.role === 'admin') {
+      return true;
+    }
+    const leadId = offer.leadId?.trim() ?? '';
+    if (leadId) {
+      const lead = await this.leadRepository.getById(leadId);
+      return lead ? canUserAccessLead(lead, context) : false;
+    }
+    return offer.createdByUserId === context.userId;
+  }
+
+  async getOfferListItems(
+    context: OfferUserContext,
+    query: OfferListQuery = {},
+  ): Promise<OfferListItem[]> {
+    const cacheKey = `${context.userId}:${context.role}:${query.leadId ?? 'all'}`;
+    if (!query.leadId && !query.limit && !query.offset && this.offerListCache?.key === cacheKey) {
+      return this.offerListCache.items;
+    }
+
+    const [items, leadById] = await Promise.all([
+      this.offerRepository.listItems(query),
+      context.role === 'admin' ? Promise.resolve(new Map<string, Lead>()) : this.loadLeadAccessMap(),
+    ]);
+    const visible = items.filter((item) => canUserAccessOfferListItem(item, context, leadById));
+    const sorted = sortOfferListItems(visible);
+    if (!query.leadId && !query.limit && !query.offset) {
+      this.offerListCache = { key: cacheKey, items: sorted };
+    }
+    return sorted;
   }
 
   async getOffers(context: OfferUserContext): Promise<Offer[]> {
     const [offers, leadById] = await Promise.all([
       this.offerRepository.getAll(),
-      this.loadLeadAccessMap(),
+      context.role === 'admin' ? Promise.resolve(new Map<string, Lead>()) : this.loadLeadAccessMap(),
     ]);
     const visible = offers.filter((offer) => canUserAccessOffer(offer, context, leadById));
     return sortOffers(visible);
@@ -289,8 +349,46 @@ export class OfferService {
       return [];
     }
 
-    const offers = await this.getOffers(context);
-    return offers.filter((offer) => offer.leadId === leadId);
+    const leadById = new Map([[lead.id, lead]]);
+    const offers = await this.offerRepository.getByLeadId(leadId);
+    return sortOffers(
+      offers.filter((offer) => canUserAccessOffer(offer, context, leadById)),
+    );
+  }
+
+  filterOfferListItems(
+    items: OfferListItem[],
+    filters: OfferFilters,
+    context: OfferUserContext,
+  ): OfferListItem[] {
+    const normalizedSearch = filters.search.trim().toLowerCase();
+    const phase = filters.phase ?? 'all';
+
+    return items.filter((item) => {
+      if (phase !== 'all' && !matchesOfferPhaseFilter(item.workflowStatus, phase)) {
+        return false;
+      }
+      if (filters.status && filters.status !== 'all' && item.status !== filters.status) {
+        return false;
+      }
+      if (
+        filters.workflowStatus &&
+        filters.workflowStatus !== 'all' &&
+        item.workflowStatus !== filters.workflowStatus
+      ) {
+        return false;
+      }
+
+      if (context.role === 'admin' && filters.owner === 'mine' && item.createdByUserId !== context.userId) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      return offerListItemSearchHaystack(item).includes(normalizedSearch);
+    });
   }
 
   filterOffers(offers: Offer[], filters: OfferFilters, context: OfferUserContext): Offer[] {
@@ -556,6 +654,7 @@ export class OfferService {
         },
         context,
       );
+      this.invalidateOfferListCache();
       return { ok: true, offer: withVersion };
     } catch {
       return { ok: false, error: 'storage' };
@@ -638,6 +737,7 @@ export class OfferService {
         },
         context,
       );
+      this.invalidateOfferListCache();
       return { ok: true, offer: saved };
     } catch (error) {
       if (error instanceof OfferNotFoundError) {
@@ -720,6 +820,7 @@ export class OfferService {
 
     try {
       const saved = await this.offerRepository.update(completed);
+      this.invalidateOfferListCache();
       return { ok: true, offer: saved };
     } catch {
       return { ok: false, error: 'storage' };
@@ -747,9 +848,13 @@ export class OfferService {
     if (this.workflowService) {
       const result = await this.workflowService.cancelWorkflow(id, context);
       if (result.ok && reason.trim()) {
+        this.invalidateOfferListCache();
         return { ok: true, offer: await this.offerRepository.update({ ...result.offer, cancellationReason: reason.trim() }) };
       }
-      if (result.ok) return result;
+      if (result.ok) {
+        this.invalidateOfferListCache();
+        return result;
+      }
       return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
     }
 
@@ -766,6 +871,7 @@ export class OfferService {
 
     try {
       const saved = await this.offerRepository.update(cancelled);
+      this.invalidateOfferListCache();
       return { ok: true, offer: saved };
     } catch {
       return { ok: false, error: 'storage' };
@@ -824,6 +930,7 @@ export class OfferService {
 
     try {
       const saved = await this.offerRepository.create(duplicate);
+      this.invalidateOfferListCache();
       return { ok: true, offer: this.workflowService ? await this.workflowService.ensureInitialVersion(saved) : saved };
     } catch {
       return { ok: false, error: 'storage' };
@@ -891,6 +998,7 @@ export class OfferService {
         purgeLocalOfferDraftArtifacts(id);
       }
       await this.offerRepository.delete(id);
+      this.invalidateOfferListCache();
       await this.activityService?.recordSystemActivity(
         {
           type: 'offer_deleted',

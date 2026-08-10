@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { canCancelOfferWorkflow } from '../../domain/offer/offerDraftDeletion';
-import { getLeadDisplayName } from '../../domain/lead/getLeadDisplayName';
-import type { Offer, OfferFilters } from '../../domain/offer/offer';
+import type { OfferFilters } from '../../domain/offer/offer';
+import type { OfferListItem } from '../../domain/offer/offerListItem';
 import {
   getOfferPrimaryStatusBadgeVariant,
   getOfferPrimaryStatusLabel,
@@ -32,12 +32,12 @@ const OWNER_FILTER_OPTIONS: Array<{ value: OfferFilters['owner']; label: string 
 type DialogMode = 'cancel' | 'delete' | null;
 
 interface OfferCardActionsProps {
-  offer: Offer;
+  offer: OfferListItem;
   isAdmin: boolean;
   isActionRunning: boolean;
-  onCancel: (offer: Offer) => void;
-  onDelete: (offer: Offer) => void;
-  onOpenPdf: (offer: Offer) => void;
+  onCancel: (offer: OfferListItem) => void;
+  onDelete: (offer: OfferListItem) => void;
+  onOpenPdf: (offer: OfferListItem) => void;
 }
 
 function OfferCardActions({
@@ -66,10 +66,7 @@ function OfferCardActions({
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [menuOpen]);
 
-  const contactName = formatContactName(
-    offer.customerSnapshot.contactFirstName,
-    offer.customerSnapshot.contactLastName,
-  );
+  const contactName = formatContactName(offer.contactFirstName, offer.contactLastName);
   const showPdf = offer.status !== 'cancelled' && offer.workflowStatus !== 'cancelled';
   const showCancel = canCancelOfferWorkflow(offer.workflowStatus) && offer.status !== 'cancelled';
   const showDelete = isAdmin && offer.workflowStatus === 'draft';
@@ -164,11 +161,11 @@ export function OffersPage() {
   const { currentUser } = useCurrentUser();
   const { offerService, offerDocumentService } = useServices();
   const { showToast } = useToast();
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offers, setOffers] = useState<OfferListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionRunning, setIsActionRunning] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
-  const [activeOffer, setActiveOffer] = useState<Offer | null>(null);
+  const [activeOffer, setActiveOffer] = useState<OfferListItem | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
   const [cancellationError, setCancellationError] = useState<string | undefined>();
   const [filters, setFilters] = useState<OfferFilters>({
@@ -182,7 +179,7 @@ export function OffersPage() {
       return;
     }
 
-    const result = await offerService.getOffers({
+    const result = await offerService.getOfferListItems({
       userId: currentUser.id,
       role: currentUser.role,
       displayName: currentUser.name,
@@ -201,7 +198,7 @@ export function OffersPage() {
       return [];
     }
 
-    return offerService.filterOffers(offers, filters, {
+    return offerService.filterOfferListItems(offers, filters, {
       userId: currentUser.id,
       role: currentUser.role,
       displayName: currentUser.name,
@@ -220,14 +217,14 @@ export function OffersPage() {
     [currentUser],
   );
 
-  const handleCancelRequest = (offer: Offer) => {
+  const handleCancelRequest = (offer: OfferListItem) => {
     setActiveOffer(offer);
     setCancellationReason('');
     setCancellationError(undefined);
     setDialogMode('cancel');
   };
 
-  const handleDeleteRequest = (offer: Offer) => {
+  const handleDeleteRequest = (offer: OfferListItem) => {
     setActiveOffer(offer);
     setDialogMode('delete');
   };
@@ -287,7 +284,7 @@ export function OffersPage() {
     })();
   };
 
-  const handleOpenPdf = (offer: Offer) => {
+  const handleOpenPdf = (offer: OfferListItem) => {
     if (!userContext) {
       return;
     }
@@ -389,10 +386,7 @@ export function OffersPage() {
           getKey={(offer) => offer.id}
           aria-label="Angebotsliste"
           renderItem={(offer) => {
-            const contactName = formatContactName(
-              offer.customerSnapshot.contactFirstName,
-              offer.customerSnapshot.contactLastName,
-            );
+            const contactName = formatContactName(offer.contactFirstName, offer.contactLastName);
 
             return (
               <DataListCard
@@ -411,12 +405,12 @@ export function OffersPage() {
                 }
                 meta={
                   <>
-                    <span>{getLeadDisplayName(offer.customerSnapshot)}</span>
+                    <span>{offer.companyName}</span>
                     {contactName ? <span>{contactName}</span> : null}
-                    {offer.tariffSnapshot ? <span>Tarif: {offer.tariffSnapshot.name}</span> : null}
+                    {offer.tariffName ? <span>Tarif: {offer.tariffName}</span> : null}
                     <span>
                       Laufzeit:{' '}
-                      {formatOptionalMonths(offer.tariffSnapshot?.contractDurationMonths ?? null)}
+                      {formatOptionalMonths(offer.contractTermMonths)}
                     </span>
                     <span>Aktualisiert: {formatDate(offer.updatedAt)}</span>
                   </>

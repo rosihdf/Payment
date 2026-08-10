@@ -1,4 +1,9 @@
 import type { Offer } from '../../domain/offer/offer';
+import {
+  toOfferListItem,
+  type OfferListItem,
+  type OfferListQuery,
+} from '../../domain/offer/offerListItem';
 import { normalizeOffer, normalizeOffers } from '../../domain/offer/normalizeOffer';
 import { OfferConflictError } from '../errors/OfferConflictError';
 import { OfferNotFoundError } from '../errors/OfferNotFoundError';
@@ -9,11 +14,14 @@ import {
   sbInsert,
   sbSelectAll,
   sbSelectById,
+  sbSelectWhere,
   sbUpdate,
   type JsonTableRow,
 } from './supabaseTable';
 
 const TABLE = 'offers';
+const LIST_COLUMNS =
+  'id, lead_id, offer_number, created_by_user_id, created_at, updated_at, data';
 
 function offerToRow(offer: Offer): Record<string, unknown> {
   const normalized = normalizeOffer(offer);
@@ -41,9 +49,37 @@ function rowToOffer(row: JsonTableRow): Offer {
   );
 }
 
+async function sbSelectOfferRows(leadId?: string): Promise<JsonTableRow[]> {
+  if (leadId) {
+    return sbSelectWhere(TABLE, 'lead_id', leadId, LIST_COLUMNS);
+  }
+  const client = (await import('../../lib/supabaseClient')).getSupabaseClient();
+  const { data, error } = await client.from(TABLE).select(LIST_COLUMNS);
+  if (error) {
+    throw new Error(`${TABLE} laden fehlgeschlagen: ${error.message}`);
+  }
+  return (data ?? []) as JsonTableRow[];
+}
+
 export class SupabaseOfferRepository implements OfferRepository {
   async getAll(): Promise<Offer[]> {
     const rows = await sbSelectAll(TABLE);
+    return normalizeOffers(rows.map((row) => rowToOffer(row)));
+  }
+
+  async listItems(query: OfferListQuery = {}): Promise<OfferListItem[]> {
+    let rows = await sbSelectOfferRows(query.leadId);
+    if (query.offset) {
+      rows = rows.slice(query.offset);
+    }
+    if (query.limit) {
+      rows = rows.slice(0, query.limit);
+    }
+    return rows.map((row) => toOfferListItem(rowToOffer(row)));
+  }
+
+  async getByLeadId(leadId: string): Promise<Offer[]> {
+    const rows = await sbSelectOfferRows(leadId);
     return normalizeOffers(rows.map((row) => rowToOffer(row)));
   }
 
@@ -59,8 +95,8 @@ export class SupabaseOfferRepository implements OfferRepository {
       throw new OfferConflictError('duplicate_id', `Offer with id ${normalizedOffer.id} already exists`);
     }
 
-    const all = await this.getAll();
-    if (all.some((item) => item.offerNumber === normalizedOffer.offerNumber)) {
+    const duplicates = await sbSelectWhere(TABLE, 'offer_number', normalizedOffer.offerNumber, 'id');
+    if (duplicates.length > 0) {
       throw new OfferConflictError(
         'duplicate_offer_number',
         `Offer number ${normalizedOffer.offerNumber} already exists`,
@@ -78,12 +114,8 @@ export class SupabaseOfferRepository implements OfferRepository {
     }
 
     const normalizedOffer = normalizeOffer(offer);
-    const all = await this.getAll();
-    if (
-      all.some(
-        (item) => item.id !== normalizedOffer.id && item.offerNumber === normalizedOffer.offerNumber,
-      )
-    ) {
+    const duplicates = await sbSelectWhere(TABLE, 'offer_number', normalizedOffer.offerNumber, 'id');
+    if (duplicates.some((row) => row.id !== normalizedOffer.id)) {
       throw new OfferConflictError(
         'duplicate_offer_number',
         `Offer number ${normalizedOffer.offerNumber} already exists`,

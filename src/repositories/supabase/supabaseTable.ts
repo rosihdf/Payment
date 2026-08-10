@@ -30,13 +30,14 @@ export async function sbSelectWhere(
   table: string,
   column: string,
   value: string,
+  columns = '*',
 ): Promise<JsonTableRow[]> {
   const client = getSupabaseClient();
-  const { data, error } = await client.from(table).select('*').eq(column, value);
+  const { data, error } = await client.from(table).select(columns).eq(column, value);
   if (error) {
     throw new Error(`${table} laden fehlgeschlagen: ${error.message}`);
   }
-  return (data ?? []) as JsonTableRow[];
+  return (data ?? []) as unknown as JsonTableRow[];
 }
 
 export async function sbSelectWhereIn(

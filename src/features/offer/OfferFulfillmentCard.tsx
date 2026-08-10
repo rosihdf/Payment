@@ -18,14 +18,15 @@ import styles from './OfferFulfillmentCard.module.css';
 
 interface OfferFulfillmentCardProps {
   offer: Offer;
+  contract?: Contract | null;
   onUpdated?: () => Promise<void>;
 }
 
-export function OfferFulfillmentCard({ offer, onUpdated }: OfferFulfillmentCardProps) {
+export function OfferFulfillmentCard({ offer, contract: contractProp, onUpdated }: OfferFulfillmentCardProps) {
   const { currentUser } = useCurrentUser();
   const { contractService, activationService, offerWorkflowService } = useServices();
   const { showToast } = useToast();
-  const [contract, setContract] = useState<Contract | null>(null);
+  const [contract, setContract] = useState<Contract | null>(contractProp ?? null);
   const [activation, setActivation] = useState<ActivationCase | null>(null);
   const [historicalActivations, setHistoricalActivations] = useState<OfferWorkflowEvent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -47,7 +48,10 @@ export function OfferFulfillmentCard({ offer, onUpdated }: OfferFulfillmentCardP
     if (!context) {
       return;
     }
-    const linked = await contractService.getByOfferId(offer.id, context);
+    const linked =
+      contractProp !== undefined
+        ? contractProp
+        : await contractService.getByOfferId(offer.id, context);
     setContract(linked);
     if (linked) {
       setActivation(await activationService.getByContractId(linked.id, context));
@@ -56,7 +60,13 @@ export function OfferFulfillmentCard({ offer, onUpdated }: OfferFulfillmentCardP
     }
     const summary = await offerWorkflowService.getWorkflowSummary(offer.id);
     setHistoricalActivations(summary.events.filter((event) => event.type === 'activation'));
-  }, [activationService, context, contractService, offer.id, offerWorkflowService]);
+  }, [activationService, context, contractProp, contractService, offer.id, offerWorkflowService]);
+
+  useEffect(() => {
+    if (contractProp !== undefined) {
+      setContract(contractProp);
+    }
+  }, [contractProp]);
 
   useEffect(() => {
     void reload();

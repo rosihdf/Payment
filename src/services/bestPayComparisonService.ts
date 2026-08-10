@@ -18,6 +18,7 @@ import {
   type BestPayComparisonSummary,
 } from '../domain/bestPayComparison/bestPayComparisonSummary';
 import type { CustomerCostBaseline } from '../domain/billingImport/customerCostBaseline';
+import { isActiveAdviceDraft } from '../domain/bestPayComparison/isActiveAdviceDraft';
 import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
 import type { User } from '../domain/user/user';
 import { nowIso } from '../utils/id';
@@ -234,6 +235,19 @@ export class BestPayComparisonService {
     };
     const sessions = (await this.readSessions()).filter((session) => this.canAccess(session, context));
     return filterAndSortBestPayComparisons(sessions, merged);
+  }
+
+  /** Ein Lesevorgang – keine N× getSession für die Beratungsübersicht. */
+  async listActiveAdviceDrafts(
+    context: BestPayComparisonUserContext,
+  ): Promise<BestPayComparisonSession[]> {
+    if (!this.canAccessCalculator(context)) {
+      return [];
+    }
+    const sessions = (await this.readSessions()).filter(
+      (session) => this.canAccess(session, context) && isActiveAdviceDraft(session),
+    );
+    return sessions.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
 
   async getComparisonSummary(

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '../../components/feedback/EmptyState';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { BestPayComparisonSession } from '../../domain/bestPayComparison/bestPayComparisonSession';
-import { isActiveAdviceDraft } from '../../domain/bestPayComparison/isActiveAdviceDraft';
 import { isEmptyAdviceSession } from '../../domain/bestPayComparison/isEmptyAdviceSession';
 import { getVisibleWizardStep } from '../../domain/bestPayComparison/salesWizard';
 import { getSessionCustomerDisplayName } from '../../domain/lead/getLeadDisplayName';
@@ -41,19 +40,8 @@ export function AdviceHubPage() {
       role: currentUser.role,
       displayName: currentUser.name,
     };
-    const summaries = await bestPayComparisonService.listComparisons(userContext, {
-      status: 'all',
-      includeArchived: false,
-    });
-    const sessions = (
-      await Promise.all(
-        (summaries ?? []).map((summary) =>
-          bestPayComparisonService.getSession(summary.id, userContext),
-        ),
-      )
-    )
-      .filter((session): session is BestPayComparisonSession => Boolean(session))
-      .filter(isActiveAdviceDraft)
+    const sessions = await bestPayComparisonService.listActiveAdviceDrafts(userContext);
+    const openSessions = sessions
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
       .reduce<BestPayComparisonSession[]>((acc, session) => {
         if (!session.leadId) {
@@ -67,7 +55,7 @@ export function AdviceHubPage() {
         return acc;
       }, []);
 
-    setOpenSessions(sessions.slice(0, 12));
+    setOpenSessions(openSessions.slice(0, 12));
     setIsLoading(false);
   }, [bestPayComparisonService, currentUser]);
 

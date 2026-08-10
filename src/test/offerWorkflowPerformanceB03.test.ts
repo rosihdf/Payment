@@ -5,7 +5,9 @@ import type { OfferVersion } from '../domain/offer/offerVersion';
 import type { OfferWorkflowEvent } from '../domain/offer/offerWorkflowEvents';
 import { deriveSalesPipelinePhase } from '../domain/salesWorkspace/salesPipeline';
 import type { SalesDocument } from '../domain/salesDocument/salesDocument';
+import type { OfferListQuery } from '../domain/offer/offerListItem';
 import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
+import { LocalPricingEvaluationRepository } from '../repositories/local/LocalPricingEvaluationRepository';
 import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
 import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
 import { LocalSalesActivityRepository } from '../repositories/local/LocalSalesActivityRepository';
@@ -24,6 +26,84 @@ import {
   FIELD_SERVICE_CONTEXT,
   resetOfferTestSequence,
 } from './helpers/offerTestHelpers';
+
+class CountingOfferRepository extends LocalOfferRepository {
+  getAllCalls = 0;
+  listItemsCalls = 0;
+  getByLeadIdCalls = 0;
+
+  override async getAll() {
+    this.getAllCalls += 1;
+    return super.getAll();
+  }
+
+  override async listItems(query?: OfferListQuery) {
+    this.listItemsCalls += 1;
+    return super.listItems(query);
+  }
+
+  override async getByLeadId(leadId: string) {
+    this.getByLeadIdCalls += 1;
+    return super.getByLeadId(leadId);
+  }
+}
+
+class CountingLeadRepository extends LocalLeadRepository {
+  getAllCalls = 0;
+  getByIdCalls = 0;
+
+  override async getAll() {
+    this.getAllCalls += 1;
+    return super.getAll();
+  }
+
+  override async getById(id: string) {
+    this.getByIdCalls += 1;
+    return super.getById(id);
+  }
+}
+
+class CountingPricingEvaluationRepository extends LocalPricingEvaluationRepository {
+  getAllCalls = 0;
+  getByOfferIdCalls = 0;
+
+  override async getAll() {
+    this.getAllCalls += 1;
+    return super.getAll();
+  }
+
+  override async getByOfferId(offerId: string) {
+    this.getByOfferIdCalls += 1;
+    return super.getByOfferId(offerId);
+  }
+}
+
+function seedDraftPricingEvaluations(offers: Offer[]): void {
+  const records = offers
+    .filter((offer) => offer.workflowStatus === 'draft')
+    .slice(0, 50)
+    .map((offer, index) => ({
+      id: `perf_pricing_${index}`,
+      offerId: offer.id,
+      status: 'submitted',
+      inputFingerprint: `fp_${offer.id}`,
+      result: {
+        evaluationId: `eval_${offer.id}`,
+        evaluatedAt: '2026-01-15T10:00:00.000Z',
+        engineVersion: 'test',
+        inputFingerprint: `fp_${offer.id}`,
+        approval: {
+          adminReviewRequired: true,
+          approvalBlocked: false,
+        },
+        stale: false,
+      },
+      createdByUserId: offer.createdByUserId,
+      createdAt: '2026-01-15T10:00:00.000Z',
+      updatedAt: '2026-01-15T10:00:00.000Z',
+    }));
+  writeStorageItem(STORAGE_KEYS.pricingEvaluations, records);
+}
 
 const OFFER_COUNT = 500;
 const VERSIONS_PER_OFFER = 4;
@@ -270,4 +350,72 @@ describe('B03 Angebotsworkflow Performance', () => {
     },
     60_000,
   );
+
+  it('P1: Angebotsliste nutzt listItems statt getAll und ohne N× Lead-Lookups', async () => {
+    const offerRepository = new CountingOfferRepository();
+    const leadRepository = new CountingLeadRepository();
+    const offerService = new OfferService(
+      offerRepository,
+      leadRepository,
+      new LocalTariffRepository(),
+      new LocalProductRepository(),
+    );
+
+    const items = await offerService.getOfferListItems(FIELD_SERVICE_CONTEXT);
+    expect(items.length).toBeGreaterThan(0);
+    expect(offerRepository.listItemsCalls).toBe(1);
+    expect(offerRepository.getAllCalls).toBe(0);
+    expect(leadRepository.getAllCalls).toBe(1);
+    expect(leadRepository.getByIdCalls).toBe(0);
+  });
+
+  it('P2: getOffersForLead lädt nur Angebote des Leads', async () => {
+    const offerRepository = new CountingOfferRepository();
+    const leadRepository = new CountingLeadRepository();
+    const offerService = new OfferService(
+      offerRepository,
+      leadRepository,
+      new LocalTariffRepository(),
+      new LocalProductRepository(),
+    );
+    const leadId = getDemoLeads()[0]!.id;
+
+    const offers = await offerService.getOffersForLead(leadId, FIELD_SERVICE_CONTEXT);
+    expect(offers.length).toBeGreaterThan(0);
+    expect(offerRepository.getByLeadIdCalls).toBe(1);
+    expect(offerRepository.getAllCalls).toBe(0);
+    expect(leadRepository.getByIdCalls).toBe(1);
+  });
+
+  it('P3: Workspace prüft Draft-Freigaben per Batch statt N× getByOfferId', async () => {
+    const { offers } = seedPerformanceDataset();
+    seedDraftPricingEvaluations(offers);
+    const offerRepository = new LocalOfferRepository();
+    const pricingEvaluationRepository = new CountingPricingEvaluationRepository();
+    const taskService = new SalesTaskService(new LocalSalesTaskRepository());
+    const activityService = new SalesActivityService(new LocalSalesActivityRepository());
+    taskService.setActivityService(activityService);
+    const repos = createTestRepositories();
+    const workspace = new SalesWorkspaceService(
+      repos.leadRepository,
+      offerRepository,
+      repos.salesTaskRepository,
+      repos.salesActivityRepository,
+      taskService,
+      activityService,
+      repos.bestPayComparisonRepository,
+      repos.commissionCalculationRepository,
+      pricingEvaluationRepository,
+      repos.contractRepository,
+      repos.activationCaseRepository,
+      repos.activationBlockerRepository,
+      repos.offerCustomerQuestionRepository,
+      repos.offerChangeRequestRepository,
+    );
+
+    await workspace.getWorkspaceView(FIELD_SERVICE_CONTEXT, { scope: 'mine' });
+
+    expect(pricingEvaluationRepository.getAllCalls).toBe(1);
+    expect(pricingEvaluationRepository.getByOfferIdCalls).toBe(0);
+  });
 });

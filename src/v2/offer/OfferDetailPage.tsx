@@ -472,7 +472,7 @@ export function OfferDetailPage() {
           {['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'].includes(
             offer.workflowStatus,
           ) ? (
-            <OfferFulfillmentCard offer={offer} onUpdated={loadOffer} />
+            <OfferFulfillmentCard offer={offer} contract={linkedContract} onUpdated={loadOffer} />
           ) : null}
 
           {linkedContract ? (
