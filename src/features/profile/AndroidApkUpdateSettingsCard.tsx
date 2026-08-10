@@ -6,10 +6,9 @@ import {
   compareAndroidInstallToManifest,
   fetchAndroidLatestManifest,
   resolveAndroidUpdateManifestUrl,
-  resolveApkDownloadUrl,
   shouldOfferAndroidApkUpdate,
 } from '../../lib/androidApkUpdate';
-import { openAndroidUpdateDownloadExternally } from '../../lib/androidApkUpdateHandoff';
+import { runAndroidNativeApkInstallFlow, tryResumePendingAndroidInstallFlow } from '../../lib/androidApkInstallFlow';
 import {
   ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY,
   ANDROID_APK_SNOOZE_RESET_EVENT,
@@ -47,9 +46,9 @@ export function AndroidApkUpdateSettingsCard() {
   const [promptDismissed, setPromptDismissed] = useState(false);
   const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
   const [networkTick, setNetworkTick] = useState(0);
-  const [handoffBusy, setHandoffBusy] = useState(false);
-  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
-  const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
+  const [installBusy, setInstallBusy] = useState(false);
+  const [installNotice, setInstallNotice] = useState<string | null>(null);
+  const [installMessage, setInstallMessage] = useState<string | null>(null);
   const [bannerSnoozeCode, setBannerSnoozeCode] = useState<number | null>(() =>
     typeof window !== 'undefined' ? readSnoozedAndroidApkVersionCode() : null,
   );
@@ -115,31 +114,47 @@ export function AndroidApkUpdateSettingsCard() {
     void handleCheckUpdates();
   }, [handleCheckUpdates]);
 
-  const handleOpenUpdateInBrowser = async () => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResume = (): void => {
+      if (document.visibilityState !== 'visible') return;
+      void (async () => {
+        const res = await tryResumePendingAndroidInstallFlow();
+        if (res == null) return;
+        if (res.ok) {
+          setInstallNotice(res.notice);
+          setInstallMessage(null);
+        } else {
+          setInstallMessage(res.message);
+        }
+      })();
+    };
+    document.addEventListener('visibilitychange', onResume);
+    return () => document.removeEventListener('visibilitychange', onResume);
+  }, []);
+
+  const handleNativeInstallUpdateFlow = async () => {
     if (!canOfferUpdatePrimary || manifest == null) {
       return;
     }
 
-    setHandoffNotice(null);
-    setHandoffMessage(null);
-    setHandoffBusy(true);
+    setInstallNotice(null);
+    setInstallMessage(null);
+    setInstallBusy(true);
 
     try {
-      const res = await openAndroidUpdateDownloadExternally(manifest);
+      const res = await runAndroidNativeApkInstallFlow(manifest);
       if (res.ok) {
-        setHandoffNotice(res.notice);
+        setInstallNotice(res.notice);
       } else {
-        setHandoffMessage(res.message);
+        setInstallMessage(res.message);
+        if (res.awaitingPermission) {
+          setInstallNotice(res.message);
+        }
       }
     } finally {
-      setHandoffBusy(false);
+      setInstallBusy(false);
     }
-  };
-
-  const handleFallbackBrowserOpen = () => {
-    void openAndroidUpdateDownloadExternally(
-      manifest ?? { versionCode: 0, apkUrl: resolveApkDownloadUrl(manifest) },
-    );
   };
 
   const showNewerBanner = verdict?.kind === 'newer' && !promptDismissed;
@@ -154,7 +169,7 @@ export function AndroidApkUpdateSettingsCard() {
       : ''
   }`;
 
-  const updatePrimaryLabel = handoffBusy ? 'Wird geöffnet …' : 'Update installieren';
+  const updatePrimaryLabel = installBusy ? 'Wird vorbereitet …' : 'Update installieren';
 
   return (
     <div className={styles.updatePrompt} aria-labelledby="android-apk-update-heading">
@@ -162,19 +177,19 @@ export function AndroidApkUpdateSettingsCard() {
         App-Update (Android)
       </h3>
       <p className={styles.updateStatus}>
-        „Update installieren“ öffnet die versionierte APK im Browser — nur wenn die Build-Nummer (versionCode) auf dem
-        Server höher ist als auf diesem Gerät. Payment selbst installiert nicht.
+        „Update installieren“ lädt die versionierte APK in den App-Cache und öffnet den Android-Paketinstaller — nur
+        wenn die Build-Nummer (versionCode) auf dem Server höher ist als auf diesem Gerät.
       </p>
 
-      {handoffNotice != null ? (
+      {installNotice != null ? (
         <p className={styles.appInfoMessage} role="status">
-          {handoffNotice}
+          {installNotice}
         </p>
       ) : null}
 
-      {handoffMessage != null ? (
+      {installMessage != null ? (
         <p className={styles.appInfoMessage} role="alert">
-          {handoffMessage}
+          {installMessage}
         </p>
       ) : null}
 
@@ -218,7 +233,7 @@ export function AndroidApkUpdateSettingsCard() {
           <p className={styles.updatePromptTitle}>App-Update verfügbar</p>
           <p className={styles.updateStatus}>
             {updateEligible
-              ? 'Neue Version gefunden — mit „Update installieren“ öffnest du den Download im Browser.'
+              ? 'Neue Version gefunden — mit „Update installieren“ startest du Download und Android-Installer.'
               : 'Die Versionsbezeichnung wirkt neuer, aber die Build-Nummer ist hier nicht höher.'}
           </p>
           {manifest?.releaseNotes ? (
@@ -229,9 +244,9 @@ export function AndroidApkUpdateSettingsCard() {
               <button
                 type="button"
                 className={styles.adminLink}
-                onClick={() => void handleOpenUpdateInBrowser()}
-                disabled={handoffBusy || !online || !canOfferUpdatePrimary}
-                aria-busy={handoffBusy ? 'true' : 'false'}
+                onClick={() => void handleNativeInstallUpdateFlow()}
+                disabled={installBusy || !online || !canOfferUpdatePrimary}
+                aria-busy={installBusy ? 'true' : 'false'}
               >
                 {updatePrimaryLabel}
               </button>
@@ -239,16 +254,8 @@ export function AndroidApkUpdateSettingsCard() {
             <button
               type="button"
               className={styles.adminLink}
-              onClick={() => void handleFallbackBrowserOpen()}
-              disabled={handoffBusy}
-            >
-              APK im Browser öffnen
-            </button>
-            <button
-              type="button"
-              className={styles.adminLink}
               onClick={() => setPromptDismissed(true)}
-              disabled={handoffBusy}
+              disabled={installBusy}
             >
               Später
             </button>
@@ -261,8 +268,8 @@ export function AndroidApkUpdateSettingsCard() {
           <p className={styles.updatePromptTitle}>Update prüfen</p>
           <p className={styles.updateStatus}>{uncertainReason}</p>
           <div className={styles.appInfoActions}>
-            <button type="button" className={styles.adminLink} onClick={() => void handleFallbackBrowserOpen()}>
-              APK im Browser öffnen
+            <button type="button" className={styles.adminLink} onClick={() => void handleNativeInstallUpdateFlow()}>
+              Update installieren
             </button>
             <button type="button" className={styles.adminLink} onClick={() => setPromptDismissed(true)}>
               Später
@@ -274,7 +281,7 @@ export function AndroidApkUpdateSettingsCard() {
       <div className={styles.appInfoActions}>
         <button
           type="button"
-          disabled={checking || !online || handoffBusy}
+          disabled={checking || !online || installBusy}
           className={styles.adminLink}
           onClick={() => void handleCheckUpdates()}
         >
@@ -283,9 +290,9 @@ export function AndroidApkUpdateSettingsCard() {
         {canOfferUpdatePrimary ? (
           <button
             type="button"
-            disabled={!online || checking || handoffBusy}
+            disabled={!online || checking || installBusy}
             className={styles.adminLink}
-            onClick={() => void handleOpenUpdateInBrowser()}
+            onClick={() => void handleNativeInstallUpdateFlow()}
           >
             {updatePrimaryLabel}
           </button>
@@ -315,8 +322,8 @@ export function AndroidApkUpdateSettingsCard() {
         Fallback: <span className={styles.mono}>{ANDROID_FALLBACK_APK_URL}</span>
       </p>
       <p className={styles.updateStatus}>
-        Falls Android die Installation blockiert, muss die Installation aus dem verwendeten Browser einmalig erlaubt
-        werden.
+        Falls Android die Installation blockiert, erlaube einmalig „Apps aus dieser Quelle zulassen“ für AMRtech Payment
+        in den Android-Einstellungen.
       </p>
       {!online ? (
         <p className={styles.appInfoMessage} role="status">

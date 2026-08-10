@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../../lib/androidApkUpdateBanner';
-import { openAndroidUpdateDownloadExternally } from '../../lib/androidApkUpdateHandoff';
+import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
 import styles from './AndroidApkUpdateAvailableBanner.module.css';
 
 /** Globaler Hinweis unter der Kopfzeile: natives Android-APK-Update nach latest.json. */
 export function AndroidApkUpdateAvailableBanner() {
   const ctx = useAndroidApkUpdateOptional();
 
-  const [handoffBusy, setHandoffBusy] = useState(false);
-  const [handoffError, setHandoffError] = useState<string | null>(null);
-  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
+  const [installBusy, setInstallBusy] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
+  const [installNotice, setInstallNotice] = useState<string | null>(null);
 
   const bannerInput = useMemo(
     () =>
@@ -25,9 +25,9 @@ export function AndroidApkUpdateAvailableBanner() {
             manifest: ctx.manifest,
             installed: ctx.installed,
             snoozedVersionCode: ctx.snoozedVersionCode,
-            installBusy: handoffBusy,
+            installBusy: installBusy,
           },
-    [ctx, handoffBusy],
+    [ctx, installBusy],
   );
 
   const visibilityEval = useMemo(
@@ -66,19 +66,22 @@ export function AndroidApkUpdateAvailableBanner() {
   };
 
   const handleUpdateClick = async () => {
-    if (!visibilityEval.shouldShow || handoffBusy) return;
-    setHandoffError(null);
-    setHandoffNotice(null);
-    setHandoffBusy(true);
+    if (!visibilityEval.shouldShow || installBusy) return;
+    setInstallError(null);
+    setInstallNotice(null);
+    setInstallBusy(true);
     try {
-      const res = await openAndroidUpdateDownloadExternally(manifest);
+      const res = await runAndroidNativeApkInstallFlow(manifest);
       if (res.ok) {
-        setHandoffNotice(res.notice);
+        setInstallNotice(res.notice);
       } else {
-        setHandoffError(res.message);
+        setInstallError(res.message);
+        if (res.awaitingPermission) {
+          setInstallNotice(res.message);
+        }
       }
     } finally {
-      setHandoffBusy(false);
+      setInstallBusy(false);
     }
   };
 
@@ -103,14 +106,14 @@ export function AndroidApkUpdateAvailableBanner() {
             Update installieren, um die neueste Version zu nutzen.
             {manifest.mandatory ? ' Dieses Update ist als verbindlich markiert.' : null}
           </p>
-          {handoffNotice != null ? (
+          {installNotice != null ? (
             <p className={styles.notice} role="status">
-              {handoffNotice}
+              {installNotice}
             </p>
           ) : null}
-          {handoffError != null ? (
+          {installError != null ? (
             <p className={styles.error} role="alert">
-              {handoffError}
+              {installError}
             </p>
           ) : null}
           <Link to="/profile" className={styles.detailsLink} aria-label="Details zum App-Update im Profil">
@@ -122,17 +125,17 @@ export function AndroidApkUpdateAvailableBanner() {
             type="button"
             onClick={() => void handleUpdateClick()}
             onKeyDown={handleUpdateKeyDown}
-            disabled={handoffBusy}
-            aria-busy={handoffBusy ? 'true' : 'false'}
+            disabled={installBusy}
+            aria-busy={installBusy ? 'true' : 'false'}
             className={styles.primaryButton}
-            aria-label="Update im Browser öffnen"
+            aria-label="Update installieren"
           >
-            {handoffBusy ? 'Wird geöffnet …' : 'Update installieren'}
+            {installBusy ? 'Wird vorbereitet …' : 'Update installieren'}
           </button>
           <button
             type="button"
             onClick={handleLater}
-            disabled={handoffBusy}
+            disabled={installBusy}
             className={styles.secondaryButton}
             aria-label="Update-Hinweis für diese Version ausblenden"
           >

@@ -109,34 +109,34 @@ describe('Phase 6B browser updater U1–U14', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('U8: kein Filesystem in package.json', async () => {
+  it('U8: @capacitor/filesystem für Golden Reference vorhanden', async () => {
     const { readFileSync } = await import('node:fs');
     const pkg = readFileSync('package.json', 'utf8');
-    expect(pkg).not.toContain('@capacitor/filesystem');
+    expect(pkg).toContain('@capacitor/filesystem');
   });
 
-  it('U9: kein nativer Installer-Bridge-Modul', async () => {
+  it('U9: nativer Installer-Bridge vorhanden', async () => {
     const { existsSync } = await import('node:fs');
-    expect(existsSync('src/lib/appUpdateInstaller.ts')).toBe(false);
+    expect(existsSync('src/lib/appUpdateInstaller.ts')).toBe(true);
   });
 
-  it('U10: REQUEST_INSTALL_PACKAGES nicht im Manifest', async () => {
+  it('U10: REQUEST_INSTALL_PACKAGES im Manifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).not.toContain('REQUEST_INSTALL_PACKAGES');
+    expect(manifest).toContain('REQUEST_INSTALL_PACKAGES');
   });
 
-  it('U11: FileProvider nicht im Manifest', async () => {
+  it('U11: FileProvider im Manifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).not.toContain('FileProvider');
+    expect(manifest).toContain('FileProvider');
   });
 
-  it('U12: AppUpdateInstallerPlugin nicht vorhanden', async () => {
+  it('U12: AppUpdateInstallerPlugin vorhanden', async () => {
     const { existsSync } = await import('node:fs');
     expect(
       existsSync('android/app/src/main/java/de/amrtech/paymentleads/AppUpdateInstallerPlugin.java'),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('U13: versionCode bleibt primäre Updateentscheidung', () => {
