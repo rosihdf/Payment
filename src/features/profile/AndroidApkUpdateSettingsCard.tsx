@@ -8,7 +8,7 @@ import {
   resolveAndroidUpdateManifestUrl,
   shouldOfferAndroidApkUpdate,
 } from '../../lib/androidApkUpdate';
-import { runAndroidNativeApkInstallFlow, tryResumePendingAndroidInstallFlow } from '../../lib/androidApkInstallFlow';
+import { runAndroidNativeApkSystemHandoffFlow } from '../../lib/androidApkSystemHandoffFlow';
 import {
   ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY,
   ANDROID_APK_SNOOZE_RESET_EVENT,
@@ -114,25 +114,6 @@ export function AndroidApkUpdateSettingsCard() {
     void handleCheckUpdates();
   }, [handleCheckUpdates]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const onResume = (): void => {
-      if (document.visibilityState !== 'visible') return;
-      void (async () => {
-        const res = await tryResumePendingAndroidInstallFlow();
-        if (res == null) return;
-        if (res.ok) {
-          setInstallNotice(res.notice);
-          setInstallMessage(null);
-        } else {
-          setInstallMessage(res.message);
-        }
-      })();
-    };
-    document.addEventListener('visibilitychange', onResume);
-    return () => document.removeEventListener('visibilitychange', onResume);
-  }, []);
-
   const handleNativeInstallUpdateFlow = async () => {
     if (!canOfferUpdatePrimary || manifest == null) {
       return;
@@ -143,14 +124,11 @@ export function AndroidApkUpdateSettingsCard() {
     setInstallBusy(true);
 
     try {
-      const res = await runAndroidNativeApkInstallFlow(manifest);
+      const res = await runAndroidNativeApkSystemHandoffFlow(manifest);
       if (res.ok) {
         setInstallNotice(res.notice);
       } else {
         setInstallMessage(res.message);
-        if (res.awaitingPermission) {
-          setInstallNotice(res.message);
-        }
       }
     } finally {
       setInstallBusy(false);
@@ -169,7 +147,7 @@ export function AndroidApkUpdateSettingsCard() {
       : ''
   }`;
 
-  const updatePrimaryLabel = installBusy ? 'Wird vorbereitet …' : 'Update installieren';
+  const updatePrimaryLabel = installBusy ? 'Update wird heruntergeladen …' : 'Update installieren';
 
   return (
     <div className={styles.updatePrompt} aria-labelledby="android-apk-update-heading">
@@ -177,8 +155,8 @@ export function AndroidApkUpdateSettingsCard() {
         App-Update (Android)
       </h3>
       <p className={styles.updateStatus}>
-        „Update installieren“ lädt die versionierte APK in den App-Cache und öffnet den Android-Paketinstaller — nur
-        wenn die Build-Nummer (versionCode) auf dem Server höher ist als auf diesem Gerät.
+        „Update installieren“ lädt die APK herunter und öffnet „Eigene Dateien“ / Downloads. Tippe dort auf die APK und
+        anschließend auf „Aktualisieren“ — nur wenn die Build-Nummer (versionCode) auf dem Server höher ist.
       </p>
 
       {installNotice != null ? (
@@ -233,7 +211,7 @@ export function AndroidApkUpdateSettingsCard() {
           <p className={styles.updatePromptTitle}>App-Update verfügbar</p>
           <p className={styles.updateStatus}>
             {updateEligible
-              ? 'Neue Version gefunden — mit „Update installieren“ startest du Download und Android-Installer.'
+              ? 'Neue Version gefunden — mit „Update installieren“ wird die APK geladen und Downloads geöffnet.'
               : 'Die Versionsbezeichnung wirkt neuer, aber die Build-Nummer ist hier nicht höher.'}
           </p>
           {manifest?.releaseNotes ? (

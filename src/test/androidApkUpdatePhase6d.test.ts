@@ -11,8 +11,6 @@ vi.mock('@capacitor/filesystem', () => ({
 
 vi.mock('../lib/appUpdateInstaller', () => ({
   AppUpdateInstaller: {
-    canInstallPackages: vi.fn(async () => ({ canInstall: true })),
-    openInstallPermissionSettings: vi.fn(async () => undefined),
     openApkFromCacheRelativePath: vi.fn(),
   },
 }));
@@ -44,10 +42,7 @@ import {
   validateDownloadedApkBuffer,
   validateParsedAndroidLatestManifest,
 } from '../lib/androidApkUpdate';
-import {
-  resetAndroidInstallFlowInFlightForTests,
-  runAndroidNativeApkInstallFlow,
-} from '../lib/androidApkInstallFlow';
+import { runAndroidNativeApkInstallFlow } from '../lib/androidApkInstallFlow';
 import { AppUpdateInstaller } from '../lib/appUpdateInstaller';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../lib/androidApkUpdateBanner';
 import { shouldRunAndroidApkUpdateCheck } from '../lib/androidApkUpdateCheckPolicy';
@@ -69,7 +64,6 @@ const pkApkBuffer = (size = 600 * 1024): ArrayBuffer => {
 
 afterEach(() => {
   resetAndroidApkDownloadInFlightForTests();
-  resetAndroidInstallFlowInFlightForTests();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -218,19 +212,17 @@ describe('Phase 6A Android updater U1–U12', () => {
     expect(srcOut).toBe('');
   });
 
-  it('U11: REQUEST_INSTALL_PACKAGES im AndroidManifest', async () => {
+  it('U11: Phase-6G H1 — kein REQUEST_INSTALL_PACKAGES im AndroidManifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).toContain('android.permission.REQUEST_INSTALL_PACKAGES');
+    expect(manifest).not.toContain('android.permission.REQUEST_INSTALL_PACKAGES');
   });
 
-  it('U12: FileProvider korrekt im Manifest', async () => {
+  it('U12: Phase-6G H1 — kein FileProvider-Installer im Manifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).toContain('androidx.core.content.FileProvider');
-    expect(manifest).toContain('android:grantUriPermissions="true"');
-    expect(manifest).toContain('android:exported="false"');
-    expect(readFileSync('android/app/src/main/res/xml/file_paths.xml', 'utf8')).toContain('<cache-path');
+    expect(manifest).not.toContain('androidx.core.content.FileProvider');
+    expect(manifest).not.toContain('file_paths');
   });
 });
 

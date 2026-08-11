@@ -4,4 +4,4 @@
 -keepattributes *Annotation*
 -dontwarn com.getcapacitor.**
 
--keep class de.amrtech.paymentleads.AppUpdateInstallerPlugin { *; }
+-keep class de.amrtech.paymentleads.AppUpdateSystemHandoffPlugin { *; }

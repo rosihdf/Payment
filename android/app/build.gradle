@@ -17,6 +17,19 @@ android {
         versionCode 10043
         versionName "1.0.27"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Phase-6G H1 Diagnose-Build: ./gradlew assembleRelease -PdiagH1
+        if (project.hasProperty('diagH1')) {
+            applicationId "de.amrtech.paymentleads.diag.h1"
+            versionName "1.0.27-h1"
+            // Eigene Diagnose-Linie — keine Produktions-versionCode-Kollision mit Update-Tests
+            versionCode 27001
+        }
+        // Phase-6H H2 Diagnose-Build: ./gradlew assembleRelease -PdiagH2
+        if (project.hasProperty('diagH2')) {
+            applicationId "de.amrtech.paymentleads.diag.h2"
+            versionName "1.0.27-h2"
+            versionCode 27002
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

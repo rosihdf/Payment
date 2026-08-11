@@ -5,7 +5,8 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
-        registerPlugin(AppUpdateInstallerPlugin.class);
+        // Phase-6H Final: MediaStore Downloads + Dateimanager-Handoff (ohne Installationsrecht)
+        registerPlugin(AppUpdateSystemHandoffPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

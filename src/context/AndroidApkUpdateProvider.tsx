@@ -26,7 +26,6 @@ import {
   readSnoozedAndroidApkVersionCode,
   writeSnoozedAndroidApkVersionCode,
 } from '../lib/androidApkUpdateBanner';
-import { tryResumePendingAndroidInstallFlow } from '../lib/androidApkInstallFlow';
 import { getAppBuildInfo, type ClientInstallKind } from '../lib/appBuildInfo';
 
 export type AndroidApkUpdateRefreshOptions = {
@@ -167,7 +166,6 @@ export const AndroidApkUpdateProvider = ({ children }: AndroidApkUpdateProviderP
     const onVisibilityResume = (): void => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       void refreshManifest({ reason: 'resume' });
-      void tryResumePendingAndroidInstallFlow();
     };
 
     document.addEventListener('visibilitychange', onVisibilityResume);

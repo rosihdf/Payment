@@ -27,54 +27,11 @@ export const formatAndroidApkInstallFailureUserMessage = (e: unknown): string =>
 
 export type NativeApkInstallFlowResult =
   | { ok: true; notice: string }
-  | { ok: false; message: string; awaitingPermission?: boolean };
-
-let installFlowInFlight = false;
-let pendingInstallManifest: AndroidLatestManifest | null = null;
-
-export const resetAndroidInstallFlowInFlightForTests = (): void => {
-  installFlowInFlight = false;
-  pendingInstallManifest = null;
-};
-
-export const getPendingAndroidInstallManifestForTests = (): AndroidLatestManifest | null =>
-  pendingInstallManifest;
-
-const ensureInstallPermissionOrOpenSettings = async (
-  manifest: AndroidLatestManifest,
-): Promise<{ ok: true } | { ok: false; message: string; awaitingPermission: true }> => {
-  const { canInstall } = await AppUpdateInstaller.canInstallPackages();
-  if (canInstall) {
-    pendingInstallManifest = null;
-    return { ok: true };
-  }
-
-  pendingInstallManifest = manifest;
-  await AppUpdateInstaller.openInstallPermissionSettings();
-  return {
-    ok: false,
-    message:
-      'Bitte erlaube in den Android-Einstellungen „Apps aus dieser Quelle zulassen“ für AMRtech Payment. Nach der Rückkehr wird das Update automatisch fortgesetzt.',
-    awaitingPermission: true,
-  };
-};
-
-const runDownloadAndInstall = async (
-  manifest: AndroidLatestManifest,
-): Promise<NativeApkInstallFlowResult> => {
-  const apkUrl = resolveApkDownloadUrl(manifest);
-  const { relativePath } = await downloadAndroidApkToCache({ apkUrl, manifest });
-  await AppUpdateInstaller.openApkFromCacheRelativePath({ relativePath });
-  pendingInstallManifest = null;
-  return {
-    ok: true,
-    notice:
-      'Android-Paketinstaller geöffnet. Bitte bestätige dort die Installation — ohne deine Freigabe findet keine Installation statt.',
-  };
-};
+  | { ok: false; message: string };
 
 /**
- * Golden-Reference-Flow mit Permission-first: Berechtigung prüfen → Download → Installer.
+ * Golden Reference (Wartung): APK laden → App-Cache → Paketinstaller.
+ * Permission-Check erfolgt erst im nativen Installer nach dem Download.
  */
 export const runAndroidNativeApkInstallFlow = async (
   manifest: AndroidLatestManifest,
@@ -83,45 +40,16 @@ export const runAndroidNativeApkInstallFlow = async (
     return { ok: false, message: 'Gerät offline — Update kann nicht heruntergeladen werden.' };
   }
 
-  if (installFlowInFlight) {
-    return { ok: false, message: 'Update wird bereits vorbereitet — bitte warten.' };
-  }
-
-  installFlowInFlight = true;
-
   try {
-    const permission = await ensureInstallPermissionOrOpenSettings(manifest);
-    if (!permission.ok) {
-      return permission;
-    }
-
-    return await runDownloadAndInstall(manifest);
+    const apkUrl = resolveApkDownloadUrl(manifest);
+    const { relativePath } = await downloadAndroidApkToCache({ apkUrl, manifest });
+    await AppUpdateInstaller.openApkFromCacheRelativePath({ relativePath });
+    return {
+      ok: true,
+      notice:
+        'Android-Paketinstaller geöffnet. Bitte bestätige dort die Installation — ohne deine Freigabe findet keine Installation statt.',
+    };
   } catch (e) {
     return { ok: false, message: formatAndroidApkInstallFailureUserMessage(e) };
-  } finally {
-    installFlowInFlight = false;
-  }
-};
-
-/** Nach Rückkehr aus den Android-Einstellungen: Permission erneut prüfen und ggf. fortsetzen. */
-export const tryResumePendingAndroidInstallFlow = async (): Promise<NativeApkInstallFlowResult | null> => {
-  if (pendingInstallManifest == null || installFlowInFlight) {
-    return null;
-  }
-
-  installFlowInFlight = true;
-
-  try {
-    const { canInstall } = await AppUpdateInstaller.canInstallPackages();
-    if (!canInstall) {
-      return null;
-    }
-
-    const manifest = pendingInstallManifest;
-    return await runDownloadAndInstall(manifest);
-  } catch (e) {
-    return { ok: false, message: formatAndroidApkInstallFailureUserMessage(e) };
-  } finally {
-    installFlowInFlight = false;
   }
 };

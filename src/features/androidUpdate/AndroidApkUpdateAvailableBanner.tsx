@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../../lib/androidApkUpdateBanner';
-import { runAndroidNativeApkInstallFlow } from '../../lib/androidApkInstallFlow';
+import { runAndroidNativeApkSystemHandoffFlow } from '../../lib/androidApkSystemHandoffFlow';
 import styles from './AndroidApkUpdateAvailableBanner.module.css';
 
 /** Globaler Hinweis unter der Kopfzeile: natives Android-APK-Update nach latest.json. */
@@ -71,14 +71,11 @@ export function AndroidApkUpdateAvailableBanner() {
     setInstallNotice(null);
     setInstallBusy(true);
     try {
-      const res = await runAndroidNativeApkInstallFlow(manifest);
+      const res = await runAndroidNativeApkSystemHandoffFlow(manifest);
       if (res.ok) {
         setInstallNotice(res.notice);
       } else {
         setInstallError(res.message);
-        if (res.awaitingPermission) {
-          setInstallNotice(res.message);
-        }
       }
     } finally {
       setInstallBusy(false);
@@ -130,7 +127,7 @@ export function AndroidApkUpdateAvailableBanner() {
             className={styles.primaryButton}
             aria-label="Update installieren"
           >
-            {installBusy ? 'Wird vorbereitet …' : 'Update installieren'}
+            {installBusy ? 'Update wird heruntergeladen …' : 'Update installieren'}
           </button>
           <button
             type="button"

@@ -5,7 +5,7 @@ import {
   runAndroidNativeApkInstallFlow,
   tryResumePendingAndroidInstallFlow,
   getPendingAndroidInstallManifestForTests,
-} from '../lib/androidApkInstallFlow';
+} from '../lib/androidApkInstallFlow.permissionFirst';
 
 const manifest: AndroidLatestManifest = {
   versionCode: 10044,
@@ -14,8 +14,8 @@ const manifest: AndroidLatestManifest = {
   sha256: 'cf3a31fb509b1f9b1d2efe826e26958f78ff440bdd57966a3a0c109990e4cf7c',
 };
 
-vi.mock('../lib/appUpdateInstaller', () => ({
-  AppUpdateInstaller: {
+vi.mock('../lib/appUpdateInstaller.permissionFirst', () => ({
+  AppUpdateInstallerPermissionFirst: {
     canInstallPackages: vi.fn(),
     openInstallPermissionSettings: vi.fn(),
     openApkFromCacheRelativePath: vi.fn(),
@@ -31,15 +31,15 @@ vi.mock('../lib/androidApkUpdate', async (importOriginal) => {
   };
 });
 
-import { AppUpdateInstaller } from '../lib/appUpdateInstaller';
+import { AppUpdateInstallerPermissionFirst } from '../lib/appUpdateInstaller.permissionFirst';
 import { downloadAndroidApkToCache } from '../lib/androidApkUpdate';
 
-describe('androidApkInstallFlow permission-first (Phase 6D)', () => {
+describe('androidApkInstallFlow permission-first (Phase 6D, inaktiv)', () => {
   beforeEach(() => {
     resetAndroidInstallFlowInFlightForTests();
-    vi.mocked(AppUpdateInstaller.canInstallPackages).mockResolvedValue({ canInstall: true });
-    vi.mocked(AppUpdateInstaller.openInstallPermissionSettings).mockResolvedValue(undefined);
-    vi.mocked(AppUpdateInstaller.openApkFromCacheRelativePath).mockResolvedValue(undefined);
+    vi.mocked(AppUpdateInstallerPermissionFirst.canInstallPackages).mockResolvedValue({ canInstall: true });
+    vi.mocked(AppUpdateInstallerPermissionFirst.openInstallPermissionSettings).mockResolvedValue(undefined);
+    vi.mocked(AppUpdateInstallerPermissionFirst.openApkFromCacheRelativePath).mockResolvedValue(undefined);
     vi.mocked(downloadAndroidApkToCache).mockClear();
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
   });
@@ -50,7 +50,7 @@ describe('androidApkInstallFlow permission-first (Phase 6D)', () => {
   });
 
   it('G1: startet Download nicht vor erteilter Installationsberechtigung', async () => {
-    vi.mocked(AppUpdateInstaller.canInstallPackages).mockResolvedValue({ canInstall: false });
+    vi.mocked(AppUpdateInstallerPermissionFirst.canInstallPackages).mockResolvedValue({ canInstall: false });
 
     const res = await runAndroidNativeApkInstallFlow(manifest);
 
@@ -58,9 +58,9 @@ describe('androidApkInstallFlow permission-first (Phase 6D)', () => {
     if (!res.ok) {
       expect(res.awaitingPermission).toBe(true);
     }
-    expect(AppUpdateInstaller.openInstallPermissionSettings).toHaveBeenCalledTimes(1);
+    expect(AppUpdateInstallerPermissionFirst.openInstallPermissionSettings).toHaveBeenCalledTimes(1);
     expect(downloadAndroidApkToCache).not.toHaveBeenCalled();
-    expect(AppUpdateInstaller.openApkFromCacheRelativePath).not.toHaveBeenCalled();
+    expect(AppUpdateInstallerPermissionFirst.openApkFromCacheRelativePath).not.toHaveBeenCalled();
   });
 
   it('G2: bei erteilter Berechtigung Download und Installer', async () => {
@@ -68,11 +68,11 @@ describe('androidApkInstallFlow permission-first (Phase 6D)', () => {
 
     expect(res.ok).toBe(true);
     expect(downloadAndroidApkToCache).toHaveBeenCalledTimes(1);
-    expect(AppUpdateInstaller.openApkFromCacheRelativePath).toHaveBeenCalledTimes(1);
+    expect(AppUpdateInstallerPermissionFirst.openApkFromCacheRelativePath).toHaveBeenCalledTimes(1);
   });
 
   it('G3: Resume setzt pending Flow nach Permission-Freigabe fort', async () => {
-    vi.mocked(AppUpdateInstaller.canInstallPackages)
+    vi.mocked(AppUpdateInstallerPermissionFirst.canInstallPackages)
       .mockResolvedValueOnce({ canInstall: false })
       .mockResolvedValueOnce({ canInstall: true });
 

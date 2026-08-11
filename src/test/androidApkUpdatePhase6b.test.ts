@@ -120,22 +120,22 @@ describe('Phase 6B browser updater U1–U14', () => {
     expect(existsSync('src/lib/appUpdateInstaller.ts')).toBe(true);
   });
 
-  it('U10: REQUEST_INSTALL_PACKAGES im Manifest', async () => {
+  it('U10: Phase-6G H1 — kein REQUEST_INSTALL_PACKAGES im Manifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).toContain('REQUEST_INSTALL_PACKAGES');
+    expect(manifest).not.toContain('REQUEST_INSTALL_PACKAGES');
   });
 
-  it('U11: FileProvider im Manifest', async () => {
+  it('U11: Phase-6G H1 — kein FileProvider im Manifest', async () => {
     const { readFileSync } = await import('node:fs');
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
-    expect(manifest).toContain('FileProvider');
+    expect(manifest).not.toContain('FileProvider');
   });
 
-  it('U12: AppUpdateInstallerPlugin vorhanden', async () => {
+  it('U12: Phase-6G H1 — SystemHandoff-Plugin vorhanden', async () => {
     const { existsSync } = await import('node:fs');
     expect(
-      existsSync('android/app/src/main/java/de/amrtech/paymentleads/AppUpdateInstallerPlugin.java'),
+      existsSync('android/app/src/main/java/de/amrtech/paymentleads/AppUpdateSystemHandoffPlugin.java'),
     ).toBe(true);
   });
 
