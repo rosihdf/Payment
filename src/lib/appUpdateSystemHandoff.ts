@@ -2,6 +2,7 @@ import { registerPlugin } from '@capacitor/core';
 
 export type SaveCacheApkToPublicDownloadsOptions = {
   relativePath: string;
+  /** Ignoriert nativ — Speicherung immer als AMRtech-Payment-Update.apk */
   displayName?: string;
 };
 
@@ -27,7 +28,7 @@ export type OpenDownloadsFileManagerResult = {
   opensInstaller: boolean;
 };
 
-/** Phase-6H H2: MediaStore-Downloads + Dateimanager-Handoff — ohne Installationsrecht / ohne APK-Installer-Intent. */
+/** MediaStore-Downloads + Dateimanager-Handoff — ohne Installationsrecht / ohne APK-Installer-Intent. */
 export interface AppUpdateSystemHandoffPlugin {
   saveCacheApkToPublicDownloads: (
     opts: SaveCacheApkToPublicDownloadsOptions,

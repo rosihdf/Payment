@@ -23,13 +23,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Phase-6H Final: APK aus App-Cache in MediaStore Downloads legen und Dateimanager öffnen.
+ * Finaler Update-Handoff: APK in MediaStore Downloads legen und Dateimanager öffnen.
  *
  * <p>Kein Installationsrecht, kein Paketinstaller-Intent auf die APK, kein Cache-URI-Provider als
  * Installer, kein Session-basiertes Paket-API, kein System-Download-Service.
- *
- * <p>Handoff öffnet bewusst nur den Dateimanager (Samsung „Eigene Dateien“ / Fallback). Der Nutzer
- * tippt die APK dort selbst an.
  */
 @CapacitorPlugin(name = "AppUpdateSystemHandoff")
 public class AppUpdateSystemHandoffPlugin extends Plugin {
@@ -37,9 +34,11 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
     public static final String MIME_APK = "application/vnd.android.package-archive";
     public static final String MIME_DIR = DocumentsContract.Document.MIME_TYPE_DIR;
 
-    /** Flacher Downloads-Pfad: Download/AMRtech-Payment-….apk (kein Unterordner). */
-    public static final String RELATIVE_DOWNLOADS =
-            Environment.DIRECTORY_DOWNLOADS + "/";
+    /** Flacher Downloads-Pfad: Download/AMRtech-Payment-Update.apk */
+    public static final String RELATIVE_DOWNLOADS = Environment.DIRECTORY_DOWNLOADS + "/";
+
+    /** Einziger lokaler Update-Dateiname (unabhängig von Remote-Version). */
+    public static final String LOCAL_UPDATE_APK_DISPLAY_NAME = "AMRtech-Payment-Update.apk";
 
     public static final String OWN_APK_PREFIX = "AMRtech-Payment";
 
@@ -50,8 +49,8 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
     public static final String SAMSUNG_VIEW_ACTION = "com.sec.android.app.myfiles.VIEW";
 
     public static final String MSG_FILEMANAGER_BLOCKED =
-            "filemanager_handoff_blocked: Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe"
-                    + " auf die AMRtech-Payment-APK.";
+            "filemanager_handoff_blocked: Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe auf"
+                    + " „AMRtech-Payment-Update.apk“.";
 
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
@@ -146,18 +145,17 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
                 resolver.delete(Uri.withAppendedPath(collection, String.valueOf(id)), null, null);
             }
         } catch (final Exception ignored) {
-            // Cleanup best-effort — Schreiben der neuen Datei hat Vorrang
+            // Cleanup best-effort
         }
     }
 
     /**
-     * Speichert die Cache-APK flach unter Download/ (MediaStore Downloads).
-     * Ersetzt/entfernt vorher eigene AMRtech-Payment-*.apk Dateien.
+     * Speichert die Cache-APK flach unter Download/AMRtech-Payment-Update.apk.
+     * Entfernt vorher alle eigenen AMRtech-Payment-*.apk Dateien.
      */
     @PluginMethod
     public void saveCacheApkToPublicDownloads(final PluginCall call) {
         final String rel = call.getString("relativePath");
-        final String displayNameRaw = call.getString("displayName");
         if (rel == null || rel.trim().isEmpty()) {
             call.reject("Pfad zur APK fehlt (relativePath).");
             return;
@@ -167,17 +165,9 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
             call.reject("Ungültiger relativer APK-Pfad.");
             return;
         }
-        String displayName =
-                displayNameRaw == null || displayNameRaw.trim().isEmpty()
-                        ? "AMRtech-Payment-update.apk"
-                        : displayNameRaw.trim();
-        if (!displayName.toLowerCase().endsWith(".apk")) {
-            displayName = displayName + ".apk";
-        }
-        displayName = displayName.replaceAll("[^a-zA-Z0-9._+-]", "_");
-        if (!isOwnAmrtechPaymentApkName(displayName)) {
-            displayName = OWN_APK_PREFIX + "-" + displayName;
-        }
+
+        // Fest verdrahtet — Remote-Versionsname wird lokal nicht verwendet.
+        final String displayName = LOCAL_UPDATE_APK_DISPLAY_NAME;
 
         try {
             final File apkCanon = resolveCacheApk(trimmed);
@@ -239,11 +229,9 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
 
     /**
      * Öffnet den Dateimanager auf Downloads — nie den Paketinstaller auf die APK.
-     * Reihenfolge: Samsung „Eigene Dateien“ → DocumentsUI Downloads → OPEN_DOCUMENT.
      */
     @PluginMethod
     public void openDownloadsFileManager(final PluginCall call) {
-        final String displayNameHint = call.getString("displayName");
         final android.app.Activity act = getActivity();
         if (act == null) {
             call.reject("Keine Activity — Dateimanager-Handoff nicht möglich.");
@@ -256,7 +244,6 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
         String usedPackage = null;
         String usedAction = null;
 
-        // 1) Samsung „Eigene Dateien“ — Downloads-Ordner, kein APK-MIME
         if (isPackageInstalled(SAMSUNG_MYFILES_PACKAGE)) {
             final Intent samsungLaunch =
                     getContext().getPackageManager().getLaunchIntentForPackage(SAMSUNG_MYFILES_PACKAGE);
@@ -285,7 +272,6 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
             }
         }
 
-        // 2) DocumentsUI — Downloads-Ordner-MIME, nicht APK
         if (usedStrategy == null) {
             final Uri downloadsUri = buildDownloadsRootDocumentUri();
             final Intent downloadsView = new Intent(Intent.ACTION_VIEW);
@@ -297,7 +283,6 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
             }
         }
 
-        // 3) Generischer OPEN_DOCUMENT (Picker, kein Installer)
         if (usedStrategy == null) {
             final Intent openDoc = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             openDoc.addCategory(Intent.CATEGORY_OPENABLE);
@@ -313,14 +298,7 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
         }
 
         if (usedStrategy == null) {
-            final String hint =
-                    displayNameHint != null && !displayNameHint.trim().isEmpty()
-                            ? displayNameHint.trim()
-                            : "AMRtech-Payment-….apk";
-            call.reject(
-                    "filemanager_handoff_blocked: Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe auf "
-                            + hint
-                            + ".");
+            call.reject(MSG_FILEMANAGER_BLOCKED);
             return;
         }
 
@@ -332,9 +310,7 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
         if (usedPackage != null) {
             ret.put("targetPackage", usedPackage);
         }
-        if (displayNameHint != null && !displayNameHint.trim().isEmpty()) {
-            ret.put("displayName", displayNameHint.trim());
-        }
+        ret.put("displayName", LOCAL_UPDATE_APK_DISPLAY_NAME);
         ret.put("opensInstaller", false);
         call.resolve(ret);
     }

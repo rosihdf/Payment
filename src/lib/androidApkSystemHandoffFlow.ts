@@ -6,7 +6,17 @@ import {
 } from './androidApkUpdate';
 import { AppUpdateSystemHandoff } from './appUpdateSystemHandoff';
 
+/** Fest verdrahteter lokaler Dateiname in Downloads (unabhängig von Remote-Version). */
+export const ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME = 'AMRtech-Payment-Update.apk';
+
 export const FILEMANAGER_HANDOFF_BLOCKED_MESSAGE_PREFIX = 'filemanager_handoff_blocked:';
+
+export const ANDROID_UPDATE_DOWNLOADED_HEADLINE = 'Update heruntergeladen';
+
+export const formatAndroidUpdateTapHint = (
+  displayName: string = ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME,
+): string =>
+  `Tippe jetzt auf „${displayName}“ und anschließend auf „Aktualisieren“.`;
 
 /** Nutzer-/UI-Text zu Fehler aus APK-Download oder Dateimanager-Handoff. */
 export const formatAndroidApkSystemHandoffFailureUserMessage = (e: unknown): string => {
@@ -19,7 +29,7 @@ export const formatAndroidApkSystemHandoffFailureUserMessage = (e: unknown): str
       const cleaned = msg.split(':').slice(1).join(':').trim();
       return cleaned.length > 0
         ? cleaned
-        : 'Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe auf die AMRtech-Payment-APK.';
+        : `Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe auf „${ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME}“.`;
     }
     if (msg.trim().length > 0) return msg.trim();
   }
@@ -30,16 +40,18 @@ export type NativeApkSystemHandoffFlowResult =
   | {
       ok: true;
       notice: string;
+      headline: string;
       contentUri: string;
       displayName: string;
+      fileManagerOpened: boolean;
       strategy?: string;
       targetPackage?: string;
     }
   | { ok: false; message: string };
 
 /**
- * Phase-6H Final: fetch→Cache→SHA → MediaStore Downloads (flach) → Dateimanager öffnen.
- * Payment startet keinen APK-Installer. Nutzer tippt die Datei in „Eigene Dateien“ an.
+ * Finaler Updateflow: fetch→Cache→SHA → MediaStore Downloads → Dateimanager.
+ * Payment startet keinen APK-Installer.
  */
 export const runAndroidNativeApkSystemHandoffFlow = async (
   manifest: AndroidLatestManifest,
@@ -51,29 +63,53 @@ export const runAndroidNativeApkSystemHandoffFlow = async (
   try {
     const apkUrl = resolveApkDownloadUrl(manifest);
     const { relativePath } = await downloadAndroidApkToCache({ apkUrl, manifest });
-    const tag =
-      (manifest.latestVersion ?? '').trim() ||
-      (typeof manifest.versionCode === 'number' ? String(manifest.versionCode) : 'update');
-    const displayName = `AMRtech-Payment-${tag}.apk`;
 
     const saved = await AppUpdateSystemHandoff.saveCacheApkToPublicDownloads({
       relativePath,
-      displayName,
+      displayName: ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME,
     });
 
-    const handoff = await AppUpdateSystemHandoff.openDownloadsFileManager({
-      displayName: saved.displayName,
-      contentUri: saved.contentUri,
-    });
+    const displayName = saved.displayName || ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME;
+    const tapHint = formatAndroidUpdateTapHint(displayName);
+    const notice = `${ANDROID_UPDATE_DOWNLOADED_HEADLINE}. ${tapHint}`;
 
-    return {
-      ok: true,
-      contentUri: saved.contentUri,
-      displayName: saved.displayName,
-      strategy: handoff.strategy,
-      targetPackage: handoff.targetPackage,
-      notice: `Tippe in „Eigene Dateien“ auf ${saved.displayName} und anschließend auf „Aktualisieren“.`,
-    };
+    try {
+      const handoff = await AppUpdateSystemHandoff.openDownloadsFileManager({
+        displayName,
+        contentUri: saved.contentUri,
+      });
+      return {
+        ok: true,
+        contentUri: saved.contentUri,
+        displayName,
+        fileManagerOpened: true,
+        strategy: handoff.strategy,
+        targetPackage: handoff.targetPackage,
+        headline: ANDROID_UPDATE_DOWNLOADED_HEADLINE,
+        notice,
+      };
+    } catch {
+      return {
+        ok: true,
+        contentUri: saved.contentUri,
+        displayName,
+        fileManagerOpened: false,
+        headline: ANDROID_UPDATE_DOWNLOADED_HEADLINE,
+        notice: `${notice} Falls „Eigene Dateien“ nicht geöffnet wurde: Downloads öffnen.`,
+      };
+    }
+  } catch (e) {
+    return { ok: false, message: formatAndroidApkSystemHandoffFailureUserMessage(e) };
+  }
+};
+
+/** Erneuter Versuch, Downloads/Dateimanager zu öffnen (nach erfolgreichem Speichern). */
+export const openAndroidDownloadsFileManagerAgain = async (
+  displayName: string = ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME,
+): Promise<{ ok: true } | { ok: false; message: string }> => {
+  try {
+    await AppUpdateSystemHandoff.openDownloadsFileManager({ displayName });
+    return { ok: true };
   } catch (e) {
     return { ok: false, message: formatAndroidApkSystemHandoffFailureUserMessage(e) };
   }

@@ -8,7 +8,7 @@ import {
   resolveAndroidUpdateManifestUrl,
   shouldOfferAndroidApkUpdate,
 } from '../../lib/androidApkUpdate';
-import { runAndroidNativeApkSystemHandoffFlow } from '../../lib/androidApkSystemHandoffFlow';
+import { runAndroidNativeApkSystemHandoffFlow, openAndroidDownloadsFileManagerAgain } from '../../lib/androidApkSystemHandoffFlow';
 import {
   ANDROID_APK_UPDATE_SNOOZE_STORAGE_KEY,
   ANDROID_APK_SNOOZE_RESET_EVENT,
@@ -49,6 +49,7 @@ export function AndroidApkUpdateSettingsCard() {
   const [installBusy, setInstallBusy] = useState(false);
   const [installNotice, setInstallNotice] = useState<string | null>(null);
   const [installMessage, setInstallMessage] = useState<string | null>(null);
+  const [showOpenDownloads, setShowOpenDownloads] = useState(false);
   const [bannerSnoozeCode, setBannerSnoozeCode] = useState<number | null>(() =>
     typeof window !== 'undefined' ? readSnoozedAndroidApkVersionCode() : null,
   );
@@ -121,18 +122,30 @@ export function AndroidApkUpdateSettingsCard() {
 
     setInstallNotice(null);
     setInstallMessage(null);
+    setShowOpenDownloads(false);
     setInstallBusy(true);
 
     try {
       const res = await runAndroidNativeApkSystemHandoffFlow(manifest);
       if (res.ok) {
         setInstallNotice(res.notice);
+        setShowOpenDownloads(!res.fileManagerOpened);
       } else {
         setInstallMessage(res.message);
       }
     } finally {
       setInstallBusy(false);
     }
+  };
+
+  const handleOpenDownloads = async () => {
+    setInstallMessage(null);
+    const res = await openAndroidDownloadsFileManagerAgain();
+    if (!res.ok) {
+      setInstallMessage(res.message);
+      return;
+    }
+    setShowOpenDownloads(false);
   };
 
   const showNewerBanner = verdict?.kind === 'newer' && !promptDismissed;
@@ -229,14 +242,25 @@ export function AndroidApkUpdateSettingsCard() {
                 {updatePrimaryLabel}
               </button>
             ) : null}
-            <button
-              type="button"
-              className={styles.adminLink}
-              onClick={() => setPromptDismissed(true)}
-              disabled={installBusy}
-            >
-              Später
-            </button>
+            {showOpenDownloads ? (
+              <button
+                type="button"
+                className={styles.adminLink}
+                onClick={() => void handleOpenDownloads()}
+                disabled={installBusy}
+              >
+                Downloads öffnen
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.adminLink}
+                onClick={() => setPromptDismissed(true)}
+                disabled={installBusy}
+              >
+                Später
+              </button>
+            )}
           </div>
         </div>
       ) : null}

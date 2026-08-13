@@ -15,6 +15,6 @@ export default defineConfig({
     // ohne Ausschluss versucht Vitest sie ebenfalls einzusammeln und schlägt fehl, weil
     // `test.describe()` dort aus `@playwright/test` statt aus Vitest stammt.
     // `*.remote.test.ts` benötigen Supabase/Credentials – siehe npm run test:remote.
-    exclude: [...defaultExclude, 'e2e/**', '**/*.remote.test.ts'],
+    exclude: [...defaultExclude, 'e2e/**', '**/*.remote.test.ts', 'android/reference/**', 'forensics/**'],
   },
 });

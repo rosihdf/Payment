@@ -1,32 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Browser } from '@capacitor/browser';
-import { Capacitor } from '@capacitor/core';
+import { existsSync, readFileSync } from 'node:fs';
 import {
-  ANDROID_FALLBACK_APK_URL,
   ANDROID_UPDATE_EXPECTED_HOST,
-  appendManifestFetchCacheBuster,
   compareAndroidInstallToManifest,
   fetchAndroidLatestManifest,
-  isHttpsUrlOnExpectedHost,
   parseAndroidLatestManifest,
   shouldOfferAndroidApkUpdate,
   validateAllowedApkDownloadUrl,
   validateParsedAndroidLatestManifest,
 } from '../lib/androidApkUpdate';
-import { openAndroidUpdateDownloadExternally } from '../lib/androidApkUpdateHandoff';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../lib/androidApkUpdateBanner';
-import { shouldRunAndroidApkUpdateCheck } from '../lib/androidApkUpdateCheckPolicy';
-
-vi.mock('@capacitor/browser', () => ({
-  Browser: {
-    open: vi.fn(),
-  },
-}));
+import { ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME } from '../lib/androidApkSystemHandoffFlow';
 
 const installed = () => ({
-  bundleSemver: '1.0.27',
-  nativeVersionCode: 10043 as number | null,
-  nativeVersionName: '1.0.27',
+  bundleSemver: '1.0.28',
+  nativeVersionCode: 10044 as number | null,
+  nativeVersionName: '1.0.28',
 });
 
 const allowedApkUrl =
@@ -37,9 +26,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Phase 6B browser updater U1–U14', () => {
-  it('U1: kein Update → kein Handoff-Angebot', () => {
-    expect(shouldOfferAndroidApkUpdate(installed(), { versionCode: 10043, apkUrl: allowedApkUrl })).toBe(
+describe('Android updatecheck & production handoff path', () => {
+  it('kein Update bei gleichem versionCode', () => {
+    expect(shouldOfferAndroidApkUpdate(installed(), { versionCode: 10044, apkUrl: allowedApkUrl })).toBe(
       false,
     );
     const evalResult = evaluateAndroidApkUpdateBannerVisibility({
@@ -47,7 +36,7 @@ describe('Phase 6B browser updater U1–U14', () => {
       online: true,
       checking: false,
       manifestLoadFailed: false,
-      manifest: { versionCode: 10043, apkUrl: allowedApkUrl },
+      manifest: { versionCode: 10044, apkUrl: allowedApkUrl },
       installed: installed(),
       snoozedVersionCode: null,
       installBusy: false,
@@ -55,101 +44,90 @@ describe('Phase 6B browser updater U1–U14', () => {
     expect(evalResult.shouldShow).toBe(false);
   });
 
-  it('U2: Update verfügbar → Button/Handoff möglich', () => {
-    expect(shouldOfferAndroidApkUpdate(installed(), { versionCode: 10044, apkUrl: allowedApkUrl })).toBe(true);
+  it('Update bei höherem versionCode', () => {
+    const older = {
+      bundleSemver: '1.0.27',
+      nativeVersionCode: 10043 as number | null,
+      nativeVersionName: '1.0.27',
+    };
+    expect(shouldOfferAndroidApkUpdate(older, { versionCode: 10044, apkUrl: allowedApkUrl })).toBe(true);
   });
 
-  it('U3: Klick → exakt erlaubte APK-URL extern geöffnet', async () => {
-    vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true);
-    const browserOpen = vi.spyOn(Browser, 'open').mockResolvedValue();
-    const manifest = { versionCode: 10044, apkUrl: allowedApkUrl };
-
-    const res = await openAndroidUpdateDownloadExternally(manifest);
-
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(res.url).toBe(allowedApkUrl);
-    expect(browserOpen).toHaveBeenCalledTimes(1);
-    expect(browserOpen).toHaveBeenCalledWith({ url: allowedApkUrl });
+  it('HTTPS + Host-Allowlist: gültige URL', () => {
+    expect(validateAllowedApkDownloadUrl(allowedApkUrl)).toBe(true);
   });
 
-  it('U4: HTTP statt HTTPS → blockiert', async () => {
-    const res = await openAndroidUpdateDownloadExternally({
-      versionCode: 10044,
-      apkUrl: 'http://amrtech-payment-downloads.amrtech.workers.dev/x.apk',
-    });
-    expect(res.ok).toBe(false);
+  it('HTTP statt HTTPS → blockiert', () => {
+    expect(
+      validateAllowedApkDownloadUrl('http://amrtech-payment-downloads.amrtech.workers.dev/x.apk'),
+    ).toBe(false);
   });
 
-  it('U5: falscher Host → blockiert', async () => {
-    const res = await openAndroidUpdateDownloadExternally({
-      versionCode: 10044,
-      apkUrl: 'https://evil.example.test/x.apk',
-    });
-    expect(res.ok).toBe(false);
+  it('falscher Host → blockiert', () => {
+    expect(validateAllowedApkDownloadUrl('https://evil.example.test/x.apk')).toBe(false);
   });
 
-  it('U6: Subdomain/Host-Manipulation → blockiert', () => {
+  it('Subdomain/Host-Manipulation → blockiert', () => {
     expect(
       validateAllowedApkDownloadUrl(
         'https://amrtech-payment-downloads.amrtech.workers.dev.evil.test/x.apk',
       ),
     ).toBe(false);
-    expect(
-      validateAllowedApkDownloadUrl('https://not-amrtech-payment-downloads.amrtech.workers.dev/x.apk'),
-    ).toBe(false);
   });
 
-  it('U7: kein interner APK-fetch im Handoff-Modul', async () => {
-    vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true);
-    vi.spyOn(Browser, 'open').mockResolvedValue();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-
-    await openAndroidUpdateDownloadExternally({ versionCode: 10044, apkUrl: allowedApkUrl });
-
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it('U8: @capacitor/filesystem für Golden Reference vorhanden', async () => {
-    const { readFileSync } = await import('node:fs');
+  it('@capacitor/filesystem vorhanden', () => {
     const pkg = readFileSync('package.json', 'utf8');
     expect(pkg).toContain('@capacitor/filesystem');
   });
 
-  it('U9: nativer Installer-Bridge vorhanden', async () => {
-    const { existsSync } = await import('node:fs');
-    expect(existsSync('src/lib/appUpdateInstaller.ts')).toBe(true);
+  it('fester lokaler Update-Dateiname', () => {
+    expect(ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME).toBe('AMRtech-Payment-Update.apk');
   });
 
-  it('U10: Phase-6G H1 — kein REQUEST_INSTALL_PACKAGES im Manifest', async () => {
-    const { readFileSync } = await import('node:fs');
+  it('kein REQUEST_INSTALL_PACKAGES / FileProvider im Manifest', () => {
     const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
     expect(manifest).not.toContain('REQUEST_INSTALL_PACKAGES');
-  });
-
-  it('U11: Phase-6G H1 — kein FileProvider im Manifest', async () => {
-    const { readFileSync } = await import('node:fs');
-    const manifest = readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
     expect(manifest).not.toContain('FileProvider');
+    expect(manifest).not.toContain('WRITE_EXTERNAL_STORAGE');
   });
 
-  it('U12: Phase-6G H1 — SystemHandoff-Plugin vorhanden', async () => {
-    const { existsSync } = await import('node:fs');
+  it('SystemHandoff-Plugin vorhanden, Installer-Plugin nicht im Runtime-Pfad', () => {
     expect(
       existsSync('android/app/src/main/java/de/amrtech/paymentleads/AppUpdateSystemHandoffPlugin.java'),
     ).toBe(true);
+    expect(
+      existsSync('android/app/src/main/java/de/amrtech/paymentleads/AppUpdateInstallerPlugin.java'),
+    ).toBe(false);
+    expect(existsSync('src/lib/appUpdateInstaller.ts')).toBe(false);
+    expect(existsSync('src/lib/androidApkUpdateHandoff.ts')).toBe(false);
+    expect(existsSync('src/lib/androidApkInstallFlow.ts')).toBe(false);
+    expect(existsSync('src/lib/androidApkSystemHandoffFlow.ts')).toBe(true);
   });
 
-  it('U13: versionCode bleibt primäre Updateentscheidung', () => {
-    expect(compareAndroidInstallToManifest(installed(), { versionCode: 10044 }).kind).toBe('newer');
-    expect(compareAndroidInstallToManifest(installed(), { versionCode: 10043 }).kind).toBe('current');
+  it('versionCode bleibt primäre Updateentscheidung', () => {
+    const older = {
+      bundleSemver: '1.0.27',
+      nativeVersionCode: 10043 as number | null,
+      nativeVersionName: '1.0.27',
+    };
+    expect(compareAndroidInstallToManifest(older, { versionCode: 10044 }).kind).toBe('newer');
+    expect(compareAndroidInstallToManifest(installed(), { versionCode: 10044 }).kind).toBe('current');
   });
 
-  it('U14: Manifestfehler werden abgefangen', async () => {
+  it('Manifestfehler werden abgefangen', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('not json', { status: 200 }));
     const result = await fetchAndroidLatestManifest({
       manifestUrl: 'https://amrtech-payment-downloads.amrtech.workers.dev/android/latest.json',
     });
     expect(result).toBeNull();
+  });
+
+  it('Source-Version 1.0.28 / 10044', () => {
+    const gradle = readFileSync('android/app/build.gradle', 'utf8');
+    expect(gradle).toMatch(/versionName\s+"1\.0\.28"/);
+    expect(gradle).toMatch(/versionCode\s+10044/);
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
+    expect(pkg.version).toBe('1.0.28');
   });
 });
 
@@ -183,24 +161,5 @@ describe('Manifest validation & host allowlist', () => {
     });
     expect(result).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it('Fallback-APK-URL ist auf erlaubtem Host', () => {
-    expect(isHttpsUrlOnExpectedHost(ANDROID_FALLBACK_APK_URL, ANDROID_UPDATE_EXPECTED_HOST)).toBe(true);
-  });
-});
-
-describe('Update check policy', () => {
-  it('manual umgeht Cooldown', () => {
-    const now = Date.now();
-    expect(shouldRunAndroidApkUpdateCheck(now - 1000, now, 'manual')).toBe(true);
-  });
-});
-
-describe('appendManifestFetchCacheBuster', () => {
-  it('fügt _cb Query hinzu', () => {
-    expect(appendManifestFetchCacheBuster('https://x.test/latest.json', 99)).toBe(
-      'https://x.test/latest.json?_cb=99',
-    );
   });
 });

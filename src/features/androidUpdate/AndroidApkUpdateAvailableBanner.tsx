@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAndroidApkUpdateOptional } from '../../context/AndroidApkUpdateProvider';
 import { evaluateAndroidApkUpdateBannerVisibility } from '../../lib/androidApkUpdateBanner';
-import { runAndroidNativeApkSystemHandoffFlow } from '../../lib/androidApkSystemHandoffFlow';
+import {
+  openAndroidDownloadsFileManagerAgain,
+  runAndroidNativeApkSystemHandoffFlow,
+} from '../../lib/androidApkSystemHandoffFlow';
 import styles from './AndroidApkUpdateAvailableBanner.module.css';
 
 /** Globaler Hinweis unter der Kopfzeile: natives Android-APK-Update nach latest.json. */
@@ -12,6 +15,7 @@ export function AndroidApkUpdateAvailableBanner() {
   const [installBusy, setInstallBusy] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
   const [installNotice, setInstallNotice] = useState<string | null>(null);
+  const [showOpenDownloads, setShowOpenDownloads] = useState(false);
 
   const bannerInput = useMemo(
     () =>
@@ -69,17 +73,29 @@ export function AndroidApkUpdateAvailableBanner() {
     if (!visibilityEval.shouldShow || installBusy) return;
     setInstallError(null);
     setInstallNotice(null);
+    setShowOpenDownloads(false);
     setInstallBusy(true);
     try {
       const res = await runAndroidNativeApkSystemHandoffFlow(manifest);
       if (res.ok) {
         setInstallNotice(res.notice);
+        setShowOpenDownloads(!res.fileManagerOpened);
       } else {
         setInstallError(res.message);
       }
     } finally {
       setInstallBusy(false);
     }
+  };
+
+  const handleOpenDownloads = async () => {
+    setInstallError(null);
+    const res = await openAndroidDownloadsFileManagerAgain();
+    if (!res.ok) {
+      setInstallError(res.message);
+      return;
+    }
+    setShowOpenDownloads(false);
   };
 
   const handleUpdateKeyDown = (e: KeyboardEvent) => {
@@ -129,15 +145,26 @@ export function AndroidApkUpdateAvailableBanner() {
           >
             {installBusy ? 'Update wird heruntergeladen …' : 'Update installieren'}
           </button>
-          <button
-            type="button"
-            onClick={handleLater}
-            disabled={installBusy}
-            className={styles.secondaryButton}
-            aria-label="Update-Hinweis für diese Version ausblenden"
-          >
-            Später
-          </button>
+          {showOpenDownloads ? (
+            <button
+              type="button"
+              onClick={() => void handleOpenDownloads()}
+              className={styles.secondaryButton}
+              aria-label="Downloads öffnen"
+            >
+              Downloads öffnen
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLater}
+              disabled={installBusy}
+              className={styles.secondaryButton}
+              aria-label="Update-Hinweis für diese Version ausblenden"
+            >
+              Später
+            </button>
+          )}
         </div>
       </div>
     </div>
