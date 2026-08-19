@@ -33,6 +33,10 @@ public/ocr/
 *.sln
 *.sw?
 
+# Lokale Diagnose (Phase S0/S1 — nicht Teil der Produkt-Baseline)
+forensics/
+android/reference/phase6d/
+
 # Android / release artifacts
 release-artifacts/
 .wrangler/
