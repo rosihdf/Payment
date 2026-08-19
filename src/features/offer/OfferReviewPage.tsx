@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import type { PublicOfferView } from '../../domain/offer/publicOfferView';
+import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './OfferReviewPage.module.css';
 
 type LoadState =
@@ -134,7 +135,7 @@ export function OfferReviewPage() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <p className={styles.brand}>AMRtech</p>
+        <p className={styles.brand}>{APP_DISPLAY_NAME}</p>
         <h1 className={styles.title}>Ihr Angebot</h1>
       </header>
 

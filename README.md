@@ -1,6 +1,6 @@
-# AMRtech Payment Leads
+# ArioSales
 
-Außendienst-Anwendung zur Aufnahme von Payment-Leads und zum Vergleich zwischen dem aktuellen Payment-Anbieter eines Interessenten und einem BestPay-Angebot.
+Außendienst-Anwendung (ArioSales) zur Aufnahme von Payment-Leads und zum Vergleich zwischen dem aktuellen Payment-Anbieter eines Interessenten und einem BestPay-Angebot.
 
 ## B03: Verbindlicher Angebotsworkflow
 

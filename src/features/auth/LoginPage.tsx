@@ -4,6 +4,7 @@ import { FormControl } from '../../components/common/FormControl';
 import { isSupabaseDataMode } from '../../config/dataMode';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { createSupabaseAuthService } from '../../services/supabaseAuthService';
+import { APP_DISPLAY_NAME } from '../../utils/appInfo';
 import styles from './LoginPage.module.css';
 
 export function LoginPage() {
@@ -50,7 +51,7 @@ export function LoginPage() {
           decoding="async"
         />
         <h1 id="login-title" className={styles.title}>
-          AMRtech Payment
+          {APP_DISPLAY_NAME}
         </h1>
         <p className={styles.subtitle}>Anmeldung für Administration und Außendienst</p>
         <form className={styles.form} onSubmit={(event) => void handleSubmit(event)}>

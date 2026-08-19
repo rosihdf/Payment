@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'branding/amrtech-payment-logo.svg'],
       manifest: {
-        name: 'AMRtech Payment',
-        short_name: 'AMRtech Payment',
-        description: 'Außendienst-App zur Aufnahme und zum Vergleich von Payment-Leads',
+        name: 'ArioSales',
+        short_name: 'ArioSales',
+        description: 'Außendienst-App für Beratung, Angebote und Payment-Vertrieb',
         theme_color: '#1e3a5f',
         background_color: '#f4f6f9',
         display: 'standalone',

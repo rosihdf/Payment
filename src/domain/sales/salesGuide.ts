@@ -2,9 +2,9 @@ import type { SalesWizardStepId } from '../bestPayComparison/salesWizard';
 import type { OfferWorkflowStatus } from '../offer/offerWorkflow';
 
 export const SALES_GUIDE_PRINCIPLE = {
-  title: 'AMRtech Payment verkauft Vertrauen',
+  title: 'ArioSales verkauft Vertrauen',
   summary:
-    'AMRtech Payment verkauft keine Terminals – sondern Beratung, Transparenz, Service und langfristige Partnerschaft.',
+    'ArioSales verkauft keine Terminals – sondern Beratung, Transparenz, Service und langfristige Partnerschaft.',
   reminders: [
     'Transparenz statt Verkaufsdruck.',
     'Kein Kunde muss vor Ort unterschreiben.',

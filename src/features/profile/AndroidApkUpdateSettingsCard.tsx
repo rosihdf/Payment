@@ -324,7 +324,7 @@ export function AndroidApkUpdateSettingsCard() {
         Fallback: <span className={styles.mono}>{ANDROID_FALLBACK_APK_URL}</span>
       </p>
       <p className={styles.updateStatus}>
-        Falls Android die Installation blockiert, erlaube einmalig „Apps aus dieser Quelle zulassen“ für AMRtech Payment
+        Falls Android die Installation blockiert, erlaube einmalig „Apps aus dieser Quelle zulassen“ für ArioSales
         in den Android-Einstellungen.
       </p>
       {!online ? (

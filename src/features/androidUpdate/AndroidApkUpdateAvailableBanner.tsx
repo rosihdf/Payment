@@ -63,7 +63,7 @@ export function AndroidApkUpdateAvailableBanner() {
 
   const headlineVersionLabel =
     (manifest.latestVersion ?? '').trim() || `Build ${manifest.versionCode ?? '—'}`;
-  const headline = `Neue AMRtech-Payment-Version verfügbar: ${headlineVersionLabel}`;
+  const headline = `Neue ArioSales-Version verfügbar: ${headlineVersionLabel}`;
 
   const handleLater = () => {
     ctx.snoozeCurrentManifest();

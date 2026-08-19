@@ -55,7 +55,7 @@ export async function loginWithPassword(
   password: string,
 ): Promise<void> {
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'AMRtech Payment' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ArioSales' })).toBeVisible();
   await page.getByLabel('E-Mail').fill(email);
   await page.getByLabel('Passwort').fill(password);
   await page.getByRole('button', { name: 'Anmelden' }).click();

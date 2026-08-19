@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AMRtech Payment</string>
-    <string name="title_activity_main">AMRtech Payment</string>
+    <string name="app_name">ArioSales</string>
+    <string name="title_activity_main">ArioSales</string>
     <string name="package_name">de.amrtech.paymentleads</string>
     <string name="custom_url_scheme">de.amrtech.paymentleads</string>
 </resources>
