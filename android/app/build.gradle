@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+def packageJsonFile = file('../../package.json')
+def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonFile.text)
+def releaseVersionName = packageJson.version as String
+def releaseVersionCode = packageJson.androidVersionCode as Integer
 
 def keystorePropertiesFile = file(System.getenv("AMRTECH_KEYSTORE_PROPERTIES") ?: "${System.getProperty('user.home')}/.amrtech/keystore.properties")
 def keystoreProperties = new Properties()
@@ -14,8 +18,8 @@ android {
         applicationId "de.amrtech.paymentleads"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10044
-        versionName "1.0.28"
+        versionCode releaseVersionCode
+        versionName releaseVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

@@ -12,14 +12,23 @@ import {
 import { evaluateAndroidApkUpdateBannerVisibility } from '../lib/androidApkUpdateBanner';
 import { ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME } from '../lib/androidApkSystemHandoffFlow';
 
-const installed = () => ({
-  bundleSemver: '1.0.28',
-  nativeVersionCode: 10044 as number | null,
-  nativeVersionName: '1.0.28',
-});
+const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+  version: string;
+  androidVersionCode: number;
+};
 
-const allowedApkUrl =
-  'https://amrtech-payment-downloads.amrtech.workers.dev/android/v1.0.28/AMRtech-Payment-1.0.28.apk';
+const release = {
+  versionName: pkg.version,
+  versionCode: pkg.androidVersionCode,
+};
+
+const allowedApkUrl = `https://amrtech-payment-downloads.amrtech.workers.dev/android/v${release.versionName}/AMRtech-Payment-${release.versionName}.apk`;
+
+const installed = () => ({
+  bundleSemver: release.versionName,
+  nativeVersionCode: release.versionCode as number | null,
+  nativeVersionName: release.versionName,
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -28,7 +37,7 @@ afterEach(() => {
 
 describe('Android updatecheck & production handoff path', () => {
   it('kein Update bei gleichem versionCode', () => {
-    expect(shouldOfferAndroidApkUpdate(installed(), { versionCode: 10044, apkUrl: allowedApkUrl })).toBe(
+    expect(shouldOfferAndroidApkUpdate(installed(), { versionCode: release.versionCode, apkUrl: allowedApkUrl })).toBe(
       false,
     );
     const evalResult = evaluateAndroidApkUpdateBannerVisibility({
@@ -36,7 +45,7 @@ describe('Android updatecheck & production handoff path', () => {
       online: true,
       checking: false,
       manifestLoadFailed: false,
-      manifest: { versionCode: 10044, apkUrl: allowedApkUrl },
+      manifest: { versionCode: release.versionCode, apkUrl: allowedApkUrl },
       installed: installed(),
       snoozedVersionCode: null,
       installBusy: false,
@@ -50,7 +59,7 @@ describe('Android updatecheck & production handoff path', () => {
       nativeVersionCode: 10043 as number | null,
       nativeVersionName: '1.0.27',
     };
-    expect(shouldOfferAndroidApkUpdate(older, { versionCode: 10044, apkUrl: allowedApkUrl })).toBe(true);
+    expect(shouldOfferAndroidApkUpdate(older, { versionCode: release.versionCode, apkUrl: allowedApkUrl })).toBe(true);
   });
 
   it('HTTPS + Host-Allowlist: gültige URL', () => {
@@ -81,7 +90,7 @@ describe('Android updatecheck & production handoff path', () => {
   });
 
   it('fester lokaler Update-Dateiname', () => {
-    expect(ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME).toBe('AMRtech-Payment-Update.apk');
+    expect(ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME).toBe('ArioSales-Update.apk');
   });
 
   it('kein REQUEST_INSTALL_PACKAGES / FileProvider im Manifest', () => {
@@ -110,8 +119,8 @@ describe('Android updatecheck & production handoff path', () => {
       nativeVersionCode: 10043 as number | null,
       nativeVersionName: '1.0.27',
     };
-    expect(compareAndroidInstallToManifest(older, { versionCode: 10044 }).kind).toBe('newer');
-    expect(compareAndroidInstallToManifest(installed(), { versionCode: 10044 }).kind).toBe('current');
+    expect(compareAndroidInstallToManifest(older, { versionCode: release.versionCode }).kind).toBe('newer');
+    expect(compareAndroidInstallToManifest(installed(), { versionCode: release.versionCode }).kind).toBe('current');
   });
 
   it('Manifestfehler werden abgefangen', async () => {
@@ -122,20 +131,20 @@ describe('Android updatecheck & production handoff path', () => {
     expect(result).toBeNull();
   });
 
-  it('Source-Version 1.0.28 / 10044', () => {
+  it('Source-Version aus package.json / Gradle', () => {
     const gradle = readFileSync('android/app/build.gradle', 'utf8');
-    expect(gradle).toMatch(/versionName\s+"1\.0\.28"/);
-    expect(gradle).toMatch(/versionCode\s+10044/);
-    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
-    expect(pkg.version).toBe('1.0.28');
+    expect(gradle).toContain('releaseVersionName');
+    expect(gradle).toContain('releaseVersionCode');
+    expect(pkg.version).toBe(release.versionName);
+    expect(pkg.androidVersionCode).toBe(release.versionCode);
   });
 });
 
 describe('Manifest validation & host allowlist', () => {
   it('parst Payment-Manifest und prüft SHA-Feldformat', () => {
     const parsed = parseAndroidLatestManifest({
-      versionName: '1.0.28',
-      versionCode: 10044,
+      versionName: release.versionName,
+      versionCode: release.versionCode,
       downloadUrl: allowedApkUrl,
       sha256: 'a'.repeat(64),
     });

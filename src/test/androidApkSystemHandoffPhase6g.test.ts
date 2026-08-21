@@ -58,15 +58,15 @@ describe('Final download-folder update flow', () => {
     });
     expect(res.ok).toBe(true);
     if (res.ok) {
-      expect(res.displayName).toBe('AMRtech-Payment-Update.apk');
+      expect(res.displayName).toBe('ArioSales-Update.apk');
       expect(res.fileManagerOpened).toBe(true);
       expect(res.headline).toBe('Update heruntergeladen');
-      expect(res.notice).toContain('AMRtech-Payment-Update.apk');
+      expect(res.notice).toContain('ArioSales-Update.apk');
       expect(res.notice).toMatch(/Aktualisieren/);
     }
     expect(AppUpdateSystemHandoff.saveCacheApkToPublicDownloads).toHaveBeenCalledWith({
       relativePath: 'amrtech-payment-updates/amrtech-payment-update-10044.apk',
-      displayName: 'AMRtech-Payment-Update.apk',
+      displayName: 'ArioSales-Update.apk',
     });
   });
 
@@ -120,7 +120,7 @@ describe('Final download-folder update flow', () => {
       'utf8',
     );
     expect(plugin).toContain('LOCAL_UPDATE_APK_DISPLAY_NAME');
-    expect(plugin).toContain('AMRtech-Payment-Update.apk');
+    expect(plugin).toContain('ArioSales-Update.apk');
     expect(plugin).toContain('deleteOwnAmrtechPaymentApks');
     expect(plugin).not.toContain('canRequestPackageInstalls');
     expect(plugin).not.toContain('PackageInstaller');

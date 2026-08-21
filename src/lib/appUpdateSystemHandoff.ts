@@ -2,7 +2,7 @@ import { registerPlugin } from '@capacitor/core';
 
 export type SaveCacheApkToPublicDownloadsOptions = {
   relativePath: string;
-  /** Ignoriert nativ — Speicherung immer als AMRtech-Payment-Update.apk */
+  /** Ignoriert nativ — Speicherung immer als ArioSales-Update.apk */
   displayName?: string;
 };
 

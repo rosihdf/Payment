@@ -7,7 +7,7 @@ import {
 import { AppUpdateSystemHandoff } from './appUpdateSystemHandoff';
 
 /** Fest verdrahteter lokaler Dateiname in Downloads (unabhängig von Remote-Version). */
-export const ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME = 'AMRtech-Payment-Update.apk';
+export const ANDROID_LOCAL_UPDATE_APK_DISPLAY_NAME = 'ArioSales-Update.apk';
 
 export const FILEMANAGER_HANDOFF_BLOCKED_MESSAGE_PREFIX = 'filemanager_handoff_blocked:';
 

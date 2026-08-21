@@ -34,13 +34,14 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
     public static final String MIME_APK = "application/vnd.android.package-archive";
     public static final String MIME_DIR = DocumentsContract.Document.MIME_TYPE_DIR;
 
-    /** Flacher Downloads-Pfad: Download/AMRtech-Payment-Update.apk */
+    /** Flacher Downloads-Pfad: Download/ArioSales-Update.apk */
     public static final String RELATIVE_DOWNLOADS = Environment.DIRECTORY_DOWNLOADS + "/";
 
     /** Einziger lokaler Update-Dateiname (unabhängig von Remote-Version). */
-    public static final String LOCAL_UPDATE_APK_DISPLAY_NAME = "AMRtech-Payment-Update.apk";
+    public static final String LOCAL_UPDATE_APK_DISPLAY_NAME = "ArioSales-Update.apk";
 
-    public static final String OWN_APK_PREFIX = "AMRtech-Payment";
+    public static final String OWN_APK_PREFIX = "ArioSales";
+    private static final String LEGACY_APK_PREFIX = "AMRtech-Payment";
 
     public static final String SAMSUNG_MYFILES_PACKAGE = "com.sec.android.app.myfiles";
     public static final String SAMSUNG_LAUNCH_ACTION = "samsung.myfiles.intent.action.LAUNCH_MY_FILES";
@@ -50,7 +51,7 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
 
     public static final String MSG_FILEMANAGER_BLOCKED =
             "filemanager_handoff_blocked: Das Update wurde heruntergeladen. Öffne bitte Downloads und tippe auf"
-                    + " „AMRtech-Payment-Update.apk“.";
+                    + " „ArioSales-Update.apk“.";
 
     private static boolean hasPathTraversalOrAbsolute(final String rel) {
         if (rel.isEmpty()) {
@@ -118,13 +119,14 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
             return false;
         }
         final String n = name.trim();
-        if (!n.regionMatches(true, 0, OWN_APK_PREFIX, 0, OWN_APK_PREFIX.length())) {
+        if (!n.toLowerCase().endsWith(".apk")) {
             return false;
         }
-        return n.toLowerCase().endsWith(".apk");
+        return n.regionMatches(true, 0, OWN_APK_PREFIX, 0, OWN_APK_PREFIX.length())
+                || n.regionMatches(true, 0, LEGACY_APK_PREFIX, 0, LEGACY_APK_PREFIX.length());
     }
 
-    /** Entfernt nur eigene AMRtech-Payment-*.apk Einträge aus MediaStore Downloads. */
+    /** Entfernt eigene ArioSales-/Legacy-Payment-Update-APKs aus MediaStore Downloads. */
     private void deleteOwnAmrtechPaymentApks(final ContentResolver resolver, final Uri collection) {
         try (final Cursor c =
                 resolver.query(
@@ -150,8 +152,8 @@ public class AppUpdateSystemHandoffPlugin extends Plugin {
     }
 
     /**
-     * Speichert die Cache-APK flach unter Download/AMRtech-Payment-Update.apk.
-     * Entfernt vorher alle eigenen AMRtech-Payment-*.apk Dateien.
+     * Speichert die Cache-APK flach unter Download/ArioSales-Update.apk.
+     * Entfernt vorher eigene Update-APK-Einträge (ArioSales + Legacy-Payment-Prefix).
      */
     @PluginMethod
     public void saveCacheApkToPublicDownloads(final PluginCall call) {

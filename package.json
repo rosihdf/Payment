@@ -2,6 +2,7 @@
   "name": "amrtech-payment-leads",
   "private": true,
   "version": "1.0.28",
+  "androidVersionCode": 10044,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,7 +23,9 @@
     "deploy:cloudflare": "wrangler deploy",
     "keepalive:test": "wrangler deploy --dry-run && curl -sS -X POST \"${KEEPALIVE_TEST_URL:-http://127.0.0.1:8787/__keepalive}\"",
     "smoke:production": "node scripts/smoke-production.mjs",
-    "secretscan:dist": "node scripts/secretscan-dist.mjs"
+    "secretscan:dist": "node scripts/secretscan-dist.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "release:android": "node scripts/release-android.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.8",
