@@ -73,7 +73,7 @@ export type OfferResult =
 
 export type OfferActionResult =
   | { ok: true; offer: Offer }
-  | { ok: false; error: 'not_found' | 'forbidden' | 'storage' | 'invalid_status' }
+  | { ok: false; error: 'not_found' | 'forbidden' | 'storage' | 'invalid_status' | 'contract_failed' }
   | { ok: false; errors: { reason?: string } }
   | { ok: false; error: 'blocked'; blocker: OfferDraftDeletionBlocker; message: string };
 
@@ -758,10 +758,6 @@ export class OfferService {
       return { ok: false, error: 'forbidden' };
     }
 
-    if (existing.status !== 'draft') {
-      return { ok: false, error: 'invalid_status' };
-    }
-
     if (
       this.workflowService &&
       canTransitionWorkflowStatus(existing.workflowStatus, 'accept')
@@ -773,58 +769,13 @@ export class OfferService {
         note: 'Abschluss über Legacy-API',
       });
       if (result.ok) return result;
-      return { ok: false, error: result.error === 'validation' ? 'invalid_status' : result.error };
+      return {
+        ok: false,
+        error: result.error === 'validation' ? 'invalid_status' : result.error,
+      };
     }
 
-    const input = {
-      leadId: existing.leadId,
-      tariffId: existing.tariffSnapshot?.tariffId ?? null,
-      title: existing.title,
-      introductionText: existing.introductionText,
-      internalNotes: existing.internalNotes,
-      customerNotes: existing.customerNotes,
-      validUntil: existing.validUntil,
-      items: existing.items.map((item) => ({
-        type: item.type,
-        productId: item.productSnapshot?.productId ?? null,
-        name: item.name,
-        description: item.description,
-        quantity: item.quantity,
-        priceType: item.priceType,
-        unitPriceCents: item.unitPriceCents,
-        unitLabel: item.unitLabel,
-        priceOverrideReason: item.priceOverrideReason,
-      })),
-    };
-
-    const originalPrices = await this.buildOriginalPricesMap(input.items);
-    const validationErrors = validateCreateOfferInput(input, {
-      existingOffer: existing,
-      createdAt: existing.createdAt,
-      originalPricesByProductId: originalPrices,
-    });
-
-    if (hasOfferValidationErrors(validationErrors)) {
-      return { ok: false, error: 'invalid_status' };
-    }
-
-    const timestamp = nowIso();
-    const completed: Offer = {
-      ...existing,
-      workflowStatus: 'accepted',
-      status: syncLegacyOfferStatus('accepted'),
-      completedAt: timestamp,
-      completedByUserId: context.userId,
-      updatedAt: timestamp,
-    };
-
-    try {
-      const saved = await this.offerRepository.update(completed);
-      this.invalidateOfferListCache();
-      return { ok: true, offer: saved };
-    } catch {
-      return { ok: false, error: 'storage' };
-    }
+    return { ok: false, error: 'invalid_status' };
   }
 
   async cancelOffer(id: string, reason: string, context: OfferUserContext): Promise<OfferActionResult> {

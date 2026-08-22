@@ -1,11 +1,12 @@
-import { buildContractVersionSnapshotFromOfferVersion } from '../domain/contract/buildContractVersionFromOffer';
+import { buildContractFromAcceptedOffer } from '../domain/contract/buildContractFromAcceptedOffer';
+import { deriveContractNextDeadline } from '../domain/contract/deriveContractDeadline';
 import { getLeadDisplayName } from '../domain/lead/getLeadDisplayName';
+import { resolveContractCreationWorkflowStatus } from '../domain/offer/offerAcceptanceCore';
 import {
   compareContractVersions,
   evaluateContractChangeApproval,
 } from '../domain/contract/compareContractVersions';
 import type { Contract, ContractListItem, ContractMetrics } from '../domain/contract/contract';
-import { CURRENT_CONTRACT_SCHEMA_VERSION } from '../domain/contract/contract';
 import {
   addDaysUtc,
   computeContractEndDate,
@@ -17,7 +18,6 @@ import {
 } from '../domain/contract/contractDates';
 import {
   buildContractSourceKey,
-  generateNextContractNumber,
 } from '../domain/contract/contractNumber';
 import {
   canTransitionContractStatus,
@@ -121,22 +121,6 @@ function canViewContract(contract: Contract, context: UserContext): boolean {
   return contract.ownerUserId === context.userId || contract.createdByUserId === context.userId;
 }
 
-function deriveNextDeadline(contract: Contract): { at: string | null; label: string | null } {
-  const candidates: Array<{ at: string; label: string }> = [];
-  if (contract.earliestTerminationDate) {
-    candidates.push({ at: contract.earliestTerminationDate, label: 'Kündigungsfrist' });
-  }
-  if (contract.endDate) {
-    candidates.push({ at: contract.endDate, label: 'Vertragsende' });
-  }
-  if (contract.plannedChangeAt) {
-    candidates.push({ at: contract.plannedChangeAt, label: 'Geplante Änderung' });
-  }
-  candidates.sort((a, b) => a.at.localeCompare(b.at));
-  const next = candidates[0];
-  return next ? { at: next.at, label: next.label } : { at: null, label: null };
-}
-
 export class ContractService {
   private taskService: SalesTaskService | null = null;
   private activityService: SalesActivityService | null = null;
@@ -191,8 +175,8 @@ export class ContractService {
     const offer = await this.offerRepository.getById(offerId);
     if (!offer) return { ok: false, error: 'not_found', message: 'Angebot nicht gefunden.' };
 
-    const allowed = ['accepted', 'activation_pending', 'activated', 'released', 'accounted', 'paid'];
-    if (!allowed.includes(offer.workflowStatus)) {
+    const effectiveWorkflowStatus = resolveContractCreationWorkflowStatus(offer.workflowStatus);
+    if (!effectiveWorkflowStatus) {
       return {
         ok: false,
         error: 'not_accepted',
@@ -216,99 +200,26 @@ export class ContractService {
     const byOffer = await this.contractRepository.getByOfferId(offerId);
     if (byOffer) return { ok: true, value: byOffer };
 
-    const timestamp = nowIso();
     const allContracts = await this.contractRepository.getAll();
-    const contractNumber = generateNextContractNumber(allContracts, timestamp);
     const commissionCases = await this.commissionCalculationRepository.getCasesByOfferId(offerId);
     const commissionCase = commissionCases[0] ?? null;
 
-    const snapshot = buildContractVersionSnapshotFromOfferVersion(offerVersion, {
-      startDate: options.startDate ?? toIsoDateOnly(new Date()),
-      commissionCaseId: commissionCase?.id ?? null,
-      expectedCommissionCents: commissionCase?.expectedAmountCents ?? null,
+    const built = buildContractFromAcceptedOffer({
+      offer: { ...offer, workflowStatus: effectiveWorkflowStatus },
+      offerVersion,
+      existingContracts: allContracts,
+      commissionCase: commissionCase
+        ? { id: commissionCase.id, expectedAmountCents: commissionCase.expectedAmountCents }
+        : null,
+      context: { userId: context.userId, displayName: context.displayName },
+      options: { startDate: options.startDate ?? undefined, timestamp: nowIso() },
     });
-    const dateError = validateContractDateRange(snapshot.startDate, snapshot.endDate);
-    if (dateError) return { ok: false, error: 'validation', message: dateError };
-
-    const contractId = generateId('contract');
-    const version: ContractVersion = {
-      id: generateId('contract_version'),
-      schemaVersion: CURRENT_CONTRACT_VERSION_SCHEMA_VERSION,
-      contractId,
-      versionNumber: 1,
-      status: 'active',
-      validFrom: snapshot.startDate,
-      validTo: null,
-      changeReason: 'initial',
-      changeNote: 'Initialversion aus angenommenem Angebot',
-      previousVersionId: null,
-      sourceOfferVersionId: offerVersion.id,
-      snapshot,
-      approvalRequired: false,
-      approvalReasons: [],
-      approvedAt: timestamp,
-      approvedByUserId: context.userId,
-      activatedAt: timestamp,
-      discardedAt: null,
-      createdAt: timestamp,
-      createdByUserId: context.userId,
-      createdByDisplayName: context.displayName,
-    };
-
-    const earliestTerminationDate =
-      snapshot.endDate && snapshot.noticePeriodMonths != null
-        ? computeEarliestTerminationDate(snapshot.endDate, snapshot.noticePeriodMonths)
-        : null;
-
-    let status: ContractStatus = 'preparation';
-    if (offer.workflowStatus === 'activation_pending') status = 'activation';
-    if (
-      offer.workflowStatus === 'activated' ||
-      offer.workflowStatus === 'released' ||
-      offer.workflowStatus === 'accounted' ||
-      offer.workflowStatus === 'paid'
-    ) {
-      status = 'active';
+    if (!built.ok) {
+      return { ok: false, error: built.error, message: built.message };
     }
 
-    const contract: Contract = {
-      id: contractId,
-      schemaVersion: CURRENT_CONTRACT_SCHEMA_VERSION,
-      contractNumber,
-      sourceKey,
-      leadId: offer.leadId,
-      sourceOfferId: offerId,
-      acceptedOfferVersionId: offerVersion.id,
-      currentVersionId: version.id,
-      status,
-      ownerUserId: offer.createdByUserId || context.userId,
-      startDate: snapshot.startDate,
-      termMonths: snapshot.termMonths,
-      endDate: snapshot.endDate,
-      noticePeriodMonths: snapshot.noticePeriodMonths,
-      earliestTerminationDate,
-      autoRenewal: snapshot.autoRenewal,
-      renewalMonths: snapshot.renewalMonths,
-      activationOfferId: offerId,
-      commissionCaseId: commissionCase?.id ?? null,
-      expectedCommissionCents: commissionCase?.expectedAmountCents ?? null,
-      hardwareCount: snapshot.hardware.reduce((sum, line) => sum + line.quantity, 0),
-      tariffName: snapshot.tariffSnapshot?.name ?? null,
-      customerCompanyName: getLeadDisplayName(snapshot.customerSnapshot),
-      nextDeadlineAt: null,
-      nextDeadlineLabel: null,
-      plannedChangeAt: null,
-      terminationId: null,
-      createdAt: timestamp,
-      createdByUserId: context.userId,
-      createdByDisplayName: context.displayName,
-      updatedAt: timestamp,
-      updatedByUserId: context.userId,
-    };
-
-    const deadline = deriveNextDeadline(contract);
-    contract.nextDeadlineAt = deadline.at;
-    contract.nextDeadlineLabel = deadline.label;
+    const { contract, version } = built;
+    const sourceOfferNumber = version.snapshot.sourceOfferNumber;
 
     await this.versionRepository.create(version);
     await this.contractRepository.create(contract);
@@ -317,7 +228,7 @@ export class ContractService {
       {
         type: 'contract_created',
         title: `Vertrag ${contract.contractNumber} angelegt`,
-        description: `Aus Angebot ${snapshot.sourceOfferNumber ?? offerId}`,
+        description: `Aus Angebot ${sourceOfferNumber ?? offerId}`,
         leadId: contract.leadId,
         offerId,
         contractId: contract.id,
@@ -331,7 +242,7 @@ export class ContractService {
       {
         type: 'bestpay_handoff',
         title: `Vertrag an BestPay übergeben: ${contract.contractNumber}`,
-        description: `Aus Angebot ${snapshot.sourceOfferNumber ?? offerId}`,
+        description: `Aus Angebot ${sourceOfferNumber ?? offerId}`,
         leadId: contract.leadId,
         offerId,
         contractId: contract.id,
@@ -939,7 +850,7 @@ export class ContractService {
       updatedAt: timestamp,
       updatedByUserId: context.userId,
     };
-    const deadline = deriveNextDeadline(updated);
+    const deadline = deriveContractNextDeadline(updated);
     updated.nextDeadlineAt = deadline.at;
     updated.nextDeadlineLabel = deadline.label;
     await this.contractRepository.update(updated);

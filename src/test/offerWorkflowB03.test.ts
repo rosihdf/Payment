@@ -155,7 +155,7 @@ describe('B03 Angebotsworkflow', () => {
       expect(canTransitionWorkflowStatus('draft', 'submit_for_approval')).toBe(true);
     });
 
-    it('schließt Entwürfe direkt ab, wenn accept aus draft verboten ist', async () => {
+    it('leitet completeOffer nur über den Workflow ab', async () => {
       const repos = createTestRepositories();
       const services = createServices(repos);
       const offer = await repos.offerRepository.create(createTestOffer({ workflowStatus: 'draft' }));
@@ -163,10 +163,9 @@ describe('B03 Angebotsworkflow', () => {
 
       const result = await services.offerService.completeOffer(offer.id, owner);
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.offer.status).toBe('completed');
-        expect(result.offer.workflowStatus).toBe('accepted');
+      expect(result.ok).toBe(false);
+      if (!result.ok && 'error' in result) {
+        expect(result.error).toBe('invalid_status');
       }
     });
 
@@ -282,6 +281,31 @@ describe('B03 Angebotsworkflow', () => {
         note: '',
       });
       expect(accepted.ok).toBe(true);
+    });
+
+    it('erzeugt genau einen Vertrag bei Annahme und bleibt idempotent', async () => {
+      const repos = createTestRepositories();
+      const services = createServices(repos);
+      const offer = await repos.offerRepository.create(createTestOffer({ workflowStatus: 'sent' }));
+      await services.offerWorkflowService.ensureInitialVersion(offer);
+      const acceptance = {
+        acceptedByName: 'Kunde',
+        acceptanceType: 'digital_confirmation' as const,
+        otherText: null,
+        note: '',
+      };
+
+      const accepted = await services.offerWorkflowService.acceptOffer(offer.id, owner, acceptance);
+      expect(accepted.ok).toBe(true);
+      expect((await repos.contractRepository.getByOfferId(offer.id))?.sourceOfferId).toBe(offer.id);
+
+      const duplicate = await services.offerWorkflowService.acceptOffer(offer.id, owner, acceptance);
+      expect(duplicate.ok).toBe(true);
+      if (duplicate.ok) {
+        expect(duplicate.duplicate).toBe(true);
+      }
+      expect((await repos.contractRepository.getAll()).filter((contract) => contract.sourceOfferId === offer.id))
+        .toHaveLength(1);
     });
   });
 

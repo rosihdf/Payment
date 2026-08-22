@@ -1,6 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { buildContractSourceKey } from '../../../src/domain/contract/contractNumber';
 import {
+  buildContractFromAcceptedOffer,
+} from '../../../src/domain/contract/buildContractFromAcceptedOffer';
+import type { Contract } from '../../../src/domain/contract/contract';
+import { normalizeOfferVersion } from '../../../src/domain/offer/normalizeOfferVersion';
+import { isOfferAcceptanceDuplicate } from '../../../src/domain/offer/offerAcceptanceCore';
+import {
   buildOfferAfterWorkflowTransition,
   buildPublicAcceptanceActivitySourceKey,
   buildPublicAcceptanceEvent,
@@ -9,7 +15,6 @@ import {
   buildPublicDeclineEvent,
   buildPublicDeclineEventSourceKey,
   canPublicDecideOffer,
-  findAcceptanceEventBySourceKey,
   findDeclineEventBySourceKey,
 } from '../../../src/domain/offer/offerWorkflowTransitionCore';
 import { errorResponse, type AdminEnv } from './adminUsersApi';
@@ -586,19 +591,111 @@ async function recordActivityIfMissing(
   });
 }
 
-async function ensureContractNotDuplicated(
+async function ensureContractForAcceptedOffer(
   service: SupabaseClient,
-  offerId: string,
-  offerVersionId: string,
-): Promise<void> {
-  const sourceKey = buildContractSourceKey(offerId, offerVersionId);
+  input: {
+    offerId: string;
+    offerVersionId: string;
+    leadId: string | null;
+    createdByUserId: string;
+    displayName: string;
+  },
+): Promise<{ ok: true; contractId: string } | { ok: false; message: string }> {
+  const sourceKey = buildContractSourceKey(input.offerId, input.offerVersionId);
   const [{ data: byOffer }, { data: byKey }] = await Promise.all([
-    service.from('contracts').select('id').eq('source_offer_id', offerId).maybeSingle(),
-    service.from('contracts').select('id').eq('data->>sourceKey', sourceKey).maybeSingle(),
+    service.from('contracts').select('id').eq('source_offer_id', input.offerId).maybeSingle(),
+    service.from('contracts').select('id').eq('source_key', sourceKey).maybeSingle(),
   ]);
-  if (byOffer || byKey) {
-    return;
+  const existingId = byOffer?.id ?? byKey?.id;
+  if (existingId) {
+    return { ok: true, contractId: existingId };
   }
+
+  const { data: versionRow, error: versionLoadError } = await service
+    .from('offer_versions')
+    .select('id, data, created_at, created_by_user_id')
+    .eq('id', input.offerVersionId)
+    .maybeSingle();
+  if (versionLoadError || !versionRow?.data) {
+    return { ok: false, message: 'Angebotsversion fehlt.' };
+  }
+
+  const offerVersion = normalizeOfferVersion({
+    ...(versionRow.data as Record<string, unknown>),
+    id: versionRow.id,
+    createdAt: versionRow.created_at,
+    createdByUserId: versionRow.created_by_user_id,
+  });
+  if (!offerVersion) {
+    return { ok: false, message: 'Angebotsversion ungültig.' };
+  }
+
+  const { data: contractRows, error: contractLoadError } = await service.from('contracts').select('data');
+  if (contractLoadError) {
+    return { ok: false, message: 'Bestehende Verträge konnten nicht geladen werden.' };
+  }
+  const existingContracts = (contractRows ?? [])
+    .map((row) => row.data)
+    .filter(Boolean) as Contract[];
+
+  const { data: commissionRows } = await service
+    .from('commission_cases')
+    .select('id, data')
+    .eq('offer_id', input.offerId)
+    .limit(1);
+  const commissionRow = commissionRows?.[0];
+  const commissionData = (commissionRow?.data ?? {}) as { expectedAmountCents?: number | null };
+
+  const built = buildContractFromAcceptedOffer({
+    offer: {
+      id: input.offerId,
+      leadId: input.leadId ?? '',
+      workflowStatus: 'accepted',
+      createdByUserId: input.createdByUserId,
+      currentVersionId: input.offerVersionId,
+    },
+    offerVersion,
+    existingContracts,
+    commissionCase: commissionRow
+      ? { id: commissionRow.id, expectedAmountCents: commissionData.expectedAmountCents ?? null }
+      : null,
+    context: { userId: input.createdByUserId, displayName: input.displayName },
+  });
+  if (!built.ok) {
+    return { ok: false, message: built.message };
+  }
+
+  const { contract, version } = built;
+  const timestamp = contract.createdAt;
+  const { error: contractError } = await service.from('contracts').insert({
+    id: contract.id,
+    lead_id: contract.leadId ?? '',
+    source_offer_id: contract.sourceOfferId,
+    owner_user_id: contract.ownerUserId,
+    created_by_user_id: contract.createdByUserId,
+    source_key: contract.sourceKey,
+    data: contract,
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  if (contractError) {
+    return { ok: false, message: 'Vertrag konnte nicht angelegt werden.' };
+  }
+
+  const { error: versionError } = await service.from('contract_versions').insert({
+    id: version.id,
+    contract_id: version.contractId,
+    lead_id: contract.leadId ?? '',
+    created_by_user_id: version.createdByUserId,
+    data: version,
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+  if (versionError) {
+    return { ok: false, message: 'Vertragsversion konnte nicht angelegt werden.' };
+  }
+
+  return { ok: true, contractId: contract.id };
 }
 
 async function applyCustomerFeedbackStatus(
@@ -700,9 +797,22 @@ async function handlePostDecision(
   if (decision === 'accept') {
     const acceptanceSourceKey = buildPublicAcceptanceEventSourceKey(share.offer_id, share.id);
     if (
-      findAcceptanceEventBySourceKey(events as never, acceptanceSourceKey) ||
-      workflowStatus === 'accepted'
+      isOfferAcceptanceDuplicate({
+        workflowStatus: workflowStatus as never,
+        events: events as never,
+        acceptanceEventSourceKey: acceptanceSourceKey,
+      })
     ) {
+      const contractResult = await ensureContractForAcceptedOffer(service, {
+        offerId: share.offer_id,
+        offerVersionId: share.offer_version_id,
+        leadId: offerRow?.lead_id ?? null,
+        createdByUserId: share.created_by_user_id,
+        displayName: 'Kunde',
+      });
+      if (!contractResult.ok) {
+        return errorResponse(503, 'contract_failed', contractResult.message);
+      }
       return jsonResponse({ ok: true, decision, duplicate: true }, 200);
     }
 
@@ -712,6 +822,17 @@ async function handlePostDecision(
     });
     if (!nextSnapshot) {
       return errorResponse(403, 'invalid_transition', 'Annahme ist derzeit nicht möglich.');
+    }
+
+    const contractResult = await ensureContractForAcceptedOffer(service, {
+      offerId: share.offer_id,
+      offerVersionId: share.offer_version_id,
+      leadId: offerRow?.lead_id ?? null,
+      createdByUserId: share.created_by_user_id,
+      displayName: 'Kunde',
+    });
+    if (!contractResult.ok) {
+      return errorResponse(503, 'contract_failed', contractResult.message);
     }
 
     const acceptanceEvent = buildPublicAcceptanceEvent({
@@ -763,7 +884,6 @@ async function handlePostDecision(
       acceptedAt: now,
     });
     await insertWorkflowEvent(service, acceptanceEvent as unknown as Record<string, unknown>);
-    await ensureContractNotDuplicated(service, share.offer_id, share.offer_version_id);
     await recordActivityIfMissing(service, {
       sourceKey: buildPublicAcceptanceActivitySourceKey(share.offer_id, share.id),
       offerId: share.offer_id,

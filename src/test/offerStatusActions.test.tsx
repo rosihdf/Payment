@@ -2,11 +2,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { buildOfferVersionSnapshot } from '../domain/offer/buildOfferVersionSnapshot';
+import { syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
 import { AppProviders } from '../app/providers/AppProviders';
 import { appRoutes } from '../app/router';
 import { normalizeOffers } from '../domain/offer/normalizeOffer';
 import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
-import { STORAGE_KEYS } from '../utils/storage';
+import { STORAGE_KEYS, writeStorageItem } from '../utils/storage';
 import {
   FIELD_SERVICE_USER_ID,
   seedOfferInStorage,
@@ -48,9 +50,24 @@ describe('Offer status actions UI', () => {
     const offer = await seedOfferInStorage(repository, {
       title: 'Abschluss Test',
       workflowStatus: 'sent',
+      status: syncLegacyOfferStatus('sent'),
       currentVersionId: 'ver_complete_test',
       currentVersionNumber: 1,
     });
+    writeStorageItem(STORAGE_KEYS.offerVersions, [
+      {
+        id: 'ver_complete_test',
+        offerId: offer.id,
+        versionNumber: 1,
+        workflowStatus: 'sent',
+        snapshot: buildOfferVersionSnapshot(offer, undefined, 1),
+        createdAt: offer.createdAt,
+        createdByUserId: offer.createdByUserId,
+        createdByDisplayName: offer.createdByDisplayName,
+        approvedAt: null,
+        approvedByUserId: null,
+      },
+    ]);
 
     renderAtRoute(`/offers/${offer.id}`, false);
 

@@ -28,7 +28,6 @@ import {
   buildOfferDeliverySourceKey,
   buildOfferSentActivitySourceKey,
   canDeliverOffer,
-  findAcceptanceEventBySourceKey,
   findDeclineEventBySourceKey,
   findDeliveryEventBySourceKey,
   isOfferAlreadySent,
@@ -48,6 +47,7 @@ import {
   syncLegacyOfferStatus,
   type OfferWorkflowTransition,
 } from '../domain/offer/offerWorkflow';
+import { isOfferAcceptanceDuplicate } from '../domain/offer/offerAcceptanceCore';
 import {
   OFFER_WORKFLOW_EVENT_SCHEMA_VERSION,
   type OfferAcceptance,
@@ -79,7 +79,7 @@ import type { OfferUserContext } from './offerService';
 import type { SalesActivityService } from './salesActivityService';
 import { endOfDayIso, type SalesTaskService } from './salesTaskService';
 
-type Result = { ok: true; offer: Offer; duplicate?: boolean } | { ok: false; error: 'not_found' | 'forbidden' | 'invalid_status' | 'validation' };
+type Result = { ok: true; offer: Offer; duplicate?: boolean } | { ok: false; error: 'not_found' | 'forbidden' | 'invalid_status' | 'validation' | 'contract_failed' };
 
 export interface MarkOfferDeliveredInput {
   offerVersionId: string;
@@ -816,21 +816,45 @@ export class OfferWorkflowService {
     if (!offer?.currentVersionId) return { ok: false, error: 'not_found' };
     const eventSourceKey = buildInternalAcceptanceEventSourceKey(offerId, offer.currentVersionId);
     const events = await this.eventRepository.getByOfferId(offerId);
-    if (findAcceptanceEventBySourceKey(events, eventSourceKey) || offer.workflowStatus === 'accepted') {
-      return { ok: true, offer, duplicate: true };
-    }
-    const result = await this.transition(offerId, 'accept', context);
-    if (result.ok) {
-      await this.event({ id: eventSourceKey.replace(/:/g, '_'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: eventSourceKey, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
-      await this.record('offer_accepted', 'Kunde angenommen', acceptance.acceptedByName, result.offer, context, buildInternalAcceptanceActivitySourceKey(offerId, result.offer.currentVersionId!));
+    if (isOfferAcceptanceDuplicate({
+      workflowStatus: offer.workflowStatus,
+      events,
+      acceptanceEventSourceKey: eventSourceKey,
+    })) {
       if (this.contractService) {
-        await this.contractService.createFromAcceptedOffer(offerId, {
+        const contractResult = await this.contractService.createFromAcceptedOffer(offerId, {
           userId: context.userId,
           role: context.role,
           displayName: context.displayName,
           status: 'active',
         });
+        if (!contractResult.ok && contractResult.error !== 'forbidden') {
+          return { ok: false, error: 'contract_failed' };
+        }
       }
+      return { ok: true, offer, duplicate: true };
+    }
+
+    if (!applyWorkflowTransition(offer.workflowStatus, 'accept')) {
+      return { ok: false, error: 'invalid_status' };
+    }
+
+    if (this.contractService) {
+      const contractResult = await this.contractService.createFromAcceptedOffer(offerId, {
+        userId: context.userId,
+        role: context.role,
+        displayName: context.displayName,
+        status: 'active',
+      });
+      if (!contractResult.ok) {
+        return { ok: false, error: 'contract_failed' };
+      }
+    }
+
+    const result = await this.transition(offerId, 'accept', context);
+    if (result.ok) {
+      await this.event({ id: eventSourceKey.replace(/:/g, '_'), schemaVersion: 1, type: 'acceptance', offerId, offerVersionId: result.offer.currentVersionId, createdAt: nowIso(), createdByUserId: context.userId, createdByDisplayName: context.displayName, note: eventSourceKey, acceptedAt: nowIso(), acceptedByName: acceptance.acceptedByName, acceptanceType: acceptance.acceptanceType, otherText: acceptance.otherText });
+      await this.record('offer_accepted', 'Kunde angenommen', acceptance.acceptedByName, result.offer, context, buildInternalAcceptanceActivitySourceKey(offerId, result.offer.currentVersionId!));
     }
     return result;
   }

@@ -3,7 +3,10 @@ import { LocalLeadRepository } from '../repositories/local/LocalLeadRepository';
 import { LocalOfferRepository } from '../repositories/local/LocalOfferRepository';
 import { LocalProductRepository } from '../repositories/local/LocalProductRepository';
 import { LocalTariffRepository } from '../repositories/local/LocalTariffRepository';
+import { syncLegacyOfferStatus } from '../domain/offer/offerWorkflow';
+import { createServices } from '../services';
 import { OfferService } from '../services/offerService';
+import { createTestRepositories } from './helpers/createTestRepositories';
 import { clearDemoDataForTests, resetDemoDataForTests } from '../services/demoDataService';
 import {
   ADMIN_CONTEXT,
@@ -102,16 +105,37 @@ describe('OfferService', () => {
     expect(updateResult).toEqual({ ok: false, error: 'forbidden' });
   });
 
-  it('completes draft offer', async () => {
-    const created = await createOfferViaService(offerService);
+  it('completes sent offer via workflow', async () => {
+    const repos = createTestRepositories();
+    const services = createServices(repos);
+    const created = await createOfferViaService(services.offerService, createValidOfferInput(), FIELD_SERVICE_CONTEXT);
+    await services.offerWorkflowService.ensureInitialVersion(created);
+    const sent = await repos.offerRepository.update({
+      ...created,
+      workflowStatus: 'sent',
+      status: syncLegacyOfferStatus('sent'),
+      updatedAt: new Date().toISOString(),
+    });
 
-    const result = await offerService.completeOffer(created.id, FIELD_SERVICE_CONTEXT);
+    const result = await services.offerService.completeOffer(sent.id, FIELD_SERVICE_CONTEXT);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.offer.status).toBe('completed');
+      expect(result.offer.workflowStatus).toBe('accepted');
       expect(result.offer.completedByUserId).toBe(FIELD_SERVICE_CONTEXT.userId);
       expect(result.offer.completedAt).toBeTruthy();
+    }
+  });
+
+  it('blockiert completeOffer für Entwürfe ohne gültige Accept-Transition', async () => {
+    const created = await createOfferViaService(offerService, createValidOfferInput(), FIELD_SERVICE_CONTEXT);
+
+    const result = await offerService.completeOffer(created.id, FIELD_SERVICE_CONTEXT);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok && 'error' in result) {
+      expect(result.error).toBe('invalid_status');
     }
   });
 

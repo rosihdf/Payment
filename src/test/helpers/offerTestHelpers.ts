@@ -25,8 +25,11 @@ import {
   getDemoTariffs,
   resetDemoDataForTests,
 } from '../../services/demoDataService';
+import { syncLegacyOfferStatus } from '../../domain/offer/offerWorkflow';
+import { createServices } from '../../services';
 import type { OfferService, OfferUserContext } from '../../services/offerService';
 import type { OfferWorkflowService } from '../../services/offerWorkflowService';
+import { createTestRepositories } from './createTestRepositories';
 import { EMPTY_OFFER_RECOMMENDATION_LINK } from '../../domain/recommendation/recommendationRecord';
 import { generateId, nowIso } from '../../utils/id';
 import { STORAGE_KEYS, writeStorageItem } from '../../utils/storage';
@@ -232,12 +235,23 @@ export async function createOfferViaService(
 }
 
 export async function seedCompletedOffer(
-  offerService: OfferService,
+  _offerService?: OfferService,
   input: CreateOfferInput = createValidOfferInput(),
   context: OfferUserContext = FIELD_SERVICE_CONTEXT,
 ): Promise<Offer> {
-  const draft = await createOfferViaService(offerService, input, context);
-  const result = await offerService.completeOffer(draft.id, context);
+  const repos = createTestRepositories();
+  const services = createServices(repos);
+  const draft = await createOfferViaService(services.offerService, input, context);
+  await services.offerWorkflowService.ensureInitialVersion(draft);
+
+  const sentOffer = await repos.offerRepository.update({
+    ...draft,
+    workflowStatus: 'sent',
+    status: syncLegacyOfferStatus('sent'),
+    updatedAt: nowIso(),
+  });
+
+  const result = await services.offerService.completeOffer(sentOffer.id, context);
   if (!result.ok) {
     throw new Error(`Failed to complete offer: ${JSON.stringify(result)}`);
   }
