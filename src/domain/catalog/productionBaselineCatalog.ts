@@ -9,7 +9,10 @@ import type { Product } from '../product/product';
 import type { RecommendationWeightSet } from '../recommendation/recommendationWeightSet';
 import type { Tariff } from '../tariff/tariff';
 import type { DocumentTemplate } from '../template/documentTemplate';
-import { getDemoProducts, getDemoTariffs } from '../../services/demoDataService';
+import { BESTPAY_PRODUCTS_RAW } from '../product/bestPayProducts';
+import { normalizeProducts } from '../product/normalizeProduct';
+import { BESTPAY_A920_TARIFFS_RAW } from '../tariff/bestPayTariffs';
+import { normalizeTariffs } from '../tariff/normalizeTariff';
 import { createDefaultCommissionCatalog } from '../../services/commissionCatalogSeed';
 import { createProductionApprovalRules } from './approvalRuleCatalogSeed';
 import { createProductionDocumentTemplates } from './documentTemplateCatalogSeed';
@@ -41,8 +44,8 @@ export function createProductionBaselineCatalog(createdByUserId: string): Produc
 
   return {
     version: PRODUCTION_BASELINE_CATALOG_VERSION,
-    tariffs: getDemoTariffs(),
-    products: getDemoProducts(),
+    tariffs: normalizeTariffs([...BESTPAY_A920_TARIFFS_RAW]),
+    products: normalizeProducts([...BESTPAY_PRODUCTS_RAW]),
     commissionPlans: commission.plans,
     commissionPlanVersions: commission.planVersions,
     commissionRules: commission.rules,

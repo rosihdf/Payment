@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { normalizeLead } from '../domain/lead/normalizeLead';
+import { describe, expect, it, vi } from 'vitest';
+import { normalizeLead, resolveLeadAssignmentFields } from '../domain/lead/normalizeLead';
 
 describe('Lead normalization', () => {
   it('loads a legacy lead without crashing', () => {
@@ -76,5 +76,40 @@ describe('Lead normalization', () => {
     expect(lead.cardMix.girocardPercent).toBe(50);
     expect(lead.syncState).toBe('synced');
     expect(lead.assignedSalesUserId).toBe('user_002');
+  });
+
+  it('nutzt Demo-Zuweisungen nur im Local-Modus', () => {
+    vi.stubEnv('VITE_DATA_MODE', 'supabase');
+
+    const lead = normalizeLead({
+      id: 'lead_001',
+      companyName: 'Supabase Lead',
+      contactFirstName: 'S',
+      contactLastName: 'Lead',
+      phone: '+49 30 11111111',
+      email: 's@example.test',
+      status: 'new',
+      interest: 'medium',
+      createdAt: '2026-07-01T08:00:00.000Z',
+      updatedAt: '2026-07-01T08:00:00.000Z',
+    });
+
+    expect(lead.assignedSalesUserId).toBe('');
+    expect(lead.createdByUserId).toBe('');
+
+    vi.unstubAllEnvs();
+  });
+
+  it('löst Demo-Zuweisungen im Local-Modus auf', () => {
+    vi.stubEnv('VITE_DATA_MODE', 'local');
+
+    expect(
+      resolveLeadAssignmentFields('lead_001', undefined, undefined, true),
+    ).toEqual({
+      assignedSalesUserId: 'user_001',
+      createdByUserId: 'user_001',
+    });
+
+    vi.unstubAllEnvs();
   });
 });

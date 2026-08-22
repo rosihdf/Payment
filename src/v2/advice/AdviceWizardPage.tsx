@@ -125,7 +125,8 @@ function AdviceWizardInner({
         }
         if (!resumed.ok) {
           showToast('Gespeicherter Vorgang nicht gefunden', 'error');
-          active = services.salesWizardService.createTransientWizard(userContext);
+          navigate(ADVICE_PATH, { replace: true });
+          return;
         } else {
           active = resumed.session;
           persisted = true;
@@ -158,7 +159,9 @@ function AdviceWizardInner({
             bindSessionToUrl(active.id);
             showToast('Beratung fortgesetzt', 'info');
           } else {
-            active = services.salesWizardService.createTransientWizard(userContext);
+            showToast('Gespeicherter Vorgang nicht gefunden', 'error');
+            navigate(ADVICE_PATH, { replace: true });
+            return;
           }
         } else {
           active = services.salesWizardService.createTransientWizard(userContext);

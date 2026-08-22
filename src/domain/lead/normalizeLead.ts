@@ -1,4 +1,5 @@
 import { generateId, nowIso } from '../../utils/id';
+import { isSupabaseDataMode } from '../../config/dataMode';
 import { DEFAULT_CARD_MIX, DEFAULT_PAYMENT_USAGE } from './defaults';
 import type {
   CardMix,
@@ -117,6 +118,24 @@ function splitLegacyContact(contact: string): { firstName: string; lastName: str
   };
 }
 
+export function resolveLeadAssignmentFields(
+  leadId: string,
+  rawAssigned: unknown,
+  rawCreatedBy: unknown,
+  allowDemoFallbacks: boolean,
+): { assignedSalesUserId: string; createdByUserId: string } {
+  const assignedSalesUserId =
+    typeof rawAssigned === 'string'
+      ? rawAssigned.trim()
+      : allowDemoFallbacks
+        ? DEMO_LEAD_ASSIGNMENTS[leadId] || 'user_001'
+        : '';
+  const createdByUserId =
+    asString(rawCreatedBy) || assignedSalesUserId || (allowDemoFallbacks ? 'user_001' : '');
+
+  return { assignedSalesUserId, createdByUserId };
+}
+
 export function normalizeLead(raw: unknown): Lead {
   const data = asRecord(raw);
   const id = asString(data.id) || generateId('lead');
@@ -131,11 +150,12 @@ export function normalizeLead(raw: unknown): Lead {
   }
 
   const rawAssigned = data.assignedSalesUserId;
-  const assignedSalesUserId =
-    typeof rawAssigned === 'string'
-      ? rawAssigned.trim()
-      : DEMO_LEAD_ASSIGNMENTS[id] || 'user_001';
-  const createdByUserId = asString(data.createdByUserId) || assignedSalesUserId || 'user_001';
+  const { assignedSalesUserId, createdByUserId } = resolveLeadAssignmentFields(
+    id,
+    rawAssigned,
+    data.createdByUserId,
+    !isSupabaseDataMode(),
+  );
 
   return {
     id,

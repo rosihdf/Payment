@@ -5,3 +5,11 @@
 export function isAdviceBillingOcrImportEnabled(): boolean {
   return import.meta.env.VITE_BILLING_OCR_IMPORT_ENABLED !== 'false';
 }
+
+/** Mock-OCR nur in Entwicklung und nur bei explizitem Flag – nie im Produktionsbuild. */
+export function isBillingDemoOcrEnabled(): boolean {
+  if (import.meta.env.PROD) {
+    return false;
+  }
+  return import.meta.env.VITE_BILLING_DEMO_OCR === 'true';
+}

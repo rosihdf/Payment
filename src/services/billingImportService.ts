@@ -23,6 +23,7 @@ import {
 } from '../domain/billingImportEngine/billingPeriodBuilder';
 import type { BillingCostLineItem, BillingCostLineCategory, BillingCostLineCostType } from '../domain/billingImport/billingCostLineItem';
 import { BILLING_OCR_CONFIG } from '../domain/billingImportEngine/billingOcrConfig';
+import { isBillingDemoOcrEnabled } from '../config/billingOcrFeature';
 import {
   parseFieldInputValue,
   rebuildSessionPeriods,
@@ -66,10 +67,6 @@ export interface BillingImportUserContext {
   role: User['role'];
 }
 
-function isDemoOcrEnabled(): boolean {
-  return import.meta.env.VITE_BILLING_DEMO_OCR === 'true';
-}
-
 function canAccessOffer(offer: Offer, context: BillingImportUserContext): boolean {
   if (context.role === 'admin') {
     return true;
@@ -94,7 +91,7 @@ function createProviderRegistry() {
     getOcrProvider: async () => lazyOcrProvider,
     fallbackOcrProvider: new UnavailableOcrExtractionProvider(),
     demoProvider: new MockBillingExtractionProvider(),
-    useDemoProvider: isDemoOcrEnabled(),
+    useDemoProvider: isBillingDemoOcrEnabled(),
   };
 }
 

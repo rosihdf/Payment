@@ -16,6 +16,7 @@ export function ServicesProvider({ children }: ServicesProviderProps) {
   const services = useMemo(() => {
     const dataMode = getDataMode();
     if (dataMode === 'local') {
+      // Entwicklungsmodus: Demo-Daten nur bei explizitem Local-Persistenzmodus.
       seedDemoData();
     }
 
